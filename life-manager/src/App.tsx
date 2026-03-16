@@ -237,6 +237,7 @@ function App() {
           onCreateMemo={gh.createMemo}
           onRefresh={gh.loadAll}
           onSelectIssue={setSelectedIssue}
+          onAddReminder={gh.addReminder}
           status={gh.status}
         />
       )}

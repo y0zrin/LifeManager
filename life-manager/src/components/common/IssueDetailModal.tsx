@@ -480,8 +480,8 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
             <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
               <input type="datetime-local" value={reminderDatetime}
                 onChange={(e) => setReminderDatetime(e.target.value)}
-                style={{ background: "#161b22", color: "#c9d1d9", border: "1px solid #30363d", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "#888" }}>
+                style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
                 <input type="checkbox" checked={reminderChannels.includes("os")}
                   onChange={(e) => {
                     if (e.target.checked) setReminderChannels([...reminderChannels, "os"]);
@@ -489,7 +489,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                   }} />
                 OS
               </label>
-              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "#888" }}>
+              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
                 <input type="checkbox" checked={reminderChannels.includes("discord")}
                   onChange={(e) => {
                     if (e.target.checked) setReminderChannels([...reminderChannels, "discord"]);

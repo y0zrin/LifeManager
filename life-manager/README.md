@@ -129,8 +129,121 @@ GitHub PATは**個人アカウントに紐づく**。チームで利用する場
 
 ## 技術スタック
 
-- **フロントエンド:** React + TypeScript
-- **バックエンド:** Rust (Tauri 2.0)
-- **データ保存:** GitHub API（Issue / Contents API）
-- **認証情報:** OSキーチェーン（keyring）
-- **通知:** OS通知 + Discord Webhook
+| Layer | Technology |
+|-------|-----------|
+| Framework | Tauri 2.0 |
+| Frontend | React 19 + TypeScript 5.8 |
+| Backend | Rust |
+| Build | Vite 7 + Tauri CLI |
+| Data | GitHub REST API (Issues, Labels, Milestones, Contents) |
+| HTTP | reqwest 0.12 (rustls-tls) |
+| Async | Tokio 1 |
+| Auth | OS Keyring (Windows Credential Manager) |
+| Config | YAML (routines, reminders, board config) |
+| Platforms | Windows, Android |
+
+### Rust Dependencies (src-tauri/Cargo.toml)
+
+| Crate | Purpose |
+|-------|---------|
+| tauri 2.x | Application framework |
+| serde / serde_json / serde_yaml | Serialization (JSON, YAML) |
+| reqwest 0.12 | GitHub API HTTP client |
+| tokio 1 | Async runtime |
+| chrono 0.4 | Date/time handling |
+| base64 0.22 | Base64 encoding |
+| keyring 3 | OS credential storage |
+| tauri-plugin-notification | OS notifications |
+| tauri-plugin-updater | In-app auto update |
+| tauri-plugin-process | Process management (relaunch) |
+| tauri-plugin-opener | External URL/file open |
+
+### Frontend Dependencies (package.json)
+
+| Package | Purpose |
+|---------|---------|
+| react 19 / react-dom | UI framework |
+| @tauri-apps/api | Tauri IPC bridge |
+| @tauri-apps/plugin-* | Plugin frontend bindings |
+| vite 7 | Build tool / dev server |
+| typescript 5.8 | Type checking |
+
+## Architecture
+
+```
+src/                              # Frontend (React/TypeScript)
+├── App.tsx                       # Root component, routing
+├── App.css                       # Global styles (CSS custom properties)
+├── hooks/
+│   └── useGitHub.ts              # Central state management hook
+├── lib/
+│   └── types.ts                  # Type definitions
+├── components/
+│   ├── common/                   # Shared components
+│   │   ├── CommandPalette.tsx    # Ctrl+K quick actions
+│   │   ├── DatePickerButton.tsx  # Native date picker wrapper
+│   │   ├── IssueCard.tsx         # Dashboard issue card
+│   │   ├── IssueDetailModal.tsx  # Issue detail/edit modal
+│   │   ├── LabelBadge.tsx        # Label color badge
+│   │   ├── TaskListBody.tsx      # Checkbox task list
+│   │   └── TicketCard.tsx        # Kanban compact card
+│   └── views/                    # 6 main views
+│       ├── DashboardView.tsx     # Issue list, create, filter
+│       ├── KanbanView.tsx        # Kanban board (drag & drop)
+│       ├── MilestoneView.tsx     # Milestone management
+│       ├── RoutinesView.tsx      # Routine configuration
+│       ├── SettingsView.tsx      # Settings, labels, notifications
+│       ├── SetupView.tsx         # Initial setup wizard
+│       └── TimelineView.tsx      # Daily journal
+
+src-tauri/                        # Backend (Rust)
+├── src/
+│   ├── lib.rs                    # 45 Tauri IPC commands
+│   ├── credential.rs             # OS keyring abstraction
+│   ├── github/client.rs          # GitHub REST API client
+│   ├── journal/generator.rs      # Journal generation
+│   ├── notify/discord.rs         # Discord webhook
+│   └── scheduler/routine.rs      # Background task scheduler
+├── tauri.conf.json               # Tauri config, updater, window
+└── Cargo.toml
+```
+
+## Build
+
+### Prerequisites
+
+- Rust toolchain
+- Node.js
+- Android SDK + NDK (mobile build)
+
+### Development
+
+```bash
+npm run tauri dev
+```
+
+### Release Build (Windows)
+
+```
+release.bat
+```
+
+Interactive: version bump → 3-file update → signed build → latest.json generation.
+
+Outputs:
+- `src-tauri/target/release/bundle/nsis/Life Manager_x.x.x_x64-setup.exe`
+- `src-tauri/target/release/bundle/nsis/latest.json`
+
+### Android Build
+
+```bash
+npm run tauri android build
+```
+
+Output: `src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk`
+
+## Update Flow
+
+1. `release.bat` で version bump + signed build + `latest.json` 自動生成
+2. GitHub Release 作成 → `latest.json` + exe をアセットにアップロード
+3. 利用者のアプリが起動時に `latest.json` を確認 → バナー表示 → ワンクリック更新

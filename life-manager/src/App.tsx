@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useGitHub } from "./hooks/useGitHub";
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
@@ -20,8 +22,37 @@ function App() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
+  const [updating, setUpdating] = useState(false);
 
-  // 起動時: トークン読み込み + 通知パーミッション要求
+  // アップデートチェック
+  const checkForUpdate = useCallback(async () => {
+    try {
+      const update = await check();
+      if (update) {
+        setUpdateAvailable({ version: update.version, body: update.body || "" });
+      }
+    } catch {
+      // アップデートチェック失敗は無視
+    }
+  }, []);
+
+  // アップデート実行
+  const performUpdate = useCallback(async () => {
+    try {
+      setUpdating(true);
+      const update = await check();
+      if (update) {
+        await update.downloadAndInstall();
+        await relaunch();
+      }
+    } catch (e) {
+      gh.setStatus("アップデートエラー: " + e);
+      setUpdating(false);
+    }
+  }, []);
+
+  // 起動時: トークン読み込み + 通知パーミッション要求 + アップデートチェック
   useEffect(() => {
     async function init() {
       try {
@@ -37,6 +68,8 @@ function App() {
         // デスクトップでは不要
       }
       setInitializing(false);
+      // バックグラウンドでアップデートチェック
+      checkForUpdate();
     }
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,7 +110,7 @@ function App() {
   const navItems: { key: ViewType; icon: string; label: string }[] = [
     { key: "dashboard", icon: "📋", label: "タスク" },
     { key: "kanban", icon: "📊", label: "ボード" },
-    { key: "milestones", icon: "🎯", label: "目標" },
+    { key: "milestones", icon: "🎯", label: "マイルストーン" },
     { key: "routines", icon: "🔄", label: "ルーチン" },
     { key: "timeline", icon: "📅", label: "日誌" },
     { key: "settings", icon: "⚙️", label: "設定" },
@@ -140,6 +173,19 @@ function App() {
         </div>
       </header>
 
+      {/* アップデート通知バナー */}
+      {updateAvailable && (
+        <div className="update-banner">
+          <span>新しいバージョン {updateAvailable.version} が利用可能です</span>
+          <button className="btn-primary" onClick={performUpdate} disabled={updating} style={{ fontSize: "var(--font-sm)", padding: "4px 12px" }}>
+            {updating ? "更新中..." : "今すぐ更新"}
+          </button>
+          <button className="btn-sm" onClick={() => setUpdateAvailable(null)} style={{ padding: "4px 8px" }}>
+            後で
+          </button>
+        </div>
+      )}
+
       {/* ボトムナビゲーション（モバイル用） */}
       <nav className="bottom-nav">
         {navItems.map((item) => (
@@ -176,9 +222,11 @@ function App() {
       {view === "dashboard" && gh.connected && (
         <DashboardView
           issues={gh.issues}
+          closedIssues={gh.closedIssues}
           labels={gh.customLabels}
           milestones={gh.milestones}
           collaborators={gh.collaborators}
+          currentUser={gh.currentUser}
           filters={filters}
           onFiltersChange={setFilters}
           onClose={gh.closeIssue}
@@ -213,8 +261,13 @@ function App() {
       {view === "milestones" && gh.connected && (
         <MilestoneView
           milestones={gh.milestones}
+          issues={gh.issues}
+          closedIssues={gh.closedIssues}
           onCreateMilestone={gh.createMilestone}
+          onUpdateMilestone={gh.updateMilestone}
+          onCloseMilestone={gh.closeMilestone}
           onRefresh={gh.loadMilestones}
+          onSelectIssue={setSelectedIssue}
         />
       )}
 
@@ -233,6 +286,7 @@ function App() {
         <TimelineView
           onGenerateJournal={gh.generateJournal}
           onGetJournal={gh.getJournal}
+          onSaveNotes={gh.saveJournalNotes}
         />
       )}
 
@@ -247,6 +301,7 @@ function App() {
             listComments={gh.listComments}
             createComment={gh.createComment}
             availableLabels={gh.customLabels}
+            milestones={gh.milestones}
             collaborators={gh.collaborators}
             updateIssue={gh.updateIssue}
             onCloseIssue={gh.closeIssue}

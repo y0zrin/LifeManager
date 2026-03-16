@@ -477,7 +477,7 @@ export function useGitHub() {
         title: text, body: "",
         labels: ["種別:メモ", "状態:未整理", theme],
         milestone: null,
-        assignees: null,
+        assignees: currentUser ? [currentUser] : null,
       });
       setStatus("メモを投入しました");
       // 楽観的更新: APIレスポンスの Issue をリストに即追加
@@ -528,7 +528,7 @@ export function useGitHub() {
 
   async function updateIssue(
     n: number,
-    updates: { title?: string; body?: string; labels?: string[]; assignees?: string[] }
+    updates: { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null }
   ) {
     try {
       const result = await invoke("update_issue", {
@@ -537,7 +537,7 @@ export function useGitHub() {
         body: updates.body ?? null,
         issueState: null,
         labels: updates.labels ?? null,
-        milestone: null,
+        milestone: updates.milestone !== undefined ? updates.milestone : null,
         assignees: updates.assignees ?? null,
       });
       setStatus(`#${n} を更新しました`);
@@ -568,6 +568,51 @@ export function useGitHub() {
         title, description, dueOn,
       });
       setStatus("マイルストーンを作成しました");
+      await loadMilestones();
+    } catch (e) {
+      setStatus("エラー: " + e);
+      throw e;
+    }
+  }
+
+  async function updateMilestone(milestoneNumber: number, updates: { title?: string; description?: string; dueOn?: string | null }) {
+    try {
+      await invoke("update_milestone", {
+        owner, repo, milestoneNumber,
+        title: updates.title ?? null,
+        description: updates.description ?? null,
+        dueOn: updates.dueOn !== undefined ? (updates.dueOn || "") : null,
+        milestoneState: null,
+      });
+      setStatus("マイルストーンを更新しました");
+      await loadMilestones();
+    } catch (e) {
+      setStatus("エラー: " + e);
+      throw e;
+    }
+  }
+
+  async function closeMilestone(milestoneNumber: number) {
+    try {
+      await invoke("update_milestone", {
+        owner, repo, milestoneNumber,
+        title: null, description: null, dueOn: null, milestoneState: "closed",
+      });
+      setMilestones((prev) => prev.filter((m) => m.number !== milestoneNumber));
+      setStatus("マイルストーンを完了しました");
+    } catch (e) {
+      setStatus("エラー: " + e);
+      throw e;
+    }
+  }
+
+  async function reopenMilestone(milestoneNumber: number) {
+    try {
+      await invoke("update_milestone", {
+        owner, repo, milestoneNumber,
+        title: null, description: null, dueOn: null, milestoneState: "open",
+      });
+      setStatus("マイルストーンを再開しました");
       await loadMilestones();
     } catch (e) {
       setStatus("エラー: " + e);
@@ -678,6 +723,17 @@ export function useGitHub() {
     } catch (e) {
       // ジャーナルが見つからない場合は空文字を返す
       return "";
+    }
+  }
+
+  async function saveJournalNotes(date: string, notes: string): Promise<string> {
+    try {
+      const result = await invoke("save_journal_notes", { owner, repo, date, notes });
+      setStatus(`${date}のノートを保存しました`);
+      return result as string;
+    } catch (e) {
+      setStatus("ノート保存エラー: " + e);
+      throw e;
     }
   }
 
@@ -817,13 +873,13 @@ export function useGitHub() {
     // Issue操作
     closeIssue, reopenIssue, promoteIssue, changeIssueStatus, assignToMe, createIssue, createMemo, updateIssue, updateIssueBody,
     // マイルストーン操作
-    createMilestone,
+    createMilestone, updateMilestone, closeMilestone, reopenMilestone,
     // ルーチン操作
     routines, saveRoutines,
     // コメント
     listComments, createComment,
     // ジャーナル
-    generateJournal, getJournal,
+    generateJournal, getJournal, saveJournalNotes,
     // 認証・設定
     setToken, setupLabels, createLabel, updateLabel, deleteLabel,
     // リポジトリ設定

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { GitHubIssue, GitHubComment, GitHubLabel, GitHubUser, Reminder } from "../../lib/types";
+import type { GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder } from "../../lib/types";
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
 
@@ -9,8 +9,9 @@ interface IssueDetailModalProps {
   listComments: (issueNumber: number) => Promise<GitHubComment[]>;
   createComment: (issueNumber: number, body: string) => Promise<void>;
   availableLabels: GitHubLabel[];
+  milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
-  updateIssue: (n: number, updates: { title?: string; body?: string; labels?: string[]; assignees?: string[] }) => Promise<void>;
+  updateIssue: (n: number, updates: { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null }) => Promise<void>;
   onCloseIssue: (issueNumber: number) => Promise<void>;
   onReopenIssue: (issueNumber: number) => Promise<void>;
   onToggleTodo: (issueNumber: number, newBody: string) => Promise<void>;
@@ -19,7 +20,7 @@ interface IssueDetailModalProps {
   onRemoveReminder: (issueNumber: number, datetime: string) => Promise<void>;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder }: IssueDetailModalProps) {
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -313,6 +314,38 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               </div>
             )}
           </div>
+
+            {/* マイルストーン */}
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 8px", borderRadius: "6px", border: "1px solid #21262d", background: "#161b2288" }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#21262d")}
+            >
+              <span style={{ fontSize: "12px", color: "#8b949e" }}>🎯</span>
+              <select
+                value={issue.milestone?.number ?? ""}
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  await updateIssue(issue.number, { milestone: val ? Number(val) : null });
+                }}
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  border: "none",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                <option value="" style={{ background: "var(--bg-secondary)" }}>マイルストーンなし</option>
+                {milestones.map((m) => (
+                  <option key={m.number} value={m.number} style={{ background: "var(--bg-secondary)" }}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+            </div>
         </div>
 
         {/* 本文（クリックで編集） */}

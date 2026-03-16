@@ -48,7 +48,15 @@
       "Bash(\"C:/Program Files/Android/Android Studio/jbr/bin/keytool.exe\":*)",
       "Bash(\"C:/Users/moonl/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat\" sign:*)",
       "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" PATH=\"$JAVA_HOME/bin:$PATH\" \"C:/Users/moonl/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat\" sign:*)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" PATH=\"$JAVA_HOME/bin:$PATH\" \"C:/Users/moonl/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat\" verify:*)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" PATH=\"$JAVA_HOME/bin:$PATH\" \"C:/Users/moonl/AppData/Local/Android/Sdk/build-tools/36.1.0/apksigner.bat\" verify:*)",
+      "Bash(printf \\\\n:*)",
+      "Bash(TAURI_SIGNING_PRIVATE_KEY_PASSWORD=\"\" npx tauri:*)",
+      "Bash(cargo add:*)",
+      "Bash(TAURI_SIGNING_PRIVATE_KEY_PATH=src-tauri/.updater-key TAURI_SIGNING_PRIVATE_KEY_PASSWORD=\"\" npx tauri:*)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(gh release:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

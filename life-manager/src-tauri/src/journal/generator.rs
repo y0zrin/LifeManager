@@ -105,6 +105,21 @@ pub async fn generate_journal(
     let weekday = weekday_jp(&parsed_date);
     let mut md = format!("# {} ({})\n\n", date, weekday);
 
+    // 既存ジャーナルの「## ノート」セクションを保持（完了の上に配置）
+    let path = format!("journal/{}.md", date);
+    let existing_notes = match client.get_contents(owner, repo, &path).await {
+        Ok((content, _)) => extract_notes_section(&content),
+        Err(_) => None,
+    };
+    if let Some(notes) = &existing_notes {
+        md.push_str("## ノート\n");
+        md.push_str(notes);
+        if !notes.ends_with('\n') {
+            md.push('\n');
+        }
+        md.push('\n');
+    }
+
     // 完了セクション
     md.push_str("## 完了\n");
     if completed.is_empty() {
@@ -153,7 +168,6 @@ pub async fn generate_journal(
     md.push_str(&format!("- 進行中: {}\n", in_progress_count));
 
     // GitHub Contents APIでアップロード
-    let path = format!("journal/{}.md", date);
     let commit_message = format!("{}の日次ログを生成", date);
 
     // 既存ファイルがあればSHAを取得（上書き更新のため）
@@ -164,6 +178,77 @@ pub async fn generate_journal(
 
     client
         .put_contents(owner, repo, &path, &md, &commit_message, sha)
+        .await?;
+
+    return Ok(md);
+}
+
+/// Markdownから「## ノート」セクションの本文を抽出する
+fn extract_notes_section(md: &str) -> Option<String> {
+    let marker = "## ノート\n";
+    if let Some(start) = md.find(marker) {
+        let body_start = start + marker.len();
+        // 次の「## 」見出しまで、またはファイル末尾まで
+        let rest = &md[body_start..];
+        let end = rest.find("\n## ").map(|i| i).unwrap_or(rest.len());
+        let notes = rest[..end].trim_end();
+        if notes.is_empty() {
+            return None;
+        }
+        return Some(notes.to_string());
+    }
+    return None;
+}
+
+/// ジャーナルのノートセクションのみを更新してGitHubにアップロードする
+pub async fn save_journal_notes(
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    date: &str,
+    notes: &str,
+) -> Result<String, String> {
+    let path = format!("journal/{}.md", date);
+
+    // 既存ジャーナルを取得
+    let (existing_content, sha) = client
+        .get_contents(owner, repo, &path)
+        .await
+        .map_err(|_| format!("{}のジャーナルが見つかりません。先に生成してください。", date))?;
+
+    // 既存のノートセクションを除去
+    let stripped = if let Some(start) = existing_content.find("## ノート\n") {
+        let before = &existing_content[..start];
+        let after_marker = start + "## ノート\n".len();
+        let rest = &existing_content[after_marker..];
+        let next_section = rest.find("\n## ").map(|i| after_marker + i);
+        match next_section {
+            Some(pos) => format!("{}{}", before.trim_end(), &existing_content[pos..]),
+            None => before.trim_end().to_string(),
+        }
+    } else {
+        existing_content.trim_end().to_string()
+    };
+
+    // ノートセクションをタイトル直後・完了の上に挿入
+    let notes_trimmed = notes.trim();
+    let md = if !notes_trimmed.is_empty() {
+        // 最初の「## 」見出し（完了など）の直前にノートを挿入
+        if let Some(first_section) = stripped.find("\n## ") {
+            let before = stripped[..first_section].trim_end();
+            let after = &stripped[first_section..];
+            format!("{}\n\n## ノート\n{}\n{}", before, notes_trimmed, after)
+        } else {
+            // セクションが無い場合は末尾に追加
+            format!("{}\n\n## ノート\n{}\n", stripped, notes_trimmed)
+        }
+    } else {
+        format!("{}\n", stripped)
+    };
+
+    let commit_message = format!("{}のノートを更新", date);
+    client
+        .put_contents(owner, repo, &path, &md, &commit_message, Some(sha))
         .await?;
 
     return Ok(md);

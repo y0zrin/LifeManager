@@ -64,6 +64,30 @@ html {
   touch-action: manipulation;
 }
 
+/* 日付ピッカーのカレンダーアイコンを白くする */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* タイムラインの日付ピッカー: テキストを隠してアイコンのみ表示 */
+input[type="date"].date-icon-only::-webkit-datetime-edit {
+  visibility: hidden;
+  width: 0;
+  padding: 0;
+}
+input[type="date"].date-icon-only {
+  width: 36px;
+  min-width: 36px;
+  padding: 3px 4px;
+}
+
+/* セレクトの矢印アイコンを見えるようにする */
+select {
+  color-scheme: dark;
+}
+
+
 body {
   background-color: var(--bg-primary);
   color: var(--text-secondary);
@@ -130,6 +154,17 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+}
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--accent-blue);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
 }
 
 /* --- Content --- */

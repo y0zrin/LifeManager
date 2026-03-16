@@ -204,6 +204,8 @@ impl GitHubClient {
         repo: &str,
         milestone_number: u32,
         title: Option<String>,
+        description: Option<String>,
+        due_on: Option<String>,
         state: Option<String>,
     ) -> Result<String, String> {
         let url = format!(
@@ -213,6 +215,16 @@ impl GitHubClient {
         let mut payload = serde_json::Map::new();
         if let Some(t) = title {
             payload.insert("title".to_string(), serde_json::Value::String(t));
+        }
+        if let Some(d) = description {
+            payload.insert("description".to_string(), serde_json::Value::String(d));
+        }
+        if let Some(d) = due_on {
+            if d.is_empty() {
+                payload.insert("due_on".to_string(), serde_json::Value::Null);
+            } else {
+                payload.insert("due_on".to_string(), serde_json::Value::String(d));
+            }
         }
         if let Some(s) = state {
             payload.insert("state".to_string(), serde_json::Value::String(s));

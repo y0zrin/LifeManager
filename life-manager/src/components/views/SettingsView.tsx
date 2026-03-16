@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { LabelBadge } from "../common/LabelBadge";
@@ -39,6 +40,7 @@ const notifyTypes: Record<string, string> = {
 };
 
 export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
+  const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [ownerInput, setOwnerInput] = useState(owner);
   const [repoInput, setRepoInput] = useState(repo);
@@ -67,6 +69,10 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   const [newProjToken, setNewProjToken] = useState("");
   const [editingTokenProject, setEditingTokenProject] = useState<string | null>(null);
   const [editTokenValue, setEditTokenValue] = useState("");
+
+  useEffect(() => {
+    invoke("get_app_version").then((v) => setAppVersion(v as string)).catch(() => {});
+  }, []);
 
   // Discord Webhook URLの読み込み（プロジェクト切り替え時にも再取得）
   useEffect(() => {
@@ -727,6 +733,13 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
           </>
         )}
       </div>
+
+      {/* バージョン情報 */}
+      {appVersion && (
+        <p style={{ textAlign: "center", fontSize: "var(--font-xs)", color: "var(--text-faint)", marginTop: "var(--space-lg)" }}>
+          Life Manager v{appVersion}
+        </p>
+      )}
     </div>
   );
 }

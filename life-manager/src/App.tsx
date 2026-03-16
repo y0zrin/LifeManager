@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -67,6 +69,11 @@ function App() {
       } catch {
         // デスクトップでは不要
       }
+      // ウィンドウタイトルにバージョン表示
+      try {
+        const ver = await invoke("get_app_version") as string;
+        await getCurrentWindow().setTitle(`Life Manager v${ver}`);
+      } catch {}
       setInitializing(false);
       // バックグラウンドでアップデートチェック
       checkForUpdate();

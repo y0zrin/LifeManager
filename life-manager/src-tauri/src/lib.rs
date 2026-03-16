@@ -426,12 +426,14 @@ async fn update_milestone(
     repo: String,
     milestone_number: u32,
     title: Option<String>,
+    description: Option<String>,
+    due_on: Option<String>,
     milestone_state: Option<String>,
 ) -> Result<String, String> {
     let guard = state.lock().await;
     let client = guard.as_ref().ok_or("トークンが未設定です")?;
     return client
-        .update_milestone(&owner, &repo, milestone_number, title, milestone_state)
+        .update_milestone(&owner, &repo, milestone_number, title, description, due_on, milestone_state)
         .await;
 }
 
@@ -558,6 +560,21 @@ async fn get_journal(
         guard.as_ref().ok_or("トークンが未設定です")?.clone()
     };
     return journal::generator::get_journal(&client, &owner, &repo, &date).await;
+}
+
+#[tauri::command]
+async fn save_journal_notes(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    date: String,
+    notes: String,
+) -> Result<String, String> {
+    let client = {
+        let guard = state.lock().await;
+        guard.as_ref().ok_or("トークンが未設定です")?.clone()
+    };
+    return journal::generator::save_journal_notes(&client, &owner, &repo, &date, &notes).await;
 }
 
 // --- 通知 ---
@@ -950,6 +967,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Mutex::new(None::<GitHubClient>))
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -990,6 +1009,7 @@ pub fn run() {
             save_routines,
             generate_journal,
             get_journal,
+            save_journal_notes,
             send_notification,
             get_notification_schedules,
             save_notification_schedules,

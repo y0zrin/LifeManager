@@ -1,6 +1,6 @@
 [package]
 name = "life-manager"
-version = "0.1.1"
+version = "0.2.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -29,6 +29,8 @@ chrono = { version = "0.4", features = ["serde"] }
 serde_yaml = "0.9"
 base64 = "0.22"
 urlencoding = "2"
+tauri-plugin-updater = "2.10.0"
+tauri-plugin-process = "2.3.1"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }

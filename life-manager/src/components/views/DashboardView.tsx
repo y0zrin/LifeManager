@@ -4,9 +4,11 @@ import { IssueCard } from "../common/IssueCard";
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
+  closedIssues: GitHubIssue[];
   labels: GitHubLabel[];
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
+  currentUser: string;
   filters: Record<string, string>;
   onFiltersChange: (filters: Record<string, string>) => void;
   onClose: (n: number) => void;
@@ -21,7 +23,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({
-  issues, labels, milestones, collaborators, filters, onFiltersChange,
+  issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange,
   onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, status,
 }: DashboardViewProps) {
@@ -34,6 +36,8 @@ export function DashboardView({
   const [issueMilestone, setIssueMilestone] = useState<number | undefined>(undefined);
   const [issueAssignees, setIssueAssignees] = useState<string[]>([]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
+  const [stateFilter, setStateFilter] = useState<"open" | "closed" | "all">("open");
 
   async function handleMemoSubmit() {
     if (!memoText.trim()) return;
@@ -55,13 +59,19 @@ export function DashboardView({
     "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先",
   };
 
-  const filteredIssues = issues.filter((issue) =>
-    Object.values(filters).every(
+  const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : [...issues, ...closedIssues];
+  const filteredIssues = baseIssues.filter((issue) => {
+    // 担当者フィルタ
+    if (assigneeFilter) {
+      if (!issue.assignees?.some((a) => a.login === assigneeFilter)) return false;
+    }
+    // ラベルフィルタ
+    return Object.values(filters).every(
       (f) => !f || issue.labels.some((l) => l.name === f)
-    )
-  );
+    );
+  });
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = Object.values(filters).filter(Boolean).length + (assigneeFilter ? 1 : 0);
 
   return (
     <div className="content">
@@ -107,8 +117,20 @@ export function DashboardView({
             </select>
           );
         })}
+        <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="select-sm">
+          <option value="">担当者: 全員</option>
+          {currentUser && <option value={currentUser}>自分 ({currentUser})</option>}
+          {collaborators.filter((c) => c.login !== currentUser).map((c) => (
+            <option key={c.login} value={c.login}>{c.login}</option>
+          ))}
+        </select>
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as "open" | "closed" | "all")} className="select-sm">
+          <option value="open">オープンのみ</option>
+          <option value="closed">クローズのみ</option>
+          <option value="all">両方</option>
+        </select>
         {activeFilterCount > 0 && (
-          <button onClick={() => onFiltersChange({})} className="btn-sm" style={{ color: "var(--accent-red)" }}>
+          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
             リセット
           </button>
         )}

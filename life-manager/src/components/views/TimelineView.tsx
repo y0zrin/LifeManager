@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, type ReactElement } from "react";
+import { DatePickerButton } from "../common/DatePickerButton";
 
 interface TimelineViewProps {
   onGenerateJournal: (date: string) => Promise<string>;
   onGetJournal: (date: string) => Promise<string>;
+  onSaveNotes: (date: string, notes: string) => Promise<string>;
 }
 
 function formatDate(d: Date): string {
@@ -14,19 +16,51 @@ function formatDate(d: Date): string {
 
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
-export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewProps) {
+/** "YYYY-MM-DD" をローカルタイムの Date に変換 */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** "YYYY-MM-DD" から曜日インデックス(0=日〜6=土)を Date 非依存で計算 (Sakamoto算法) */
+function dayOfWeek(dateStr: string): number {
+  const t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  let [y, m, d] = dateStr.split("-").map(Number);
+  if (m < 3) y -= 1;
+  return (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + t[m - 1] + d) % 7;
+}
+
+export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes }: TimelineViewProps) {
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [journalContent, setJournalContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [notesText, setNotesText] = useState("");
+  const [savedNotesText, setSavedNotesText] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  function extractNotes(md: string): string {
+    const marker = "## ノート\n";
+    const idx = md.indexOf(marker);
+    if (idx < 0) return "";
+    const rest = md.substring(idx + marker.length);
+    const nextSection = rest.indexOf("\n## ");
+    const body = nextSection >= 0 ? rest.substring(0, nextSection) : rest;
+    return body.trimEnd();
+  }
 
   const fetchJournal = useCallback(async (date: string) => {
     setLoading(true);
     try {
       const content = await onGetJournal(date);
       setJournalContent(content);
+      const n = extractNotes(content);
+      setNotesText(n);
+      setSavedNotesText(n);
     } catch {
       setJournalContent("");
+      setNotesText("");
+      setSavedNotesText("");
     } finally {
       setLoading(false);
     }
@@ -37,13 +71,13 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
   }, [selectedDate, fetchJournal]);
 
   function handlePrevDay() {
-    const d = new Date(selectedDate);
+    const d = parseLocalDate(selectedDate);
     d.setDate(d.getDate() - 1);
     setSelectedDate(formatDate(d));
   }
 
   function handleNextDay() {
-    const d = new Date(selectedDate);
+    const d = parseLocalDate(selectedDate);
     d.setDate(d.getDate() + 1);
     setSelectedDate(formatDate(d));
   }
@@ -57,12 +91,44 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
     try {
       const content = await onGenerateJournal(selectedDate);
       setJournalContent(content);
+      const n = extractNotes(content);
+      setNotesText(n);
+      setSavedNotesText(n);
     } catch {
       // handled by useGitHub setStatus
     } finally {
       setGenerating(false);
     }
   }
+
+  async function handleSaveNotes() {
+    setSavingNotes(true);
+    try {
+      const updatedContent = await onSaveNotes(selectedDate, notesText);
+      setJournalContent(updatedContent);
+      setSavedNotesText(notesText);
+    } catch {
+      // handled by useGitHub setStatus
+    } finally {
+      setSavingNotes(false);
+    }
+  }
+
+  // ノートセクションを除いたMarkdownを返す
+  function stripNotesSection(md: string): string {
+    const marker = "## ノート\n";
+    const idx = md.indexOf(marker);
+    if (idx < 0) return md;
+    const before = md.substring(0, idx);
+    const rest = md.substring(idx + marker.length);
+    const nextSection = rest.indexOf("\n## ");
+    if (nextSection >= 0) {
+      return before.trimEnd() + rest.substring(nextSection);
+    }
+    return before.trimEnd();
+  }
+
+  const notesDirty = notesText !== savedNotesText;
 
   function renderMarkdown(md: string) {
     const lines = md.split("\n");
@@ -144,8 +210,7 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
     return elements;
   }
 
-  const dateObj = new Date(selectedDate);
-  const weekday = weekdayLabels[dateObj.getDay()];
+  const weekday = weekdayLabels[dayOfWeek(selectedDate)];
   const isToday = selectedDate === formatDate(new Date());
 
   return (
@@ -155,14 +220,9 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
         <button className="btn-sm" onClick={handlePrevDay}>&#9664; 前日</button>
         <button className="btn-sm" onClick={handleToday}>今日</button>
         <button className="btn-sm" onClick={handleNextDay}>翌日 &#9654;</button>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="select-sm"
-        />
+        <DatePickerButton value={selectedDate} onChange={setSelectedDate} />
         <span style={{ color: "var(--text-muted)", fontSize: "var(--font-md)" }}>
-          {selectedDate} ({weekday})
+          {selectedDate} ({weekday || "?"})
           {isToday && <span style={{ color: "var(--accent-blue)", marginLeft: "6px" }}>今日</span>}
         </span>
       </div>
@@ -170,9 +230,8 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
       {/* ツールバー */}
       <div className="toolbar">
         <button className="btn-primary" onClick={handleGenerate} disabled={generating}>
-          {generating ? "生成中..." : "手動生成"}
+          {generating ? "生成中..." : "更新"}
         </button>
-        <button className="btn-sm" onClick={() => fetchJournal(selectedDate)}>更新</button>
       </div>
 
       {/* ジャーナル表示 */}
@@ -180,7 +239,55 @@ export function TimelineView({ onGenerateJournal, onGetJournal }: TimelineViewPr
         <div className="empty-message">読み込み中...</div>
       ) : journalContent ? (
         <div className="form-card" style={{ padding: "var(--space-lg)" }}>
-          {renderMarkdown(journalContent)}
+          {/* タイトル部分（# で始まる行） */}
+          {journalContent.split("\n").filter(l => l.startsWith("# ")).map((line, i) => (
+            <h2 key={`title-${i}`} style={{ fontSize: "var(--font-2xl)", fontWeight: 600, margin: "0 0 12px 0", color: "var(--text-primary)" }}>
+              {line.substring(2)}
+            </h2>
+          ))}
+
+          {/* ノート（インライン編集） */}
+          <div style={{
+            margin: "8px 0 16px 0",
+            padding: "var(--space-sm)",
+            backgroundColor: "var(--bg-secondary)",
+            borderRadius: "var(--radius-md)",
+            borderLeft: "3px solid var(--accent-blue)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+              <span style={{ fontSize: "var(--font-sm)", fontWeight: 600, color: "var(--accent-blue)" }}>ノート</span>
+              {notesDirty && (
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveNotes}
+                  disabled={savingNotes}
+                  style={{ fontSize: "var(--font-xs)", padding: "2px 10px" }}
+                >
+                  {savingNotes ? "保存中..." : "保存"}
+                </button>
+              )}
+            </div>
+            <textarea
+              value={notesText}
+              onChange={(e) => setNotesText(e.target.value)}
+              placeholder="この日のメモを自由に記入..."
+              style={{
+                width: "100%",
+                minHeight: "60px",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-sm)",
+                backgroundColor: "var(--bg-primary)",
+                color: "var(--text-primary)",
+                padding: "var(--space-sm)",
+                fontSize: "var(--font-md)",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+
+          {/* 残りのセクション（ノートを除外して表示） */}
+          {renderMarkdown(stripNotesSection(journalContent).split("\n").filter(l => !l.startsWith("# ")).join("\n"))}
         </div>
       ) : (
         <div className="empty-message">

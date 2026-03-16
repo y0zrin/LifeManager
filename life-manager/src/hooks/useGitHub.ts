@@ -444,7 +444,7 @@ export function useGitHub() {
     }
   }
 
-  async function createIssue(title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[]) {
+  async function createIssue(title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[]): Promise<number> {
     try {
       const result = await invoke("create_issue", {
         owner, repo,
@@ -464,6 +464,7 @@ export function useGitHub() {
         await loadIssues();
       }
       await notifyEvent("issue_created", `📝 #${issueNumber || "?"} ${title} を作成`, issueNumber);
+      return issueNumber;
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;

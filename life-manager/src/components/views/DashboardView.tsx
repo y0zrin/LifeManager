@@ -15,17 +15,18 @@ interface DashboardViewProps {
   onReopen: (n: number) => void;
   onPromote: (n: number) => void;
   onStatusChange: (n: number, status: string) => void;
-  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<void>;
+  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
   onCreateMemo: (text: string, theme: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
+  onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
   status?: string;
 }
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange,
-  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, status,
+  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, status,
 }: DashboardViewProps) {
   const [memoText, setMemoText] = useState("");
   const [memoTheme, setMemoTheme] = useState("分野:私用");
@@ -34,7 +35,9 @@ export function DashboardView({
   const [issueBody, setIssueBody] = useState("");
   const [issueSelectedLabels, setIssueSelectedLabels] = useState<string[]>(["種別:イシュー", "状態:未整理"]);
   const [issueMilestone, setIssueMilestone] = useState<number | undefined>(undefined);
-  const [issueAssignees, setIssueAssignees] = useState<string[]>([]);
+  const [issueAssignees, setIssueAssignees] = useState<string[]>(currentUser ? [currentUser] : []);
+  const [issueReminderDatetime, setIssueReminderDatetime] = useState("");
+  const [issueReminderChannels, setIssueReminderChannels] = useState<string[]>(["os"]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
   const [stateFilter, setStateFilter] = useState<"open" | "closed" | "all">("open");
@@ -47,11 +50,24 @@ export function DashboardView({
 
   async function handleIssueCreate() {
     if (!issueTitle.trim()) return;
-    await onCreateIssue(issueTitle, issueBody, [...issueSelectedLabels], issueMilestone || null, issueAssignees.length > 0 ? issueAssignees : undefined);
+    const title = issueTitle;
+    const body = issueBody;
+    const labels = [...issueSelectedLabels];
+    const milestone = issueMilestone || null;
+    const assignees = issueAssignees.length > 0 ? [...issueAssignees] : undefined;
+    const reminderDt = issueReminderDatetime;
+    const reminderCh = [...issueReminderChannels];
+    // 即座にフォームを閉じてリセット
+    setShowIssueForm(false);
     setIssueTitle("");
     setIssueBody("");
-    setIssueAssignees([]);
-    setShowIssueForm(false);
+    setIssueAssignees(currentUser ? [currentUser] : []);
+    setIssueReminderDatetime("");
+    // バックグラウンドで作成
+    const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
+    if (reminderDt && reminderCh.length > 0 && issueNumber) {
+      await onAddReminder(issueNumber, title, reminderDt, reminderCh);
+    }
   }
 
   const categories = ["種別:", "分野:", "状態:", "優先:"] as const;
@@ -213,6 +229,31 @@ export function DashboardView({
               </div>
             </div>
           )}
+          {/* リマインダー設定 */}
+          <div style={{ marginTop: "4px" }}>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>リマインダー (任意):</span>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" }}>
+              <input type="datetime-local" value={issueReminderDatetime}
+                onChange={(e) => setIssueReminderDatetime(e.target.value)}
+                style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
+                <input type="checkbox" checked={issueReminderChannels.includes("os")}
+                  onChange={(e) => {
+                    if (e.target.checked) setIssueReminderChannels([...issueReminderChannels, "os"]);
+                    else setIssueReminderChannels(issueReminderChannels.filter((c) => c !== "os"));
+                  }} />
+                OS
+              </label>
+              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
+                <input type="checkbox" checked={issueReminderChannels.includes("discord")}
+                  onChange={(e) => {
+                    if (e.target.checked) setIssueReminderChannels([...issueReminderChannels, "discord"]);
+                    else setIssueReminderChannels(issueReminderChannels.filter((c) => c !== "discord"));
+                  }} />
+                Discord
+              </label>
+            </div>
+          </div>
           <button onClick={handleIssueCreate} className="btn-primary">作成</button>
         </div>
       )}

@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 #[tauri::command]
 fn get_app_version() -> String {
-    return String::from("Life Manager v0.1.0");
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
 // --- リポジトリ設定 ---

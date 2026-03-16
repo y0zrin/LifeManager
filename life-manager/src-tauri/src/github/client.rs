@@ -89,7 +89,11 @@ impl GitHubClient {
             payload.insert("labels".to_string(), serde_json::json!(l));
         }
         if let Some(m) = milestone {
-            payload.insert("milestone".to_string(), serde_json::json!(m));
+            if m == 0 {
+                payload.insert("milestone".to_string(), serde_json::Value::Null);
+            } else {
+                payload.insert("milestone".to_string(), serde_json::json!(m));
+            }
         }
         if let Some(a) = assignees {
             payload.insert("assignees".to_string(), serde_json::json!(a));

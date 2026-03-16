@@ -11,6 +11,7 @@ import { MilestoneView } from "./components/views/MilestoneView";
 import { SettingsView } from "./components/views/SettingsView";
 import { RoutinesView } from "./components/views/RoutinesView";
 import { TimelineView } from "./components/views/TimelineView";
+import { GanttView } from "./components/views/GanttView";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
 import { SetupView } from "./components/views/SetupView";
@@ -120,6 +121,7 @@ function App() {
     { key: "milestones", icon: "🎯", label: "マイルストーン" },
     { key: "routines", icon: "🔄", label: "ルーチン" },
     { key: "timeline", icon: "📅", label: "日誌" },
+    { key: "gantt", icon: "📐", label: "ガント" },
     { key: "settings", icon: "⚙️", label: "設定" },
   ];
 
@@ -295,6 +297,19 @@ function App() {
           onGenerateJournal={gh.generateJournal}
           onGetJournal={gh.getJournal}
           onSaveNotes={gh.saveJournalNotes}
+        />
+      )}
+
+      {/* ガントチャート */}
+      {view === "gantt" && gh.connected && (
+        <GanttView
+          issues={gh.issues}
+          closedIssues={gh.closedIssues}
+          milestones={gh.milestones}
+          labels={gh.customLabels}
+          collaborators={gh.collaborators}
+          currentUser={gh.currentUser}
+          onSelectIssue={setSelectedIssue}
         />
       )}
 

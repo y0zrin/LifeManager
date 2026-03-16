@@ -538,7 +538,7 @@ export function useGitHub() {
         body: updates.body ?? null,
         issueState: null,
         labels: updates.labels ?? null,
-        milestone: updates.milestone !== undefined ? updates.milestone : null,
+        milestone: updates.milestone !== undefined ? (updates.milestone ?? 0) : null,
         assignees: updates.assignees ?? null,
       });
       setStatus(`#${n} を更新しました`);

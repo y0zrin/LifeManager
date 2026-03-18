@@ -220,15 +220,11 @@ pub async fn send_discord_if_configured_public(owner: &str, repo: &str, text: &s
     send_discord_if_configured(owner, repo, text).await;
 }
 
-// --- Discord通知送信ヘルパー（Webhook設定済みの場合のみ） ---
+// --- Discord通知送信ヘルパー（Bot優先、Webhookフォールバック） ---
 
 async fn send_discord_if_configured(owner: &str, repo: &str, text: &str) {
-    if let Some(webhook_url) = discord::load_webhook_url_for_project(owner, repo) {
-        if !webhook_url.is_empty() {
-            if let Err(e) = discord::send_discord(&webhook_url, text).await {
-                eprintln!("Discord通知エラー: {}", e);
-            }
-        }
+    if let Err(e) = discord::send_discord_for_project(owner, repo, text).await {
+        eprintln!("Discord通知エラー: {}", e);
     }
 }
 

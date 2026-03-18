@@ -37,12 +37,16 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
+function getPriorityColor(issue: GitHubIssue): string {
+  const p = issue.labels.find((l) => l.name.startsWith("優先:"));
+  return p?.name === "優先:高" ? "#f85149"
+    : p?.name === "優先:中" ? "#d29922"
+    : p?.name === "優先:低" ? "#3fb950"
+    : "transparent";
+}
+
 export function KanbanView({ issues, labels, milestones, collaborators, boardConfig, currentUser, onStatusChange, onAssignToMe, onSelectIssue, onSaveBoardConfig }: KanbanViewProps) {
   const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
-  // currentUserがある場合、「自分のタスク」カラムを先頭に追加
-  const columns = currentUser
-    ? [{ key: "@me", title: "自分のタスク", emoji: "👤" }, ...baseColumns]
-    : baseColumns;
   const isMobile = useIsMobile();
 
   // Filters
@@ -53,7 +57,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
 
   // Column settings modal
   const [showColumnSettings, setShowColumnSettings] = useState(false);
-  const [editColumns, setEditColumns] = useState<BoardColumn[]>(columns);
+  const [editColumns, setEditColumns] = useState<BoardColumn[]>(baseColumns);
   const [newColKey, setNewColKey] = useState("");
   const [newColTitle, setNewColTitle] = useState("");
   const [newColEmoji, setNewColEmoji] = useState("");
@@ -62,8 +66,11 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
   const [draggingIssue, setDraggingIssue] = useState<number | null>(null);
   const [draggingStatus, setDraggingStatus] = useState<string>("");
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
   const isDraggingRef = useRef(false);
   const mouseDownRef = useRef<{ x: number; y: number; issueNumber: number; status: string } | null>(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
   const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Mobile: selected issue for status change
@@ -96,8 +103,24 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
 
   const hasFilters = filterAssignee || filterPriority || filterMilestone || filterField;
 
-  // Build column data
-  const columnData = columns.map((col) => ({
+  // Desktop: separate my desk from status columns
+  const myDeskIssues = currentUser
+    ? filteredIssues.filter((i) => i.assignees?.some((a) => a.login === currentUser))
+    : [];
+
+  const statusColumnData = baseColumns.map((col) => ({
+    ...col,
+    issues: col.key === "none"
+      ? filteredIssues.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:")))
+      : filteredIssues.filter((i) => i.labels.some((l) => l.name === col.key)),
+  }));
+
+  // Mobile: include @me as first tab
+  const mobileColumns = currentUser
+    ? [{ key: "@me", title: "自分のタスク", emoji: "👤" }, ...baseColumns]
+    : baseColumns;
+
+  const mobileColumnData = mobileColumns.map((col) => ({
     ...col,
     issues: col.key === "@me"
       ? filteredIssues.filter((i) => i.assignees?.some((a) => a.login === currentUser))
@@ -109,7 +132,9 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
   // Mouse-based D&D handlers (desktop)
   const handleMouseDown = useCallback((e: React.MouseEvent, issueNumber: number, currentStatus: string) => {
     if (e.button !== 0) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     mouseDownRef.current = { x: e.clientX, y: e.clientY, issueNumber, status: currentStatus };
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
   useEffect(() => {
@@ -122,9 +147,11 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
         isDraggingRef.current = true;
         setDraggingIssue(mouseDownRef.current.issueNumber);
         setDraggingStatus(mouseDownRef.current.status);
+        setMousePos({ x: e.clientX, y: e.clientY });
       }
       if (isDraggingRef.current) {
-        // マウス位置からどのカラムの上にいるか判定
+        setMousePos({ x: e.clientX, y: e.clientY });
+        // マウス位置からどのカラム/トレイの上にいるか判定
         let found: string | null = null;
         columnRefs.current.forEach((el, key) => {
           const rect = el.getBoundingClientRect();
@@ -138,20 +165,39 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
 
     function handleMouseUp() {
       if (isDraggingRef.current && draggingIssue !== null && dragOverColumn !== null) {
-        if (dragOverColumn === "@me") {
-          // 「自分のタスク」カラムにドロップ → 担当者を自分に設定
-          onAssignToMe(draggingIssue);
-        } else {
-          const targetStatus = dragOverColumn === "none" ? "" : dragOverColumn;
-          const sourceStatus = draggingStatus || "";
-          if (sourceStatus !== targetStatus) {
-            onStatusChange(draggingIssue, targetStatus);
-          }
+        const issueNum = draggingIssue;
+        const targetCol = dragOverColumn;
+        const srcStatus = draggingStatus || "";
+
+        // ドロップアニメーション: ターゲット位置を計算
+        const targetEl = columnRefs.current.get(targetCol);
+        if (targetEl) {
+          const rect = targetEl.getBoundingClientRect();
+          setDropTarget({ x: rect.left + 10, y: rect.top + 40 });
+
+          setTimeout(() => {
+            if (targetCol === "@me") {
+              onAssignToMe(issueNum);
+            } else {
+              const targetStatus = targetCol === "none" ? "" : targetCol;
+              if (srcStatus !== targetStatus) {
+                onStatusChange(issueNum, targetStatus);
+              }
+            }
+            setDropTarget(null);
+            setDraggingIssue(null);
+            setDragOverColumn(null);
+            setDraggingStatus("");
+            mouseDownRef.current = null;
+            setTimeout(() => { isDraggingRef.current = false; }, 100);
+          }, 300);
+          return;
         }
       }
       mouseDownRef.current = null;
       setDraggingIssue(null);
       setDragOverColumn(null);
+      setDraggingStatus("");
       // クリック判定用に少し遅延してフラグをリセット
       setTimeout(() => { isDraggingRef.current = false; }, 100);
     }
@@ -210,10 +256,14 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
   const priorityLabels = labels.filter((l) => l.name.startsWith("優先:"));
   const statusLabels = labels.filter((l) => l.name.startsWith("状態:"));
 
-  // Get current status of a given issue
   function getIssueStatus(issue: GitHubIssue): string {
     return issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
   }
+
+  // ドラッグ中のIssueオブジェクト（フロートカード用）
+  const draggedIssue = draggingIssue !== null
+    ? issues.find((i) => i.number === draggingIssue) || null
+    : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - var(--header-height))" }}>
@@ -292,8 +342,21 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                   ))}
                 </select>
               </div>
+              <div className="emoji-picker" style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginBottom: "6px" }}>
+                {["📋","📥","🔥","👀","🧪","✅","💭","⏳","🚀","🐛","💡","📌","🎯","⚡","🔒","📦","🏷️","🗂️","📐","🛠️"].map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    className={`btn-sm${newColEmoji === em ? " emoji-selected" : ""}`}
+                    onClick={() => setNewColEmoji(newColEmoji === em ? "" : em)}
+                    style={{ padding: "2px 4px", fontSize: "16px", minWidth: "28px", minHeight: "28px", background: newColEmoji === em ? "var(--accent-blue)" : undefined }}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
               <div className="flex-row">
-                <input value={newColEmoji} onChange={(e) => setNewColEmoji(e.target.value)} placeholder="絵文字" className="input-full" style={{ width: "60px", flex: "none" }} />
+                <span style={{ fontSize: "20px", width: "32px", textAlign: "center", flexShrink: 0 }}>{newColEmoji || "📋"}</span>
                 <input value={newColTitle} onChange={(e) => setNewColTitle(e.target.value)} placeholder="表示名" className="input-full" style={{ flex: 1 }} />
                 <button className="btn-primary" onClick={handleAddColumn} disabled={!newColKey || !newColTitle} style={{ fontSize: "var(--font-sm)" }}>追加</button>
               </div>
@@ -312,7 +375,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
         <>
           {/* Column tabs */}
           <div className="kanban-tabs">
-            {columnData.map((col, idx) => (
+            {mobileColumnData.map((col, idx) => (
               <button
                 key={col.key}
                 className={`kanban-tab ${idx === activeColumnIndex ? "active" : ""}`}
@@ -326,7 +389,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
 
           {/* Active column content */}
           <div className="kanban-mobile-body">
-            {columnData[activeColumnIndex]?.issues.map((issue) => (
+            {mobileColumnData[activeColumnIndex]?.issues.map((issue) => (
               <div key={issue.number} className="kanban-mobile-card">
                 <div onClick={() => onSelectIssue(issue.number)}>
                   <TicketCard issue={issue} onSelect={() => {}} />
@@ -345,7 +408,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                 {/* Status change action sheet */}
                 {mobileSelectedIssue === issue.number && (
                   <div className="kanban-status-sheet">
-                    {columns.filter((c) => c.key !== (getIssueStatus(issue) || "none")).map((col) => (
+                    {mobileColumns.filter((c) => c.key !== (getIssueStatus(issue) || "none")).map((col) => (
                       <button
                         key={col.key}
                         className="kanban-status-option"
@@ -358,7 +421,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                 )}
               </div>
             ))}
-            {columnData[activeColumnIndex]?.issues.length === 0 && (
+            {mobileColumnData[activeColumnIndex]?.issues.length === 0 && (
               <p style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)", textAlign: "center", padding: "20px 0" }}>
                 チケットなし
               </p>
@@ -366,42 +429,95 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
           </div>
         </>
       ) : (
-        /* Desktop: D&D column board */
-        <div className="kanban">
-          {columnData.map((col) => (
+        <>
+          {/* Desktop: マイデスクトレイ */}
+          {currentUser && (
             <div
-              key={col.key}
-              ref={(el) => { if (el) columnRefs.current.set(col.key, el); }}
-              className={`kanban-column${dragOverColumn === col.key ? " kanban-column-dragover" : ""}`}
+              className={`mydesk-tray${dragOverColumn === "@me" ? " mydesk-tray-dragover" : ""}`}
+              ref={(el) => { if (el) columnRefs.current.set("@me", el); }}
             >
-              <h3 className="kanban-header">
-                <span>{col.emoji} {col.title}</span>
-                <span style={{ color: "var(--text-faint)", fontWeight: "normal", fontSize: "var(--font-sm)", marginLeft: "6px" }}>
-                  {col.issues.length}
-                </span>
-              </h3>
-              <div className="kanban-body">
-                {col.issues.map((issue) => (
-                  <div
-                    key={issue.number}
-                    onMouseDown={(e) => handleMouseDown(e, issue.number, getIssueStatus(issue))}
-                    className={draggingIssue === issue.number ? "kanban-card-dragging" : ""}
-                    style={{ cursor: draggingIssue ? "grabbing" : "grab", userSelect: "none" }}
-                  >
-                    <TicketCard issue={issue} onSelect={(n) => {
-                      if (!isDraggingRef.current) onSelectIssue(n);
-                    }} />
-                  </div>
-                ))}
-                {col.issues.length === 0 && (
-                  <p style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)", textAlign: "center", padding: "20px 0" }}>
-                    チケットなし
-                  </p>
-                )}
+              <div className="mydesk-header">
+                <span>👤 自分のタスク</span>
+                <span className="mydesk-count">{myDeskIssues.length}</span>
               </div>
+              {myDeskIssues.length > 0 ? (
+                <div className="mydesk-cards">
+                  {myDeskIssues.map((issue) => (
+                    <div
+                      key={issue.number}
+                      onMouseDown={(e) => handleMouseDown(e, issue.number, getIssueStatus(issue))}
+                      className={draggingIssue === issue.number ? "kanban-card-dragging" : ""}
+                      style={{ cursor: draggingIssue ? "grabbing" : "grab", userSelect: "none" }}
+                    >
+                      <div
+                        className="mydesk-card"
+                        onClick={() => { if (!isDraggingRef.current) onSelectIssue(issue.number); }}
+                        style={{ borderLeft: `3px solid ${getPriorityColor(issue)}` }}
+                      >
+                        <span className="mydesk-card-number">#{issue.number}</span>
+                        <span className="mydesk-card-title">{issue.title}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mydesk-empty">
+                  {draggingIssue !== null ? "ここにドロップして引き取る" : "担当タスクなし"}
+                </p>
+              )}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Desktop: D&D column board */}
+          <div className="kanban" style={{ flex: 1, minHeight: 0, height: "auto" }}>
+            {statusColumnData.map((col) => (
+              <div
+                key={col.key}
+                ref={(el) => { if (el) columnRefs.current.set(col.key, el); }}
+                className={`kanban-column${dragOverColumn === col.key ? " kanban-column-dragover" : ""}`}
+              >
+                <h3 className="kanban-header">
+                  <span>{col.emoji} {col.title}</span>
+                  <span style={{ color: "var(--text-faint)", fontWeight: "normal", fontSize: "var(--font-sm)", marginLeft: "6px" }}>
+                    {col.issues.length}
+                  </span>
+                </h3>
+                <div className="kanban-body">
+                  {col.issues.map((issue) => (
+                    <div
+                      key={issue.number}
+                      onMouseDown={(e) => handleMouseDown(e, issue.number, getIssueStatus(issue))}
+                      className={draggingIssue === issue.number ? "kanban-card-dragging" : ""}
+                      style={{ cursor: draggingIssue ? "grabbing" : "grab", userSelect: "none" }}
+                    >
+                      <TicketCard issue={issue} onSelect={(n) => {
+                        if (!isDraggingRef.current) onSelectIssue(n);
+                      }} />
+                    </div>
+                  ))}
+                  {col.issues.length === 0 && (
+                    <p style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)", textAlign: "center", padding: "20px 0" }}>
+                      チケットなし
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* フロートカード（ドラッグ中にマウスに追従する浮遊カード） */}
+          {draggedIssue && isDraggingRef.current && (
+            <div
+              className={`kanban-float-card${dropTarget ? " kanban-float-dropping" : ""}`}
+              style={{
+                left: dropTarget ? dropTarget.x : mousePos.x - dragOffsetRef.current.x,
+                top: dropTarget ? dropTarget.y : mousePos.y - dragOffsetRef.current.y,
+              }}
+            >
+              <TicketCard issue={draggedIssue} onSelect={() => {}} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

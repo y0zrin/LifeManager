@@ -1,25 +1,17 @@
-notifications: []
+notifications:
+- name: てｔ
+  schedule:
+    frequency: daily
+    time: 17:52
+  type: today_tasks
+  channels:
+  - os
+  - discord
 event_notifications:
   enabled: true
   os_for_own_actions: false
   events:
-    issue_updated:
-      enabled: true
-      channels:
-      - discord
-    todo_toggled:
-      enabled: true
-      channels:
-      - discord
-    status_changed:
-      enabled: true
-      channels:
-      - discord
-    issue_reopened:
-      enabled: true
-      channels:
-      - discord
-    issue_promoted:
+    issue_closed:
       enabled: true
       channels:
       - discord
@@ -27,11 +19,27 @@ event_notifications:
       enabled: true
       channels:
       - discord
+    issue_updated:
+      enabled: true
+      channels:
+      - discord
+    issue_promoted:
+      enabled: true
+      channels:
+      - discord
     issue_created:
       enabled: true
       channels:
       - discord
-    issue_closed:
+    issue_reopened:
+      enabled: true
+      channels:
+      - discord
+    status_changed:
+      enabled: true
+      channels:
+      - discord
+    todo_toggled:
       enabled: true
       channels:
       - discord

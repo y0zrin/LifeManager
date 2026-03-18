@@ -5,3 +5,6 @@ columns:
 - emoji: 🔥
   key: 状態:進行中
   title: 進行中
+- emoji: 🐛
+  key: 状態:動作チェック
+  title: 動作チェック

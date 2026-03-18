@@ -1,1 +1,10 @@
-routines: []
+routines:
+- name: てｔ
+  schedule:
+    frequency: daily
+    time: 09:00
+  issue:
+    title: ｔ
+    labels:
+    - 種別:ルーチン
+    body: ｔ

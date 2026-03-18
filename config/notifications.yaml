@@ -15,15 +15,23 @@ event_notifications:
       enabled: true
       channels:
       - discord
-    comment_added:
+    issue_reopened:
       enabled: true
+      channels:
+      - discord
+    todo_toggled:
+      enabled: false
       channels:
       - discord
     issue_updated:
-      enabled: true
+      enabled: false
       channels:
       - discord
-    issue_promoted:
+    comment_added:
+      enabled: false
+      channels:
+      - discord
+    status_changed:
       enabled: true
       channels:
       - discord
@@ -31,15 +39,7 @@ event_notifications:
       enabled: true
       channels:
       - discord
-    issue_reopened:
-      enabled: true
-      channels:
-      - discord
-    status_changed:
-      enabled: true
-      channels:
-      - discord
-    todo_toggled:
-      enabled: true
+    issue_promoted:
+      enabled: false
       channels:
       - discord

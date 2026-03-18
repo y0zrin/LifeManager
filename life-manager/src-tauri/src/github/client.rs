@@ -33,6 +33,37 @@ impl GitHubClient {
         return self.get_all_pages(&url).await;
     }
 
+    /// 指定ラベル付きのIssueのみ取得
+    pub async fn list_issues_by_label(
+        &self,
+        owner: &str,
+        repo: &str,
+        state: &str,
+        label: &str,
+    ) -> Result<String, String> {
+        let encoded_label = urlencoding::encode(label);
+        let url = format!(
+            "{}/repos/{}/{}/issues?state={}&labels={}&per_page=100",
+            BASE_URL, owner, repo, state, encoded_label
+        );
+        return self.get_all_pages(&url).await;
+    }
+
+    /// since(ISO 8601)以降に更新されたIssueのみ取得
+    pub async fn list_issues_since(
+        &self,
+        owner: &str,
+        repo: &str,
+        state: &str,
+        since: &str,
+    ) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues?state={}&since={}&per_page=100",
+            BASE_URL, owner, repo, state, since
+        );
+        return self.get_all_pages(&url).await;
+    }
+
     pub async fn create_issue(
         &self,
         owner: &str,

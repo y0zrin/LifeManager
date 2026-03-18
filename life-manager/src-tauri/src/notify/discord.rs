@@ -5,8 +5,9 @@ use reqwest::Client;
 /// Discord Webhook URLにメッセージをPOSTする
 pub async fn send_discord(webhook_url: &str, text: &str) -> Result<String, String> {
     let client = Client::new();
+    let content = format!("{}\n@everyone", text);
     let payload = serde_json::json!({
-        "content": text
+        "content": content
     });
 
     let response = client

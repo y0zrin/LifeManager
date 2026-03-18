@@ -57,7 +57,11 @@
       "Bash(mkdir:*)",
       "Bash(gh release:*)",
       "WebFetch(domain:github.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
+      "Read(//c/Program Files/Microsoft/Edge/Application/**)",
+      "WebFetch(domain:scrapbox.io)"
     ]
   }
 }

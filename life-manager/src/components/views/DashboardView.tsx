@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 
@@ -39,6 +39,11 @@ export function DashboardView({
   const [issueReminderDatetime, setIssueReminderDatetime] = useState("");
   const [issueReminderChannels, setIssueReminderChannels] = useState<string[]>(["os"]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // プロジェクト切替時にマイルストーン選択をリセット
+  useEffect(() => {
+    setIssueMilestone(undefined);
+  }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
   const [stateFilter, setStateFilter] = useState<"open" | "closed" | "all">("open");
 
@@ -61,6 +66,8 @@ export function DashboardView({
     setShowIssueForm(false);
     setIssueTitle("");
     setIssueBody("");
+    setIssueMilestone(undefined);
+    setIssueSelectedLabels([]);
     setIssueAssignees(currentUser ? [currentUser] : []);
     setIssueReminderDatetime("");
     // バックグラウンドで作成

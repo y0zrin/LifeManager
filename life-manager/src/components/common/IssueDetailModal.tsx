@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder } from "../../lib/types";
+import type { ProgressMode } from "../../lib/ganttTypes";
+import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
 
@@ -40,6 +42,17 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   const [reminderChannels, setReminderChannels] = useState<string[]>(["os"]);
   const issueReminders = reminders.filter((r) => r.issue_number === issue.number);
 
+  // --- ガントメタデータ ---
+  const ganttDates = parseGanttDates(issue.body);
+  const ganttDeps = parseDependencies(issue.body);
+  const ganttProgress = parseProgress(issue.body);
+  const [ganttStart, setGanttStart] = useState(ganttDates?.start || "");
+  const [ganttEnd, setGanttEnd] = useState(ganttDates?.end || "");
+  const [ganttDepsInput, setGanttDepsInput] = useState(ganttDeps.map((n) => `#${n}`).join(","));
+  const [ganttProgressMode, setGanttProgressMode] = useState<ProgressMode>(ganttProgress.mode);
+  const [ganttProgressValue, setGanttProgressValue] = useState(String(ganttProgress.value));
+  const [ganttSaving, setGanttSaving] = useState(false);
+
   useEffect(() => {
     loadComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,6 +64,14 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
     setEditBody(issue.body || "");
     setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
     setEditAssignees(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
+    const d = parseGanttDates(issue.body);
+    const deps = parseDependencies(issue.body);
+    const prog = parseProgress(issue.body);
+    setGanttStart(d?.start || "");
+    setGanttEnd(d?.end || "");
+    setGanttDepsInput(deps.map((n) => `#${n}`).join(","));
+    setGanttProgressMode(prog.mode);
+    setGanttProgressValue(String(prog.value));
   }, [issue]);
 
   async function loadComments() {
@@ -457,6 +478,80 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
             </div>
           </div>
         )}
+
+        {/* ガントチャート設定 */}
+        <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
+          <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)", display: "block", marginBottom: "6px" }}>ガントチャート</span>
+
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
+            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>開始:</label>
+            <input type="date" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>終了:</label>
+            <input type="date" value={ganttEnd} onChange={(e) => setGanttEnd(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+          </div>
+
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
+            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>先行:</label>
+            <input value={ganttDepsInput} onChange={(e) => setGanttDepsInput(e.target.value)}
+              placeholder="#12,#15"
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "120px" }} />
+          </div>
+
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
+            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>進捗:</label>
+            <select value={ganttProgressMode} onChange={(e) => {
+              const mode = e.target.value as ProgressMode;
+              setGanttProgressMode(mode);
+              if (mode === "binary") setGanttProgressValue("undone");
+              else if (mode === "manual") setGanttProgressValue("0");
+              else setGanttProgressValue("0");
+            }} style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }}>
+              <option value="checkbox">チェックボックス</option>
+              <option value="manual">任意の値</option>
+              <option value="binary">達成可否</option>
+            </select>
+            {ganttProgressMode === "manual" && (
+              <input value={ganttProgressValue} onChange={(e) => setGanttProgressValue(e.target.value)}
+                placeholder="0-100" style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "60px" }} />
+            )}
+            {ganttProgressMode === "manual" && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>%</span>}
+            {ganttProgressMode === "binary" && (
+              <button className={`btn-sm ${ganttProgressValue === "done" ? "active" : ""}`}
+                style={{ fontSize: "11px", backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "#fff" : undefined }}
+                onClick={() => setGanttProgressValue(ganttProgressValue === "done" ? "undone" : "done")}
+              >
+                {ganttProgressValue === "done" ? "完了" : "未完了"}
+              </button>
+            )}
+          </div>
+
+          <button className="btn-primary" style={{ fontSize: "11px", padding: "3px 8px" }}
+            disabled={ganttSaving}
+            onClick={async () => {
+              setGanttSaving(true);
+              try {
+                let body = stripGanttMetadata(issue.body || "");
+                if (ganttStart && ganttEnd) {
+                  body += "\n" + serializeGanttDates(ganttStart, ganttEnd);
+                }
+                const deps = ganttDepsInput.split(",").map((s) => parseInt(s.replace("#", "").trim(), 10)).filter((n) => !isNaN(n));
+                if (deps.length > 0) {
+                  body += "\n" + serializeDependencies(deps);
+                }
+                if (ganttProgressMode !== "checkbox") {
+                  const val = ganttProgressMode === "manual" ? parseInt(ganttProgressValue, 10) || 0 : ganttProgressValue;
+                  body += "\n" + serializeProgress(ganttProgressMode, val);
+                }
+                await onToggleTodo(issue.number, body);
+              } finally {
+                setGanttSaving(false);
+              }
+            }}>
+            {ganttSaving ? "保存中..." : "ガント設定を保存"}
+          </button>
+        </div>
 
         {/* リマインダー */}
         <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>

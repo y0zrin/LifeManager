@@ -538,23 +538,25 @@ export function useGitHub() {
         body: updates.body ?? null,
         issueState: null,
         labels: updates.labels ?? null,
-        milestone: updates.milestone !== undefined ? updates.milestone : null,
+        milestone: updates.milestone !== undefined ? (updates.milestone ?? 0) : null,
         assignees: updates.assignees ?? null,
       });
       setStatus(`#${n} を更新しました`);
       // 楽観的更新: APIレスポンスでローカルを即反映
+      let updatedTitle = `#${n}`;
       try {
         const updated = JSON.parse(result as string) as GitHubIssue;
+        updatedTitle = updated.title;
         setIssues((prev) =>
           prev.map((i) => i.number === n ? updated : i)
         );
         setClosedIssues((prev) =>
           prev.map((i) => i.number === n ? updated : i)
         );
-        await notifyEvent("issue_updated", `✏ #${n} ${updated.title} を更新`, n);
       } catch {
         await loadAll();
       }
+      await notifyEvent("issue_updated", `✏ #${n} ${updatedTitle} を更新`, n);
     } catch (e) {
       setStatus("エラー: " + e);
     }

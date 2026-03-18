@@ -68,6 +68,28 @@ Issueの一覧表示。ラベルによるフィルタリング、ステータス
 
 繰り返しタスクの自動Issue作成。`config/routines.yaml` としてリポジトリに保存される。
 
+### ガントチャート
+
+マイルストーン内のIssueをガントチャートで可視化。Canvas描画による高速レンダリング。
+
+- マイルストーン単位でIssueをタイムラインに表示
+- 担当者・状態・分野によるフィルタリング
+- タイムスケール切替（日 / 週 / 月）
+- Issue間の依存関係を矢印で表示
+- 進捗率の可視化（チェックボックス / 手動 / 達成可否）
+- マウスドラッグでスクロール、横スクロールバー
+
+**ガントメタデータ（Issue本文に埋め込み）:**
+
+Issue詳細画面の「ガントチャート」セクションから設定する。本文にHTMLコメントとして保存される。
+
+```
+<!-- gantt:2026-03-10/2026-03-20 -->    開始日/終了日
+<!-- depends:#12,#15 -->                依存関係（先行タスク）
+<!-- progress-mode:manual -->           進捗モード（checkbox / manual / binary）
+<!-- progress:60 -->                    手動進捗値
+```
+
 ### タイムライン
 
 日付ごとのジャーナル生成・閲覧。
@@ -91,6 +113,8 @@ Issue単位でリマインダーを設定。OS通知・Discord通知に対応。
 
 **Webhookの解除:** 入力欄を空にして「解除」ボタンを押す。
 
+> **スマホで通知が届かない場合:** Androidではバッテリー最適化によりDiscordのバックグラウンド通知が抑制されることがある。Discord → バッテリー設定 →「制限なし」に変更する。また、PC版Discordを起動したままだとスマホへの通知が抑制されるため、PC版を終了するか全デバイスでログアウトして整理する。
+
 ### イベント通知
 
 以下のイベントごとに通知の有効/無効、通知先（OS / Discord）を設定できる。
@@ -110,22 +134,106 @@ Issue単位でリマインダーを設定。OS通知・Discord通知に対応。
 - プロジェクトごとに個別のトークンを設定可能（未設定時はグローバルトークンを使用）
 - Discord Webhookもプロジェクトごとに個別設定
 
+### トークンの解決順序
+
+アプリ起動時・プロジェクト切替時のトークン解決:
+
+1. **プロジェクト固有トークン** (`project-token-{owner}/{repo}`) → 設定されていればこれを使用
+2. **グローバルトークン** (`github-token`) → フォールバック
+
+Fine-grained PATでリポジトリごとに異なるトークンを使い分ける場合でも、起動時に正しいトークンが選択される。
+
 ## チームでの利用
+
+### Organization の利用を推奨
+
+2人以上で継続的に作業する場合は、**GitHub Organization**（無料）を利用することを推奨する。
+
+| | 個人リポジトリ | Organization |
+|---|---|---|
+| 権限管理 | Collaborator単位 | Team単位で一括管理 |
+| リポジトリ所有 | 個人に紐づく | Orgに紐づく（人が抜けても残る） |
+| Fine-grained PAT | オーナーのみリポ個別指定可能 | **メンバー全員がリポ個別指定可能** |
+
+### Fine-grained PAT の制限事項
+
+Fine-grained PATでリポジトリを個別指定する場合、選択肢に表示されるのは**自分がオーナーのリポジトリ**と**所属Organization内のリポジトリ**のみ。他人の個人リポジトリにCollaboratorとして招待されたものは表示されない。
+
+**対処法:**
+
+| 方法 | 説明 |
+|------|------|
+| Organization に移行 | メンバー全員がFine-grainedでリポ個別指定可能になる |
+| Classic PAT を使用 | `repo`スコープで招待先リポジトリにもアクセス可能 |
+| Fine-grained「All repositories」 | 全リポジトリ対象（スコープが広い） |
+
+Life Managerではプロジェクトごとにトークンを設定できるため、自分のリポにはFine-grained、招待リポにはClassicと使い分けが可能。
 
 ### トークンについて
 
 GitHub PATは**個人アカウントに紐づく**。チームで利用する場合:
 
 - **各メンバーが自分のPATを発行する**（他人のトークンでは操作が全てそのアカウント名義になる）
-- リーダーはリポジトリへのCollaborator招待で権限を管理する
-- リポジトリのリンクだけではアクセス不可。必ずCollaboratorとして追加が必要
+- リポジトリのリンクだけではアクセス不可。必ずCollaboratorとして追加（またはOrgメンバーとして招待）が必要
 
 ### チーム運用の手順
 
-1. リーダーがリポジトリを作成
-2. メンバーをCollaboratorとして招待（Settings → Collaborators）
-3. 各メンバーが自分のGitHubアカウントでFine-grained PATを発行
-4. 各メンバーがLife Managerにトークンとリポジトリを設定
+#### 既存リポジトリを Organization に移行する
+
+すでに個人アカウントで運用しているリポジトリを Organization に移すことができる。
+
+1. Organization を作成（未作成の場合: Settings → Organizations → New organization、Freeプランで可）
+2. リポジトリの Settings → General → 最下部「**Danger Zone**」→「**Transfer ownership**」
+3. 移行先に Organization 名を入力し、確認して転送
+4. リポジトリの URL が `個人名/リポ名` → `org名/リポ名` に変わる
+5. 各メンバーの Life Manager でプロジェクト設定のオーナー名を Organization 名に更新
+6. 各メンバーが Fine-grained PAT を再発行（Resource owner を Organization に変更し、対象リポジトリを選択）
+
+> **注意**: 転送後、旧URLからのリダイレクトは一定期間有効だが、GitHub API のエンドポイントは新URL（`org名/リポ名`）を使用する必要がある。Issue番号やデータはすべて維持される。
+
+#### Organization を使う場合（推奨）
+
+**リポジトリ所有者（リーダー）が行うこと:**
+
+1. GitHub Organizationを作成（Settings → Organizations → New organization、Freeプランで可）
+2. Organization内にリポジトリを作成（Private推奨）
+3. メンバーをOrganizationに招待（Organization Settings → Members → Invite member）
+4. メンバーに **Write** 以上のロールを付与（Issue操作・Contents書き込みに必要）
+
+**各メンバーが行うこと:**
+
+1. Organization招待を承認
+2. GitHub → Settings → Developer settings → [Fine-grained tokens](https://github.com/settings/personal-access-tokens/new) でPATを発行
+3. トークン設定:
+   - **Resource owner**: Organization名を選択
+   - **Repository access**: 「Only select repositories」→ 対象リポジトリを選択
+   - **Permissions**:
+
+     | Permission | Access | 用途 |
+     |-----------|--------|------|
+     | **Issues** | Read and Write | Issue・コメントの作成/編集/クローズ |
+     | **Contents** | Read and Write | ルーチン・通知設定・ボード設定の保存 |
+     | **Metadata** | Read | 自動付与（リポジトリ情報の取得） |
+
+4. Life Managerにトークンとリポジトリ（`org名/リポ名`）を設定
+
+#### 個人リポジトリの場合
+
+**リポジトリ所有者（リーダー）が行うこと:**
+
+1. リポジトリを作成（Private推奨）
+2. メンバーをCollaboratorとして招待（Settings → Collaborators → Add people）
+3. メンバーに **Write** 以上のロールを付与
+
+**各メンバーが行うこと:**
+
+1. Collaborator招待を承認
+2. Fine-grained PATでは招待先リポジトリを個別指定**できない**ため、以下のいずれかでトークンを発行:
+   - **Classic PAT**（`repo`スコープ）— 簡単だがスコープが広い
+   - **Fine-grained PAT**（「All repositories」）— リポジトリ限定不可
+3. Life Managerにトークンとリポジトリを設定
+
+> **注意**: リポジトリ所有者本人はFine-grained PATでリポジトリ個別指定が可能。制限があるのはCollaboratorとして招待された側のみ。
 
 ## 技術スタック
 
@@ -177,7 +285,10 @@ src/                              # Frontend (React/TypeScript)
 ├── hooks/
 │   └── useGitHub.ts              # Central state management hook
 ├── lib/
-│   └── types.ts                  # Type definitions
+│   ├── types.ts                  # Type definitions
+│   ├── ganttTypes.ts             # Gantt chart type definitions
+│   ├── ganttParser.ts            # Issue metadata ↔ GanttTask conversion
+│   └── ganttRenderer.ts          # Canvas rendering engine
 ├── components/
 │   ├── common/                   # Shared components
 │   │   ├── CommandPalette.tsx    # Ctrl+K quick actions
@@ -187,9 +298,10 @@ src/                              # Frontend (React/TypeScript)
 │   │   ├── LabelBadge.tsx        # Label color badge
 │   │   ├── TaskListBody.tsx      # Checkbox task list
 │   │   └── TicketCard.tsx        # Kanban compact card
-│   └── views/                    # 6 main views
+│   └── views/                    # 7 main views
 │       ├── DashboardView.tsx     # Issue list, create, filter
 │       ├── KanbanView.tsx        # Kanban board (drag & drop)
+│       ├── GanttView.tsx         # Gantt chart (Canvas + virtual scroll)
 │       ├── MilestoneView.tsx     # Milestone management
 │       ├── RoutinesView.tsx      # Routine configuration
 │       ├── SettingsView.tsx      # Settings, labels, notifications

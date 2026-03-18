@@ -26,8 +26,11 @@ pub async fn generate_journal(
     let parsed_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("日付パースエラー: {}", e))?;
 
-    // その日にクローズされたIssueを取得（closed状態のIssue一覧から日付でフィルタ）
-    let closed_json = client.list_issues(owner, repo, "closed").await?;
+    // since: 対象日の開始時刻（UTC）。GitHub APIのsinceパラメータで取得範囲を限定
+    let since = format!("{}T00:00:00Z", date);
+
+    // その日にクローズされたIssueを取得（since以降に更新されたclosedのみ）
+    let closed_json = client.list_issues_since(owner, repo, "closed", &since).await?;
     let closed_issues: Vec<serde_json::Value> =
         serde_json::from_str(&closed_json).map_err(|e| format!("JSONパースエラー: {}", e))?;
 
@@ -42,11 +45,10 @@ pub async fn generate_journal(
         })
         .collect();
 
-    // その日に作成されたメモを取得（全Issueから種別:メモラベル付きで日付フィルタ）
-    // open + closed 両方から探す
-    let open_json = client.list_issues(owner, repo, "all").await?;
+    // その日に作成されたメモを取得（since以降に更新されたIssueから種別:メモラベル付きで日付フィルタ）
+    let all_json = client.list_issues_since(owner, repo, "all", &since).await?;
     let all_issues: Vec<serde_json::Value> =
-        serde_json::from_str(&open_json).map_err(|e| format!("JSONパースエラー: {}", e))?;
+        serde_json::from_str(&all_json).map_err(|e| format!("JSONパースエラー: {}", e))?;
 
     let memos: Vec<&serde_json::Value> = all_issues
         .iter()
@@ -84,22 +86,12 @@ pub async fn generate_journal(
         .count();
 
     // 進行中のIssue数（状態:進行中ラベル付きでopenのもの）
-    let open_json2 = client.list_issues(owner, repo, "open").await?;
-    let open_issues: Vec<serde_json::Value> =
-        serde_json::from_str(&open_json2).map_err(|e| format!("JSONパースエラー: {}", e))?;
-    let in_progress_count = open_issues
-        .iter()
-        .filter(|issue| {
-            issue["labels"]
-                .as_array()
-                .map(|labels| {
-                    labels
-                        .iter()
-                        .any(|l| l["name"].as_str() == Some("状態:進行中"))
-                })
-                .unwrap_or(false)
-        })
-        .count();
+    // ※進行中カウントは現在の状態なのでsinceフィルタ不要だが、全件取得を避けるため
+    //   ラベルフィルタで取得量を削減
+    let in_progress_json = client.list_issues_by_label(owner, repo, "open", "状態:進行中").await?;
+    let in_progress_issues: Vec<serde_json::Value> =
+        serde_json::from_str(&in_progress_json).map_err(|e| format!("JSONパースエラー: {}", e))?;
+    let in_progress_count = in_progress_issues.len();
 
     // Markdown生成
     let weekday = weekday_jp(&parsed_date);

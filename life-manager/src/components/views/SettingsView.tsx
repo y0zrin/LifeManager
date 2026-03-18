@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { LabelBadge } from "../common/LabelBadge";
@@ -734,12 +736,30 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         )}
       </div>
 
-      {/* バージョン情報 */}
-      {appVersion && (
-        <p style={{ textAlign: "center", fontSize: "var(--font-xs)", color: "var(--text-faint)", marginTop: "var(--space-lg)" }}>
-          Life Manager v{appVersion}
-        </p>
-      )}
+      {/* バージョン・マニュアル */}
+      <div style={{ textAlign: "center", marginTop: "var(--space-lg)" }}>
+        <button
+          className="btn-sm"
+          onClick={async () => {
+            try {
+              const path = await resolveResource("resources/manual.pdf");
+              await openPath(path);
+            } catch {
+              // PDFが見つからない場合はGitHubのREADMEを開く
+              const { openUrl } = await import("@tauri-apps/plugin-opener");
+              await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
+            }
+          }}
+          style={{ fontSize: "var(--font-xs)" }}
+        >
+          マニュアルを開く
+        </button>
+        {appVersion && (
+          <p style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)", marginTop: "var(--space-sm)" }}>
+            Life Manager v{appVersion}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

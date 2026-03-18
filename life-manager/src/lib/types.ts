@@ -123,4 +123,4 @@ export interface Project {
   name: string;
 }
 
-export type ViewType = "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "settings";
+export type ViewType = "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "gantt" | "settings";

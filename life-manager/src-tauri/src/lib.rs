@@ -189,13 +189,44 @@ async fn set_token(
 async fn load_token(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
 ) -> Result<String, String> {
-    let entry = Entry::new("life-manager", "github-token").map_err(|e| e.to_string())?;
-    let token = entry
-        .get_password()
-        .map_err(|_| String::from("トークンがありません"))?;
+    // アクティブプロジェクトのトークンを優先的に解決する
+    let token = resolve_active_token()?;
     let mut guard = state.lock().await;
     *guard = Some(GitHubClient::new(token));
     return Ok(String::from("トークンをロードしました"));
+}
+
+/// アクティブプロジェクトのトークンを解決する
+/// 優先順位: プロジェクト固有トークン → グローバルトークン
+fn resolve_active_token() -> Result<String, String> {
+    // 保存済みの owner/repo を取得
+    let owner = Entry::new("life-manager", "github-owner")
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .unwrap_or_default();
+    let repo = Entry::new("life-manager", "github-repo")
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .unwrap_or_default();
+
+    // プロジェクト固有トークンを試す
+    if !owner.is_empty() && !repo.is_empty() {
+        let token_key = format!("project-token-{}/{}", owner, repo);
+        if let Ok(entry) = Entry::new("life-manager", &token_key) {
+            if let Ok(token) = entry.get_password() {
+                if !token.is_empty() {
+                    return Ok(token);
+                }
+            }
+        }
+    }
+
+    // フォールバック: グローバルトークン
+    let global_entry = Entry::new("life-manager", "github-token")
+        .map_err(|e| e.to_string())?;
+    return global_entry
+        .get_password()
+        .map_err(|_| String::from("トークンがありません"));
 }
 
 // --- Issue ---

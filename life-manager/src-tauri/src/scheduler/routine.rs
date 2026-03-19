@@ -499,16 +499,31 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                     .await
                 {
                     Ok(_) => {
-                        // ルーチンIssue作成成功 → 通知を送信
-                        send_os_notification(
-                            &app,
-                            "ルーチン",
-                            &format!("{} を作成しました", title),
-                        );
-                        send_discord_if_configured(
-                            &owner, &repo,
-                            &format!("📋 ルーチンIssue作成: **{}**", title),
-                        ).await;
+                        // ルーチンIssue作成成功 → 常にOS通知 + イベント設定に従いDiscord
+                        let message = format!("📋 ルーチンIssue作成: {}", title);
+                        send_os_notification(&app, "ルーチン", &message);
+
+                        // Discord はイベント設定に従う
+                        let send_discord = if let Some(nc) = &cached_notif_config {
+                            if let Some(ec) = &nc.event_notifications {
+                                if ec.enabled {
+                                    if let Some(entry) = ec.events.get("routine_created") {
+                                        entry.enabled && entry.channels.contains(&"discord".to_string())
+                                    } else {
+                                        true // routine_created 未設定ならデフォルト送信
+                                    }
+                                } else {
+                                    false // イベント通知が無効
+                                }
+                            } else {
+                                true // event_notifications 未設定ならデフォルト
+                            }
+                        } else {
+                            true // config未読み込みならデフォルト
+                        };
+                        if send_discord {
+                            send_discord_if_configured(&owner, &repo, &message).await;
+                        }
                     }
                     Err(e) => {
                         eprintln!("ルーチンIssue作成エラー: {}", e);

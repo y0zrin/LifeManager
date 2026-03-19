@@ -282,6 +282,7 @@ export function useGitHub() {
     os_for_own_actions: false,
     events: {
       issue_created: { enabled: true, channels: ["discord"] },
+      routine_created: { enabled: true, channels: ["os", "discord"] },
       issue_closed: { enabled: true, channels: ["discord"] },
       issue_reopened: { enabled: true, channels: ["discord"] },
       status_changed: { enabled: true, channels: ["discord"] },

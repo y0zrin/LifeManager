@@ -28,7 +28,6 @@ interface SettingsViewProps {
   onSetProjectToken: (owner: string, repo: string, token: string) => Promise<void>;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
-  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null) => Promise<number>;
 }
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -50,7 +49,7 @@ const PANES: { key: SettingsPane; label: string }[] = [
   { key: "other", label: "その他" },
 ];
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig, onCreateIssue }: SettingsViewProps) {
+export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
@@ -123,12 +122,10 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   const [feedbackCategory, setFeedbackCategory] = useState<"bug" | "feature" | "other">("bug");
   const [feedbackTitle, setFeedbackTitle] = useState("");
   const [feedbackBody, setFeedbackBody] = useState("");
-  const [feedbackSending, setFeedbackSending] = useState(false);
-  const [feedbackResult, setFeedbackResult] = useState<{ success: boolean; issueNumber?: number; error?: string } | null>(null);
 
   // イベント通知設定
   const ALL_EVENT_TYPES: EventType[] = [
-    "issue_created", "issue_closed", "issue_reopened", "status_changed",
+    "issue_created", "routine_created", "issue_closed", "issue_reopened", "status_changed",
     "comment_added", "todo_toggled", "issue_promoted", "issue_updated",
   ];
   const defaultEventConfig: EventNotificationConfig = {
@@ -198,26 +195,16 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
 
   async function handleSendFeedback() {
     if (!feedbackTitle.trim()) return;
-    setFeedbackSending(true);
-    setFeedbackResult(null);
-    try {
-      // ラベルが存在しなければ自動作成
-      const fbLabel = "分野:LMFeedback";
-      if (!labels.some((l) => l.name === fbLabel)) {
-        await onCreateLabel(fbLabel, "d876e3", "Life Managerへのフィードバック");
-      }
-      const prefix = feedbackCategory === "bug" ? "[バグ]" : feedbackCategory === "feature" ? "[機能要望]" : "[フィードバック]";
-      const title = `${prefix} ${feedbackTitle.trim()}`;
-      const body = `${feedbackBody}\n\n---\nLife Manager v${appVersion}`;
-      const issueNumber = await onCreateIssue(title, body, [fbLabel], null);
-      setFeedbackResult({ success: true, issueNumber });
-      setFeedbackTitle("");
-      setFeedbackBody("");
-    } catch (e) {
-      setFeedbackResult({ success: false, error: String(e) });
-    } finally {
-      setFeedbackSending(false);
-    }
+    const prefix = feedbackCategory === "bug" ? "[バグ]" : feedbackCategory === "feature" ? "[機能要望]" : "[フィードバック]";
+    const subject = `${prefix} ${feedbackTitle.trim()}`;
+    const body = feedbackBody
+      ? `${feedbackBody}\n\n---\nLife Manager v${appVersion}`
+      : `Life Manager v${appVersion}`;
+    const mailto = `mailto:lifemanagerforgit@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    await openUrl(mailto);
+    setFeedbackTitle("");
+    setFeedbackBody("");
   }
 
   async function handleSetToken() {
@@ -805,13 +792,12 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       {activePane === "other" && <>
 
       {/* フィードバック */}
-      {connected && (
-        <div className="form-card">
+      <div className="form-card">
           <div className="settings-section-header">
             <h3 className="settings-section-title">フィードバック</h3>
           </div>
           <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-            バグ報告や機能要望をIssueとして送信できます。
+            バグ報告や機能要望をメールで送信できます。
           </p>
           <div className="flex-row" style={{ gap: "var(--space-xs)", marginBottom: "var(--space-sm)" }}>
             {(["bug", "feature", "other"] as const).map((cat) => {
@@ -831,20 +817,11 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
             placeholder="詳細（任意）" className="textarea-full" rows={3}
             style={{ marginBottom: "var(--space-sm)" }} />
           <button onClick={handleSendFeedback} className="btn-primary"
-            disabled={!feedbackTitle.trim() || feedbackSending}
+            disabled={!feedbackTitle.trim()}
             style={{ alignSelf: "flex-start" }}>
-            {feedbackSending ? "送信中..." : "送信"}
+            メールで送信
           </button>
-          {feedbackResult && (
-            <p style={{ fontSize: "var(--font-sm)", marginTop: "var(--space-xs)",
-              color: feedbackResult.success ? "var(--accent-green)" : "var(--accent-red)" }}>
-              {feedbackResult.success
-                ? `#${feedbackResult.issueNumber} として送信しました`
-                : `エラー: ${feedbackResult.error}`}
-            </p>
-          )}
         </div>
-      )}
 
       {/* バージョン・マニュアル */}
       <div style={{ textAlign: "center", marginTop: "var(--space-lg)" }}>

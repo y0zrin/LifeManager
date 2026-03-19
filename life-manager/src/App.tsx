@@ -297,6 +297,7 @@ function App() {
           onGenerateJournal={gh.generateJournal}
           onGetJournal={gh.getJournal}
           onSaveNotes={gh.saveJournalNotes}
+          onSelectIssue={setSelectedIssue}
         />
       )}
 
@@ -361,7 +362,6 @@ function App() {
           onSetProjectToken={gh.setProjectToken}
           eventNotifConfig={gh.eventNotifConfig}
           onSaveEventNotifConfig={gh.saveEventNotifConfig}
-          onCreateIssue={gh.createIssue}
         />
       )}
     </main>

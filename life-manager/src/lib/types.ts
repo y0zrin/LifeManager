@@ -90,6 +90,7 @@ export interface EventNotificationConfig {
 
 export type EventType =
   | "issue_created"
+  | "routine_created"
   | "issue_closed"
   | "issue_reopened"
   | "status_changed"
@@ -100,6 +101,7 @@ export type EventType =
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   issue_created: "Issue作成",
+  routine_created: "ルーチン実行",
   issue_closed: "Issue完了",
   issue_reopened: "Issue再開",
   status_changed: "状態変更",

@@ -420,6 +420,46 @@ body {
   border-color: var(--accent-blue);
 }
 
+/* --- Search Bar --- */
+
+.search-bar {
+  position: relative;
+  margin-bottom: var(--space-sm);
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 30px 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-md);
+  padding: 0 4px;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
 /* --- Toolbar --- */
 
 .toolbar {
@@ -530,6 +570,46 @@ button:hover {
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
 }
+
+/* --- Suggestion Dropdown --- */
+
+.suggestion-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  margin-top: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.suggestion-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.suggestion-state { font-size: 10px; flex-shrink: 0; }
+.suggestion-state--open { color: var(--accent-green); }
+.suggestion-state--closed { color: var(--text-faint); }
+.suggestion-number { color: var(--text-muted); flex-shrink: 0; }
+.suggestion-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* --- Issue Card --- */
 

@@ -5,6 +5,7 @@ interface TimelineViewProps {
   onGenerateJournal: (date: string) => Promise<string>;
   onGetJournal: (date: string) => Promise<string>;
   onSaveNotes: (date: string, notes: string) => Promise<string>;
+  onSelectIssue: (n: number) => void;
 }
 
 function formatDate(d: Date): string {
@@ -30,7 +31,7 @@ function dayOfWeek(dateStr: string): number {
   return (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + t[m - 1] + d) % 7;
 }
 
-export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes }: TimelineViewProps) {
+export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onSelectIssue }: TimelineViewProps) {
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [journalContent, setJournalContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -166,8 +167,10 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes }: T
             <span style={{ color: "var(--text-faint)", marginRight: "6px" }}>-</span>
             {parts.map((part, j) => {
               if (/^\[#\d+\]$/.test(part)) {
+                const num = parseInt(part.replace(/[^\d]/g, ""));
                 return (
-                  <span key={j} style={{ color: "var(--accent-blue)", fontWeight: 500 }}>
+                  <span key={j} style={{ color: "var(--accent-blue)", fontWeight: 500, cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => onSelectIssue(num)}>
                     {part}
                   </span>
                 );

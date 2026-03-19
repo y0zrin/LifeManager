@@ -3,7 +3,23 @@ event_notifications:
   enabled: true
   os_for_own_actions: false
   events:
+    todo_toggled:
+      enabled: false
+      channels:
+      - discord
     issue_reopened:
+      enabled: true
+      channels:
+      - discord
+    issue_updated:
+      enabled: true
+      channels:
+      - discord
+    issue_closed:
+      enabled: true
+      channels:
+      - discord
+    issue_created:
       enabled: true
       channels:
       - discord
@@ -11,27 +27,11 @@ event_notifications:
       enabled: true
       channels:
       - discord
-    issue_promoted:
-      enabled: false
-      channels:
-      - discord
     comment_added:
-      enabled: false
-      channels:
-      - discord
-    issue_created:
       enabled: true
       channels:
       - discord
-    issue_updated:
-      enabled: false
-      channels:
-      - discord
-    issue_closed:
-      enabled: true
-      channels:
-      - discord
-    todo_toggled:
+    issue_promoted:
       enabled: false
       channels:
       - discord

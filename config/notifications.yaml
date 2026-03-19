@@ -1,11 +1,4 @@
-notifications:
-- name: ｔｓｔ
-  schedule:
-    frequency: daily
-    time: 15:18
-  type: today_tasks
-  channels:
-  - os
+notifications: []
 event_notifications:
   enabled: true
   os_for_own_actions: false
@@ -14,23 +7,11 @@ event_notifications:
       enabled: true
       channels:
       - discord
-    comment_added:
-      enabled: true
-      channels:
-      - discord
     issue_created:
       enabled: true
       channels:
       - discord
-    issue_reopened:
-      enabled: true
-      channels:
-      - discord
-    issue_promoted:
-      enabled: false
-      channels:
-      - discord
-    issue_closed:
+    status_changed:
       enabled: true
       channels:
       - discord
@@ -38,7 +19,19 @@ event_notifications:
       enabled: false
       channels:
       - discord
-    status_changed:
+    issue_promoted:
+      enabled: false
+      channels:
+      - discord
+    issue_reopened:
+      enabled: true
+      channels:
+      - discord
+    comment_added:
+      enabled: true
+      channels:
+      - discord
+    issue_closed:
       enabled: true
       channels:
       - discord

@@ -1,1 +1,9 @@
-routines: []
+routines:
+- name: てｓｔ
+  schedule:
+    frequency: daily
+    time: 09:00
+  issue:
+    title: ｔｔｔ
+    labels:
+    - 種別:ルーチン

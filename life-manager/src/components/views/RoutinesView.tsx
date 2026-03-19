@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { GitHubLabel, Routine } from "../../lib/types";
 import { LabelBadge } from "../common/LabelBadge";
 
@@ -15,8 +15,9 @@ const weekdayLabels: Record<string, string> = {
 };
 
 export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: RoutinesViewProps) {
-  const [editingRoutines, setEditingRoutines] = useState<Routine[]>(routines);
   const [showForm, setShowForm] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
   const [frequency, setFrequency] = useState("daily");
@@ -27,13 +28,11 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
   const [selectedLabels, setSelectedLabels] = useState<string[]>(["種別:ルーチン"]);
   const [body, setBody] = useState("");
   const [autoClose, setAutoClose] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  useEffect(() => {
-    setEditingRoutines(routines);
-  }, [routines]);
-
-  function handleAdd() {
-    const newRoutine: Routine = {
+  function buildRoutine(): Routine {
+    return {
       name,
       schedule: {
         frequency,
@@ -41,6 +40,8 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
         ...(frequency === "weekly" ? { day } : {}),
         ...(frequency === "monthly" ? { day: parseInt(day) } : {}),
         time,
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {}),
       },
       issue: {
         title,
@@ -49,41 +50,79 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
       },
       ...(autoClose ? { auto_close: autoClose } : {}),
     };
-    setEditingRoutines([...editingRoutines, newRoutine]);
-    resetForm();
   }
 
-  function handleDelete(index: number) {
-    setEditingRoutines(editingRoutines.filter((_, i) => i !== index));
+  async function handleSubmit() {
+    const routine = buildRoutine();
+    setSaving(true);
+    try {
+      if (editingIndex !== null) {
+        const updated = [...routines];
+        updated[editingIndex] = routine;
+        await onSave(updated);
+      } else {
+        await onSave([...routines, routine]);
+      }
+      resetForm();
+    } finally {
+      setSaving(false);
+    }
   }
 
-  async function handleSave() {
-    await onSave(editingRoutines);
+  function handleEdit(index: number) {
+    const r = routines[index];
+    setName(r.name);
+    setFrequency(r.schedule.frequency);
+    setDays(r.schedule.days || []);
+    setDay(r.schedule.day != null ? String(r.schedule.day) : "");
+    setTime(r.schedule.time);
+    setTitle(r.issue.title);
+    setSelectedLabels([...r.issue.labels]);
+    setBody(r.issue.body || "");
+    setAutoClose(r.auto_close || "");
+    setStartDate(r.schedule.start_date || "");
+    setEndDate(r.schedule.end_date || "");
+    setEditingIndex(index);
+    setShowForm(true);
+  }
+
+  async function handleDelete(index: number) {
+    if (editingIndex === index) resetForm();
+    setSaving(true);
+    try {
+      await onSave(routines.filter((_, i) => i !== index));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function resetForm() {
     setName(""); setFrequency("daily"); setDays([]);
     setDay(""); setTime("09:00"); setTitle("");
     setSelectedLabels(["種別:ルーチン"]); setBody(""); setAutoClose("");
+    setStartDate(""); setEndDate("");
+    setEditingIndex(null);
     setShowForm(false);
   }
 
-  const hasChanges = JSON.stringify(editingRoutines) !== JSON.stringify(routines);
+  const isEditing = editingIndex !== null;
 
   return (
     <div className="content">
       <div className="toolbar">
-        <button onClick={() => setShowForm(!showForm)} className="btn-sm">
+        <button onClick={() => { if (showForm) resetForm(); else setShowForm(true); }} className="btn-sm">
           {showForm ? "×" : "+ ルーチン追加"}
         </button>
         <button onClick={onRefresh} className="btn-sm">更新</button>
-        {hasChanges && (
-          <button onClick={handleSave} className="btn-primary">保存</button>
-        )}
       </div>
 
       {showForm && (
-        <div className="form-card">
+        <div className="form-card" style={{ borderLeft: isEditing ? "3px solid var(--accent-blue)" : undefined }}>
+          {isEditing && (
+            <p style={{ fontSize: "var(--font-sm)", color: "var(--accent-blue)", margin: "0 0 var(--space-xs)" }}>
+              「{routines[editingIndex]?.name}」を編集中
+            </p>
+          )}
           <input value={name} onChange={(e) => setName(e.target.value)}
             placeholder="ルーチン名" className="input-full" />
           <div className="flex-row">
@@ -151,30 +190,53 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
           </div>
           <textarea value={body} onChange={(e) => setBody(e.target.value)}
             placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full" />
+          <div className="flex-row" style={{ alignItems: "center", gap: "var(--space-xs)" }}>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>期間:</span>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+              className="input-full" style={{ maxWidth: "160px" }} />
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+              className="input-full" style={{ maxWidth: "160px" }} />
+            <span style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)" }}>（空欄で無期限）</span>
+          </div>
           <input value={autoClose} onChange={(e) => setAutoClose(e.target.value)}
             placeholder="自動クローズ時刻（例: 23:59、空欄で無効）" className="input-full" style={{ maxWidth: "200px" }} />
-          <button onClick={handleAdd} className="btn-primary" disabled={!name || !title}>追加</button>
+          <div className="flex-row">
+            <button onClick={handleSubmit} className="btn-primary" disabled={!name || !title || saving}>
+              {saving ? "保存中..." : isEditing ? "更新" : "追加"}
+            </button>
+            {isEditing && (
+              <button onClick={resetForm} className="btn-sm">キャンセル</button>
+            )}
+          </div>
         </div>
       )}
 
-      {editingRoutines.map((routine, index) => {
+      {routines.map((routine, index) => {
         const scheduleStr = routine.schedule.frequency === "daily"
           ? `毎日${routine.schedule.days ? ` (${routine.schedule.days.map((d) => weekdayLabels[d] || d).join("")})` : ""}`
           : routine.schedule.frequency === "weekly"
           ? `毎週${weekdayLabels[String(routine.schedule.day)] || routine.schedule.day}曜日`
           : `毎月${routine.schedule.day}日`;
 
+        const periodStr = (routine.schedule.start_date || routine.schedule.end_date)
+          ? ` [${routine.schedule.start_date || ""}〜${routine.schedule.end_date || ""}]`
+          : "";
+
         return (
-          <div key={index} className="issue-card">
+          <div key={index} className="issue-card" style={editingIndex === index ? { borderColor: "var(--accent-blue)" } : undefined}>
             <div className="issue-card-header">
               <div>
                 <strong>{routine.name}</strong>
                 <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)", marginLeft: "8px" }}>
-                  {scheduleStr} {routine.schedule.time}
+                  {scheduleStr} {routine.schedule.time}{periodStr}
                 </span>
               </div>
-              <button className="btn-sm" onClick={() => handleDelete(index)}
-                style={{ color: "var(--accent-red)" }}>削除</button>
+              <div className="flex-row" style={{ gap: "var(--space-xs)" }}>
+                <button className="btn-sm" onClick={() => handleEdit(index)} disabled={saving}>編集</button>
+                <button className="btn-sm" onClick={() => handleDelete(index)} disabled={saving}
+                  style={{ color: "var(--accent-red)" }}>削除</button>
+              </div>
             </div>
             <p className="issue-card-body">→ {routine.issue.title}</p>
             {routine.issue.body && (
@@ -196,7 +258,7 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
           </div>
         );
       })}
-      {editingRoutines.length === 0 && (
+      {routines.length === 0 && (
         <p className="empty-message">ルーチンが設定されていません</p>
       )}
     </div>

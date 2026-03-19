@@ -98,6 +98,10 @@ pub struct Schedule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day: Option<serde_json::Value>,
     pub time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -136,6 +140,19 @@ fn weekday_str(wd: Weekday) -> &'static str {
 }
 
 fn should_run(routine: &Routine, hour: u32, minute: u32, weekday: Weekday, month_day: u32) -> bool {
+    // 期間チェック
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    if let Some(start) = &routine.schedule.start_date {
+        if today < *start {
+            return false;
+        }
+    }
+    if let Some(end) = &routine.schedule.end_date {
+        if today > *end {
+            return false;
+        }
+    }
+
     // 時刻チェック
     let time_parts: Vec<&str> = routine.schedule.time.split(':').collect();
     let target_hour: u32 = time_parts

@@ -45,6 +45,8 @@ export interface RoutineSchedule {
   days?: string[];
   day?: string | number;
   time: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface RoutineIssueTemplate {

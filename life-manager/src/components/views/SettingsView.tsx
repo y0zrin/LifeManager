@@ -28,6 +28,7 @@ interface SettingsViewProps {
   onSetProjectToken: (owner: string, repo: string, token: string) => Promise<void>;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
+  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null) => Promise<number>;
 }
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -41,7 +42,16 @@ const notifyTypes: Record<string, string> = {
   custom: "カスタムメッセージ",
 };
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
+type SettingsPane = "connection" | "labels" | "notifications" | "other";
+const PANES: { key: SettingsPane; label: string }[] = [
+  { key: "connection", label: "接続" },
+  { key: "labels", label: "ラベル" },
+  { key: "notifications", label: "通知" },
+  { key: "other", label: "その他" },
+];
+
+export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig, onCreateIssue }: SettingsViewProps) {
+  const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [ownerInput, setOwnerInput] = useState(owner);
@@ -98,8 +108,8 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   }, [owner, repo]);
 
   // 通知スケジュール
-  const [editingNotifs, setEditingNotifs] = useState<NotificationSchedule[]>(notificationSchedules);
   const [showNotifForm, setShowNotifForm] = useState(false);
+  const [notifSaving, setNotifSaving] = useState(false);
   const [notifName, setNotifName] = useState("");
   const [notifTime, setNotifTime] = useState("09:00");
   const [notifFrequency, setNotifFrequency] = useState("daily");
@@ -109,11 +119,12 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   const [notifMessage, setNotifMessage] = useState("");
   const [notifChannels, setNotifChannels] = useState<string[]>(["os"]);
 
-  useEffect(() => {
-    setEditingNotifs(notificationSchedules);
-  }, [notificationSchedules]);
-
-  const notifHasChanges = JSON.stringify(editingNotifs) !== JSON.stringify(notificationSchedules);
+  // フィードバック
+  const [feedbackCategory, setFeedbackCategory] = useState<"bug" | "feature" | "other">("bug");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackBody, setFeedbackBody] = useState("");
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackResult, setFeedbackResult] = useState<{ success: boolean; issueNumber?: number; error?: string } | null>(null);
 
   // イベント通知設定
   const ALL_EVENT_TYPES: EventType[] = [
@@ -150,7 +161,7 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
     });
   }
 
-  function handleAddNotif() {
+  async function handleAddNotif() {
     const schedule: RoutineSchedule = {
       frequency: notifFrequency,
       time: notifTime,
@@ -165,14 +176,48 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       ...(notifType === "custom" && notifMessage ? { message: notifMessage } : {}),
       channels: [...notifChannels],
     };
-    setEditingNotifs([...editingNotifs, newNotif]);
-    setNotifName(""); setNotifTime("09:00"); setNotifFrequency("daily");
-    setNotifDays([]); setNotifDay(""); setNotifType("today_tasks");
-    setNotifMessage(""); setNotifChannels(["os"]); setShowNotifForm(false);
+    setNotifSaving(true);
+    try {
+      await onSaveNotificationSchedules([...notificationSchedules, newNotif]);
+      setNotifName(""); setNotifTime("09:00"); setNotifFrequency("daily");
+      setNotifDays([]); setNotifDay(""); setNotifType("today_tasks");
+      setNotifMessage(""); setNotifChannels(["os"]); setShowNotifForm(false);
+    } finally {
+      setNotifSaving(false);
+    }
   }
 
-  function handleDeleteNotif(index: number) {
-    setEditingNotifs(editingNotifs.filter((_, i) => i !== index));
+  async function handleDeleteNotif(index: number) {
+    setNotifSaving(true);
+    try {
+      await onSaveNotificationSchedules(notificationSchedules.filter((_, i) => i !== index));
+    } finally {
+      setNotifSaving(false);
+    }
+  }
+
+  async function handleSendFeedback() {
+    if (!feedbackTitle.trim()) return;
+    setFeedbackSending(true);
+    setFeedbackResult(null);
+    try {
+      // ラベルが存在しなければ自動作成
+      const fbLabel = "分野:LMFeedback";
+      if (!labels.some((l) => l.name === fbLabel)) {
+        await onCreateLabel(fbLabel, "d876e3", "Life Managerへのフィードバック");
+      }
+      const prefix = feedbackCategory === "bug" ? "[バグ]" : feedbackCategory === "feature" ? "[機能要望]" : "[フィードバック]";
+      const title = `${prefix} ${feedbackTitle.trim()}`;
+      const body = `${feedbackBody}\n\n---\nLife Manager v${appVersion}`;
+      const issueNumber = await onCreateIssue(title, body, [fbLabel], null);
+      setFeedbackResult({ success: true, issueNumber });
+      setFeedbackTitle("");
+      setFeedbackBody("");
+    } catch (e) {
+      setFeedbackResult({ success: false, error: String(e) });
+    } finally {
+      setFeedbackSending(false);
+    }
   }
 
   async function handleSetToken() {
@@ -189,6 +234,20 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   return (
     <div className="content">
       <h2 style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>設定</h2>
+
+      {/* ペインタブ */}
+      <div className="settings-pane-tabs">
+        {PANES.map((p) => (
+          <button key={p.key}
+            className={`settings-pane-tab${activePane === p.key ? " settings-pane-tab--active" : ""}`}
+            onClick={() => setActivePane(p.key)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* === 接続ペイン === */}
+      {activePane === "connection" && <>
 
       {/* GitHubトークン */}
       <div className="form-card">
@@ -320,6 +379,11 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
           )}
         </div>
       </div>
+
+      </>}
+
+      {/* === ラベルペイン === */}
+      {activePane === "labels" && <>
 
       {/* ラベル管理 */}
       <div className="form-card">
@@ -474,6 +538,11 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         </div>
       </div>
 
+      </>}
+
+      {/* === 通知ペイン === */}
+      {activePane === "notifications" && <>
+
       {/* Discord Webhook */}
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>Discord Webhook通知</h3>
@@ -543,17 +612,9 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       <div className="form-card">
         <div className="settings-section-header">
           <h3 className="settings-section-title">通知スケジュール</h3>
-          <div className="flex-row" style={{ gap: "6px" }}>
-            <button onClick={() => setShowNotifForm(!showNotifForm)} className="btn-sm">
-              {showNotifForm ? "×" : "+ 追加"}
-            </button>
-            {notifHasChanges && (
-              <button onClick={() => onSaveNotificationSchedules(editingNotifs)} className="btn-primary"
-                style={{ fontSize: "var(--font-sm)" }}>
-                保存
-              </button>
-            )}
-          </div>
+          <button onClick={() => setShowNotifForm(!showNotifForm)} className="btn-sm">
+            {showNotifForm ? "×" : "+ 追加"}
+          </button>
         </div>
 
         {showNotifForm && (
@@ -626,11 +687,13 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
               </label>
             </div>
             <button onClick={handleAddNotif} className="btn-primary" style={{ alignSelf: "flex-start" }}
-              disabled={!notifName || notifChannels.length === 0}>追加</button>
+              disabled={!notifName || notifChannels.length === 0 || notifSaving}>
+              {notifSaving ? "保存中..." : "追加"}
+            </button>
           </div>
         )}
 
-        {editingNotifs.map((notif, index) => {
+        {notificationSchedules.map((notif, index) => {
           const scheduleStr = notif.schedule.frequency === "daily"
             ? `毎日${notif.schedule.days ? ` (${notif.schedule.days.map((d) => weekdayLabels[d] || d).join("")})` : ""}`
             : notif.schedule.frequency === "weekly"
@@ -650,12 +713,12 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
                   [{notif.channels.join(", ")}]
                 </span>
               </div>
-              <button className="btn-sm" onClick={() => handleDeleteNotif(index)}
+              <button className="btn-sm" onClick={() => handleDeleteNotif(index)} disabled={notifSaving}
                 style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}>削除</button>
             </div>
           );
         })}
-        {editingNotifs.length === 0 && !showNotifForm && (
+        {notificationSchedules.length === 0 && !showNotifForm && (
           <p className="settings-hint--subtle">通知スケジュールが設定されていません</p>
         )}
       </div>
@@ -736,6 +799,53 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         )}
       </div>
 
+      </>}
+
+      {/* === その他ペイン === */}
+      {activePane === "other" && <>
+
+      {/* フィードバック */}
+      {connected && (
+        <div className="form-card">
+          <div className="settings-section-header">
+            <h3 className="settings-section-title">フィードバック</h3>
+          </div>
+          <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
+            バグ報告や機能要望をIssueとして送信できます。
+          </p>
+          <div className="flex-row" style={{ gap: "var(--space-xs)", marginBottom: "var(--space-sm)" }}>
+            {(["bug", "feature", "other"] as const).map((cat) => {
+              const catLabel = cat === "bug" ? "バグ報告" : cat === "feature" ? "機能要望" : "その他";
+              return (
+                <button key={cat} className={feedbackCategory === cat ? "btn-primary" : "btn-sm"}
+                  onClick={() => setFeedbackCategory(cat)}
+                  style={{ fontSize: "var(--font-sm)" }}>
+                  {catLabel}
+                </button>
+              );
+            })}
+          </div>
+          <input value={feedbackTitle} onChange={(e) => setFeedbackTitle(e.target.value)}
+            placeholder="タイトル" className="input-full" style={{ marginBottom: "var(--space-xs)" }} />
+          <textarea value={feedbackBody} onChange={(e) => setFeedbackBody(e.target.value)}
+            placeholder="詳細（任意）" className="textarea-full" rows={3}
+            style={{ marginBottom: "var(--space-sm)" }} />
+          <button onClick={handleSendFeedback} className="btn-primary"
+            disabled={!feedbackTitle.trim() || feedbackSending}
+            style={{ alignSelf: "flex-start" }}>
+            {feedbackSending ? "送信中..." : "送信"}
+          </button>
+          {feedbackResult && (
+            <p style={{ fontSize: "var(--font-sm)", marginTop: "var(--space-xs)",
+              color: feedbackResult.success ? "var(--accent-green)" : "var(--accent-red)" }}>
+              {feedbackResult.success
+                ? `#${feedbackResult.issueNumber} として送信しました`
+                : `エラー: ${feedbackResult.error}`}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* バージョン・マニュアル */}
       <div style={{ textAlign: "center", marginTop: "var(--space-lg)" }}>
         <button
@@ -760,6 +870,8 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
           </p>
         )}
       </div>
+
+      </>}
     </div>
   );
 }

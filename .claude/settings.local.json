@@ -61,7 +61,10 @@
       "Read(//c/Program Files/Google/Chrome/Application/**)",
       "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
       "Read(//c/Program Files/Microsoft/Edge/Application/**)",
-      "WebFetch(domain:scrapbox.io)"
+      "WebFetch(domain:scrapbox.io)",
+      "WebSearch",
+      "Bash(wc:*)",
+      "Bash(find D:creativeLifeManagerlife-managersrc -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\) ! -path */node_modules/*)"
     ]
   }
 }

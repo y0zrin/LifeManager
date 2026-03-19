@@ -361,6 +361,7 @@ function App() {
           onSetProjectToken={gh.setProjectToken}
           eventNotifConfig={gh.eventNotifConfig}
           onSaveEventNotifConfig={gh.saveEventNotifConfig}
+          onCreateIssue={gh.createIssue}
         />
       )}
     </main>

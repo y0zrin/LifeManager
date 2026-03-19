@@ -1173,6 +1173,34 @@ button:hover {
 
 /* --- Settings --- */
 
+.settings-pane-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-xs);
+}
+
+.settings-pane-tab {
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.settings-pane-tab:hover {
+  color: var(--text-primary);
+}
+
+.settings-pane-tab--active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
 .settings-section-header {
   display: flex;
   justify-content: space-between;

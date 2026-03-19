@@ -2,7 +2,7 @@ routines:
 - name: てｓｔ
   schedule:
     frequency: daily
-    time: 15:47
+    time: 15:50
   issue:
     title: てｓｔ
     labels:

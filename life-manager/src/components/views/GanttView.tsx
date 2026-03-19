@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
-import type { GanttViewConfig, TimeScale } from "../../lib/ganttTypes";
-import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
-import { issuesToGanttTasks } from "../../lib/ganttParser";
-import { GanttRenderer, dateToDays } from "../../lib/ganttRenderer";
+import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
+import { TIME_SCALE_CONFIG, DEFAULT_BAR_COLORS, BAR_COLOR_LABELS } from "../../lib/ganttTypes";
+import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates } from "../../lib/ganttParser";
+import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -13,6 +13,7 @@ interface GanttViewProps {
   collaborators: GitHubUser[];
   currentUser: string;
   onSelectIssue: (n: number) => void;
+  onUpdateIssueBody: (issueNumber: number, newBody: string) => Promise<void>;
 }
 
 const ROW_HEIGHT = 36;
@@ -27,13 +28,26 @@ function formatDate(d: Date): string {
 }
 
 export function GanttView({
-  issues, closedIssues, milestones, labels, onSelectIssue,
+  issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody,
 }: GanttViewProps) {
   const [selectedMilestone, setSelectedMilestone] = useState<number | null>(() => {
     const saved = localStorage.getItem("gantt-selected-milestone");
     return saved ? parseInt(saved, 10) : null;
   });
   const [timeScale, setTimeScale] = useState<TimeScale>("week");
+  const [showCriticalPath, setShowCriticalPath] = useState(false);
+  const [showColorSettings, setShowColorSettings] = useState(false);
+  const [barColors, setBarColors] = useState<GanttBarColors>(() => {
+    try {
+      const saved = localStorage.getItem("gantt-bar-colors");
+      return saved ? { ...DEFAULT_BAR_COLORS, ...JSON.parse(saved) } : DEFAULT_BAR_COLORS;
+    } catch { return DEFAULT_BAR_COLORS; }
+  });
+  const updateBarColor = (key: keyof GanttBarColors, value: string) => {
+    const next = { ...barColors, [key]: value };
+    setBarColors(next);
+    localStorage.setItem("gantt-bar-colors", JSON.stringify(next));
+  };
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const [filterAssignee, setFilterAssignee] = useState<string>("");
@@ -113,6 +127,7 @@ export function GanttView({
 
   // 横スクロールの最大値
   const maxScrollX = useMemo(() => Math.max(0, totalWidth - canvasSize.width), [totalWidth, canvasSize.width]);
+  const criticalPath = useMemo(() => computeCriticalPath(ganttTasks), [ganttTasks]);
 
   // Canvas resize — re-run when canvas appears in DOM
   const canvasVisible = selectedMilestone !== null && ganttTasks.length > 0;
@@ -158,8 +173,8 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow);
-  }, [ganttTasks, config, scrollX, scrollY, canvasSize]);
+    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath);
+  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -175,15 +190,59 @@ export function GanttView({
   }, [ganttTasks.length, canvasSize.height, maxScrollX]);
 
 
-  // Drag to scroll
-  const dragRef = useRef<{ startX: number; startY: number; scrollX0: number; scrollY0: number; moved: boolean } | null>(null);
+  // Drag state: scroll or bar manipulation
+  type DragState =
+    | { type: "scroll"; startX: number; startY: number; scrollX0: number; scrollY0: number; moved: boolean }
+    | { type: "bar"; part: "move" | "resize-start" | "resize-end"; taskIndex: number; startX: number; origStart: string; origEnd: string; moved: boolean };
+  const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [canvasCursor, setCanvasCursor] = useState("grab");
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; task: typeof ganttTasks[0] } | null>(null);
+
+  const handleMouseMoveCanvas = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragging) { setTooltip(null); return; }
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const hit = renderer.hitTestBar(cx, cy, ganttTasks, config, scrollX, scrollY);
+    if (!hit) {
+      setCanvasCursor("grab");
+      setTooltip(null);
+      return;
+    }
+    if (hit.part === "move") setCanvasCursor("move");
+    else setCanvasCursor("col-resize");
+    const task = ganttTasks[hit.taskIndex];
+    setTooltip({ x: e.clientX, y: e.clientY, task });
+  }, [ganttTasks, config, scrollX, scrollY, dragging]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, scrollX0: scrollX, scrollY0: scrollY, moved: false };
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+
+    // バー上かチェック
+    const hit = renderer.hitTestBar(cx, cy, ganttTasks, config, scrollX, scrollY);
+    if (hit) {
+      const task = ganttTasks[hit.taskIndex];
+      if (task.startDate && task.endDate) {
+        dragRef.current = {
+          type: "bar", part: hit.part, taskIndex: hit.taskIndex,
+          startX: e.clientX, origStart: task.startDate, origEnd: task.endDate, moved: false,
+        };
+        setDragging(true);
+        return;
+      }
+    }
+    // スクロールドラッグ
+    dragRef.current = { type: "scroll", startX: e.clientX, startY: e.clientY, scrollX0: scrollX, scrollY0: scrollY, moved: false };
     setDragging(true);
-  }, [scrollX, scrollY]);
+  }, [scrollX, scrollY, ganttTasks, config]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -192,14 +251,71 @@ export function GanttView({
     const onMove = (e: MouseEvent) => {
       const d = dragRef.current;
       if (!d) return;
-      const dx = d.startX - e.clientX;
-      const dy = d.startY - e.clientY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true;
-      setScrollX(Math.min(maxScrollX, Math.max(0, d.scrollX0 + dx)));
-      setScrollY(Math.min(maxY, Math.max(0, d.scrollY0 + dy)));
+
+      if (d.type === "scroll") {
+        const dx = d.startX - e.clientX;
+        const dy = d.startY - e.clientY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true;
+        setScrollX(Math.min(maxScrollX, Math.max(0, d.scrollX0 + dx)));
+        setScrollY(Math.min(maxY, Math.max(0, d.scrollY0 + dy)));
+      } else {
+        // バードラッグ
+        const dx = e.clientX - d.startX;
+        if (Math.abs(dx) > 3) d.moved = true;
+        const dayDelta = Math.round(dx / config.pixelsPerDay);
+        if (dayDelta === 0 && !d.moved) return;
+
+        const addDays = (dateStr: string, n: number): string => {
+          const ms = dateToDays(dateStr) * 86400000 + n * 86400000;
+          const dt = new Date(ms);
+          const y = dt.getUTCFullYear();
+          const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(dt.getUTCDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        };
+
+        const task = ganttTasks[d.taskIndex];
+        let newStart = task.startDate!;
+        let newEnd = task.endDate!;
+        if (d.part === "move") {
+          newStart = addDays(d.origStart, dayDelta);
+          newEnd = addDays(d.origEnd, dayDelta);
+        } else if (d.part === "resize-start") {
+          newStart = addDays(d.origStart, dayDelta);
+          if (dateToDays(newStart) > dateToDays(d.origEnd)) newStart = d.origEnd;
+        } else {
+          newEnd = addDays(d.origEnd, dayDelta);
+          if (dateToDays(newEnd) < dateToDays(d.origStart)) newEnd = d.origStart;
+        }
+        // ローカルで即座に反映（描画のみ）
+        task.startDate = newStart;
+        task.endDate = newEnd;
+        // 再描画
+        const renderer = rendererRef.current;
+        if (renderer && canvasSize.width > 0) {
+          const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
+          const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
+          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath);
+        }
+      }
     };
-    const onUp = () => {
+
+    const onUp = async () => {
+      const d = dragRef.current;
       setDragging(false);
+      if (!d || !d.moved) return;
+
+      if (d.type === "bar") {
+        const task = ganttTasks[d.taskIndex];
+        if (!task.startDate || !task.endDate) return;
+        if (task.startDate === d.origStart && task.endDate === d.origEnd) return;
+        // Issueのbodyを更新
+        const issue = [...issues, ...closedIssues].find((i) => i.number === task.issueNumber);
+        if (!issue) return;
+        const pattern = /<!--\s*gantt:\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\s*-->/;
+        const newBody = updateBodyMetadata(issue.body, pattern, serializeGanttDates(task.startDate, task.endDate));
+        await onUpdateIssueBody(task.issueNumber, newBody);
+      }
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -207,7 +323,7 @@ export function GanttView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, ganttTasks.length, canvasSize.height, maxScrollX]);
+  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody]);
 
   // Click handler (ignore if dragged)
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -296,12 +412,43 @@ export function GanttView({
               ))}
             </div>
 
+            <button className="btn-sm"
+              onClick={() => setShowCriticalPath(!showCriticalPath)}
+              style={{
+                fontSize: "var(--font-xs)",
+                backgroundColor: showCriticalPath ? "var(--accent-red)" : undefined,
+                color: showCriticalPath ? "#fff" : undefined,
+              }}>
+              CP
+            </button>
+            <button className="btn-sm" onClick={() => setShowColorSettings(!showColorSettings)}
+              style={{ fontSize: "var(--font-xs)" }}>
+              {showColorSettings ? "×" : "色設定"}
+            </button>
             <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
               {ganttTasks.length} 件
             </span>
           </>
         )}
       </div>
+
+      {/* 色設定パネル */}
+      {showColorSettings && (
+        <div className="form-card" style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap", alignItems: "center", padding: "var(--space-sm) var(--space-md)" }}>
+          {(Object.keys(BAR_COLOR_LABELS) as (keyof GanttBarColors)[]).map((key) => (
+            <label key={key} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
+              <input type="color" value={barColors[key]}
+                onChange={(e) => updateBarColor(key, e.target.value)}
+                style={{ width: "20px", height: "20px", border: "none", padding: 0, cursor: "pointer" }} />
+              {BAR_COLOR_LABELS[key]}
+            </label>
+          ))}
+          <button className="btn-sm" style={{ fontSize: "var(--font-xs)" }}
+            onClick={() => { setBarColors(DEFAULT_BAR_COLORS); localStorage.removeItem("gantt-bar-colors"); }}>
+            リセット
+          </button>
+        </div>
+      )}
 
       {/* Main area */}
       {selectedMilestone === null ? (
@@ -320,6 +467,8 @@ export function GanttView({
               flexDirection: "column",
             }}
           >
+            {/* スクロールバー分のスペーサー（右パネルと高さを揃える） */}
+            <div style={{ height: 14, flexShrink: 0, backgroundColor: "var(--bg-secondary)", borderBottom: "1px solid var(--border-subtle)" }} />
             {/* 固定ヘッダー */}
             <div style={{
               height: HEADER_HEIGHT,
@@ -424,11 +573,28 @@ export function GanttView({
             <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
               <canvas
                 ref={canvasRef}
-                style={{ display: "block", width: "100%", height: "100%", cursor: dragging ? "grabbing" : "grab" }}
+                style={{ display: "block", width: "100%", height: "100%", cursor: dragging ? (dragRef.current?.type === "bar" ? canvasCursor : "grabbing") : canvasCursor }}
                 onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMoveCanvas}
+                onMouseLeave={() => setTooltip(null)}
                 onClick={handleCanvasClick}
               />
+              {tooltip && (
+                <div className="gantt-tooltip" style={{
+                  left: tooltip.x - (canvasRef.current?.getBoundingClientRect().left ?? 0) + 12,
+                  top: tooltip.y - (canvasRef.current?.getBoundingClientRect().top ?? 0) - 8,
+                }}>
+                  <div className="gantt-tooltip-title">#{tooltip.task.issueNumber} {tooltip.task.title}</div>
+                  {tooltip.task.startDate && tooltip.task.endDate && (
+                    <div className="gantt-tooltip-dates">{tooltip.task.startDate} 〜 {tooltip.task.endDate}</div>
+                  )}
+                  <div className="gantt-tooltip-progress">進捗: {tooltip.task.progressValue}%</div>
+                  {tooltip.task.assignees.length > 0 && (
+                    <div className="gantt-tooltip-assignees">担当: {tooltip.task.assignees.map(a => a.login).join(", ")}</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

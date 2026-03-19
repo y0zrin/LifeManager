@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
+import { serializeGanttDates } from "../../lib/ganttParser";
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
@@ -38,7 +39,19 @@ export function DashboardView({
   const [issueAssignees, setIssueAssignees] = useState<string[]>(currentUser ? [currentUser] : []);
   const [issueReminderDatetime, setIssueReminderDatetime] = useState("");
   const [issueReminderChannels, setIssueReminderChannels] = useState<string[]>(["os"]);
+  const [issueGanttStart, setIssueGanttStart] = useState("");
+  const [issueGanttEnd, setIssueGanttEnd] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const suggestions = useMemo(() => {
+    if (issueTitle.length < 2) return [];
+    const q = issueTitle.toLowerCase();
+    return [...issues, ...closedIssues]
+      .filter(i => i.title.toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [issueTitle, issues, closedIssues]);
 
   // プロジェクト切替時にマイルストーン選択をリセット
   useEffect(() => {
@@ -49,14 +62,22 @@ export function DashboardView({
 
   async function handleMemoSubmit() {
     if (!memoText.trim()) return;
-    await onCreateMemo(memoText, memoTheme);
+    const text = memoText;
+    const theme = memoTheme;
     setMemoText("");
+    await onCreateMemo(text, theme);
   }
 
   async function handleIssueCreate() {
     if (!issueTitle.trim()) return;
     const title = issueTitle;
-    const body = issueBody;
+    let body = issueBody;
+    // ガントメタデータをbodyに追記
+    if (issueGanttStart && issueGanttEnd) {
+      const s = issueGanttStart <= issueGanttEnd ? issueGanttStart : issueGanttEnd;
+      const e = issueGanttStart <= issueGanttEnd ? issueGanttEnd : issueGanttStart;
+      body = body.trimEnd() + "\n" + serializeGanttDates(s, e);
+    }
     const labels = [...issueSelectedLabels];
     const milestone = issueMilestone || null;
     const assignees = issueAssignees.length > 0 ? [...issueAssignees] : undefined;
@@ -70,6 +91,8 @@ export function DashboardView({
     setIssueSelectedLabels([]);
     setIssueAssignees(currentUser ? [currentUser] : []);
     setIssueReminderDatetime("");
+    setIssueGanttStart("");
+    setIssueGanttEnd("");
     // バックグラウンドで作成
     const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
     if (reminderDt && reminderCh.length > 0 && issueNumber) {
@@ -84,6 +107,17 @@ export function DashboardView({
 
   const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : [...issues, ...closedIssues];
   const filteredIssues = baseIssues.filter((issue) => {
+    // テキスト検索
+    if (searchQuery.length >= 1) {
+      const raw = searchQuery.trim();
+      const numMatch = raw.match(/^#?(\d+)$/);
+      if (numMatch) {
+        if (issue.number !== parseInt(numMatch[1])) return false;
+      } else if (raw.length >= 2) {
+        const q = raw.toLowerCase();
+        if (!issue.title.toLowerCase().includes(q) && !(issue.body && issue.body.toLowerCase().includes(q))) return false;
+      }
+    }
     // 担当者フィルタ
     if (assigneeFilter) {
       if (!issue.assignees?.some((a) => a.login === assigneeFilter)) return false;
@@ -94,7 +128,7 @@ export function DashboardView({
     );
   });
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length + (assigneeFilter ? 1 : 0);
+  const activeFilterCount = Object.values(filters).filter(Boolean).length + (assigneeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
 
   return (
     <div className="content">
@@ -115,6 +149,17 @@ export function DashboardView({
           <option value="分野:学習">学習</option>
         </select>
         <button onClick={handleMemoSubmit} className="btn-primary">投入</button>
+      </div>
+
+      {/* 検索 */}
+      <div className="search-bar">
+        <input value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Issue を検索..."
+          className="search-input" />
+        {searchQuery && (
+          <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
+        )}
       </div>
 
       {/* フィルタ & アクション */}
@@ -153,7 +198,7 @@ export function DashboardView({
           <option value="all">両方</option>
         </select>
         {activeFilterCount > 0 && (
-          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
+          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); setSearchQuery(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
             リセット
           </button>
         )}
@@ -166,8 +211,27 @@ export function DashboardView({
       {/* Issue作成フォーム */}
       {showIssueForm && (
         <div className="form-card">
-          <input value={issueTitle} onChange={(e) => setIssueTitle(e.target.value)}
-            placeholder="タイトル" className="input-full" />
+          <div style={{ position: "relative" }}>
+            <input value={issueTitle}
+              onChange={(e) => { setIssueTitle(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder="タイトル" className="input-full" />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="suggestion-dropdown">
+                {suggestions.map((s) => (
+                  <button key={s.number} className="suggestion-item"
+                    onMouseDown={(e) => { e.preventDefault(); onSelectIssue(s.number); setShowSuggestions(false); }}>
+                    <span className={`suggestion-state suggestion-state--${s.state}`}>
+                      {s.state === "open" ? "●" : "○"}
+                    </span>
+                    <span className="suggestion-number">#{s.number}</span>
+                    <span className="suggestion-title">{s.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <textarea ref={bodyRef} value={issueBody} onChange={(e) => setIssueBody(e.target.value)}
             placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full" />
           <button type="button" className="btn-sm" style={{ fontSize: "11px", marginBottom: "6px" }}
@@ -236,6 +300,16 @@ export function DashboardView({
               </div>
             </div>
           )}
+          {/* ガント日程 */}
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px" }}>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>日程:</span>
+            <input type="date" value={issueGanttStart} onChange={(e) => setIssueGanttStart(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
+            <input type="date" value={issueGanttEnd} onChange={(e) => setIssueGanttEnd(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>(ガント)</span>
+          </div>
           {/* リマインダー設定 */}
           <div style={{ marginTop: "4px" }}>
             <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>リマインダー (任意):</span>

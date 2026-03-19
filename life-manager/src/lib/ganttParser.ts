@@ -6,7 +6,9 @@ export function parseGanttDates(body: string | null): { start: string; end: stri
   if (!body) return null;
   const m = body.match(/<!--\s*gantt:(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})\s*-->/);
   if (!m) return null;
-  return { start: m[1], end: m[2] };
+  // 開始日 > 終了日なら入れ替え
+  const [a, b] = [m[1], m[2]];
+  return a <= b ? { start: a, end: b } : { start: b, end: a };
 }
 
 /** Issue bodyから <!-- depends:#N,#N --> を抽出 */

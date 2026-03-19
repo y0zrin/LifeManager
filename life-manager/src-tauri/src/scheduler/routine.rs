@@ -98,6 +98,10 @@ pub struct Schedule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day: Option<serde_json::Value>,
     pub time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -136,6 +140,19 @@ fn weekday_str(wd: Weekday) -> &'static str {
 }
 
 fn should_run(routine: &Routine, hour: u32, minute: u32, weekday: Weekday, month_day: u32) -> bool {
+    // 期間チェック
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    if let Some(start) = &routine.schedule.start_date {
+        if today < *start {
+            return false;
+        }
+    }
+    if let Some(end) = &routine.schedule.end_date {
+        if today > *end {
+            return false;
+        }
+    }
+
     // 時刻チェック
     let time_parts: Vec<&str> = routine.schedule.time.split(':').collect();
     let target_hour: u32 = time_parts
@@ -220,15 +237,11 @@ pub async fn send_discord_if_configured_public(owner: &str, repo: &str, text: &s
     send_discord_if_configured(owner, repo, text).await;
 }
 
-// --- Discord通知送信ヘルパー（Webhook設定済みの場合のみ） ---
+// --- Discord通知送信ヘルパー（Bot優先、Webhookフォールバック） ---
 
 async fn send_discord_if_configured(owner: &str, repo: &str, text: &str) {
-    if let Some(webhook_url) = discord::load_webhook_url_for_project(owner, repo) {
-        if !webhook_url.is_empty() {
-            if let Err(e) = discord::send_discord(&webhook_url, text).await {
-                eprintln!("Discord通知エラー: {}", e);
-            }
-        }
+    if let Err(e) = discord::send_discord_for_project(owner, repo, text).await {
+        eprintln!("Discord通知エラー: {}", e);
     }
 }
 
@@ -486,16 +499,31 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                     .await
                 {
                     Ok(_) => {
-                        // ルーチンIssue作成成功 → 通知を送信
-                        send_os_notification(
-                            &app,
-                            "ルーチン",
-                            &format!("{} を作成しました", title),
-                        );
-                        send_discord_if_configured(
-                            &owner, &repo,
-                            &format!("📋 ルーチンIssue作成: **{}**", title),
-                        ).await;
+                        // ルーチンIssue作成成功 → 常にOS通知 + イベント設定に従いDiscord
+                        let message = format!("📋 ルーチンIssue作成: {}", title);
+                        send_os_notification(&app, "ルーチン", &message);
+
+                        // Discord はイベント設定に従う
+                        let send_discord = if let Some(nc) = &cached_notif_config {
+                            if let Some(ec) = &nc.event_notifications {
+                                if ec.enabled {
+                                    if let Some(entry) = ec.events.get("routine_created") {
+                                        entry.enabled && entry.channels.contains(&"discord".to_string())
+                                    } else {
+                                        true // routine_created 未設定ならデフォルト送信
+                                    }
+                                } else {
+                                    false // イベント通知が無効
+                                }
+                            } else {
+                                true // event_notifications 未設定ならデフォルト
+                            }
+                        } else {
+                            true // config未読み込みならデフォルト
+                        };
+                        if send_discord {
+                            send_discord_if_configured(&owner, &repo, &message).await;
+                        }
                     }
                     Err(e) => {
                         eprintln!("ルーチンIssue作成エラー: {}", e);

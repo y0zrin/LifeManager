@@ -2,11 +2,11 @@ routines:
 - name: 実行テスト
   schedule:
     frequency: daily
-    time: 14:30
+    time: 15:18
     start_date: 2026-03-19
     end_date: 2026-03-20
   issue:
     title: 実行テスト
     labels:
     - 種別:ルーチン
-  auto_close: 14:35
+  auto_close: 15:35

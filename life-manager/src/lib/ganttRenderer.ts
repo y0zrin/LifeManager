@@ -1,4 +1,5 @@
-import type { GanttTask, GanttViewConfig } from "./ganttTypes";
+import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
+import { DEFAULT_BAR_COLORS } from "./ganttTypes";
 
 interface ThemeColors {
   bgPrimary: string;
@@ -58,6 +59,52 @@ function dayOfWeekUTC(dateStr: string): number {
   return d.getUTCDay(); // 0=Sun
 }
 
+/** クリティカルパス計算: 依存関係チェーン中で最長のパス上にあるタスクのissueNumber集合を返す */
+export function computeCriticalPath(tasks: GanttTask[]): Set<number> {
+  const byNum = new Map<number, GanttTask>();
+  for (const t of tasks) byNum.set(t.issueNumber, t);
+
+  // 各タスクの「最遅終了日」を依存チェーンの末端から逆算
+  const cache = new Map<number, { end: number; chain: number[] }>();
+
+  function longest(num: number): { end: number; chain: number[] } {
+    if (cache.has(num)) return cache.get(num)!;
+    const t = byNum.get(num);
+    if (!t || !t.endDate) {
+      const r = { end: 0, chain: [] as number[] };
+      cache.set(num, r);
+      return r;
+    }
+    const myEnd = dateToDays(t.endDate);
+
+    // このタスクに依存しているタスク（後続タスク）を探す
+    let best = { end: myEnd, chain: [num] };
+    for (const other of tasks) {
+      if (other.dependencies.includes(num) && other.startDate && other.endDate) {
+        const sub = longest(other.issueNumber);
+        if (sub.end > best.end) {
+          best = { end: sub.end, chain: [num, ...sub.chain] };
+        }
+      }
+    }
+    cache.set(num, best);
+    return best;
+  }
+
+  // 全タスクから開始して最長チェーンを求める
+  let criticalChain: number[] = [];
+  let maxEnd = 0;
+  for (const t of tasks) {
+    if (!t.startDate || !t.endDate) continue;
+    const result = longest(t.issueNumber);
+    if (result.end > maxEnd || (result.end === maxEnd && result.chain.length > criticalChain.length)) {
+      maxEnd = result.end;
+      criticalChain = result.chain;
+    }
+  }
+  return new Set(criticalChain);
+}
+
 export class GanttRenderer {
   private ctx: CanvasRenderingContext2D;
   private dpr: number;
@@ -82,14 +129,17 @@ export class GanttRenderer {
     canvasHeight: number,
     startRow: number,
     endRow: number,
+    criticalPath?: Set<number>,
+    barColors?: GanttBarColors,
+    showCPLabel?: boolean,
   ) {
     const ctx = this.ctx;
     ctx.save();
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    this.drawGrid(config, scrollX, canvasWidth, canvasHeight);
+    this.drawGrid(config, scrollX, scrollY, canvasWidth, canvasHeight, tasks.length);
     this.drawTodayLine(config, scrollX, canvasHeight);
-    this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow);
+    this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false);
     this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow);
     this.drawHeader(config, scrollX, canvasWidth);
 
@@ -165,9 +215,9 @@ export class GanttRenderer {
     }
   }
 
-  private drawGrid(config: GanttViewConfig, scrollX: number, canvasWidth: number, canvasHeight: number) {
+  private drawGrid(config: GanttViewConfig, scrollX: number, scrollY: number, canvasWidth: number, canvasHeight: number, taskCount: number) {
     const ctx = this.ctx;
-    const { pixelsPerDay, startDate, headerHeight } = config;
+    const { pixelsPerDay, startDate, headerHeight, rowHeight } = config;
 
     const visibleStartDay = Math.floor(scrollX / pixelsPerDay);
     const visibleEndDay = Math.ceil((scrollX + canvasWidth) / pixelsPerDay);
@@ -183,7 +233,7 @@ export class GanttRenderer {
         ctx.fillRect(x - 0.5, headerHeight, pixelsPerDay, canvasHeight - headerHeight);
       }
 
-      // Gridline
+      // Gridline (vertical)
       const isGridLine =
         config.timeScale === "day" ||
         (config.timeScale === "week" && dow === 1) ||
@@ -197,6 +247,20 @@ export class GanttRenderer {
         ctx.lineTo(x, canvasHeight);
         ctx.stroke();
       }
+    }
+
+    // 行の水平罫線
+    ctx.strokeStyle = this.colors.borderSubtle;
+    ctx.lineWidth = 0.5;
+    const startRow = Math.max(0, Math.floor(scrollY / rowHeight));
+    const endRow = Math.min(taskCount, Math.ceil((scrollY + canvasHeight) / rowHeight) + 1);
+    for (let r = startRow; r <= endRow; r++) {
+      const y = Math.round(headerHeight + r * rowHeight - scrollY) + 0.5;
+      if (y < headerHeight || y > canvasHeight) continue;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvasWidth, y);
+      ctx.stroke();
     }
   }
 
@@ -224,10 +288,15 @@ export class GanttRenderer {
     canvasWidth: number,
     startRow: number,
     endRow: number,
+    criticalPath?: Set<number>,
+    barColors: GanttBarColors = DEFAULT_BAR_COLORS,
+    showCPLabel: boolean = false,
   ) {
     const ctx = this.ctx;
     const barHeight = config.rowHeight * 0.6;
     const barMargin = (config.rowHeight - barHeight) / 2;
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     for (let i = startRow; i < endRow && i < tasks.length; i++) {
       const task = tasks[i];
@@ -241,11 +310,11 @@ export class GanttRenderer {
       // Skip if off screen
       if (x2 < 0 || x1 > canvasWidth) continue;
 
-      // Bar color from status label
-      const barColor = this.getBarColor(task);
+      const isCritical = criticalPath?.has(task.issueNumber) ?? false;
+      const barColor = this.resolveBarColor(task, isCritical, barColors);
 
       // Background (full bar)
-      ctx.fillStyle = barColor + "40"; // 25% opacity
+      ctx.fillStyle = barColor + "40";
       ctx.beginPath();
       ctx.roundRect(x1, y, barWidth, barHeight, 3);
       ctx.fill();
@@ -253,18 +322,60 @@ export class GanttRenderer {
       // Progress fill
       if (task.progressValue > 0) {
         const progressWidth = barWidth * (task.progressValue / 100);
-        ctx.fillStyle = barColor + "B0"; // 70% opacity
+        ctx.fillStyle = barColor + "B0";
         ctx.beginPath();
         ctx.roundRect(x1, y, progressWidth, barHeight, 3);
         ctx.fill();
       }
 
-      // Border
-      ctx.strokeStyle = barColor;
-      ctx.lineWidth = 1;
+      // Border (critical path = thick)
+      ctx.strokeStyle = isCritical ? barColors.critical : barColor;
+      ctx.lineWidth = isCritical ? 2.5 : 1;
       ctx.beginPath();
       ctx.roundRect(x1, y, barWidth, barHeight, 3);
       ctx.stroke();
+
+      // Critical path marker (CPボタンON時のみテキスト表示)
+      if (isCritical && showCPLabel && barWidth > 30) {
+        ctx.fillStyle = barColors.critical;
+        ctx.font = "bold 8px sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText("CP", x2 - 4, y + 10);
+      }
+
+      // 遅延/前倒し表示
+      const todayDays = dateToDays(todayStr);
+      const endDays = dateToDays(task.endDate);
+      if (task.state === "closed") {
+        // 完了済みで予定より早い場合 → 前倒し表示（明るい緑）
+        const diff = endDays - todayDays;
+        if (diff > 0) {
+          ctx.fillStyle = barColors.closed + "50";
+          ctx.font = "bold 9px sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(`${diff}日前倒し`, x2 - 4, y - 2);
+        }
+      } else if (todayDays > endDays) {
+        // 未完了で期限超過 → 赤い延長バー（透過なし）
+        const delayDays = todayDays - endDays;
+        const delayX = x2;
+        const delayWidth = delayDays * config.pixelsPerDay;
+        ctx.fillStyle = barColors.blocked;
+        ctx.beginPath();
+        ctx.roundRect(delayX, y, delayWidth, barHeight, [0, 3, 3, 0]);
+        ctx.fill();
+        // 遅延日数テキスト
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 9px sans-serif";
+        ctx.textAlign = "left";
+        if (delayWidth > 25) {
+          ctx.fillText(`+${delayDays}d`, delayX + 3, y + barHeight / 2 + 3);
+        } else {
+          ctx.textAlign = "left";
+          ctx.fillStyle = barColors.blocked;
+          ctx.fillText(`+${delayDays}d`, delayX + delayWidth + 2, y + barHeight / 2 + 3);
+        }
+      }
 
       // Progress text inside bar
       if (barWidth > 50) {
@@ -276,14 +387,16 @@ export class GanttRenderer {
     }
   }
 
-  private getBarColor(task: GanttTask): string {
-    if (task.state === "closed") return this.colors.accentGreen;
+  private resolveBarColor(task: GanttTask, isCritical: boolean, colors: GanttBarColors): string {
+    if (task.state === "closed") return colors.closed;
+    if (isCritical) return colors.critical;
+    if (task.labels.some((l) => l.name === "優先:高")) return colors.highPriority;
     const statusLabel = task.labels.find((l) => l.name.startsWith("状態:"));
     if (statusLabel) {
-      if (statusLabel.name === "状態:進行中") return this.colors.accentBlue;
-      if (statusLabel.name === "状態:ブロック") return this.colors.accentRed;
+      if (statusLabel.name === "状態:進行中") return colors.inProgress;
+      if (statusLabel.name === "状態:ブロック") return colors.blocked;
     }
-    return this.colors.textMuted;
+    return colors.default;
   }
 
   private drawDependencyArrows(
@@ -310,8 +423,9 @@ export class GanttRenderer {
         const depIdx = taskIndex.get(depNum);
         if (depIdx === undefined) continue;
         const dep = tasks[depIdx];
-        if (!dep.endDate) continue;
+        if (!dep.startDate || !dep.endDate) continue;
 
+        // 先行タスクの右端 → 後続タスクの左端
         const fromX = this.dateToX(dep.endDate, config, scrollX) + config.pixelsPerDay;
         const fromY = this.rowToY(depIdx, config, scrollY) + barMidY;
         const toX = this.dateToX(task.startDate, config, scrollX);
@@ -321,29 +435,27 @@ export class GanttRenderer {
         ctx.lineWidth = 1.5;
         ctx.beginPath();
 
-        const midX = fromX + gap;
-        if (toX >= midX) {
-          // バー重なりなし: シンプルなS字
+        if (toX >= fromX + gap) {
+          // 重なりなし: S字カーブ
           const bendX = (fromX + toX) / 2;
           ctx.moveTo(fromX, fromY);
           ctx.lineTo(bendX, fromY);
           ctx.lineTo(bendX, toY);
           ctx.lineTo(toX, toY);
         } else {
-          // バー重なりあり: 行間の隙間を通る迂回ルート
-          const channelRow = depIdx < i ? depIdx + 1 : depIdx;
-          const channelY = this.rowToY(channelRow, config, scrollY);
-          const elbowL = toX - gap;
+          // 重なりあり: 行間を迂回
+          const belowRow = Math.max(depIdx, i) + 1;
+          const channelY = this.rowToY(belowRow, config, scrollY) - 2;
           ctx.moveTo(fromX, fromY);
-          ctx.lineTo(midX, fromY);
-          ctx.lineTo(midX, channelY);
-          ctx.lineTo(elbowL, channelY);
-          ctx.lineTo(elbowL, toY);
+          ctx.lineTo(fromX + gap, fromY);
+          ctx.lineTo(fromX + gap, channelY);
+          ctx.lineTo(toX - gap, channelY);
+          ctx.lineTo(toX - gap, toY);
           ctx.lineTo(toX, toY);
         }
         ctx.stroke();
 
-        // Arrowhead
+        // 矢印ヘッド（常に右向き、後続タスクの左端に向かう）
         ctx.fillStyle = this.colors.textSecondary;
         ctx.beginPath();
         ctx.moveTo(toX, toY);
@@ -377,5 +489,52 @@ export class GanttRenderer {
       return task.issueNumber;
     }
     return null;
+  }
+
+  /** バーのどの部位をクリックしたか判定 */
+  hitTestBar(
+    canvasX: number,
+    canvasY: number,
+    tasks: GanttTask[],
+    config: GanttViewConfig,
+    scrollX: number,
+    scrollY: number,
+  ): { taskIndex: number; part: "move" | "resize-start" | "resize-end" } | null {
+    // ヘッダー領域はスキップ
+    if (canvasY < config.headerHeight) return null;
+
+    const EDGE = 6;
+    const rowIndex = Math.floor((canvasY - config.headerHeight + scrollY) / config.rowHeight);
+    if (rowIndex < 0 || rowIndex >= tasks.length) return null;
+
+    const task = tasks[rowIndex];
+    if (!task.startDate || !task.endDate) return null;
+
+    // バーのY範囲チェック
+    const barHeight = config.rowHeight * 0.6;
+    const barMargin = (config.rowHeight - barHeight) / 2;
+    const barY = this.rowToY(rowIndex, config, scrollY) + barMargin;
+    if (canvasY < barY || canvasY > barY + barHeight) return null;
+
+    const x1 = this.dateToX(task.startDate, config, scrollX);
+    const x2 = this.dateToX(task.endDate, config, scrollX) + config.pixelsPerDay;
+
+    if (canvasX < x1 || canvasX > x2) return null;
+
+    if (canvasX <= x1 + EDGE) return { taskIndex: rowIndex, part: "resize-start" };
+    if (canvasX >= x2 - EDGE) return { taskIndex: rowIndex, part: "resize-end" };
+    return { taskIndex: rowIndex, part: "move" };
+  }
+
+  /** ピクセルX座標を日付文字列に変換 */
+  xToDate(canvasX: number, config: GanttViewConfig, scrollX: number): string {
+    const days = Math.floor((canvasX + scrollX) / config.pixelsPerDay);
+    const epochDays = days + dateToDays(config.startDate);
+    const ms = epochDays * 86400000;
+    const d = new Date(ms);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 }

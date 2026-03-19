@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
+import { serializeGanttDates } from "../../lib/ganttParser";
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
@@ -38,6 +39,8 @@ export function DashboardView({
   const [issueAssignees, setIssueAssignees] = useState<string[]>(currentUser ? [currentUser] : []);
   const [issueReminderDatetime, setIssueReminderDatetime] = useState("");
   const [issueReminderChannels, setIssueReminderChannels] = useState<string[]>(["os"]);
+  const [issueGanttStart, setIssueGanttStart] = useState("");
+  const [issueGanttEnd, setIssueGanttEnd] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -68,7 +71,13 @@ export function DashboardView({
   async function handleIssueCreate() {
     if (!issueTitle.trim()) return;
     const title = issueTitle;
-    const body = issueBody;
+    let body = issueBody;
+    // ガントメタデータをbodyに追記
+    if (issueGanttStart && issueGanttEnd) {
+      const s = issueGanttStart <= issueGanttEnd ? issueGanttStart : issueGanttEnd;
+      const e = issueGanttStart <= issueGanttEnd ? issueGanttEnd : issueGanttStart;
+      body = body.trimEnd() + "\n" + serializeGanttDates(s, e);
+    }
     const labels = [...issueSelectedLabels];
     const milestone = issueMilestone || null;
     const assignees = issueAssignees.length > 0 ? [...issueAssignees] : undefined;
@@ -82,6 +91,8 @@ export function DashboardView({
     setIssueSelectedLabels([]);
     setIssueAssignees(currentUser ? [currentUser] : []);
     setIssueReminderDatetime("");
+    setIssueGanttStart("");
+    setIssueGanttEnd("");
     // バックグラウンドで作成
     const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
     if (reminderDt && reminderCh.length > 0 && issueNumber) {
@@ -289,6 +300,16 @@ export function DashboardView({
               </div>
             </div>
           )}
+          {/* ガント日程 */}
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px" }}>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>日程:</span>
+            <input type="date" value={issueGanttStart} onChange={(e) => setIssueGanttStart(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
+            <input type="date" value={issueGanttEnd} onChange={(e) => setIssueGanttEnd(e.target.value)}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
+            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>(ガント)</span>
+          </div>
           {/* リマインダー設定 */}
           <div style={{ marginTop: "4px" }}>
             <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>リマインダー (任意):</span>

@@ -23,6 +23,33 @@ export interface GanttViewConfig {
   pixelsPerDay: number;
 }
 
+export interface GanttBarColors {
+  default: string;
+  inProgress: string;
+  blocked: string;
+  closed: string;
+  critical: string;
+  highPriority: string;
+}
+
+export const DEFAULT_BAR_COLORS: GanttBarColors = {
+  default: "#888888",
+  inProgress: "#0075CA",
+  blocked: "#D73A4A",
+  closed: "#2DA44E",
+  critical: "#CF222E",
+  highPriority: "#E16F24",
+};
+
+export const BAR_COLOR_LABELS: Record<keyof GanttBarColors, string> = {
+  default: "デフォルト",
+  inProgress: "進行中",
+  blocked: "ブロック",
+  closed: "完了",
+  critical: "クリティカルパス",
+  highPriority: "優先:高",
+};
+
 export const TIME_SCALE_CONFIG: Record<TimeScale, { pixelsPerDay: number; label: string }> = {
   day: { pixelsPerDay: 40, label: "日" },
   week: { pixelsPerDay: 12, label: "週" },

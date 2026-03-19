@@ -20,9 +20,10 @@ interface IssueDetailModalProps {
   reminders: Reminder[];
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
   onRemoveReminder: (issueNumber: number, datetime: string) => Promise<void>;
+  allIssues?: GitHubIssue[];
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [] }: IssueDetailModalProps) {
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,18 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   const [ganttProgressMode, setGanttProgressMode] = useState<ProgressMode>(ganttProgress.mode);
   const [ganttProgressValue, setGanttProgressValue] = useState(String(ganttProgress.value));
   const [ganttSaving, setGanttSaving] = useState(false);
+  const [depSearch, setDepSearch] = useState("");
+  const [showDepSuggestions, setShowDepSuggestions] = useState(false);
+  const depSuggestions = depSearch.length >= 1
+    ? allIssues
+        .filter((i) => {
+          if (i.number === issue.number) return false;
+          const numMatch = depSearch.match(/^#?(\d+)$/);
+          if (numMatch) return String(i.number).includes(numMatch[1]);
+          return i.title.toLowerCase().includes(depSearch.toLowerCase());
+        })
+        .slice(0, 5)
+    : [];
 
   useEffect(() => {
     loadComments();
@@ -492,11 +505,60 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
           </div>
 
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
-            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>先行:</label>
-            <input value={ganttDepsInput} onChange={(e) => setGanttDepsInput(e.target.value)}
-              placeholder="#12,#15"
-              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "120px" }} />
+          <div style={{ marginBottom: "6px" }}>
+            <label style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>先行:</label>
+            <div style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", marginBottom: "4px" }}>
+              {ganttDepsInput.split(",").filter(Boolean).map((s) => {
+                const num = parseInt(s.replace("#", "").trim(), 10);
+                if (isNaN(num)) return null;
+                const depIssue = allIssues.find((i) => i.number === num);
+                return (
+                  <span key={num} style={{
+                    display: "inline-flex", alignItems: "center", gap: "3px",
+                    padding: "1px 6px", borderRadius: "10px", fontSize: "11px",
+                    backgroundColor: "var(--bg-tertiary)", color: "var(--text-secondary)",
+                  }}>
+                    #{num}{depIssue ? ` ${depIssue.title.substring(0, 15)}` : ""}
+                    <span style={{ cursor: "pointer", color: "var(--text-faint)", marginLeft: "2px" }}
+                      onClick={() => {
+                        const deps = ganttDepsInput.split(",").map(x => x.trim()).filter(x => x && parseInt(x.replace("#", ""), 10) !== num);
+                        setGanttDepsInput(deps.join(","));
+                      }}>×</span>
+                  </span>
+                );
+              })}
+            </div>
+            <div style={{ position: "relative" }}>
+              <input value={depSearch}
+                onChange={(e) => { setDepSearch(e.target.value); setShowDepSuggestions(true); }}
+                onFocus={() => setShowDepSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowDepSuggestions(false), 200)}
+                placeholder="Issue検索して追加..."
+                style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "200px" }} />
+              {showDepSuggestions && depSuggestions.length > 0 && (
+                <div className="suggestion-dropdown" style={{ maxWidth: "300px" }}>
+                  {depSuggestions.map((s) => (
+                    <button key={s.number} className="suggestion-item"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const existing = ganttDepsInput.split(",").map(x => x.trim()).filter(Boolean);
+                        if (!existing.some(x => parseInt(x.replace("#", ""), 10) === s.number)) {
+                          const newDeps = [...existing, `#${s.number}`].join(",");
+                          setGanttDepsInput(newDeps);
+                        }
+                        setDepSearch("");
+                        setShowDepSuggestions(false);
+                      }}>
+                      <span className={`suggestion-state suggestion-state--${s.state}`}>
+                        {s.state === "open" ? "●" : "○"}
+                      </span>
+                      <span className="suggestion-number">#{s.number}</span>
+                      <span className="suggestion-title">{s.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
@@ -534,7 +596,9 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               try {
                 let body = stripGanttMetadata(issue.body || "");
                 if (ganttStart && ganttEnd) {
-                  body += "\n" + serializeGanttDates(ganttStart, ganttEnd);
+                  const s = ganttStart <= ganttEnd ? ganttStart : ganttEnd;
+                  const e = ganttStart <= ganttEnd ? ganttEnd : ganttStart;
+                  body += "\n" + serializeGanttDates(s, e);
                 }
                 const deps = ganttDepsInput.split(",").map((s) => parseInt(s.replace("#", "").trim(), 10)).filter((n) => !isNaN(n));
                 if (deps.length > 0) {

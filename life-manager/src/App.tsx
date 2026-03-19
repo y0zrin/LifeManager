@@ -311,6 +311,7 @@ function App() {
           collaborators={gh.collaborators}
           currentUser={gh.currentUser}
           onSelectIssue={setSelectedIssue}
+          onUpdateIssueBody={gh.updateIssueBody}
         />
       )}
 
@@ -334,6 +335,7 @@ function App() {
             reminders={gh.reminders}
             onAddReminder={gh.addReminder}
             onRemoveReminder={gh.removeReminder}
+            allIssues={[...gh.issues, ...gh.closedIssues]}
           />
         ) : null;
       })()}

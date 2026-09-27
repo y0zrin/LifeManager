@@ -4,6 +4,7 @@ import type { GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { githubMessage, isSameRepo, repoOf } from "../../lib/subIssues";
 import { IssueIndexContext, useParentOf } from "./SubIssueMarks";
+import { isEnter } from "../../lib/keys";
 
 /** サブイシューの読み書き（useGitHub のもの） */
 export interface SubIssueApi {
@@ -213,7 +214,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
           placeholder={linking ? "番号かタイトルで探す（例：#42）" : "子の Issue を作る（タイトルを入れて Enter）"}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+            if (isEnter(e)) {
               e.preventDefault();
               if (linking) {
                 if (candidates.length === 1) link(candidates[0]);

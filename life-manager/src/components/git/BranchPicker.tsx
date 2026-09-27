@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useDismiss } from "../../hooks/useDismiss";
 import { shortWhen, type BranchEntry } from "../../lib/history";
 import type { GitCommit } from "../../lib/types";
+import { isEnter } from "../../lib/keys";
 
 interface BranchPickerProps {
   entries: BranchEntry[];
@@ -81,7 +82,7 @@ export function BranchPicker({ entries, selected, byHash, local, onPick, onMenu 
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && list[0]) pick(list[0].name); }}
+            onKeyDown={(e) => { if (isEnter(e) && list[0]) pick(list[0].name); }}
           />
           {main.length > 0 && <div className="bsw-group">主要</div>}
           {main.map(item)}

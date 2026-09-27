@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isEscape } from "../../lib/keys";
 
 /** メニューの項目。code は実行するコマンド、hint は押せない理由（押せないボタンには title が出ないので、下に小さく書く） */
 export type MenuItem =
@@ -34,7 +35,7 @@ export function ContextMenu({ spec, onClose }: { spec: MenuSpec; onClose: () => 
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
+      if (isEscape(e)) {
         onClose();
         return;
       }

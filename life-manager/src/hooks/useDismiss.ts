@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from "react";
+import { isEscape } from "../lib/keys";
 
 /** 外側をクリックしたり Esc を押したりしたら閉じる（プルダウン・メニュー用） */
 export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, onClose: () => void) {
@@ -8,7 +9,7 @@ export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, on
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (isEscape(e)) onClose();
     }
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);

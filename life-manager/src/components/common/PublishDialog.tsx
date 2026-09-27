@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as git from "../../lib/git";
+import { isEscape } from "../../lib/keys";
 
 interface PublishDialogProps {
   /** GitHub にログインしている人（リポジトリの持ち主の候補） */
@@ -48,7 +49,7 @@ export function PublishDialog({ login, onBack, onDone }: PublishDialogProps) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy) onBack();
+      if (isEscape(e) && !busy) onBack();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as git from "../../lib/git";
 import type { GitSetupStatus } from "../../lib/types";
+import { isEscape } from "../../lib/keys";
 
 interface SetupDialogProps {
   status: GitSetupStatus;
@@ -69,7 +70,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
+      if (isEscape(e)) close();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

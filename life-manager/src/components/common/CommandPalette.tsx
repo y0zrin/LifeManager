@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GitHubIssue } from "../../lib/types";
+import { isEnter } from "../../lib/keys";
 
 interface CommandPaletteProps {
   issues: GitHubIssue[];
@@ -46,7 +47,7 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
           autoFocus
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+          onKeyDown={(e) => { if (isEnter(e)) handleSubmit(); }}
           placeholder='m テキスト | #番号 | @ラベル名 | 検索語'
           className="palette-input"
         />

@@ -3,6 +3,7 @@ import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../.
 import { IssueCard } from "../common/IssueCard";
 import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
+import { isEnter } from "../../lib/keys";
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
@@ -138,7 +139,7 @@ export function DashboardView({
         <input
           value={memoText}
           onChange={(e) => setMemoText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") handleMemoSubmit(); }}
+          onKeyDown={(e) => { if (isEnter(e)) handleMemoSubmit(); }}
           placeholder="メモを投入... (Enter)"
           className="memo-input"
         />

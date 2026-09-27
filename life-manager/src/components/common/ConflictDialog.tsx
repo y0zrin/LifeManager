@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { issueRef } from "../../lib/issueRef";
 import type { ConflictChoice, GitHubMilestone, MergeHunk, SyncConflict } from "../../lib/types";
+import { isEnter, isEscape } from "../../lib/keys";
 
 interface ConflictDialogProps {
   conflicts: SyncConflict[];
@@ -114,7 +115,7 @@ function ConflictView({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy) {
+      if (isEscape(e) && !busy) {
         e.stopPropagation();
         onClose();
       }
@@ -208,7 +209,7 @@ function ConflictView({
               className="input-full"
               value={draft}
               onChange={(e) => { setDraft(e.target.value); setError(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter") sendDraft(); }}
+              onKeyDown={(e) => { if (isEnter(e)) sendDraft(); }}
             />
           ) : (
             <textarea

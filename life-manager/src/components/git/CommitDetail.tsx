@@ -3,6 +3,7 @@ import { showCommit, showGitHubCommit, splitGitError } from "../../lib/git";
 import { shortWhen } from "../../lib/history";
 import type { GitCommit, GitRun } from "../../lib/types";
 import { DiffRows, parseDiff } from "./DiffView";
+import { isEscape } from "../../lib/keys";
 
 /** どこから読むか：この PC の作業フォルダ（git show）か、GitHub（作業フォルダのないとき・スマホ版） */
 export type CommitSource = { folder: string } | { owner: string; repo: string };
@@ -51,7 +52,7 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (isEscape(e)) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

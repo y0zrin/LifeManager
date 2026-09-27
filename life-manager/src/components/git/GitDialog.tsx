@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { GitResult } from "../../hooks/useGit";
+import { isEnter, isEscape } from "../../lib/keys";
 
 /**
  * git の操作の前に出すダイアログ。どれも「実行するコマンド」を見せる。
@@ -59,7 +60,7 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !running) {
+      if (isEscape(e) && !running) {
         e.stopPropagation();
         onClose();
       }
@@ -118,7 +119,7 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
                 // disabled にするとフォーカスが外れてしまうので、実行中は読み取り専用にする
                 readOnly={running}
                 onChange={(e) => { setValue(e.target.value); setError(null); }}
-                onKeyDown={(e) => { if (e.key === "Enter") submitInput(); }}
+                onKeyDown={(e) => { if (isEnter(e)) submitInput(); }}
               />
             </label>
             {spec.note && <p className="git-dialog-note">{spec.note}</p>}

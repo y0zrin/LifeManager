@@ -7,6 +7,7 @@ import { TaskListBody } from "./TaskListBody";
 import { PendingChip } from "./PendingChip";
 import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
 import { issueRef } from "../../lib/issueRef";
+import { isEnter, isEscape } from "../../lib/keys";
 
 interface IssueDetailModalProps {
   issue: GitHubIssue;
@@ -165,7 +166,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   // ESCキーで閉じる
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (isEscape(e)) onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -215,7 +216,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                 autoFocus
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleTitleSave(); if (e.key === "Escape") { setEditTitle(issue.title); setEditingTitle(false); } }}
+                onKeyDown={(e) => { if (isEnter(e)) handleTitleSave(); if (isEscape(e)) { setEditTitle(issue.title); setEditingTitle(false); } }}
                 onBlur={handleTitleSave}
                 style={{
                   display: "block",
@@ -399,7 +400,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               autoFocus
               value={editBody}
               onChange={(e) => setEditBody(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape") { setEditBody(issue.body || ""); setEditingBody(false); } }}
+              onKeyDown={(e) => { if (isEscape(e)) { setEditBody(issue.body || ""); setEditingBody(false); } }}
               style={{
                 width: "100%",
                 minHeight: "120px",
@@ -735,7 +736,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
         <textarea
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
+          onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
           placeholder="コメントを追加... (Ctrl+Enter で送信)"
           className="textarea-full"
           style={{ minHeight: "60px" }}

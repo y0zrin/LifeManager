@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { isMobile } from "../../lib/platform";
 import * as git from "../../lib/git";
 import { PublishDialog } from "./PublishDialog";
+import { isEscape } from "../../lib/keys";
 
 interface AddProjectDialogProps {
   /** GitHub にログインしている人（手元のフォルダを上げるときの、持ち主の候補） */
@@ -61,7 +62,7 @@ export function AddProjectDialog({ login, onAddProject, onSetLocalFolder, onClos
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy && !publishing) onClose();
+      if (isEscape(e) && !busy && !publishing) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

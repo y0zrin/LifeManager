@@ -39,6 +39,7 @@ import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import type { GitCommit, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import "./App.css";
+import { isEscape } from "./lib/keys";
 
 type NavItem = { key: ViewType; icon: string; label: string };
 
@@ -254,7 +255,7 @@ function App() {
         e.preventDefault();
         setShowPalette((prev) => !prev);
       }
-      if (e.key === "Escape") {
+      if (isEscape(e)) {
         setShowPalette(false);
       }
     }

@@ -4,6 +4,7 @@ import { displayCommand } from "../../lib/git";
 import type { GitBranch } from "../../lib/types";
 import type { GitState } from "../../hooks/useGit";
 import type { GitActions } from "../../hooks/useGitActions";
+import { isEnter } from "../../lib/keys";
 
 interface GitToolbarProps {
   git: GitState;
@@ -119,7 +120,7 @@ function BranchSwitcher({ git: g, actions, disabled }: { git: GitState; actions:
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && list[0]) choose(list[0].name); }}
+            onKeyDown={(e) => { if (isEnter(e) && list[0]) choose(list[0].name); }}
           />
           <div className="bsw-group">ローカルのブランチ</div>
           {list.map((b) => (

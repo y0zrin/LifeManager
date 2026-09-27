@@ -6,6 +6,7 @@ import { OPERATION_NAMES, type GitActions } from "../../hooks/useGitActions";
 import { useDismiss } from "../../hooks/useDismiss";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { DiffView } from "../git/DiffView";
+import { isEnter } from "../../lib/keys";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
 export interface CommitDraft {
@@ -519,7 +520,7 @@ function IssueBar({ issues, issue, choice, open, onOpenChange, onChoose, onOpenI
               autoComplete="off"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && list[0]) onChoose(list[0].number); }}
+              onKeyDown={(e) => { if (isEnter(e) && list[0]) onChoose(list[0].number); }}
             />
             <div className="bsw-group">未完了の Issue</div>
             {list.map((i) => (
@@ -740,7 +741,7 @@ function CommitForm({
         value={draft.summary}
         onChange={(e) => set({ summary: e.target.value })}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !blocked) onCommit(messages, false);
+          if (isEnter(e) && (e.ctrlKey || e.metaKey) && !blocked) onCommit(messages, false);
         }}
       />
       {summaryError && <div className="field-err">要約を入力してください</div>}

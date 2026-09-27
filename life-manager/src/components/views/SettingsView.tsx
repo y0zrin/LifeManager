@@ -8,6 +8,7 @@ import { isMobile } from "../../lib/platform";
 import type { DisplaySettings } from "../../hooks/useDisplaySettings";
 import { LabelBadge } from "../common/LabelBadge";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
+import { AddProjectDialog } from "../common/AddProjectDialog";
 
 interface SettingsViewProps {
   connected: boolean;
@@ -39,6 +40,8 @@ interface SettingsViewProps {
   setupVersion: number;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
+  /** GitHub にログインしている人（手元のフォルダを GitHub に上げるときの、持ち主の候補） */
+  login: string;
 }
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -61,7 +64,7 @@ const PANES: { key: SettingsPane; label: string }[] = [
   { key: "other", label: "その他" },
 ];
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
+export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
@@ -86,10 +89,7 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
 
   // プロジェクト管理
   const [showAddProject, setShowAddProject] = useState(false);
-  const [newProjOwner, setNewProjOwner] = useState("");
-  const [newProjRepo, setNewProjRepo] = useState("");
-  const [newProjName, setNewProjName] = useState("");
-  const [newProjToken, setNewProjToken] = useState("");
+  const [projectNotice, setProjectNotice] = useState<string | null>(null);
   const [editingTokenProject, setEditingTokenProject] = useState<string | null>(null);
   const [editTokenValue, setEditTokenValue] = useState("");
 
@@ -292,50 +292,25 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       <div className="form-card">
         <div className="settings-section-header">
           <h3 className="settings-section-title">プロジェクト管理</h3>
-          <button onClick={() => setShowAddProject(!showAddProject)} className="btn-sm">
-            {showAddProject ? "×" : "+ 追加"}
+          <button onClick={() => { setProjectNotice(null); setShowAddProject(true); }} className="btn-sm">
+            + 追加
           </button>
         </div>
         <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
           複数のリポジトリをプロジェクトとして登録し、ヘッダーから切り替えできます。
         </p>
 
-        {/* プロジェクト追加フォーム */}
+        {/* プロジェクトを追加（GitHub の URL を貼る・クローン・手元のフォルダを GitHub に上げる） */}
         {showAddProject && (
-          <div className="settings-form-inner">
-            <div className="flex-row">
-              <input value={newProjOwner} onChange={(e) => setNewProjOwner(e.target.value)}
-                placeholder="Owner" className="input-full" />
-              <span style={{ color: "var(--text-muted)" }}>/</span>
-              <input value={newProjRepo} onChange={(e) => setNewProjRepo(e.target.value)}
-                placeholder="Repo" className="input-full" />
-            </div>
-            <input value={newProjName} onChange={(e) => setNewProjName(e.target.value)}
-              placeholder="表示名（任意、例: メインプロジェクト）" className="input-full" />
-            <input type="password" value={newProjToken} onChange={(e) => setNewProjToken(e.target.value)}
-              placeholder="トークン (ghp_xxx...)" className="input-full" />
-            <p className="settings-hint--subtle" style={{ marginTop: "-4px" }}>
-              未入力の場合はグローバルトークンを使用
-            </p>
-            <button
-              onClick={async () => {
-                if (!newProjOwner.trim() || !newProjRepo.trim()) return;
-                try {
-                  await onAddProject(newProjOwner.trim(), newProjRepo.trim(), newProjName.trim() || `${newProjOwner.trim()}/${newProjRepo.trim()}`, newProjToken.trim() || undefined);
-                  setNewProjOwner(""); setNewProjRepo(""); setNewProjName(""); setNewProjToken(""); setShowAddProject(false);
-                } catch {
-                  // エラーはuseGitHub側でsetStatusに反映
-                }
-              }}
-              className="btn-primary"
-              style={{ alignSelf: "flex-start" }}
-              disabled={!newProjOwner.trim() || !newProjRepo.trim()}
-            >
-              追加
-            </button>
-          </div>
+          <AddProjectDialog
+            login={login}
+            onAddProject={onAddProject}
+            onSetLocalFolder={(o, r, path) => { void onSetLocalFolder(o, r, path); }}
+            onClose={() => setShowAddProject(false)}
+            onNotify={setProjectNotice}
+          />
         )}
-
+        {projectNotice && <p className="local-folder-message local-folder-message--ok">{projectNotice}</p>}
         {/* プロジェクト一覧 */}
         <div className="settings-list">
           {projects.map((p) => (

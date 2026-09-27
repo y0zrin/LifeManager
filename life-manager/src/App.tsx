@@ -699,6 +699,7 @@ function App() {
               setupVersion={setupVersion}
               eventNotifConfig={gh.eventNotifConfig}
               onSaveEventNotifConfig={gh.saveEventNotifConfig}
+              login={gh.currentUser}
             />
           )}
         </div>

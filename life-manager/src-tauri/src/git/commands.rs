@@ -1,5 +1,6 @@
 //! 画面から呼ぶ git のコマンド。git の実行には時間がかかることがあるので、どれも別スレッドで動かす
 use super::history::{self, History};
+use super::publish;
 use super::runner::{run, GitRun};
 use super::setup;
 use super::status::{self, BranchInfo, FolderCheck, RepoStatus, StashEntry};
@@ -65,6 +66,38 @@ pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<Cl
         Ok(CloneResult { run, path })
     })
     .await
+}
+
+// --- プロジェクトを追加（URL からクローン・手元のフォルダを GitHub に上げる） ---
+
+/// URL（GitHub の URL・「持ち主/名前」など）からクローンする。parent の下に、リポジトリと同じ名前のフォルダを作る
+#[tauri::command]
+pub async fn git_clone_url(parent: String, url: String) -> Result<publish::CloneUrlResult, String> {
+    blocking(move || publish::clone_url(Path::new(&parent), &url)).await
+}
+
+/// 上げる前のフォルダの様子（リポジトリか・ファイルの数・コミットの数など）
+#[tauri::command]
+pub async fn git_folder_state(path: String) -> Result<publish::FolderState, String> {
+    blocking(move || publish::folder_state(Path::new(&path))).await
+}
+
+/// 記録を始める（まだなら git init・.gitignore のひな形・最初のコミット）
+#[tauri::command]
+pub async fn git_publish_prepare(path: String, template: String, message: String) -> Result<GitRun, String> {
+    blocking(move || publish::prepare(Path::new(&path), &template, &message)).await
+}
+
+/// その URL にリポジトリがあるか（GitHub で作ったあとに確かめる）
+#[tauri::command]
+pub async fn git_remote_exists(url: String) -> Result<bool, String> {
+    blocking(move || publish::remote_exists(&url)).await
+}
+
+/// origin を url にして、今のブランチを送る（上流にする）
+#[tauri::command]
+pub async fn git_publish_push(path: String, url: String) -> Result<GitRun, String> {
+    blocking(move || publish::push_to(Path::new(&path), &url)).await
 }
 
 // --- 閲覧 ---

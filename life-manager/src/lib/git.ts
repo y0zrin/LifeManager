@@ -19,6 +19,49 @@ export const listBranches = (path: string) => invoke<GitBranch[]>("git_branches"
 export const listStashes = (path: string) => invoke<GitStash[]>("git_stashes", { path });
 export const fileDiff = (path: string, file: string, staged: boolean, untracked: boolean) =>
   invoke<GitRun>("git_diff", { path, file, staged, untracked });
+// --- プロジェクトを追加（URL からクローン・手元のフォルダを GitHub に上げる） ---
+export interface CloneUrlResult {
+  run: GitRun;
+  path: string;
+  /** GitHub のリポジトリなら、その持ち主と名前 */
+  owner: string | null;
+  repo: string | null;
+}
+export interface FolderState {
+  /** このフォルダ自身がリポジトリ */
+  is_repo: boolean;
+  /** ほかのリポジトリの中にある（そのリポジトリのフォルダ） */
+  inside: string | null;
+  commits: number;
+  files: number;
+  has_gitignore: boolean;
+  branch: string;
+  origin: string | null;
+}
+/** .gitignore のひな形（Rust の git::publish と同じ名前） */
+export type GitignoreTemplate = "visualstudio" | "unity" | "unreal" | "none";
+export const cloneUrl = (parent: string, url: string) => invoke<CloneUrlResult>("git_clone_url", { parent, url });
+export const folderState = (path: string) => invoke<FolderState>("git_folder_state", { path });
+export const publishPrepare = (path: string, template: GitignoreTemplate, message: string) =>
+  invoke<GitRun>("git_publish_prepare", { path, template, message });
+export const remoteExists = (url: string) => invoke<boolean>("git_remote_exists", { url });
+export const publishPush = (path: string, url: string) => invoke<GitRun>("git_publish_push", { path, url });
+
+/** GitHub の URL（https・ssh）や「持ち主/名前」から、持ち主と名前を取り出す（Rust の parse_github と同じ決まり） */
+export function parseGitHub(input: string): { owner: string; repo: string } | null {
+  const s = input.trim();
+  const at = s.toLowerCase().indexOf("github.com");
+  let rest: string;
+  if (at >= 0) rest = s.slice(at + "github.com".length);
+  else if (!s.includes(":") && !s.includes("\\") && s.split("/").length === 2) rest = s;
+  else return null;
+  const parts = rest.replace(/^[:/]+/, "").split(/[/?#]/);
+  const valid = (x: string | undefined): x is string => !!x && !x.startsWith("-") && /^[A-Za-z0-9._-]+$/.test(x);
+  const owner = parts[0];
+  const repo = parts[1]?.replace(/\.git$/, "");
+  return valid(owner) && valid(repo) ? { owner, repo } : null;
+}
+
 /** 履歴（この PC の git から） */
 export const readHistory = (path: string) => invoke<GitHistory>("git_history", { path });
 /** 履歴（GitHub API から。スマホ版や、作業フォルダのない PC で使う。git の有無に関係なく使える） */
@@ -99,7 +142,8 @@ export function commitArgs(messages: string[], amend: boolean, allowEmpty: boole
  * git の実行に失敗したときは 1 行目がコマンドになっている
  */
 export function splitGitError(e: unknown): { command?: string; message: string } {
-  const text = String(e);
+  // 画面の側で投げたエラー（Error）は、頭に「Error: 」を付けずに文だけ見せる
+  const text = e instanceof Error ? e.message : String(e);
   const nl = text.indexOf("\n");
   if (text.startsWith("git ") && nl > 0) {
     return { command: text.slice(0, nl), message: text.slice(nl + 1).trim() };

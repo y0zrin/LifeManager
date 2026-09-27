@@ -1955,6 +1955,119 @@ button:hover {
   width: 540px;
 }
 
+/* プロジェクトを追加（URL を貼る・クローン）・手元のフォルダを GitHub に上げる */
+.add-project,
+.publish-dialog {
+  width: 540px;
+}
+
+/* 背の高いダイアログなので、上の余白を詰め、下まで見えるようにする */
+.palette-overlay:has(> .add-project, > .publish-dialog) {
+  padding-top: 10vh;
+  padding-bottom: var(--space-lg);
+}
+
+.add-project-clone {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.add-project-indent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 22px;
+}
+
+.add-project-row {
+  display: flex;
+  gap: 6px;
+}
+
+.add-project-more {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.add-project-more:hover {
+  color: var(--text-secondary);
+}
+
+.add-project-actions .link-button {
+  margin-right: auto;
+}
+
+.link-button {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.publish-count {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 400;
+}
+
+.publish-steps {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: publish;
+}
+
+.publish-steps li {
+  flex: 1;
+  padding-top: 6px;
+  border-top: 3px solid var(--bg-tertiary);
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+  transition: border-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard);
+}
+
+.publish-steps li.done {
+  border-top-color: var(--accent-green-hover);
+  color: var(--text-muted);
+}
+
+.publish-steps li.on {
+  border-top-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.publish-open {
+  display: flex;
+  gap: 6px;
+}
+
+.publish-done {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
 .setup-dont-show {
   margin-right: auto;
   font-size: var(--font-xs);

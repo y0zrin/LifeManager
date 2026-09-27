@@ -14,12 +14,13 @@ static ISOLATE: Once = Once::new();
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// 利用者の git の設定を読まないようにする（空の設定ファイルを「全体の設定」にし、システムの設定は読まない）
-fn isolate_git_config() {
+pub(super) fn isolate_git_config() {
     ISOLATE.call_once(|| {
         let dir = std::env::temp_dir().join(format!("lm-git-config-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let global = dir.join("gitconfig");
-        fs::write(&global, "").unwrap();
+        // 名前・メールは、リポジトリごとに決める前の操作（新しいフォルダの最初のコミットなど）でも使う
+        fs::write(&global, "[user]\n\tname = Test\n\temail = test@example.com\n[commit]\n\tgpgsign = false\n[core]\n\tautocrlf = false\n").unwrap();
         std::env::set_var("GIT_CONFIG_GLOBAL", &global);
         std::env::set_var("GIT_CONFIG_NOSYSTEM", "1");
     });
@@ -546,4 +547,82 @@ fn folder_check_matches_the_github_project() {
     assert!(!check_folder(&t.a, "someone", "LifeManager").matches_project);
     let sb = Sandbox::new("not-repo");
     assert!(!check_folder(&sb.root, "y0zrin", "LifeManager").is_repo);
+}
+
+// ---------------------------------------------------------------- クローン（URL）・手元のフォルダを上げる
+
+#[test]
+fn publish_a_new_folder_to_an_empty_remote() {
+    use super::publish::{folder_state, prepare, push_to, remote_exists};
+    let sb = Sandbox::new("publish");
+    let remote = sb.dir("remote.git");
+    fs::create_dir_all(&remote).unwrap();
+    git(&remote, &["init", "-q", "--bare", "-b", "main"]);
+    let game = sb.dir("game");
+    write(&game, "src/main.cpp", "int main() {}\n");
+    write(&game, "ActionGame.sln", "sln\n");
+    write(&game, "x64/Debug/ActionGame.exe", "exe\n");
+    write(&game, ".vs/cache.bin", "cache\n");
+
+    let st = folder_state(&game).unwrap();
+    assert!(!st.is_repo && st.inside.is_none() && st.commits == 0 && !st.has_gitignore);
+    assert_eq!(st.files, 4);
+
+    let r = prepare(&game, "visualstudio", "最初のコミット").unwrap();
+    assert!(r.command.starts_with("git init -b main"), "{}", r.command);
+    assert!(r.command.contains("git commit -m 最初のコミット"), "{}", r.command);
+    let st = folder_state(&game).unwrap();
+    assert!(st.is_repo && st.has_gitignore);
+    assert_eq!((st.commits, st.branch.as_str()), (1, "main"));
+    let tracked = git(&game, &["ls-files"]);
+    assert!(tracked.contains("src/main.cpp") && tracked.contains(".gitignore"));
+    assert!(!tracked.contains("x64/") && !tracked.contains(".vs/"), "{}", tracked);
+
+    // もう一度実行しても、何も増えない
+    prepare(&game, "visualstudio", "最初のコミット").unwrap();
+    assert_eq!(folder_state(&game).unwrap().commits, 1);
+
+    assert!(remote_exists(&s(&remote)).unwrap());
+    assert!(!remote_exists(&s(&sb.dir("nothing.git"))).unwrap());
+
+    let r = push_to(&game, &s(&remote)).unwrap();
+    assert!(r.command.contains("git remote add origin") && r.command.contains("git push -u origin main"), "{}", r.command);
+    let st = status(&game);
+    assert_eq!(st.upstream.as_deref(), Some("origin/main"));
+    assert_eq!(git(&remote, &["rev-list", "--count", "main"]).trim(), "1");
+}
+
+#[test]
+fn prepare_leaves_a_repository_that_already_has_commits() {
+    use super::publish::{folder_state, prepare};
+    let t = team("existing");
+    let before = folder_state(&t.a).unwrap();
+    assert!(before.is_repo && before.commits > 0 && !before.has_gitignore);
+    // もう記録があるなら、.gitignore も足さず、何もしない
+    let r = prepare(&t.a, "visualstudio", "x").unwrap();
+    assert_eq!(r.command, "");
+    assert!(!t.a.join(".gitignore").exists());
+    assert_eq!(folder_state(&t.a).unwrap().commits, before.commits);
+}
+
+#[test]
+fn prepare_refuses_a_folder_inside_another_repository() {
+    let t = team("inside");
+    write(&t.a, "sub/new.txt", "中\n");
+    let err = super::publish::prepare(&t.a.join("sub"), "none", "x").unwrap_err();
+    assert!(err.contains("ほかのリポジトリ"), "{}", err);
+}
+
+#[test]
+fn clone_url_makes_a_folder_named_after_the_repository() {
+    let t = team("clone-url");
+    let remote = t.a.parent().unwrap().join("remote.git");
+    let parent = t.a.parent().unwrap().join("clones");
+    fs::create_dir_all(&parent).unwrap();
+    let r = super::publish::clone_url(&parent, &s(&remote)).unwrap();
+    assert!(r.path.ends_with("remote"), "{}", r.path);
+    assert_eq!(read(Path::new(&r.path), "shared.txt"), "一行目\n二行目\n三行目\n");
+    assert_eq!((r.owner, r.repo), (None, None));
+    // 同じ場所には二度作らない
+    assert!(super::publish::clone_url(&parent, &s(&remote)).unwrap_err().contains("すでにあります"));
 }

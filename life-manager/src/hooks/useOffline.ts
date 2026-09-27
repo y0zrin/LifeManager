@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { OfflineStatus, SyncResult } from "../lib/types";
+import type { ConflictChoice, OfflineStatus, SyncResult } from "../lib/types";
 
 // 送信待ちがあるあいだ・つながらないあいだに、もう一度送ってみる間隔
 const RETRY_MS = 30_000;
@@ -66,9 +66,10 @@ export function useOffline(owner: string, repo: string, connected: boolean, hand
     }
   }, [ready, owner, repo, refresh]);
 
+  /** ぶつかったものを片付ける（GitHub の内容を残す / 自分の変更で上書き / 直した内容を送る） */
   const resolve = useCallback(
-    async (id: number, keepLocal: boolean) => {
-      await invoke("resolve_conflict", { owner, repo, id, keepLocal });
+    async (id: number, choice: ConflictChoice, value?: string) => {
+      await invoke("resolve_conflict", { owner, repo, id, choice, value: value ?? null });
       await refresh();
     },
     [owner, repo, refresh],

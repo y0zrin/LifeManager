@@ -1,4 +1,4 @@
-use crate::github::client::GitHubClient;
+use crate::github::client::{is_network_error, GitHubClient};
 
 // 日次ジャーナルを生成してGitHubにアップロードする
 
@@ -192,22 +192,13 @@ fn extract_notes_section(md: &str) -> Option<String> {
     return None;
 }
 
-/// ジャーナルのノートセクションのみを更新してGitHubにアップロードする
-pub async fn save_journal_notes(
-    client: &GitHubClient,
-    owner: &str,
-    repo: &str,
-    date: &str,
-    notes: &str,
-) -> Result<String, String> {
-    let path = format!("journal/{}.md", date);
+/// ノートの本文（なければ空）
+pub fn notes_of(md: &str) -> String {
+    extract_notes_section(md).unwrap_or_default()
+}
 
-    // 既存ジャーナルを取得
-    let (existing_content, sha) = client
-        .get_contents(owner, repo, &path)
-        .await
-        .map_err(|_| format!("{}のジャーナルが見つかりません。先に生成してください。", date))?;
-
+/// ジャーナルの「## ノート」を notes に置き換えた Markdown（ノートはタイトル直後・完了の上に置く）
+pub fn replace_notes(existing_content: &str, notes: &str) -> String {
     // 既存のノートセクションを除去
     let stripped = if let Some(start) = existing_content.find("## ノート\n") {
         let before = &existing_content[..start];
@@ -237,6 +228,28 @@ pub async fn save_journal_notes(
     } else {
         format!("{}\n", stripped)
     };
+    md
+}
+
+/// ジャーナルのノートセクションのみを更新してGitHubにアップロードする
+pub async fn save_journal_notes(
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    date: &str,
+    notes: &str,
+) -> Result<String, String> {
+    let path = format!("journal/{}.md", date);
+
+    // 既存ジャーナルを取得（つながらないときは、そのことが分かるエラーのまま返す）
+    let (existing_content, sha) = client.get_contents(owner, repo, &path).await.map_err(|e| {
+        if is_network_error(&e) {
+            e
+        } else {
+            format!("{}のジャーナルが見つかりません。先に生成してください。", date)
+        }
+    })?;
+    let md = replace_notes(&existing_content, notes);
 
     let commit_message = format!("{}のノートを更新", date);
     client
@@ -246,16 +259,16 @@ pub async fn save_journal_notes(
     return Ok(md);
 }
 
-/// 指定日のジャーナルをGitHubから取得する
-pub async fn get_journal(
-    client: &GitHubClient,
-    owner: &str,
-    repo: &str,
-    date: &str,
-) -> Result<String, String> {
-    let path = format!("journal/{}.md", date);
-    match client.get_contents(owner, repo, &path).await {
-        Ok((content, _sha)) => return Ok(content),
-        Err(_) => return Err(format!("{}のジャーナルが見つかりません", date)),
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notes_are_placed_above_the_first_section() {
+        let md = "# 2026-09-27 (日)\n\n## 完了\n- なし\n";
+        let with_notes = replace_notes(md, "電車で考えた");
+        assert_eq!(with_notes, "# 2026-09-27 (日)\n\n## ノート\n電車で考えた\n\n## 完了\n- なし");
+        assert_eq!(notes_of(&with_notes), "電車で考えた");
+        assert_eq!(replace_notes(&with_notes, "書き直した"), "# 2026-09-27 (日)\n\n## ノート\n書き直した\n\n## 完了\n- なし");
     }
 }

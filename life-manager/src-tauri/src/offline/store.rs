@@ -1,5 +1,6 @@
 //! 手元の写し（最後に GitHub から読んだ内容）と、送信待ちの列。リポジトリごとに、アプリのデータフォルダの JSON に保存する。
 //! 画面に返す Issue は「最後に読んだ内容」に「送信待ちの変更」を重ねたもの（まだ送っていない変更には "_pending": true を付ける）
+use super::config;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -33,6 +34,13 @@ impl Changes {
     }
 }
 
+/// 送れたあとに出すお知らせ（Discord・OS）。message の「{issue}」は、送ったあとの Issue の番号（#12）にして、Issue へのリンクを付ける
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Notice {
+    pub message: String,
+    pub channels: Vec<String>,
+}
+
 /// 送信待ちの 1 件。Issue の番号は、まだ GitHub に作っていない Issue なら仮の番号（-1, -2, …）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -45,6 +53,8 @@ pub enum Op {
         milestone: Option<u32>,
         assignees: Option<Vec<String>>,
         at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        notice: Option<Notice>,
     },
     UpdateIssue {
         number: i64,
@@ -52,20 +62,53 @@ pub enum Op {
         /// 変更する前の値。None なら GitHub の今の値と比べずに送る（「自分の変更で上書き」）
         base: Option<Changes>,
         at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        notice: Option<Notice>,
     },
     CreateComment {
         number: i64,
         body: String,
         at: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        notice: Option<Notice>,
     },
+    /// 設定ファイル（config/*.yaml）の一部を書き換える。kind は config::KINDS のどれか
+    SaveConfig {
+        #[serde(rename = "config")]
+        kind: String,
+        /// 新しい内容（画面とやりとりする JSON）
+        json: String,
+        /// 変える前の内容（最初に変えたときに見ていたもの）。None なら比べずに書く
+        base: Option<String>,
+        at: String,
+    },
+    /// 日誌（journal/日付.md）のノートを書き換える
+    SaveJournalNotes {
+        date: String,
+        notes: String,
+        base: Option<String>,
+        at: String,
+    },
+    /// 日誌を作る（つながらなかった日の分を、つながってから作る）
+    GenerateJournal { date: String, at: String },
 }
 
 impl Op {
-    /// どの Issue への操作か
+    /// どの Issue への操作か（Issue の操作でなければ 0）
     pub fn number(&self) -> i64 {
         match self {
             Op::CreateIssue { temp, .. } => *temp,
             Op::UpdateIssue { number, .. } | Op::CreateComment { number, .. } => *number,
+            _ => 0,
+        }
+    }
+
+    pub fn notice(&self) -> Option<&Notice> {
+        match self {
+            Op::CreateIssue { notice, .. } | Op::UpdateIssue { notice, .. } | Op::CreateComment { notice, .. } => {
+                notice.as_ref()
+            }
+            _ => None,
         }
     }
 }
@@ -76,13 +119,20 @@ pub struct Conflict {
     pub id: u64,
     pub number: i64,
     pub title: String,
-    /// "title" / "body" / "state" / "milestone" / "error"
+    /// "title" / "body" / "state" / "milestone" / "config" / "journal" / "error"
     pub field: String,
     pub local: String,
     pub remote: String,
+    /// 変える前の値（3 つを見比べられるように）
+    #[serde(default)]
+    pub base: String,
     pub message: String,
-    /// 「自分の変更で上書き」を選んだときに送る変更
-    pub force: Option<Changes>,
+    /// config のときは設定の種類（routines など）、journal のときは日付
+    #[serde(default)]
+    pub kind: String,
+    /// 「自分の変更で上書き」を選んだときに送り直す操作
+    #[serde(default)]
+    pub retry: Option<Op>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -127,7 +177,16 @@ fn global_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn load(path: &PathBuf) -> RepoStore {
-    std::fs::read_to_string(path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    let Ok(text) = std::fs::read_to_string(path) else { return RepoStore::default() };
+    match serde_json::from_str(&text) {
+        Ok(store) => store,
+        Err(e) => {
+            // 読めないファイルは消さずに残しておく（送信待ちがなくならないように）
+            eprintln!("オフラインの写しを読めませんでした（{}）: {}", path.display(), e);
+            let _ = std::fs::copy(path, path.with_extension(format!("broken-{}.json", chrono::Utc::now().timestamp())));
+            RepoStore::default()
+        }
+    }
 }
 
 fn save(path: &PathBuf, store: &RepoStore) -> Result<(), String> {
@@ -154,6 +213,16 @@ pub fn with_store<R>(app: &AppHandle, owner: &str, repo: &str, f: impl FnOnce(&m
     Ok(result)
 }
 
+/// 読めた内容を写す（前と同じなら書かない。大きな一覧を何度も書かないように）
+pub fn remember(app: &AppHandle, owner: &str, repo: &str, key: &str, value: &str) {
+    if read_store(app, owner, repo).reads.get(key).map(|v| v.as_str()) == Some(value) {
+        return;
+    }
+    let _ = with_store(app, owner, repo, |s| {
+        s.reads.insert(key.to_string(), value.to_string());
+    });
+}
+
 pub fn read_global(app: &AppHandle, key: &str) -> Option<String> {
     let _lock = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     load(&global_path(app).ok()?).reads.remove(key)
@@ -163,6 +232,9 @@ pub fn write_global(app: &AppHandle, key: &str, value: &str) -> Result<(), Strin
     let _lock = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let path = global_path(app)?;
     let mut store = load(&path);
+    if store.reads.get(key).map(|v| v.as_str()) == Some(value) {
+        return Ok(());
+    }
     store.reads.insert(key.to_string(), value.to_string());
     save(&path, &store)
 }
@@ -213,7 +285,7 @@ fn milestone_value(number: u32, known: &[Value]) -> Value {
         .unwrap_or_else(|| json!({ "number": number, "title": format!("#{}", number), "state": "open" }))
 }
 
-fn assignee_values(logins: &[String], current: &Value) -> Value {
+fn assignee_values(logins: &[String], current: &Value, people: &[Value]) -> Value {
     Value::Array(
         logins
             .iter()
@@ -221,13 +293,21 @@ fn assignee_values(logins: &[String], current: &Value) -> Value {
                 current
                     .as_array()
                     .and_then(|as_| as_.iter().find(|a| a["login"].as_str() == Some(login)).cloned())
+                    .or_else(|| people.iter().find(|p| p["login"].as_str() == Some(login)).cloned())
                     .unwrap_or_else(|| json!({ "login": login, "avatar_url": "" }))
             })
             .collect(),
     )
 }
 
-fn apply_changes(issue: &mut Value, changes: &Changes, labels: &[Value], milestones: &[Value]) {
+/// 重ねるときに使う、名前から中身を引くための一覧
+struct Known {
+    labels: Vec<Value>,
+    milestones: Vec<Value>,
+    people: Vec<Value>,
+}
+
+fn apply_changes(issue: &mut Value, changes: &Changes, known: &Known) {
     if let Some(t) = &changes.title {
         issue["title"] = json!(t);
     }
@@ -238,27 +318,27 @@ fn apply_changes(issue: &mut Value, changes: &Changes, labels: &[Value], milesto
         issue["state"] = json!(s);
     }
     if let Some(ls) = &changes.labels {
-        issue["labels"] = label_values(ls, labels, &issue["labels"]);
+        issue["labels"] = label_values(ls, &known.labels, &issue["labels"]);
     }
     if let Some(m) = changes.milestone {
-        issue["milestone"] = milestone_value(m, milestones);
+        issue["milestone"] = milestone_value(m, &known.milestones);
     }
     if let Some(a) = &changes.assignees {
-        issue["assignees"] = assignee_values(a, &issue["assignees"]);
+        issue["assignees"] = assignee_values(a, &issue["assignees"], &known.people);
     }
 }
 
-fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, labels: &[Value], milestones: &[Value]) {
+fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, known: &Known) {
     match op {
-        Op::CreateIssue { temp, title, body, labels: names, milestone, assignees, at } => {
+        Op::CreateIssue { temp, title, body, labels: names, milestone, assignees, at, .. } => {
             let issue = json!({
                 "number": temp,
                 "title": title,
                 "body": body,
                 "state": "open",
-                "labels": label_values(names, labels, &Value::Null),
-                "milestone": milestone_value(milestone.unwrap_or(0), milestones),
-                "assignees": assignee_values(assignees.as_deref().unwrap_or(&[]), &Value::Null),
+                "labels": label_values(names, &known.labels, &Value::Null),
+                "milestone": milestone_value(milestone.unwrap_or(0), &known.milestones),
+                "assignees": assignee_values(assignees.as_deref().unwrap_or(&[]), &Value::Null, &known.people),
                 "comments": 0,
                 "created_at": at,
                 "updated_at": at,
@@ -274,7 +354,7 @@ fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, labels: &[V
             } else {
                 return;
             };
-            apply_changes(&mut issue, changes, labels, milestones);
+            apply_changes(&mut issue, changes, known);
             issue["updated_at"] = json!(at);
             issue["_pending"] = json!(true);
             let is_open = issue["state"].as_str() != Some("closed");
@@ -291,6 +371,7 @@ fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, labels: &[V
                 issue["_pending"] = json!(true);
             }
         }
+        _ => {}
     }
 }
 
@@ -298,10 +379,13 @@ fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, labels: &[V
 pub fn issues_view(store: &RepoStore) -> (Vec<Value>, Vec<Value>) {
     let mut open = parse_list(store, "issues:open");
     let mut closed = parse_list(store, "issues:closed");
-    let labels = parse_list(store, "labels");
-    let milestones = parse_list(store, "milestones");
+    let known = Known {
+        labels: parse_list(store, "labels"),
+        milestones: parse_list(store, "milestones"),
+        people: parse_list(store, "collaborators"),
+    };
     for op in &store.outbox {
-        apply_op(&mut open, &mut closed, op, &labels, &milestones);
+        apply_op(&mut open, &mut closed, op, &known);
     }
     (open, closed)
 }
@@ -312,7 +396,7 @@ pub fn comments_view(store: &RepoStore, number: i64, user: &Value) -> Vec<Value>
     let login = user["login"].as_str().unwrap_or("");
     let avatar = user["avatar_url"].as_str().unwrap_or("");
     for (i, op) in store.outbox.iter().enumerate() {
-        if let Op::CreateComment { number: n, body, at } = op {
+        if let Op::CreateComment { number: n, body, at, .. } = op {
             if *n == number {
                 comments.push(json!({
                     "id": -(i as i64) - 1,
@@ -328,6 +412,27 @@ pub fn comments_view(store: &RepoStore, number: i64, user: &Value) -> Vec<Value>
     comments
 }
 
+/// 送信待ちの設定の書き換え（あれば、画面にはこれを見せる）
+pub fn pending_config(store: &RepoStore, key: &str) -> Option<String> {
+    store.outbox.iter().rev().find_map(|op| match op {
+        Op::SaveConfig { kind, json, .. } if kind == key => Some(json.clone()),
+        _ => None,
+    })
+}
+
+/// 送信待ちの日誌のノート
+pub fn pending_journal_notes(store: &RepoStore, date: &str) -> Option<String> {
+    store.outbox.iter().rev().find_map(|op| match op {
+        Op::SaveJournalNotes { date: d, notes, .. } if d == date => Some(notes.clone()),
+        _ => None,
+    })
+}
+
+/// つながったら作る日誌か
+pub fn pending_journal_generation(store: &RepoStore, date: &str) -> bool {
+    store.outbox.iter().any(|op| matches!(op, Op::GenerateJournal { date: d, .. } if d == date))
+}
+
 fn find_issue(store: &RepoStore, number: i64) -> Option<Value> {
     let (open, closed) = issues_view(store);
     open.into_iter().chain(closed).find(|i| number_of(i) == Some(number))
@@ -336,6 +441,8 @@ fn find_issue(store: &RepoStore, number: i64) -> Option<Value> {
 /// 送信待ちの 1 件を、画面に並べる形にしたもの
 #[derive(Debug, Serialize)]
 pub struct PendingItem {
+    /// "issue" / "config" / "journal"
+    pub kind: &'static str,
     pub number: i64,
     pub title: String,
     /// 何をするか（「作る」「閉じる」「ラベル・本文を変える」「コメントする」など）
@@ -378,19 +485,28 @@ pub fn pending_items(store: &RepoStore) -> Vec<PendingItem> {
             .unwrap_or("")
             .to_string()
     };
+    let item = |kind, number, title: String, action: &str, at: &String| PendingItem {
+        kind,
+        number,
+        title,
+        action: action.to_string(),
+        at: at.clone(),
+    };
     store
         .outbox
         .iter()
         .map(|op| match op {
-            Op::CreateIssue { temp, title, at, .. } => {
-                PendingItem { number: *temp, title: title.clone(), action: "作る".into(), at: at.clone() }
-            }
+            Op::CreateIssue { temp, title, at, .. } => item("issue", *temp, title.clone(), "作る", at),
             Op::UpdateIssue { number, changes, at, .. } => {
-                PendingItem { number: *number, title: title_of(*number), action: describe_changes(changes), at: at.clone() }
+                item("issue", *number, title_of(*number), &describe_changes(changes), at)
             }
-            Op::CreateComment { number, at, .. } => {
-                PendingItem { number: *number, title: title_of(*number), action: "コメントする".into(), at: at.clone() }
+            Op::CreateComment { number, at, .. } => item("issue", *number, title_of(*number), "コメントする", at),
+            Op::SaveConfig { kind, at, .. } => {
+                let label = config::kind(kind).map(|k| k.label).unwrap_or("設定");
+                item("config", 0, label.to_string(), "保存する", at)
             }
+            Op::SaveJournalNotes { date, at, .. } => item("journal", 0, format!("{} の日誌", date), "ノートを保存する", at),
+            Op::GenerateJournal { date, at } => item("journal", 0, format!("{} の日誌", date), "作る", at),
         })
         .collect()
 }
@@ -432,24 +548,59 @@ pub fn enqueue_create(
     labels: Vec<String>,
     milestone: Option<u32>,
     assignees: Option<Vec<String>>,
+    notice: Option<Notice>,
 ) -> Value {
     store.next_temp += 1;
     let temp = -store.next_temp;
-    store.outbox.push(Op::CreateIssue { temp, title, body, labels, milestone, assignees, at: now() });
+    store.outbox.push(Op::CreateIssue { temp, title, body, labels, milestone, assignees, at: now(), notice });
     find_issue(store, temp).unwrap_or(Value::Null)
 }
 
 /// Issue を変える。画面に返す Issue（変えたあと）を返す
-pub fn enqueue_update(store: &mut RepoStore, number: i64, changes: Changes) -> Value {
+pub fn enqueue_update(store: &mut RepoStore, number: i64, changes: Changes, notice: Option<Notice>) -> Value {
     let base = find_issue(store, number).map(|issue| base_of(&issue, &changes));
-    store.outbox.push(Op::UpdateIssue { number, changes, base, at: now() });
+    store.outbox.push(Op::UpdateIssue { number, changes, base, at: now(), notice });
     find_issue(store, number).unwrap_or_else(|| json!({ "number": number, "_pending": true }))
 }
 
 /// コメントする。画面に返すコメントを返す
-pub fn enqueue_comment(store: &mut RepoStore, number: i64, body: String, user: &Value) -> Value {
-    store.outbox.push(Op::CreateComment { number, body, at: now() });
+pub fn enqueue_comment(store: &mut RepoStore, number: i64, body: String, user: &Value, notice: Option<Notice>) -> Value {
+    store.outbox.push(Op::CreateComment { number, body, at: now(), notice });
     comments_view(store, number, user).pop().unwrap_or(Value::Null)
+}
+
+/// 設定の書き換えを並べる。同じ設定の前の書き換えは外し（最後のものだけを送る）、変える前の内容は最初のものを使う。
+/// 前のものを外して後ろに並べるのは、リマインダーが、先に並んでいる Issue の作成より後に送られるようにするため
+pub fn enqueue_config(store: &mut RepoStore, key: &str, json: String) {
+    let mut base = store.reads.get(&format!("config:{}", key)).cloned();
+    store.outbox.retain(|op| match op {
+        Op::SaveConfig { kind, base: earlier, .. } if kind == key => {
+            base = earlier.clone();
+            false
+        }
+        _ => true,
+    });
+    store.outbox.push(Op::SaveConfig { kind: key.to_string(), json, base, at: now() });
+}
+
+/// 日誌のノートの書き換えを並べる（同じ日の前の書き換えは外す）。base_now は今見えているノート
+pub fn enqueue_journal_notes(store: &mut RepoStore, date: &str, notes: String, base_now: Option<String>) {
+    let mut base = base_now;
+    store.outbox.retain(|op| match op {
+        Op::SaveJournalNotes { date: d, base: earlier, .. } if d == date => {
+            base = earlier.clone();
+            false
+        }
+        _ => true,
+    });
+    store.outbox.push(Op::SaveJournalNotes { date: date.to_string(), notes, base, at: now() });
+}
+
+/// つながったら日誌を作る
+pub fn enqueue_generate_journal(store: &mut RepoStore, date: &str) {
+    if !pending_journal_generation(store, date) {
+        store.outbox.push(Op::GenerateJournal { date: date.to_string(), at: now() });
+    }
 }
 
 // --- GitHub に送れたとき、手元の写しも新しくする ---
@@ -493,12 +644,60 @@ pub fn note_comment(store: &mut RepoStore, number: i64, comment: &Value) {
     }
 }
 
-/// 仮の番号の Issue が GitHub に作られたら、残りの送信待ちの番号を本当の番号にする
+/// 文章の中の、仮の番号への参照（#-1）を本当の番号（#66）に直す（#-10 のような別の番号は直さない）
+pub fn rewrite_refs(text: &str, temp: i64, real: i64) -> String {
+    let pattern = format!("#{}", temp);
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find(&pattern) {
+        let after = &rest[i + pattern.len()..];
+        out.push_str(&rest[..i]);
+        if after.starts_with(|c: char| c.is_ascii_digit()) {
+            out.push_str(&pattern);
+        } else {
+            out.push_str(&format!("#{}", real));
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// リマインダーの一覧（JSON）の、仮の番号を本当の番号に直す
+fn rewrite_reminders(json: &str, temp: i64, real: i64) -> String {
+    let Ok(mut list) = serde_json::from_str::<Vec<Value>>(json) else { return json.to_string() };
+    for reminder in list.iter_mut() {
+        if reminder["issue_number"].as_i64() == Some(temp) {
+            reminder["issue_number"] = json!(real);
+        }
+    }
+    serde_json::to_string(&list).unwrap_or_else(|_| json.to_string())
+}
+
+/// 仮の番号の Issue が GitHub に作られたら、残りの送信待ちの番号と、本文・コメント・リマインダーの中の参照を本当の番号にする
 pub fn remap(store: &mut RepoStore, temp: i64, real: i64) {
     store.created.insert(temp, real);
     for op in store.outbox.iter_mut() {
         match op {
-            Op::UpdateIssue { number, .. } | Op::CreateComment { number, .. } if *number == temp => *number = real,
+            Op::CreateIssue { body, .. } => *body = rewrite_refs(body, temp, real),
+            Op::UpdateIssue { number, changes, base, .. } => {
+                if *number == temp {
+                    *number = real;
+                }
+                if let Some(body) = changes.body.as_mut() {
+                    *body = rewrite_refs(body, temp, real);
+                }
+                if let Some(body) = base.as_mut().and_then(|b| b.body.as_mut()) {
+                    *body = rewrite_refs(body, temp, real);
+                }
+            }
+            Op::CreateComment { number, body, .. } => {
+                if *number == temp {
+                    *number = real;
+                }
+                *body = rewrite_refs(body, temp, real);
+            }
+            Op::SaveConfig { kind, json, .. } if kind == "reminders" => *json = rewrite_reminders(json, temp, real),
             _ => {}
         }
     }
@@ -525,10 +724,10 @@ mod tests {
     #[test]
     fn pending_changes_are_shown_on_top_of_the_last_read() {
         let mut store = store_with(json!([{ "number": 5, "title": "牛乳", "state": "open", "labels": [], "comments": 0 }]));
-        let created = enqueue_create(&mut store, "パン".into(), "".into(), vec!["状態:進行中".into()], None, None);
+        let created = enqueue_create(&mut store, "パン".into(), "".into(), vec!["状態:進行中".into()], None, None, None);
         assert_eq!(created["number"], json!(-1));
         assert_eq!(created["labels"][0]["color"], json!("0075ca"));
-        enqueue_update(&mut store, 5, Changes { state: Some("closed".into()), ..Default::default() });
+        enqueue_update(&mut store, 5, Changes { state: Some("closed".into()), ..Default::default() }, None);
         let (open, closed) = issues_view(&store);
         assert_eq!(open.iter().map(|i| i["number"].as_i64().unwrap()).collect::<Vec<_>>(), vec![-1]);
         assert_eq!(closed[0]["number"], json!(5));
@@ -543,8 +742,8 @@ mod tests {
     #[test]
     fn temporary_numbers_are_replaced_after_creation() {
         let mut store = store_with(json!([]));
-        enqueue_create(&mut store, "パン".into(), "".into(), vec![], None, None);
-        enqueue_comment(&mut store, -1, "買った".into(), &json!({ "login": "y0zrin" }));
+        enqueue_create(&mut store, "パン".into(), "".into(), vec![], None, None, None);
+        enqueue_comment(&mut store, -1, "買った".into(), &json!({ "login": "y0zrin" }), None);
         store.outbox.remove(0);
         remap(&mut store, -1, 66);
         assert_eq!(store.outbox[0].number(), 66);
@@ -554,12 +753,47 @@ mod tests {
     }
 
     #[test]
+    fn references_in_bodies_and_reminders_follow_the_real_number() {
+        let mut store = store_with(json!([]));
+        enqueue_create(&mut store, "設計".into(), "".into(), vec![], None, None, None);
+        enqueue_create(&mut store, "実装".into(), "#-1 のあと\n<!-- depends:#-1,#-10 -->".into(), vec![], None, None, None);
+        enqueue_config(&mut store, "reminders", r#"[{"issue_number":-1,"title":"設計","datetime":"2026-10-01T09:00","channels":["os"]}]"#.into());
+        store.outbox.remove(0);
+        remap(&mut store, -1, 66);
+        match &store.outbox[0] {
+            Op::CreateIssue { body, .. } => assert_eq!(body, "#66 のあと\n<!-- depends:#66,#-10 -->"),
+            other => panic!("{:?}", other),
+        }
+        assert!(pending_config(&store, "reminders").unwrap().contains(r#""issue_number":66"#));
+    }
+
+    #[test]
+    fn only_the_latest_setting_is_sent_and_it_goes_to_the_end() {
+        let mut store = store_with(json!([]));
+        store.reads.insert("config:routines".into(), "[]".into());
+        enqueue_config(&mut store, "routines", r#"[{"name":"A"}]"#.into());
+        enqueue_create(&mut store, "パン".into(), "".into(), vec![], None, None, None);
+        enqueue_config(&mut store, "routines", r#"[{"name":"B"}]"#.into());
+        assert_eq!(store.outbox.len(), 2);
+        match &store.outbox[1] {
+            // 変える前の内容は、最初に変えたときのもの
+            Op::SaveConfig { json, base, .. } => {
+                assert_eq!(json, r#"[{"name":"B"}]"#);
+                assert_eq!(base.as_deref(), Some("[]"));
+            }
+            other => panic!("{:?}", other),
+        }
+    }
+
+    #[test]
     fn pending_items_say_what_will_be_sent() {
         let mut store = store_with(json!([{ "number": 5, "title": "牛乳", "state": "open", "labels": [], "comments": 0 }]));
-        enqueue_update(&mut store, 5, Changes { body: Some("- [x] 牛乳".into()), state: Some("closed".into()), ..Default::default() });
-        enqueue_comment(&mut store, 5, "買った".into(), &json!({ "login": "y0zrin" }));
+        enqueue_update(&mut store, 5, Changes { body: Some("- [x] 牛乳".into()), state: Some("closed".into()), ..Default::default() }, None);
+        enqueue_comment(&mut store, 5, "買った".into(), &json!({ "login": "y0zrin" }), None);
+        enqueue_generate_journal(&mut store, "2026-09-27");
         let items = pending_items(&store);
         assert_eq!(items[0].action, "本文を変える、閉じる");
         assert_eq!(items[1].title, "牛乳");
+        assert_eq!((items[2].kind, items[2].title.as_str()), ("journal", "2026-09-27 の日誌"));
     }
 }

@@ -48,6 +48,9 @@ export interface GitHubComment {
 
 /** 送信待ちの 1 件 */
 export interface PendingItem {
+  /** Issue の操作・設定の保存・日誌 */
+  kind: "issue" | "config" | "journal";
+  /** Issue の番号（Issue の操作でなければ 0） */
   number: number;
   title: string;
   /** 何をするか（「作る」「閉じる」「ラベル・本文を変える」「コメントする」など） */
@@ -55,15 +58,43 @@ export interface PendingItem {
   at: string;
 }
 
+/** 行ごとの 3 方向のまとめの 1 かたまり（そのまま使える行 / 両方が別々に変えたところ） */
+export type MergeHunk =
+  | { kind: "same"; lines: string[] }
+  | { kind: "conflict"; base: string[]; local: string[]; remote: string[] };
+
 /** 送るときに GitHub 側の変更とぶつかった・送れなかったもの */
 export interface SyncConflict {
   id: number;
+  /** Issue の番号（設定・日誌なら 0） */
   number: number;
   title: string;
-  field: "title" | "body" | "state" | "milestone" | "error";
+  field: "title" | "body" | "state" | "milestone" | "config" | "journal" | "error";
   local: string;
   remote: string;
+  /** 変える前の値 */
+  base: string;
   message: string;
+  /** config のときは設定の種類（routines など）、journal のときは日付 */
+  kind: string;
+  /** 本文・日誌のノートのときの、行ごとのまとめ */
+  hunks: MergeHunk[] | null;
+}
+
+/** 片付け方: GitHub の内容を残す / 自分の変更で上書き / 直した内容を送る */
+export type ConflictChoice = "remote" | "local" | "custom";
+
+/** 操作が GitHub に送れたときに出すお知らせ。message の「{issue}」は送れたあとの番号になる */
+export interface EventNotice {
+  message: string;
+  channels: string[];
+}
+
+/** 日誌を作る・ノートを保存したときの結果 */
+export interface JournalResult {
+  content: string;
+  /** 送信待ちに並んだ（つながったら送る・作る） */
+  pending: boolean;
 }
 
 export interface OfflineStatus {

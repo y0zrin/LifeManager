@@ -4179,11 +4179,6 @@ button.lh:hover {
   vertical-align: 1px;
 }
 
-.pending-note {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
 /* 上のバーの表示（オフライン・未送信・確認が必要） */
 .sync-indicator {
   position: relative;
@@ -4378,6 +4373,16 @@ button.lh:hover {
   margin-right: auto;
 }
 
+/* 何行もある値は 1 行ずつ並べ、もう片方と違う行に印を付ける */
+.conflict-line {
+  display: block;
+}
+
+.conflict-line.is-different {
+  background: var(--accent-yellow-bg);
+  color: var(--text-primary);
+}
+
 .conflict-message {
   max-height: 160px;
   overflow-y: auto;
@@ -4385,8 +4390,103 @@ button.lh:hover {
   white-space: pre-wrap;
 }
 
+.conflict-base {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 本文・ノート: 行ごとにまとめ、ぶつかったところだけ選ぶ */
+.conflict-dialog--wide {
+  width: 760px;
+}
+
+.merge-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.merge-view pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.merge-same {
+  color: var(--text-muted);
+}
+
+.merge-fold {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.merge-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-md);
+  background: var(--accent-yellow-bg);
+  transition: border-color var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard);
+}
+
+.merge-conflict.is-chosen {
+  border-color: var(--border-default);
+  background: var(--bg-secondary);
+}
+
+.merge-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.merge-sides h4 {
+  margin: 0 0 2px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.merge-sides pre {
+  color: var(--text-primary);
+}
+
+.merge-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merge-choices .is-selected {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.merge-edit {
+  min-height: 240px;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
 @media (max-width: 639px) {
-  .conflict-compare {
+  .conflict-compare,
+  .merge-sides {
     grid-template-columns: minmax(0, 1fr);
   }
 

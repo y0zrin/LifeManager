@@ -5,7 +5,7 @@ import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates,
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
 import { PendingChip } from "./PendingChip";
-import { isTemporary, issueRef } from "../../lib/issueRef";
+import { issueRef } from "../../lib/issueRef";
 
 interface IssueDetailModalProps {
   issue: GitHubIssue;
@@ -60,7 +60,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   const depSuggestions = depSearch.length >= 1
     ? allIssues
         .filter((i) => {
-          if (i.number === issue.number || isTemporary(i.number)) return false;
+          if (i.number === issue.number) return false;
           const numMatch = depSearch.match(/^#?(\d+)$/);
           if (numMatch) return String(i.number).includes(numMatch[1]);
           return i.title.toLowerCase().includes(depSearch.toLowerCase());
@@ -521,7 +521,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                     padding: "1px 6px", borderRadius: "10px", fontSize: "11px",
                     backgroundColor: "var(--bg-tertiary)", color: "var(--text-secondary)",
                   }}>
-                    #{num}{depIssue ? ` ${depIssue.title.substring(0, 15)}` : ""}
+                    {issueRef(num)}{depIssue ? ` ${depIssue.title.substring(0, 15)}` : ""}
                     <span style={{ cursor: "pointer", color: "var(--text-faint)", marginLeft: "2px" }}
                       onClick={() => {
                         const deps = ganttDepsInput.split(",").map(x => x.trim()).filter(x => x && parseInt(x.replace("#", ""), 10) !== num);
@@ -555,7 +555,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                       <span className={`suggestion-state suggestion-state--${s.state}`}>
                         {s.state === "open" ? "●" : "○"}
                       </span>
-                      <span className="suggestion-number">#{s.number}</span>
+                      <span className="suggestion-number">{issueRef(s.number)}</span>
                       <span className="suggestion-title">{s.title}</span>
                     </button>
                   ))}
@@ -624,9 +624,6 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
         <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
           <div className="flex-row" style={{ marginBottom: "6px" }}>
             <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)" }}>リマインダー</span>
-            {isTemporary(issue.number) ? (
-              <span className="pending-note">GitHub に送ったあとで設定できます</span>
-            ) : (
             <button className="btn-sm" style={{ fontSize: "11px" }}
               onClick={() => {
                 if (!showReminderForm) {
@@ -639,7 +636,6 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               }}>
               {showReminderForm ? "×" : "+ 設定"}
             </button>
-            )}
           </div>
 
           {showReminderForm && (

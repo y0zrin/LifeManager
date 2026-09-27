@@ -14,7 +14,8 @@ export function parseGanttDates(body: string | null): { start: string; end: stri
 /** Issue bodyから <!-- depends:#N,#N --> を抽出 */
 export function parseDependencies(body: string | null): number[] {
   if (!body) return [];
-  const m = body.match(/<!--\s*depends:(#\d+(?:,#\d+)*)\s*-->/);
+  // まだ GitHub に送っていない Issue は仮の番号（#-1）。送ったあとで本当の番号に直る
+  const m = body.match(/<!--\s*depends:(#-?\d+(?:,#-?\d+)*)\s*-->/);
   if (!m) return [];
   return m[1].split(",").map((s) => parseInt(s.replace("#", ""), 10)).filter((n) => !isNaN(n));
 }

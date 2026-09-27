@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventType } from "../lib/types";
-import { isTemporary, issueRef } from "../lib/issueRef";
+import type { GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult } from "../lib/types";
+import { issueRef } from "../lib/issueRef";
 
 /** つながらないときの変更は送信待ちに並ぶ（結果に _pending が付く）。そのときに状態の表示に添える言葉 */
 const PENDING_NOTE = "（未送信。つながったら GitHub に送ります）";
@@ -12,6 +12,11 @@ function isPending(result: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+/** 設定の保存の結果（バックエンドが返す言葉）が、送信待ちに並んだことを表しているか */
+function pendingNote(result: unknown): string {
+  return String(result).includes("未送信") ? PENDING_NOTE : "";
 }
 
 export function useGitHub() {
@@ -320,44 +325,39 @@ export function useGitHub() {
     },
   };
 
-  async function notifyEvent(eventType: EventType, message: string, issueNumber?: number) {
+  /**
+   * 操作と一緒にバックエンドへ渡すお知らせ（Discord・OS）。GitHub に送れたときに出る（つながらないときは、つながって送れたとき）。
+   * message の「{issue}」は送れたあとの番号（#12）になり、Issue へのリンクが付く
+   */
+  function eventNotice(eventType: EventType, message: string): EventNotice | null {
     const config = eventNotifConfig ?? defaultEventNotifConfig;
-    if (!config.enabled) return;
+    if (!config.enabled) return null;
     // 保存済み設定に未登録のイベントタイプはデフォルトにフォールバック
     const event = config.events?.[eventType] ?? defaultEventNotifConfig.events[eventType];
-    if (!event?.enabled || !event.channels?.length) return;
+    if (!event?.enabled || !event.channels?.length) return null;
     // 自分の操作時はOS通知をスキップ（os_for_own_actionsがfalseの場合）
     const channels = event.channels.filter(ch => ch !== "os" || config.os_for_own_actions);
-    if (channels.length === 0) return;
-    // イシューリンクを付与
-    const fullMessage = issueNumber
-      ? `${message}\nhttps://github.com/${owner}/${repo}/issues/${issueNumber}`
-      : message;
-    try {
-      await invoke("send_event_notification", { owner, repo, message: fullMessage, channels });
-    } catch (e) {
-      console.error("イベント通知送信エラー:", e);
-    }
+    return channels.length > 0 ? { message, channels } : null;
   }
 
   // --- Issue操作 ---
 
   async function closeIssue(n: number) {
     try {
+      const closedIssue = issues.find((i) => i.number === n);
+      const issueTitle = closedIssue?.title || issueRef(n);
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: "closed", labels: null, milestone: null, assignees: null,
+        notice: eventNotice("issue_closed", `✅ {issue} ${issueTitle} を完了`),
       });
       const pending = isPending(result);
-      const closedIssue = issues.find((i) => i.number === n);
-      const issueTitle = closedIssue?.title || `#${n}`;
       setStatus(`${issueRef(n)} 完了${pending ? PENDING_NOTE : ""}`);
       // 楽観的更新: openから除去し、closedに追加（副作用をupdater外に分離）
       setIssues((prev) => prev.filter((i) => i.number !== n));
       if (closedIssue) {
         setClosedIssues((prev) => [{ ...closedIssue, state: "closed" }, ...prev]);
       }
-      if (!pending) await notifyEvent("issue_closed", `✅ #${n} ${issueTitle} を完了`, n);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -366,20 +366,20 @@ export function useGitHub() {
 
   async function reopenIssue(n: number) {
     try {
+      const reopenedIssue = closedIssues.find((i) => i.number === n);
+      const issueTitle = reopenedIssue?.title || issueRef(n);
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: "open", labels: null, milestone: null, assignees: null,
+        notice: eventNotice("issue_reopened", `🔄 {issue} ${issueTitle} を再開`),
       });
       const pending = isPending(result);
-      const reopenedIssue = closedIssues.find((i) => i.number === n);
-      const issueTitle = reopenedIssue?.title || `#${n}`;
       setStatus(`${issueRef(n)} 再開${pending ? PENDING_NOTE : ""}`);
       // 楽観的更新: closedから除去し、openに追加（副作用をupdater外に分離）
       setClosedIssues((prev) => prev.filter((i) => i.number !== n));
       if (reopenedIssue) {
         setIssues((prev) => [{ ...reopenedIssue, state: "open" }, ...prev]);
       }
-      if (!pending) await notifyEvent("issue_reopened", `🔄 #${n} ${issueTitle} を再開`, n);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -397,6 +397,7 @@ export function useGitHub() {
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: null, labels: newLabels, milestone: null, assignees: null,
+        notice: eventNotice("issue_promoted", `⬆ {issue} ${issue.title} をイシューに昇華`),
       });
       const pending = isPending(result);
       setStatus(`${issueRef(n)} をイシューに昇華${pending ? PENDING_NOTE : ""}`);
@@ -407,7 +408,6 @@ export function useGitHub() {
       setIssues((prev) =>
         prev.map((i) => i.number === n ? { ...i, labels: updatedLabelObjs } : i)
       );
-      if (!pending) await notifyEvent("issue_promoted", `⬆ #${n} ${issue.title} をイシューに昇華`, n);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -462,14 +462,14 @@ export function useGitHub() {
       setIssues((prev) =>
         prev.map((i) => i.number === n ? { ...i, labels: newLabelObjs } : i)
       );
+      const statusName = newStatusLabel ? newStatusLabel.split(":")[1] : "未分類";
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: null, labels: newLabelNames, milestone: null, assignees: null,
+        notice: eventNotice("status_changed", `🔀 {issue} ${issue.title} → ${statusName}`),
       });
       const pending = isPending(result);
-      const statusName = newStatusLabel ? newStatusLabel.split(":")[1] : "未分類";
       setStatus(`${issueRef(n)} → ${newStatusLabel}${pending ? PENDING_NOTE : ""}`);
-      if (!pending) await notifyEvent("status_changed", `🔀 #${n} ${issue.title} → ${statusName}`, n);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -484,6 +484,7 @@ export function useGitHub() {
         labels: labelList,
         milestone,
         assignees: assignees ?? null,
+        notice: eventNotice("issue_created", `📝 {issue} ${title} を作成`),
       });
       const pending = isPending(result);
       setStatus(`Issueを作成しました${pending ? PENDING_NOTE : ""}`);
@@ -496,7 +497,6 @@ export function useGitHub() {
       } catch {
         await loadIssues();
       }
-      if (!pending) await notifyEvent("issue_created", `📝 #${issueNumber || "?"} ${title} を作成`, issueNumber);
       return issueNumber;
     } catch (e) {
       setStatus("エラー: " + e);
@@ -512,19 +512,17 @@ export function useGitHub() {
         labels: ["種別:メモ", "状態:未整理", theme],
         milestone: null,
         assignees: currentUser ? [currentUser] : null,
+        notice: eventNotice("issue_created", `📝 {issue} ${text} をメモ投入`),
       });
       const pending = isPending(result);
       setStatus(`メモを投入しました${pending ? PENDING_NOTE : ""}`);
       // 楽観的更新: APIレスポンスの Issue をリストに即追加（送信待ちなら仮の番号）
-      let issueNumber = 0;
       try {
         const newIssue = JSON.parse(result as string) as GitHubIssue;
-        issueNumber = newIssue.number;
         setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== newIssue.number)]);
       } catch {
         await loadIssues();
       }
-      if (!pending) await notifyEvent("issue_created", `📝 #${issueNumber || "?"} ${text} をメモ投入`, issueNumber);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -535,9 +533,14 @@ export function useGitHub() {
 
   async function updateIssueBody(issueNumber: number, newBody: string) {
     try {
+      // Todo進捗のお知らせ
+      const todoDone = (newBody.match(/- \[x\]/g) || []).length;
+      const todoTotal = (newBody.match(/- \[[ x]\]/g) || []).length;
+      const issueTitle = [...issues, ...closedIssues].find((i) => i.number === issueNumber)?.title || issueRef(issueNumber);
       const result = await invoke("update_issue", {
         owner, repo, issueNumber,
         title: null, body: newBody, issueState: null, labels: null, milestone: null, assignees: null,
+        notice: todoTotal > 0 ? eventNotice("todo_toggled", `☑ {issue} ${issueTitle} ${todoDone}/${todoTotal}完了`) : null,
       });
       const pending = isPending(result);
       if (pending) setStatus(`${issueRef(issueNumber)} の本文を変更しました${PENDING_NOTE}`);
@@ -548,13 +551,6 @@ export function useGitHub() {
       setClosedIssues((prev) =>
         prev.map((i) => i.number === issueNumber ? { ...i, body: newBody } : i)
       );
-      // Todo進捗通知
-      const todoDone = (newBody.match(/- \[x\]/g) || []).length;
-      const todoTotal = (newBody.match(/- \[[ x]\]/g) || []).length;
-      if (todoTotal > 0 && !pending) {
-        const issueTitle = issues.find((i) => i.number === issueNumber)?.title || `#${issueNumber}`;
-        await notifyEvent("todo_toggled", `☑ #${issueNumber} ${issueTitle} ${todoDone}/${todoTotal}完了`, issueNumber);
-      }
     } catch (e) {
       setStatus("タスク更新エラー: " + e);
       throw e;
@@ -568,6 +564,8 @@ export function useGitHub() {
     updates: { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null }
   ) {
     try {
+      const current = [...issues, ...closedIssues].find((i) => i.number === n);
+      const title = updates.title ?? current?.title ?? issueRef(n);
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: updates.title ?? null,
@@ -576,16 +574,15 @@ export function useGitHub() {
         labels: updates.labels ?? null,
         milestone: updates.milestone !== undefined ? (updates.milestone ?? 0) : null,
         assignees: updates.assignees ?? null,
+        notice: eventNotice("issue_updated", `✏ {issue} ${title} を更新`),
       });
       const pending = isPending(result);
       setStatus(`${issueRef(n)} を更新しました${pending ? PENDING_NOTE : ""}`);
       // 楽観的更新: APIレスポンスでローカルを即反映
-      let updatedTitle = `#${n}`;
       try {
         const updated = JSON.parse(result as string) as GitHubIssue;
         // 手元の写しにない Issue を送信待ちにしたときは、中身のない結果が返るので読み直す
         if (typeof updated.title !== "string") throw new Error("Issue の内容がありません");
-        updatedTitle = updated.title;
         setIssues((prev) =>
           prev.map((i) => i.number === n ? updated : i)
         );
@@ -595,7 +592,6 @@ export function useGitHub() {
       } catch {
         await loadAll();
       }
-      if (!pending) await notifyEvent("issue_updated", `✏ #${n} ${updatedTitle} を更新`, n);
     } catch (e) {
       setStatus("エラー: " + e);
     }
@@ -721,11 +717,12 @@ export function useGitHub() {
 
   async function createComment(issueNumber: number, body: string) {
     try {
-      const result = await invoke("create_comment", { owner, repo, issueNumber, body });
-      const pending = isPending(result);
-      setStatus(`${issueRef(issueNumber)} にコメントを追加${pending ? PENDING_NOTE : ""}`);
-      const issueTitle = issues.find((i) => i.number === issueNumber)?.title || `#${issueNumber}`;
-      if (!pending) await notifyEvent("comment_added", `💬 #${issueNumber} ${issueTitle} にコメント`, issueNumber);
+      const issueTitle = [...issues, ...closedIssues].find((i) => i.number === issueNumber)?.title || issueRef(issueNumber);
+      const result = await invoke("create_comment", {
+        owner, repo, issueNumber, body,
+        notice: eventNotice("comment_added", `💬 {issue} ${issueTitle} にコメント`),
+      });
+      setStatus(`${issueRef(issueNumber)} にコメントを追加${isPending(result) ? PENDING_NOTE : ""}`);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -737,9 +734,9 @@ export function useGitHub() {
   async function saveRoutines(routinesList: Routine[]) {
     try {
       const json = JSON.stringify(routinesList);
-      await invoke("save_routines", { owner, repo, routines: json });
+      const result = await invoke("save_routines", { owner, repo, routines: json });
       setRoutines(routinesList);
-      setStatus("ルーチン設定を保存しました");
+      setStatus(result as string);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -750,9 +747,9 @@ export function useGitHub() {
 
   async function generateJournal(date: string): Promise<string> {
     try {
-      const result = await invoke("generate_journal", { owner, repo, date });
-      setStatus(`${date}のジャーナルを生成しました`);
-      return result as string;
+      const result = await invoke<JournalResult>("generate_journal", { owner, repo, date });
+      setStatus(result.pending ? `つながっていないので、${date}のジャーナルはつながったら作ります` : `${date}のジャーナルを生成しました`);
+      return result.content;
     } catch (e) {
       setStatus("ジャーナル生成エラー: " + e);
       throw e;
@@ -771,9 +768,9 @@ export function useGitHub() {
 
   async function saveJournalNotes(date: string, notes: string): Promise<string> {
     try {
-      const result = await invoke("save_journal_notes", { owner, repo, date, notes });
-      setStatus(`${date}のノートを保存しました`);
-      return result as string;
+      const result = await invoke<JournalResult>("save_journal_notes", { owner, repo, date, notes });
+      setStatus(`${date}のノートを保存しました${result.pending ? PENDING_NOTE : ""}`);
+      return result.content;
     } catch (e) {
       setStatus("ノート保存エラー: " + e);
       throw e;
@@ -794,18 +791,14 @@ export function useGitHub() {
   // --- リマインダー ---
 
   async function addReminder(issueNumber: number, title: string, datetime: string, channels: string[]) {
-    if (isTemporary(issueNumber)) {
-      setStatus("リマインダーは、Issue を GitHub に送ったあとで設定してください");
-      return;
-    }
     try {
       const newReminder: Reminder = { issue_number: issueNumber, title, datetime, channels };
       const updated = [...reminders, newReminder];
       const json = JSON.stringify(updated);
-      await invoke("save_reminders", { owner, repo, reminders: json });
+      const result = await invoke("save_reminders", { owner, repo, reminders: json });
       await invoke("refresh_scheduler");
       setReminders(updated);
-      setStatus(`#${issueNumber} のリマインダーを設定しました`);
+      setStatus(`${issueRef(issueNumber)} のリマインダーを設定しました${pendingNote(result)}`);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -818,10 +811,10 @@ export function useGitHub() {
         (r) => !(r.issue_number === issueNumber && r.datetime === datetime)
       );
       const json = JSON.stringify(updated);
-      await invoke("save_reminders", { owner, repo, reminders: json });
+      const result = await invoke("save_reminders", { owner, repo, reminders: json });
       await invoke("refresh_scheduler");
       setReminders(updated);
-      setStatus("リマインダーを削除しました");
+      setStatus(`リマインダーを削除しました${pendingNote(result)}`);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -833,9 +826,9 @@ export function useGitHub() {
   async function saveNotificationSchedules(schedules: NotificationSchedule[]) {
     try {
       const json = JSON.stringify(schedules);
-      await invoke("save_notification_schedules", { owner, repo, schedules: json });
+      const result = await invoke("save_notification_schedules", { owner, repo, schedules: json });
       setNotificationSchedules(schedules);
-      setStatus("通知スケジュールを保存しました");
+      setStatus(result as string);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -847,9 +840,9 @@ export function useGitHub() {
   async function saveEventNotifConfig(config: EventNotificationConfig) {
     try {
       const json = JSON.stringify(config);
-      await invoke("save_event_notification_config", { owner, repo, configJson: json });
+      const result = await invoke("save_event_notification_config", { owner, repo, configJson: json });
       setEventNotifConfig(config);
-      setStatus("イベント通知設定を保存しました");
+      setStatus(result as string);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;
@@ -861,9 +854,9 @@ export function useGitHub() {
   async function saveBoardConfig(config: BoardConfig) {
     try {
       const json = JSON.stringify(config);
-      await invoke("save_board_config", { owner, repo, config: json });
+      const result = await invoke("save_board_config", { owner, repo, config: json });
       setBoardConfig(config);
-      setStatus("ボード設定を保存しました");
+      setStatus(result as string);
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;

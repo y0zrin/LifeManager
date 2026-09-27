@@ -424,6 +424,36 @@ impl GitHubClient {
         return None;
     }
 
+    // --- コミットの履歴（ブランチ画面・全体図。スマホ版や、作業フォルダのない PC で使う） ---
+
+    pub async fn get_repository(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    pub async fn list_branches(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/branches?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    pub async fn list_tags(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/tags?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// ブランチ（またはコミット）から辿れるコミットを新しい順に per_page 件
+    pub async fn list_commits(&self, owner: &str, repo: &str, sha: &str, per_page: u32) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/commits?sha={}&per_page={}",
+            BASE_URL,
+            owner,
+            repo,
+            urlencoding::encode(sha),
+            per_page
+        );
+        return self.get(&url).await;
+    }
+
     // --- User ---
 
     pub async fn get_authenticated_user(&self) -> Result<String, String> {

@@ -1,0 +1,432 @@
+//! 画面から呼ぶ git のコマンド。git の実行には時間がかかることがあるので、どれも別スレッドで動かす
+use super::history::{self, History};
+use super::runner::{run, GitRun};
+use super::status::{self, BranchInfo, FolderCheck, RepoStatus, StashEntry};
+use serde::Serialize;
+use std::path::{Path, PathBuf};
+
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+/// ブランチ名などが「-」で始まると git のオプションとして解釈されてしまうので受け付けない
+fn check_name(name: &str) -> Result<(), String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("名前を入力してください".into());
+    }
+    if name.starts_with('-') {
+        return Err(format!("「{}」は使えない名前です（- で始まる名前は使えません）", name));
+    }
+    Ok(())
+}
+
+// --- 準備（git の有無、フォルダの確認、クローン） ---
+
+#[tauri::command]
+pub async fn git_version() -> Result<String, String> {
+    blocking(|| Ok(run(&std::env::temp_dir(), &["--version"])?.output.trim().to_string())).await
+}
+
+#[tauri::command]
+pub async fn git_check_folder(path: String, owner: String, repo: String) -> Result<FolderCheck, String> {
+    blocking(move || Ok(status::check_folder(Path::new(&path), &owner, &repo))).await
+}
+
+#[derive(Serialize)]
+pub struct CloneResult {
+    pub run: GitRun,
+    pub path: String,
+}
+
+#[tauri::command]
+pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<CloneResult, String> {
+    blocking(move || {
+        let (run, path) = status::clone_repo(Path::new(&parent), &owner, &repo)?;
+        Ok(CloneResult { run, path })
+    })
+    .await
+}
+
+// --- 閲覧 ---
+
+#[tauri::command]
+pub async fn git_status(path: String) -> Result<RepoStatus, String> {
+    blocking(move || status::read_status(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn git_branches(path: String) -> Result<Vec<BranchInfo>, String> {
+    blocking(move || status::list_branches(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn git_stashes(path: String) -> Result<Vec<StashEntry>, String> {
+    blocking(move || status::list_stashes(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn git_history(path: String) -> Result<History, String> {
+    blocking(move || history::read_history(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn git_diff(path: String, file: String, staged: bool, untracked: bool) -> Result<GitRun, String> {
+    blocking(move || status::file_diff(Path::new(&path), &file, staged, untracked)).await
+}
+
+// --- 作業（ステージ・コミット・同期・切り替え・退避） ---
+
+fn with_files<'a>(head: &[&'a str], files: &'a [String]) -> Vec<&'a str> {
+    let mut args = head.to_vec();
+    args.push("--");
+    args.extend(files.iter().map(|f| f.as_str()));
+    args
+}
+
+#[tauri::command]
+pub async fn git_stage(path: String, files: Vec<String>) -> Result<GitRun, String> {
+    blocking(move || run(Path::new(&path), &with_files(&["add"], &files))).await
+}
+
+#[tauri::command]
+pub async fn git_unstage(path: String, files: Vec<String>) -> Result<GitRun, String> {
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        match run(&repo, &with_files(&["restore", "--staged"], &files)) {
+            Ok(r) => Ok(r),
+            // まだ 1 つもコミットがないリポジトリでは restore --staged が使えないので、索引から外す
+            Err(_) => run(&repo, &with_files(&["rm", "--cached", "-q"], &files)),
+        }
+    })
+    .await
+}
+
+/// messages の 1 つ目が要約、2 つ目からは説明の段落（それぞれ -m で渡す）。
+/// 画面の「実行するコマンド」（src/lib/git.ts の commitArgs）と同じ順に引数を並べる
+#[tauri::command]
+pub async fn git_commit(path: String, messages: Vec<String>, amend: bool, allow_empty: bool) -> Result<GitRun, String> {
+    let messages: Vec<String> = messages.into_iter().map(|m| m.trim().to_string()).collect();
+    if messages.first().map_or(true, |s| s.is_empty()) {
+        return Err("要約を入力してください".into());
+    }
+    blocking(move || {
+        let mut args = vec!["commit"];
+        if amend {
+            args.push("--amend");
+        }
+        if allow_empty {
+            args.push("--allow-empty");
+        }
+        for m in messages.iter().filter(|m| !m.is_empty()) {
+            args.extend(["-m", m.as_str()]);
+        }
+        run(Path::new(&path), &args)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_push(path: String) -> Result<GitRun, String> {
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        let st = status::read_status(&repo)?;
+        if st.branch.is_empty() {
+            return Err("ブランチから切り離された状態なので、プッシュできません。先にブランチに切り替えてください".into());
+        }
+        if st.upstream.is_some() {
+            run(&repo, &["push"])
+        } else {
+            // まだ GitHub にないブランチは、公開して上流に設定する
+            run(&repo, &["push", "-u", "origin", st.branch.as_str()])
+        }
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_pull(path: String) -> Result<GitRun, String> {
+    // 取り込み方はマージ（設定によって rebase に変わったり、確認で止まったりしないように明示する）
+    blocking(move || run(Path::new(&path), &["pull", "--no-rebase"])).await
+}
+
+#[tauri::command]
+pub async fn git_fetch(path: String) -> Result<GitRun, String> {
+    blocking(move || run(Path::new(&path), &["fetch", "--all", "--prune"])).await
+}
+
+/// ブランチを切り替える。create なら作ってから切り替える（start があれば、そのコミットから作る）
+#[tauri::command]
+pub async fn git_switch(path: String, branch: String, create: bool, start: Option<String>) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    if let Some(s) = start.as_deref() {
+        check_name(s)?;
+    }
+    blocking(move || {
+        let branch = branch.trim();
+        let mut args = vec!["switch"];
+        if create {
+            args.push("-c");
+        }
+        args.push(branch);
+        if let (true, Some(s)) = (create, start.as_deref()) {
+            args.push(s.trim());
+        }
+        run(Path::new(&path), &args)
+    })
+    .await
+}
+
+/// ブランチではなく、そのコミットそのものを取り出す（切り離された HEAD）
+#[tauri::command]
+pub async fn git_detach(path: String, hash: String) -> Result<GitRun, String> {
+    check_name(&hash)?;
+    blocking(move || run(Path::new(&path), &["switch", "--detach", hash.trim()])).await
+}
+
+#[tauri::command]
+pub async fn git_stash_push(path: String, message: String) -> Result<GitRun, String> {
+    blocking(move || {
+        // まだ git に追加していない新しいファイルも一緒に退避する
+        let mut args = vec!["stash", "push", "-u"];
+        let message = message.trim();
+        if !message.is_empty() {
+            args.extend(["-m", message]);
+        }
+        run(Path::new(&path), &args)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_stash_pop(path: String, index: u32) -> Result<GitRun, String> {
+    blocking(move || run(Path::new(&path), &["stash", "pop", &format!("stash@{{{}}}", index)])).await
+}
+
+#[tauri::command]
+pub async fn git_stash_drop(path: String, index: u32) -> Result<GitRun, String> {
+    blocking(move || run(Path::new(&path), &["stash", "drop", &format!("stash@{{{}}}", index)])).await
+}
+
+/// タグを付ける。target がなければ今のコミットに付ける
+#[tauri::command]
+pub async fn git_tag(path: String, name: String, target: Option<String>) -> Result<GitRun, String> {
+    check_name(&name)?;
+    if let Some(t) = target.as_deref() {
+        check_name(t)?;
+    }
+    blocking(move || {
+        let mut args = vec!["tag", name.trim()];
+        if let Some(t) = target.as_deref() {
+            args.push(t.trim());
+        }
+        run(Path::new(&path), &args)
+    })
+    .await
+}
+
+/// 作業中の変更をすべて捨てる（元に戻せないので、画面で確認してから呼ぶ）。
+/// include_untracked なら、まだ git に追加していない新しいファイルも消す
+#[tauri::command]
+pub async fn git_discard_all(path: String, include_untracked: bool) -> Result<GitRun, String> {
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        let mut runs = vec![run(&repo, &["restore", "--staged", "--worktree", "--", "."])?];
+        if include_untracked {
+            runs.push(run(&repo, &["clean", "-fd", "--", "."])?);
+        }
+        Ok(combine(runs))
+    })
+    .await
+}
+
+// --- コミットの操作（ブランチ画面・全体図のメニュー） ---
+
+#[tauri::command]
+pub async fn git_show(path: String, hash: String) -> Result<GitRun, String> {
+    check_name(&hash)?;
+    blocking(move || status::commit_detail(Path::new(&path), hash.trim())).await
+}
+
+/// そのコミットの変更を、今のブランチにもう一度取り込む
+#[tauri::command]
+pub async fn git_cherry_pick(path: String, hash: String) -> Result<GitRun, String> {
+    check_name(&hash)?;
+    blocking(move || run(Path::new(&path), &["cherry-pick", hash.trim()])).await
+}
+
+/// そのコミットの変更を打ち消すコミットを作る（履歴は消さない）
+#[tauri::command]
+pub async fn git_revert(path: String, hash: String) -> Result<GitRun, String> {
+    check_name(&hash)?;
+    blocking(move || run(Path::new(&path), &["revert", "--no-edit", hash.trim()])).await
+}
+
+/// 今のブランチをそのコミットまで戻す。mode は soft（変更はステージに残す）/ mixed（作業中に残す）/ hard（捨てる）
+#[tauri::command]
+pub async fn git_reset(path: String, hash: String, mode: String) -> Result<GitRun, String> {
+    check_name(&hash)?;
+    let flag = match mode.as_str() {
+        "soft" => "--soft",
+        "mixed" => "--mixed",
+        "hard" => "--hard",
+        _ => return Err(format!("戻し方「{}」は使えません", mode)),
+    };
+    blocking(move || run(Path::new(&path), &["reset", flag, hash.trim()])).await
+}
+
+// --- ブランチの操作 ---
+
+/// 同じ名前のタグがあるときは、ブランチだと分かるように refs/heads/ を付ける（付けないとタグの方が使われる）
+fn branch_ref(repo: &Path, name: &str) -> String {
+    let tag = format!("refs/tags/{}", name);
+    let head = format!("refs/heads/{}", name);
+    let has = |r: &str| run(repo, &["show-ref", "--verify", "--quiet", r]).is_ok();
+    if has(&head) && has(&tag) {
+        head
+    } else {
+        name.to_string()
+    }
+}
+
+/// branch を今のブランチに取り込む
+#[tauri::command]
+pub async fn git_merge(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        let target = branch_ref(&repo, branch.trim());
+        run(&repo, &["merge", "--no-edit", target.as_str()])
+    })
+    .await
+}
+
+/// 今のブランチのコミットを、branch の先に付け替える
+#[tauri::command]
+pub async fn git_rebase(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        let target = branch_ref(&repo, branch.trim());
+        run(&repo, &["rebase", target.as_str()])
+    })
+    .await
+}
+
+/// 今のブランチ以外もプッシュできるように、ブランチを指定して送る（まだ GitHub になければ公開して上流に設定する）
+#[tauri::command]
+pub async fn git_push_branch(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || {
+        let repo = PathBuf::from(&path);
+        let branch = branch.trim();
+        let upstream = run(&repo, &["rev-parse", "--abbrev-ref", &format!("{}@{{upstream}}", branch)]).is_ok();
+        if upstream {
+            run(&repo, &["push", "origin", branch])
+        } else {
+            run(&repo, &["push", "-u", "origin", branch])
+        }
+    })
+    .await
+}
+
+/// GitHub の同じ名前のブランチを上流（プッシュ・プルの相手）にする
+#[tauri::command]
+pub async fn git_set_upstream(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || {
+        let branch = branch.trim();
+        run(Path::new(&path), &["branch", "-u", &format!("origin/{}", branch), branch])
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn git_rename_branch(path: String, from: String, to: String) -> Result<GitRun, String> {
+    check_name(&from)?;
+    check_name(&to)?;
+    blocking(move || run(Path::new(&path), &["branch", "-m", from.trim(), to.trim()])).await
+}
+
+/// ブランチを消す。force でなければ、どこにもマージしていないコミットがあるときは消さない（git が止める）
+#[tauri::command]
+pub async fn git_delete_branch(path: String, branch: String, force: bool) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || run(Path::new(&path), &["branch", if force { "-D" } else { "-d" }, branch.trim()])).await
+}
+
+// --- 途中で止まった操作（マージ・リベース・チェリーピック・リバート）---
+
+fn operation_command(operation: &str) -> Result<&'static str, String> {
+    match operation {
+        "merge" => Ok("merge"),
+        "rebase" => Ok("rebase"),
+        "cherry-pick" => Ok("cherry-pick"),
+        "revert" => Ok("revert"),
+        _ => Err(format!("「{}」は中止・続行できる操作ではありません", operation)),
+    }
+}
+
+/// 途中の操作をやめて、始める前の状態に戻す
+#[tauri::command]
+pub async fn git_abort(path: String, operation: String) -> Result<GitRun, String> {
+    let op = operation_command(&operation)?;
+    blocking(move || run(Path::new(&path), &[op, "--abort"])).await
+}
+
+/// 競合を直してステージしたあと、途中の操作を先へ進める（マージはコミットで完了するので使わない）
+#[tauri::command]
+pub async fn git_continue(path: String, operation: String) -> Result<GitRun, String> {
+    let op = operation_command(&operation)?;
+    if op == "merge" {
+        return Err("マージは、コミットすると完了します".into());
+    }
+    blocking(move || run(Path::new(&path), &[op, "--continue"])).await
+}
+
+/// 続けて実行したコマンドを 1 つの結果にまとめる（画面には && でつないで見せる）
+fn combine(runs: Vec<GitRun>) -> GitRun {
+    GitRun {
+        command: runs.iter().map(|r| r.command.as_str()).collect::<Vec<_>>().join(" && "),
+        output: runs.iter().map(|r| r.output.trim_end()).filter(|o| !o.is_empty()).collect::<Vec<_>>().join("\n"),
+    }
+}
+
+// --- そのほか ---
+
+/// このフォルダでターミナルを開く（自分で git のコマンドを打って試せるように）
+#[tauri::command]
+pub async fn git_open_terminal(path: String) -> Result<(), String> {
+    blocking(move || open_terminal(Path::new(&path))).await
+}
+
+#[cfg(windows)]
+fn open_terminal(dir: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+    std::process::Command::new("powershell.exe")
+        .current_dir(dir)
+        .creation_flags(CREATE_NEW_CONSOLE)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("ターミナルを開けませんでした: {}", e))
+}
+
+#[cfg(target_os = "macos")]
+fn open_terminal(dir: &Path) -> Result<(), String> {
+    std::process::Command::new("open")
+        .args(["-a", "Terminal"])
+        .arg(dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("ターミナルを開けませんでした: {}", e))
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_terminal(dir: &Path) -> Result<(), String> {
+    std::process::Command::new("x-terminal-emulator")
+        .current_dir(dir)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("ターミナルを開けませんでした: {}", e))
+}

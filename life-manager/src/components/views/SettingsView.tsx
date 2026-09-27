@@ -4,7 +4,10 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
+import { isMobile } from "../../lib/platform";
+import type { DisplaySettings } from "../../hooks/useDisplaySettings";
 import { LabelBadge } from "../common/LabelBadge";
+import { LocalFolderSetting } from "../common/LocalFolderSetting";
 
 interface SettingsViewProps {
   connected: boolean;
@@ -26,6 +29,11 @@ interface SettingsViewProps {
   onAddProject: (owner: string, repo: string, name: string, token?: string) => Promise<void>;
   onRemoveProject: (owner: string, repo: string) => Promise<void>;
   onSetProjectToken: (owner: string, repo: string, token: string) => Promise<void>;
+  /** この PC の作業フォルダ（キーは "owner/repo"） */
+  localFolders: Record<string, string>;
+  onSetLocalFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
+  displaySettings: DisplaySettings;
+  onChangeDisplaySettings: (patch: Partial<DisplaySettings>) => void;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
 }
@@ -41,15 +49,16 @@ const notifyTypes: Record<string, string> = {
   custom: "カスタムメッセージ",
 };
 
-type SettingsPane = "connection" | "labels" | "notifications" | "other";
+type SettingsPane = "connection" | "labels" | "notifications" | "display" | "other";
 const PANES: { key: SettingsPane; label: string }[] = [
   { key: "connection", label: "接続" },
   { key: "labels", label: "ラベル" },
   { key: "notifications", label: "通知" },
+  { key: "display", label: "表示" },
   { key: "other", label: "その他" },
 ];
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
+export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
@@ -265,6 +274,16 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         </p>
       </div>
 
+      {/* 作業フォルダ（git の操作は PC だけ） */}
+      {!isMobile && owner && repo && (
+        <LocalFolderSetting
+          owner={owner}
+          repo={repo}
+          folder={localFolders[`${owner}/${repo}`]}
+          onSetFolder={(path) => onSetLocalFolder(owner, repo, path)}
+        />
+      )}
+
       {/* プロジェクト管理 */}
       <div className="form-card">
         <div className="settings-section-header">
@@ -318,8 +337,13 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
           {projects.map((p) => (
             <div key={`${p.owner}/${p.repo}`}>
               <div className="settings-list-item">
-                <span style={{ flex: 1, fontSize: "var(--font-md)", color: "var(--text-primary)" }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: "var(--font-md)", color: "var(--text-primary)" }}>
                   {p.name || `${p.owner}/${p.repo}`}
+                  {!isMobile && localFolders[`${p.owner}/${p.repo}`] && (
+                    <span className="project-folder" title={localFolders[`${p.owner}/${p.repo}`]}>
+                      📁 {localFolders[`${p.owner}/${p.repo}`]}
+                    </span>
+                  )}
                 </span>
                 <span className="settings-hint--subtle">
                   {p.owner}/{p.repo}
@@ -784,6 +808,59 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
             </div>
           </>
         )}
+      </div>
+
+      </>}
+
+      {/* === 表示ペイン === */}
+      {activePane === "display" && <>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>学習の補助</h3>
+        <label className="display-opt">
+          <input type="checkbox" checked={displaySettings.hints}
+            onChange={(e) => onChangeDisplaySettings({ hints: e.target.checked })} />
+          <span>
+            <b>解説を表示する</b>
+            <small>ステージ・コミット・退避などの意味と、対応する git のコマンドを画面に添えます</small>
+          </span>
+        </label>
+      </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>全体図でのブランチの見せ方</h3>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="branch-style" checked={displaySettings.branchStyle === "label"}
+              onChange={() => onChangeDisplaySettings({ branchStyle: "label" })} />
+            <svg className="display-preview" width="46" height="34" aria-hidden="true">
+              <path d="M10,4 V30" className="pv-line pv-main" />
+              <circle cx="10" cy="24" r="3" className="pv-node" />
+              <circle cx="10" cy="14" r="3" className="pv-node" />
+              <rect x="18" y="10" width="22" height="8" rx="4" className="pv-label" />
+              <rect x="18" y="20" width="16" height="8" rx="4" className="pv-label" />
+            </svg>
+            <span>
+              <b>ラベル</b>
+              <small>Sourcetree と同じ。ブランチ名はコミットの横に付きます</small>
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="branch-style" checked={displaySettings.branchStyle === "line"}
+              onChange={() => onChangeDisplaySettings({ branchStyle: "line" })} />
+            <svg className="display-preview" width="46" height="34" aria-hidden="true">
+              <path d="M10,4 V30" className="pv-line pv-main" />
+              <path d="M10,24 C10,20 24,20 24,16 V4" className="pv-line pv-sub1" />
+              <path d="M10,14 C10,10 38,10 38,6 V4" className="pv-line pv-sub2" />
+              <circle cx="10" cy="24" r="3" className="pv-node" />
+              <circle cx="10" cy="14" r="3" className="pv-node" />
+            </svg>
+            <span>
+              <b>線</b>
+              <small>ブランチごとに 1 本の線。いつ切られたかが一目で分かります</small>
+            </span>
+          </label>
+        </div>
       </div>
 
       </>}

@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useGitHub } from "./hooks/useGitHub";
+import { useLocalFolders } from "./hooks/useLocalFolders";
+import { useGit } from "./hooks/useGit";
+import { useGitActions } from "./hooks/useGitActions";
+import { useDisplaySettings } from "./hooks/useDisplaySettings";
+import { useHistory } from "./hooks/useHistory";
+import { isMobile } from "./lib/platform";
+import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
 import { MilestoneView } from "./components/views/MilestoneView";
@@ -12,15 +19,125 @@ import { SettingsView } from "./components/views/SettingsView";
 import { RoutinesView } from "./components/views/RoutinesView";
 import { TimelineView } from "./components/views/TimelineView";
 import { GanttView } from "./components/views/GanttView";
+import { WorkView, EMPTY_DRAFT, type CommitDraft } from "./components/views/WorkView";
+import { BranchesView } from "./components/views/BranchesView";
+import { OverviewView } from "./components/views/OverviewView";
+import { GitToolbar } from "./components/git/GitToolbar";
+import { GitNotices } from "./components/git/GitNotices";
+import { GitDialog } from "./components/git/GitDialog";
+import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
+import { CommitDetail } from "./components/git/CommitDetail";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
 import { SetupView } from "./components/views/SetupView";
-import type { ViewType } from "./lib/types";
+import type { GitCommit, ViewType } from "./lib/types";
 import "./App.css";
+
+type NavItem = { key: ViewType; icon: string; label: string };
+
+// サイドバーの並び: 作業 → タスク系 → リポジトリ系。設定はいちばん下
+const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
+const TASK_ITEMS: NavItem[] = [
+  { key: "dashboard", icon: "📋", label: "タスク" },
+  { key: "kanban", icon: "📊", label: "ボード" },
+  { key: "milestones", icon: "🎯", label: "マイルストーン" },
+  { key: "routines", icon: "🔄", label: "ルーチン" },
+  { key: "timeline", icon: "📅", label: "日誌" },
+  { key: "gantt", icon: "📐", label: "ガント" },
+];
+const REPO_ITEMS: NavItem[] = [
+  { key: "branches", icon: "🌿", label: "ブランチ" },
+  { key: "overview", icon: "🗺️", label: "全体図" },
+];
+// これから作る画面（サイドバーに「予定」として見せておく）
+const PLANNED_REPO_ITEMS = [
+  { icon: "🔃", label: "プルリク" },
+  { icon: "▶️", label: "Actions" },
+  { icon: "🏷️", label: "リリース" },
+];
+const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
+const ALL_NAV_ITEMS: NavItem[] = [WORK_ITEM, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
+// スマホの下部ナビは従来どおり（新しい画面はスマホ版を詰めるときに足す）
+const MOBILE_NAV_ITEMS: NavItem[] = [...TASK_ITEMS, SETTINGS_ITEM];
+
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+
+// 作業 → ブランチ → 全体図 は、右へ行くほど一歩ずつ引いて見る画面。切り替えは寄る・引く動きにする
+const ZOOM_LEVELS: ViewType[] = ["work", "branches", "overview"];
+
+function zoomAnimation(from: ViewType, to: ViewType): string {
+  const a = ZOOM_LEVELS.indexOf(from);
+  const b = ZOOM_LEVELS.indexOf(to);
+  if (a < 0 || b < 0 || a === b) return "";
+  return b > a ? " zoom-out" : " zoom-in";
+}
 
 function App() {
   const gh = useGitHub();
+  const localFolders = useLocalFolders();
+  const display = useDisplaySettings();
   const [view, setView] = useState<ViewType>("dashboard");
+  // git の操作は PC だけ。作業・ブランチ・全体図を開いているあいだは、状態をこまめに読み直す
+  const folder = isMobile ? undefined : localFolders.folders[`${gh.owner}/${gh.repo}`];
+  const repoView = view === "work" || view === "branches" || view === "overview";
+  const git = useGit(folder, repoView);
+  const {
+    actions: gitActions,
+    dialog: gitDialog,
+    closeDialog: closeGitDialog,
+    detail: commitDetail,
+    closeDetail: closeCommitDetail,
+  } = useGitActions(git, { owner: gh.owner, repo: gh.repo });
+  // 右クリック・「⋯」のメニュー
+  const [menu, setMenu] = useState<MenuSpec | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const [commitDraft, setCommitDraft] = useState<CommitDraft>(EMPTY_DRAFT);
+  const [commitRequest, setCommitRequest] = useState<{ empty: boolean } | null>(null);
+  const clearCommitRequest = useCallback(() => setCommitRequest(null), []);
+
+  // ブランチ画面・全体図の履歴（この PC の作業フォルダがあればその git から、なければ GitHub から読む）
+  const historyView = view === "branches" || view === "overview";
+  const historyReloadKey = git.status
+    ? [git.status.head, git.status.branch, git.status.ahead, git.status.behind, git.opCount].join("|")
+    : "";
+  const hist = useHistory({ folder, owner: gh.owner, repo: gh.repo }, historyView, historyReloadKey);
+  const byHash = useMemo(() => new Map((hist.history?.commits ?? []).map((c) => [c.hash, c])), [hist.history]);
+  const branchEntries = useMemo(
+    () => (hist.history ? listBranchEntries(hist.history, git.branches) : []),
+    [hist.history, git.branches],
+  );
+  const homeOf = useMemo(() => homeBranches(byHash, branchEntries), [byHash, branchEntries]);
+  // 見ているブランチ（ブランチ画面と全体図で共有）。未選択ならチェックアウト中、なければ既定のブランチ
+  const [repoBranch, setRepoBranch] = useState<string | null>(null);
+  const [focusCommit, setFocusCommit] = useState<string | null>(null);
+  const clearFocusCommit = useCallback(() => setFocusCommit(null), []);
+  const fallbackBranch = (branchEntries.find((e) => e.isCurrent) ?? branchEntries.find((e) => e.isDefault) ?? branchEntries[0])?.name ?? null;
+  const selectedBranch = repoBranch && branchEntries.some((e) => e.name === repoBranch) ? repoBranch : fallbackBranch;
+  // 今のブランチ（HEAD）の履歴にあるコミット（戻す・打ち消す・取り込むのメニューで使う）
+  const headAncestors = useMemo(
+    () => (hist.history?.head ? ancestors(byHash, hist.history.head) : new Set<string>()),
+    [byHash, hist.history],
+  );
+  const historyIsLocal = hist.history?.source === "local";
+  const openCommitMenu = (pos: { x: number; y: number }, c: GitCommit) =>
+    setMenu({
+      ...pos,
+      title: `コミット ${c.hash.slice(0, 7)}`,
+      items: gitActions.commitMenu(c, { local: historyIsLocal, inCurrent: headAncestors.has(c.hash) }),
+    });
+  const openBranchMenu = (pos: { x: number; y: number }, e: BranchEntry) =>
+    setMenu({ ...pos, title: `ブランチ ${e.name}`, items: gitActions.branchMenu(e, historyIsLocal) });
+
+  // 画面の切り替えの動き（同じ画面のあいだは変えない）
+  const viewAnim = useRef<{ view: ViewType; anim: string }>({ view, anim: "" });
+  if (viewAnim.current.view !== view) viewAnim.current = { view, anim: zoomAnimation(viewAnim.current.view, view) };
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [showPalette, setShowPalette] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
@@ -115,15 +232,109 @@ function App() {
     await gh.switchProject(projOwner, projRepo);
   }
 
-  const navItems: { key: ViewType; icon: string; label: string }[] = [
-    { key: "dashboard", icon: "📋", label: "タスク" },
-    { key: "kanban", icon: "📊", label: "ボード" },
-    { key: "milestones", icon: "🎯", label: "マイルストーン" },
-    { key: "routines", icon: "🔄", label: "ルーチン" },
-    { key: "timeline", icon: "📅", label: "日誌" },
-    { key: "gantt", icon: "📐", label: "ガント" },
-    { key: "settings", icon: "⚙️", label: "設定" },
-  ];
+  // 別のリポジトリに切り替えたら、コミット欄の書きかけや見ていたブランチは持ち越さない
+  useEffect(() => {
+    setCommitDraft(EMPTY_DRAFT);
+    setRepoBranch(null);
+    setFocusCommit(null);
+  }, [gh.owner, gh.repo]);
+
+  // 全体図の点をクリック: そのコミットを積み重ねてきたブランチのページで、そのコミットへ寄る
+  const openCommit = useCallback(
+    (hash: string) => {
+      setRepoBranch(homeOf.get(hash) ?? fallbackBranch);
+      setFocusCommit(hash);
+      setView("branches");
+    },
+    [homeOf, fallbackBranch],
+  );
+
+  // −／＋ キーと Ctrl＋ホイールで、作業 ⇄ ブランチ ⇄ 全体図 を一段ずつ引いたり寄ったりする
+  useEffect(() => {
+    const level = ZOOM_LEVELS.indexOf(view);
+    if (level < 0) return;
+    const step = (dir: number) => {
+      const next = ZOOM_LEVELS[level + dir];
+      // スマホ版には作業タブがない
+      if (next && !(next === "work" && isMobile)) setView(next);
+    };
+    function onKeyDown(e: KeyboardEvent) {
+      const t = e.target as HTMLElement;
+      if (e.ctrlKey || e.metaKey || e.altKey || t.closest?.("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "-") { e.preventDefault(); step(1); }
+      else if (e.key === "+" || e.key === "=") { e.preventDefault(); step(-1); }
+    }
+    let lastWheel = 0;
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheel < 450) return;
+      lastWheel = now;
+      step(e.deltaY > 0 ? 1 : -1);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("wheel", onWheel);
+    };
+  }, [view]);
+
+  // ツールバーの「コミット…」「空コミット…」: 作業タブを開いてコミット欄に移る
+  function handleOpenCommit(empty: boolean) {
+    setView("work");
+    setCommitRequest({ empty });
+  }
+
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        // 保存できなくても表示は切り替わる
+      }
+      return next;
+    });
+  }
+
+  function renderNavItem(item: NavItem) {
+    // 作業には、作業中の変更があるファイルの数を出す
+    const count = item.key === "work" ? git.status?.files.length ?? 0 : 0;
+    return (
+      <button
+        key={item.key}
+        className={`sidebar-item ${view === item.key ? "active" : ""}`}
+        onClick={() => setView(item.key)}
+        title={count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
+      >
+        <span className="sidebar-icon">{item.icon}</span>
+        <span className="sidebar-label">{item.label}</span>
+        {count > 0 && <span className="sidebar-count">{count}</span>}
+      </button>
+    );
+  }
+
+  const currentLabel = ALL_NAV_ITEMS.find((item) => item.key === view)?.label ?? "";
+
+  const projectSelect = gh.projects.length > 0 && (
+    <select
+      className="select-sm project-select"
+      value={`${gh.owner}/${gh.repo}`}
+      onChange={(e) => {
+        const [o, r] = e.target.value.split("/");
+        if (o && r) handleSwitchProject(o, r);
+      }}
+      style={{ fontSize: "var(--font-sm)" }}
+    >
+      {gh.projects.map((p) => (
+        <option key={`${p.owner}/${p.repo}`} value={`${p.owner}/${p.repo}`}>
+          {p.name || `${p.owner}/${p.repo}`}
+        </option>
+      ))}
+    </select>
+  );
 
   // 初期化中
   if (initializing) {
@@ -140,64 +351,288 @@ function App() {
   }
 
   return (
-    <main className="app">
-      {/* ヘッダー */}
-      <header className="header">
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
-          <h1 className="header-title" style={{ margin: 0, fontSize: "var(--font-xl)" }}>Life Manager</h1>
-          {gh.projects.length > 0 && (
-            <select
-              className="select-sm project-select"
-              value={`${gh.owner}/${gh.repo}`}
-              onChange={(e) => {
-                const [o, r] = e.target.value.split("/");
-                if (o && r) handleSwitchProject(o, r);
-              }}
-              style={{ maxWidth: "200px", fontSize: "var(--font-sm)" }}
-            >
-              {gh.projects.map((p) => (
-                <option key={`${p.owner}/${p.repo}`} value={`${p.owner}/${p.repo}`}>
-                  {p.name || `${p.owner}/${p.repo}`}
-                </option>
-              ))}
-            </select>
+    <main className={`app app-shell${display.settings.hints ? "" : " hints-off"}`}>
+      {/* サイドバー（PC） */}
+      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-top">
+          <div className="sidebar-title">Life Manager</div>
+          {projectSelect}
+        </div>
+        <nav className="sidebar-nav">
+          {renderNavItem(WORK_ITEM)}
+          <div className="sidebar-group">タスク</div>
+          {TASK_ITEMS.map(renderNavItem)}
+          <div className="sidebar-group">リポジトリ</div>
+          {REPO_ITEMS.map(renderNavItem)}
+          {PLANNED_REPO_ITEMS.map((item) => (
+            <span key={item.label} className="sidebar-item planned" title={`${item.label}（これから追加します）`}>
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+              <span className="sidebar-plan">予定</span>
+            </span>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          {renderNavItem(SETTINGS_ITEM)}
+          <button
+            className="sidebar-item sidebar-toggle"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "サイドバーをひらく" : "サイドバーをたたむ"}
+          >
+            <span className="sidebar-icon">{sidebarCollapsed ? "»" : "«"}</span>
+            <span className="sidebar-label">たたむ</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="app-main">
+        {/* 上のバー（PC） */}
+        <header className="topbar">
+          <h1 className="topbar-title">{currentLabel}</h1>
+          {repoView && git.status && (
+            <GitToolbar git={git} actions={gitActions} onOpenCommit={handleOpenCommit} />
           )}
-          <nav className="nav">
-            {navItems.map((item) => (
-              <button
-                key={item.key}
-                className={`nav-btn ${view === item.key ? "active" : ""}`}
-                onClick={() => setView(item.key)}
-              >
-                {item.icon} {item.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="header-right" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
-          <span className="status-text">{gh.status}</span>
-          <button className="btn-sm" onClick={() => { setShowPalette(true); }}>
-            Ctrl+K
-          </button>
-        </div>
-      </header>
+          <div className="topbar-right">
+            {/* git の操作の結果は右下に出すので、リポジトリの画面では場所をツールバーにゆずる */}
+            {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
+            <button className="btn-sm" onClick={() => { setShowPalette(true); }}>
+              Ctrl+K
+            </button>
+          </div>
+        </header>
 
-      {/* アップデート通知バナー */}
-      {updateAvailable && (
-        <div className="update-banner">
-          <span>新しいバージョン {updateAvailable.version} が利用可能です</span>
-          <button className="btn-primary" onClick={performUpdate} disabled={updating} style={{ fontSize: "var(--font-sm)", padding: "4px 12px" }}>
-            {updating ? "更新中..." : "今すぐ更新"}
-          </button>
-          <button className="btn-sm" onClick={() => setUpdateAvailable(null)} style={{ padding: "4px 8px" }}>
-            後で
-          </button>
-        </div>
-      )}
+        {/* ヘッダー（スマホ） */}
+        <header className="header mobile-header">
+          <h1 className="header-title" style={{ margin: 0, fontSize: "var(--font-xl)" }}>Life Manager</h1>
+          {projectSelect}
+        </header>
 
-      {/* ボトムナビゲーション（モバイル用） */}
+        {/* アップデート通知バナー */}
+        {updateAvailable && (
+          <div className="update-banner">
+            <span>新しいバージョン {updateAvailable.version} が利用可能です</span>
+            <button className="btn-primary" onClick={performUpdate} disabled={updating} style={{ fontSize: "var(--font-sm)", padding: "4px 12px" }}>
+              {updating ? "更新中..." : "今すぐ更新"}
+            </button>
+            <button className="btn-sm" onClick={() => setUpdateAvailable(null)} style={{ padding: "4px 8px" }}>
+              後で
+            </button>
+          </div>
+        )}
+
+        {/* 画面（切り替えるたびにイージング付きで表示。作業・ブランチ・全体図のあいだは寄る・引く動き） */}
+        <div key={view} className={`view-enter${viewAnim.current.anim}`}>
+          {/* 作業（取り組み中の Issue と git の作業） */}
+          {view === "work" && (
+            <WorkView
+              owner={gh.owner}
+              repo={gh.repo}
+              folder={folder}
+              onSetFolder={(path) => localFolders.setFolder(gh.owner, gh.repo, path)}
+              git={git}
+              actions={gitActions}
+              issues={gh.issues}
+              onOpenIssue={setSelectedIssue}
+              onStartIssue={(n) => gh.changeIssueStatus(n, "状態:進行中")}
+              onCloseIssue={gh.closeIssue}
+              draft={commitDraft}
+              onDraftChange={setCommitDraft}
+              commitRequest={commitRequest}
+              onCommitRequestHandled={clearCommitRequest}
+            />
+          )}
+
+          {/* ブランチ・全体図 */}
+          {historyView && (
+            <div className="repo-screen">
+              {hist.history?.source === "github" && !isMobile && (
+                <div className="repo-source">
+                  GitHub にある状態を表示しています。この PC の作業フォルダを決めると、手元の git の状態を表示して、操作もできます。
+                  <button type="button" className="btn-sm" onClick={() => setView("work")}>
+                    作業フォルダを決める
+                  </button>
+                </div>
+              )}
+              {!hist.history ? (
+                <div className="content">
+                  {hist.error ? (
+                    <div className="work-setup">
+                      <h2>履歴を読めませんでした</h2>
+                      <p className="local-folder-message local-folder-message--error">{hist.error}</p>
+                      <button type="button" className="btn-sm" onClick={hist.reload}>
+                        もう一度読み込む
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="work-loading">履歴を読み込んでいます…</p>
+                  )}
+                </div>
+              ) : view === "branches" ? (
+                <BranchesView
+                  history={hist.history}
+                  entries={branchEntries}
+                  byHash={byHash}
+                  selected={selectedBranch}
+                  onSelect={setRepoBranch}
+                  focusCommit={focusCommit}
+                  onFocusHandled={clearFocusCommit}
+                  status={hist.history.source === "local" ? git.status : null}
+                  actions={hist.history.source === "local" ? gitActions : null}
+                  onOpenWork={() => setView("work")}
+                  onOpenOverview={() => setView("overview")}
+                  onCommitMenu={openCommitMenu}
+                  onBranchMenu={openBranchMenu}
+                />
+              ) : (
+                <OverviewView
+                  history={hist.history}
+                  entries={branchEntries}
+                  byHash={byHash}
+                  selected={selectedBranch}
+                  onSelect={setRepoBranch}
+                  onOpenCommit={openCommit}
+                  changes={hist.history.source === "local" ? git.status?.files.length ?? 0 : 0}
+                  onOpenWork={() => setView("work")}
+                  branchStyle={display.settings.branchStyle}
+                  onBranchStyleChange={(branchStyle) => display.update({ branchStyle })}
+                  home={homeOf}
+                  onCommitMenu={openCommitMenu}
+                  onBranchMenu={openBranchMenu}
+                />
+              )}
+            </div>
+          )}
+
+          {/* ダッシュボード */}
+          {view === "dashboard" && gh.connected && (
+            <DashboardView
+              issues={gh.issues}
+              closedIssues={gh.closedIssues}
+              labels={gh.customLabels}
+              milestones={gh.milestones}
+              collaborators={gh.collaborators}
+              currentUser={gh.currentUser}
+              filters={filters}
+              onFiltersChange={setFilters}
+              onClose={gh.closeIssue}
+              onReopen={gh.reopenIssue}
+              onPromote={gh.promoteIssue}
+              onStatusChange={gh.changeIssueStatus}
+              onCreateIssue={gh.createIssue}
+              onCreateMemo={gh.createMemo}
+              onRefresh={gh.loadAll}
+              onSelectIssue={setSelectedIssue}
+              onAddReminder={gh.addReminder}
+              status={gh.status}
+            />
+          )}
+
+          {/* ボード */}
+          {view === "kanban" && gh.connected && (
+            <KanbanView
+              issues={gh.issues}
+              labels={gh.customLabels}
+              milestones={gh.milestones}
+              collaborators={gh.collaborators}
+              boardConfig={gh.boardConfig}
+              currentUser={gh.currentUser}
+              onStatusChange={gh.changeIssueStatus}
+              onAssignToMe={gh.assignToMe}
+              onSelectIssue={setSelectedIssue}
+              onSaveBoardConfig={gh.saveBoardConfig}
+            />
+          )}
+
+          {/* マイルストーン */}
+          {view === "milestones" && gh.connected && (
+            <MilestoneView
+              milestones={gh.milestones}
+              issues={gh.issues}
+              closedIssues={gh.closedIssues}
+              onCreateMilestone={gh.createMilestone}
+              onUpdateMilestone={gh.updateMilestone}
+              onCloseMilestone={gh.closeMilestone}
+              onRefresh={gh.loadMilestones}
+              onSelectIssue={setSelectedIssue}
+            />
+          )}
+
+          {/* ルーチン */}
+          {view === "routines" && gh.connected && (
+            <RoutinesView
+              routines={gh.routines}
+              availableLabels={gh.customLabels}
+              onSave={gh.saveRoutines}
+              onRefresh={gh.loadRoutines}
+            />
+          )}
+
+          {/* タイムライン */}
+          {view === "timeline" && gh.connected && (
+            <TimelineView
+              onGenerateJournal={gh.generateJournal}
+              onGetJournal={gh.getJournal}
+              onSaveNotes={gh.saveJournalNotes}
+              onSelectIssue={setSelectedIssue}
+            />
+          )}
+
+          {/* ガントチャート */}
+          {view === "gantt" && gh.connected && (
+            <GanttView
+              issues={gh.issues}
+              closedIssues={gh.closedIssues}
+              milestones={gh.milestones}
+              labels={gh.customLabels}
+              collaborators={gh.collaborators}
+              currentUser={gh.currentUser}
+              onSelectIssue={setSelectedIssue}
+              onUpdateIssueBody={gh.updateIssueBody}
+            />
+          )}
+
+          {/* 設定 */}
+          {view === "settings" && (
+            <SettingsView
+              connected={gh.connected}
+              labels={gh.customLabels}
+              owner={gh.owner}
+              repo={gh.repo}
+              onSetToken={handleSetToken}
+              onSetupLabels={gh.setupLabels}
+              onSetRepoConfig={gh.setRepoConfig}
+              onUpdateLabel={gh.updateLabel}
+              onDeleteLabel={gh.deleteLabel}
+              onCreateLabel={gh.createLabel}
+              notificationSchedules={gh.notificationSchedules}
+              onSaveNotificationSchedules={gh.saveNotificationSchedules}
+              onSetDiscordWebhook={gh.setDiscordWebhook}
+              onLoadDiscordWebhook={gh.loadDiscordWebhook}
+              onTestDiscordWebhook={gh.testDiscordWebhook}
+              projects={gh.projects}
+              onAddProject={gh.addProject}
+              onRemoveProject={gh.removeProject}
+              onSetProjectToken={gh.setProjectToken}
+              localFolders={localFolders.folders}
+              onSetLocalFolder={localFolders.setFolder}
+              displaySettings={display.settings}
+              onChangeDisplaySettings={display.update}
+              eventNotifConfig={gh.eventNotifConfig}
+              onSaveEventNotifConfig={gh.saveEventNotifConfig}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
+      <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
+      {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
+      {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
+      {commitDetail && folder && <CommitDetail folder={folder} commit={commitDetail} onClose={closeCommitDetail} />}
+
+      {/* ボトムナビゲーション（スマホ） */}
       <nav className="bottom-nav">
-        {navItems.map((item) => (
+        {MOBILE_NAV_ITEMS.map((item) => (
           <button
             key={item.key}
             className={`bottom-nav-btn ${view === item.key ? "active" : ""}`}
@@ -227,94 +662,6 @@ function App() {
         />
       )}
 
-      {/* ダッシュボード */}
-      {view === "dashboard" && gh.connected && (
-        <DashboardView
-          issues={gh.issues}
-          closedIssues={gh.closedIssues}
-          labels={gh.customLabels}
-          milestones={gh.milestones}
-          collaborators={gh.collaborators}
-          currentUser={gh.currentUser}
-          filters={filters}
-          onFiltersChange={setFilters}
-          onClose={gh.closeIssue}
-          onReopen={gh.reopenIssue}
-          onPromote={gh.promoteIssue}
-          onStatusChange={gh.changeIssueStatus}
-          onCreateIssue={gh.createIssue}
-          onCreateMemo={gh.createMemo}
-          onRefresh={gh.loadAll}
-          onSelectIssue={setSelectedIssue}
-          onAddReminder={gh.addReminder}
-          status={gh.status}
-        />
-      )}
-
-      {/* ボード */}
-      {view === "kanban" && gh.connected && (
-        <KanbanView
-          issues={gh.issues}
-          labels={gh.customLabels}
-          milestones={gh.milestones}
-          collaborators={gh.collaborators}
-          boardConfig={gh.boardConfig}
-          currentUser={gh.currentUser}
-          onStatusChange={gh.changeIssueStatus}
-          onAssignToMe={gh.assignToMe}
-          onSelectIssue={setSelectedIssue}
-          onSaveBoardConfig={gh.saveBoardConfig}
-        />
-      )}
-
-      {/* マイルストーン */}
-      {view === "milestones" && gh.connected && (
-        <MilestoneView
-          milestones={gh.milestones}
-          issues={gh.issues}
-          closedIssues={gh.closedIssues}
-          onCreateMilestone={gh.createMilestone}
-          onUpdateMilestone={gh.updateMilestone}
-          onCloseMilestone={gh.closeMilestone}
-          onRefresh={gh.loadMilestones}
-          onSelectIssue={setSelectedIssue}
-        />
-      )}
-
-      {/* ルーチン */}
-      {view === "routines" && gh.connected && (
-        <RoutinesView
-          routines={gh.routines}
-          availableLabels={gh.customLabels}
-          onSave={gh.saveRoutines}
-          onRefresh={gh.loadRoutines}
-        />
-      )}
-
-      {/* タイムライン */}
-      {view === "timeline" && gh.connected && (
-        <TimelineView
-          onGenerateJournal={gh.generateJournal}
-          onGetJournal={gh.getJournal}
-          onSaveNotes={gh.saveJournalNotes}
-          onSelectIssue={setSelectedIssue}
-        />
-      )}
-
-      {/* ガントチャート */}
-      {view === "gantt" && gh.connected && (
-        <GanttView
-          issues={gh.issues}
-          closedIssues={gh.closedIssues}
-          milestones={gh.milestones}
-          labels={gh.customLabels}
-          collaborators={gh.collaborators}
-          currentUser={gh.currentUser}
-          onSelectIssue={setSelectedIssue}
-          onUpdateIssueBody={gh.updateIssueBody}
-        />
-      )}
-
       {/* Issue詳細モーダル */}
       {selectedIssue !== null && (() => {
         const issueObj = gh.issues.find((i) => i.number === selectedIssue)
@@ -339,33 +686,6 @@ function App() {
           />
         ) : null;
       })()}
-
-      {/* 設定 */}
-      {view === "settings" && (
-        <SettingsView
-          connected={gh.connected}
-          labels={gh.customLabels}
-          owner={gh.owner}
-          repo={gh.repo}
-          onSetToken={handleSetToken}
-          onSetupLabels={gh.setupLabels}
-          onSetRepoConfig={gh.setRepoConfig}
-          onUpdateLabel={gh.updateLabel}
-          onDeleteLabel={gh.deleteLabel}
-          onCreateLabel={gh.createLabel}
-          notificationSchedules={gh.notificationSchedules}
-          onSaveNotificationSchedules={gh.saveNotificationSchedules}
-          onSetDiscordWebhook={gh.setDiscordWebhook}
-          onLoadDiscordWebhook={gh.loadDiscordWebhook}
-          onTestDiscordWebhook={gh.testDiscordWebhook}
-          projects={gh.projects}
-          onAddProject={gh.addProject}
-          onRemoveProject={gh.removeProject}
-          onSetProjectToken={gh.setProjectToken}
-          eventNotifConfig={gh.eventNotifConfig}
-          onSaveEventNotifConfig={gh.saveEventNotifConfig}
-        />
-      )}
     </main>
   );
 }

@@ -1,4 +1,5 @@
 mod credential;
+mod git;
 mod github;
 mod journal;
 mod notify;
@@ -118,6 +119,58 @@ fn remove_project(owner: String, repo: String) -> Result<String, String> {
     }
 
     Ok(json)
+}
+
+// --- ローカルのフォルダ（PC で git を操作する場所） ---
+// PC ごとに違う値なので、その PC のキーチェーンに {"owner/repo": "フォルダ"} の形で持つ。
+// プロジェクト一覧に登録していないリポジトリでも設定できるように、一覧とは別に保存する
+
+#[tauri::command]
+fn load_local_folders() -> Result<String, String> {
+    let entry = Entry::new("life-manager", "local-folders").map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(json) => Ok(json),
+        Err(_) => Ok("{}".to_string()),
+    }
+}
+
+/// フォルダを保存する。None や空文字なら設定を外す。保存後の一覧を返す
+#[tauri::command]
+fn set_local_folder(owner: String, repo: String, path: Option<String>) -> Result<String, String> {
+    let entry = Entry::new("life-manager", "local-folders").map_err(|e| e.to_string())?;
+    let mut folders: serde_json::Map<String, serde_json::Value> = match entry.get_password() {
+        Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
+        Err(_) => serde_json::Map::new(),
+    };
+
+    let key = format!("{}/{}", owner, repo);
+    match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => {
+            folders.insert(key, serde_json::Value::String(p));
+        }
+        None => {
+            folders.remove(&key);
+        }
+    }
+
+    let json = serde_json::to_string(&folders).map_err(|e| e.to_string())?;
+    entry.set_password(&json).map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+/// GitHub にあるブランチ・タグ・コミットから履歴を作る（スマホ版や、作業フォルダのない PC のブランチ画面・全体図）
+#[tauri::command]
+async fn github_history(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<git::history::History, String> {
+    // API を何度も呼ぶので、ほかの操作を待たせないよう、クライアントを複製してすぐにロックを離す
+    let client = {
+        let guard = state.lock().await;
+        guard.as_ref().ok_or("トークンが未設定です")?.clone()
+    };
+    return github::history::read_history(&client, &owner, &repo).await;
 }
 
 #[tauri::command]
@@ -1021,6 +1074,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(None::<GitHubClient>))
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -1042,6 +1096,9 @@ pub fn run() {
             switch_project,
             set_project_token,
             has_project_token,
+            load_local_folders,
+            set_local_folder,
+            github_history,
             list_issues,
             create_issue,
             update_issue,
@@ -1076,6 +1133,40 @@ pub fn run() {
             set_discord_webhook,
             load_discord_webhook,
             test_discord_webhook,
+            git::commands::git_version,
+            git::commands::git_check_folder,
+            git::commands::git_clone,
+            git::commands::git_status,
+            git::commands::git_branches,
+            git::commands::git_stashes,
+            git::commands::git_diff,
+            git::commands::git_stage,
+            git::commands::git_unstage,
+            git::commands::git_commit,
+            git::commands::git_push,
+            git::commands::git_pull,
+            git::commands::git_fetch,
+            git::commands::git_switch,
+            git::commands::git_stash_push,
+            git::commands::git_stash_pop,
+            git::commands::git_stash_drop,
+            git::commands::git_tag,
+            git::commands::git_discard_all,
+            git::commands::git_open_terminal,
+            git::commands::git_history,
+            git::commands::git_detach,
+            git::commands::git_show,
+            git::commands::git_cherry_pick,
+            git::commands::git_revert,
+            git::commands::git_reset,
+            git::commands::git_merge,
+            git::commands::git_rebase,
+            git::commands::git_push_branch,
+            git::commands::git_set_upstream,
+            git::commands::git_rename_branch,
+            git::commands::git_delete_branch,
+            git::commands::git_abort,
+            git::commands::git_continue,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

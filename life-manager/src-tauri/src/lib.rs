@@ -157,10 +157,31 @@ async fn switch_project(
 }
 
 #[tauri::command]
-fn set_project_token(owner: String, repo: String, token: String) -> Result<String, String> {
+async fn set_project_token(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    token: String,
+) -> Result<String, String> {
     let token_key = format!("project-token-{}/{}", owner, repo);
     let entry = Entry::new("life-manager", &token_key).map_err(|e| e.to_string())?;
     entry.set_password(&token).map_err(|e| e.to_string())?;
+
+    // 保存対象が現在アクティブなプロジェクトなら、メモリ上の GitHubClient も即座に差し替える
+    // （これを行わないと、アプリ再起動まで古いトークンで API を叩き続けてしまう）
+    let active_owner = Entry::new("life-manager", "github-owner")
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .unwrap_or_default();
+    let active_repo = Entry::new("life-manager", "github-repo")
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .unwrap_or_default();
+    if active_owner == owner && active_repo == repo {
+        let mut guard = state.lock().await;
+        *guard = Some(GitHubClient::new(token));
+    }
+
     return Ok("プロジェクトのトークンを保存しました".to_string());
 }
 

@@ -34,8 +34,14 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": [
+      "resources/manual.html",
       "resources/manual.pdf"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {

@@ -224,6 +224,16 @@ export interface GitHistory {
   source: "local" | "github";
 }
 
+/** 使う準備ができているか（Git が入っているか、コミットに使う名前とメールアドレスが決まっているか） */
+export interface GitSetupStatus {
+  /** Git のバージョン。入っていなければ null */
+  git: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  /** この PC で使えるインストールの方法。自動では入れられないときは null */
+  installer: "winget" | "download" | "xcode" | null;
+}
+
 export interface GitFolderCheck {
   is_repo: boolean;
   top_level: string;

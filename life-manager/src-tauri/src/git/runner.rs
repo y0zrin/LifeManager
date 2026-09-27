@@ -1,6 +1,51 @@
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
+
+/// 使う git（一度見つけたら覚えておく）
+static GIT_PROGRAM: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// 使う git の場所。ふつうは PATH の git。PATH に無くても、Git がよく入る場所にあればそれを使う
+/// （Git を入れた直後は、このアプリの PATH にまだ入っていないため）
+pub fn git_program() -> PathBuf {
+    let mut cached = GIT_PROGRAM.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(p) = cached.as_ref() {
+        return p.clone();
+    }
+    let found = locate_git();
+    *cached = Some(found.clone());
+    found
+}
+
+/// もう一度探し直すようにする（Git を入れたあとや、見つからなかったとき）
+pub fn forget_git_program() {
+    *GIT_PROGRAM.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+fn locate_git() -> PathBuf {
+    let mut probe = Command::new("git");
+    probe.arg("--version");
+    hide_console_window(&mut probe);
+    if probe.output().is_ok() {
+        return PathBuf::from("git");
+    }
+    #[cfg(windows)]
+    {
+        // Git for Windows の入り先（すべての人用・自分だけ用）
+        let dirs = ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"]
+            .iter()
+            .filter_map(|v| std::env::var_os(v).map(PathBuf::from))
+            .chain(std::env::var_os("LOCALAPPDATA").map(|d| PathBuf::from(d).join("Programs")));
+        for dir in dirs {
+            let exe = dir.join("Git").join("cmd").join("git.exe");
+            if exe.exists() {
+                return exe;
+            }
+        }
+    }
+    PathBuf::from("git")
+}
 
 /// git の実行結果。画面に「実行したコマンド」を見せられるよう、表示用のコマンドも返す
 #[derive(Debug, Clone, Serialize)]
@@ -28,7 +73,7 @@ pub fn display_command(args: &[&str]) -> String {
 /// repo で git を実行する。失敗したときは、実行したコマンドと git のメッセージをまとめて返す
 pub fn run(repo: &Path, args: &[&str]) -> Result<GitRun, String> {
     let command = display_command(args);
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(git_program());
     // 日本語のファイル名をそのまま出す・色を付けない・端末での入力待ちをしない（認証は資格情報マネージャーに任せる）。
     // GIT_OPTIONAL_LOCKS=0: 状態の読み取り（定期的に行う）が、ほかの git の操作とロックでぶつからないようにする。
     // GIT_EDITOR=true: エディタを開く場面（rebase --continue など）では、用意されたメッセージのまま進める
@@ -44,6 +89,8 @@ pub fn run(repo: &Path, args: &[&str]) -> Result<GitRun, String> {
 
     let out = cmd.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
+            // あとから Git を入れたときに見つけられるよう、次は探し直す
+            forget_git_program();
             "git が見つかりません。Git をインストールしてください（https://git-scm.com/）".to_string()
         } else {
             format!("{}\n{}", command, e)
@@ -67,6 +114,8 @@ fn hint_for(message: &str) -> &'static str {
         "\n→ インターネットにつながっているか確認してください"
     } else if message.contains("[rejected]") || message.contains("non-fast-forward") {
         "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでから、プッシュしてください"
+    } else if message.contains("Author identity unknown") || message.contains("Please tell me who you are") {
+        "\n→ コミットに使う名前とメールアドレスが決まっていません。設定（接続）の「作業フォルダ」にある「使う準備を確かめる」から決められます"
     } else {
         ""
     }
@@ -74,14 +123,14 @@ fn hint_for(message: &str) -> &'static str {
 
 /// Windows では、git を呼ぶたびにコンソールの窓が一瞬開かないようにする
 #[cfg(windows)]
-fn hide_console_window(cmd: &mut Command) {
+pub(super) fn hide_console_window(cmd: &mut Command) {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     cmd.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[cfg(not(windows))]
-fn hide_console_window(_cmd: &mut Command) {}
+pub(super) fn hide_console_window(_cmd: &mut Command) {}
 
 #[cfg(test)]
 mod tests {

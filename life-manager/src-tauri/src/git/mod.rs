@@ -5,4 +5,5 @@
 pub mod commands;
 pub mod history;
 mod runner;
+mod setup;
 mod status;

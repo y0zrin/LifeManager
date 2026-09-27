@@ -45,6 +45,9 @@ interface WorkViewProps {
   /** ツールバーの「コミット…」「空コミット…」から来たとき。コミット欄を開いたら onCommitRequestHandled で消してもらう */
   commitRequest: { empty: boolean } | null;
   onCommitRequestHandled: () => void;
+  /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
+  onOpenSetup: () => void;
+  setupVersion: number;
 }
 
 type Side = "staged" | "unstaged";
@@ -135,7 +138,7 @@ interface Flow {
 }
 
 export function WorkView(props: WorkViewProps) {
-  const { owner, repo, folder, onSetFolder, git: g } = props;
+  const { owner, repo, folder, onSetFolder, git: g, onOpenSetup, setupVersion } = props;
 
   if (!folder) {
     return (
@@ -146,7 +149,14 @@ export function WorkView(props: WorkViewProps) {
             作業タブでは、取り組む Issue を決めて、ファイルの変更 → コミット → プッシュ までを、実行する git
             のコマンドを見ながら進められます。まず、このリポジトリを置く、この PC 上のフォルダを決めましょう。
           </p>
-          <LocalFolderSetting owner={owner} repo={repo} folder={undefined} onSetFolder={onSetFolder} />
+          <LocalFolderSetting
+            owner={owner}
+            repo={repo}
+            folder={undefined}
+            onSetFolder={onSetFolder}
+            onOpenSetup={onOpenSetup}
+            setupVersion={setupVersion}
+          />
         </div>
       </div>
     );
@@ -159,7 +169,14 @@ export function WorkView(props: WorkViewProps) {
           <h2>作業フォルダを読めませんでした</h2>
           <p className="local-folder-message local-folder-message--error">{g.loadError}</p>
           <p>フォルダを移動したり消したりした場合は、選び直してください。</p>
-          <LocalFolderSetting owner={owner} repo={repo} folder={folder} onSetFolder={onSetFolder} />
+          <LocalFolderSetting
+            owner={owner}
+            repo={repo}
+            folder={folder}
+            onSetFolder={onSetFolder}
+            onOpenSetup={onOpenSetup}
+            setupVersion={setupVersion}
+          />
         </div>
       </div>
     );

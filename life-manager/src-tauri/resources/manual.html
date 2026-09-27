@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Life Manager マニュアル</title>
+<meta name="description" content="Life Manager の使い方。タスク管理と、git によるバージョン管理（作業・ブランチ・全体図）を、画面に沿って説明します。">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f8fa;
+    --bg-code: #eff2f5;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text-soft: #59636e;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --ok: #1a7f37;
+    --ok-soft: #dafbe1;
+    --warn: #9a6700;
+    --warn-soft: #fff8c5;
+    --danger: #cf222e;
+    --danger-soft: #ffebe9;
+    --lane-0: #0969da;
+    --lane-1: #1a7f37;
+    --lane-2: #8250df;
+    --faint: #8c959f;
+    --radius: 8px;
+    --font: "Segoe UI", -apple-system, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+    --mono: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    --toc-width: 260px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117;
+      --bg-soft: #161b22;
+      --bg-code: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-soft: #9198a1;
+      --accent: #58a6ff;
+      --accent-soft: #1f6feb33;
+      --ok: #3fb950;
+      --ok-soft: #2ea04326;
+      --warn: #d29922;
+      --warn-soft: #d2991526;
+      --danger: #f85149;
+      --danger-soft: #f8514926;
+      --lane-0: #58a6ff;
+      --lane-1: #3fb950;
+      --lane-2: #bc8cff;
+      --faint: #6e7681;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --bg-code: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-soft: #9198a1;
+    --accent: #58a6ff;
+    --accent-soft: #1f6feb33;
+    --ok: #3fb950;
+    --ok-soft: #2ea04326;
+    --warn: #d29922;
+    --warn-soft: #d2991526;
+    --danger: #f85149;
+    --danger-soft: #f8514926;
+    --lane-0: #58a6ff;
+    --lane-1: #3fb950;
+    --lane-2: #bc8cff;
+    --faint: #6e7681;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  a { color: var(--accent); }
+  code, kbd {
+    font-family: var(--mono);
+    font-size: 0.88em;
+  }
+  code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--bg-code);
+    overflow-wrap: anywhere;
+  }
+  kbd {
+    display: inline-block;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--bg-soft);
+    line-height: 1.6;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: var(--toc-width) minmax(0, 1fr);
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 16px 40px;
+    border-right: 1px solid var(--border);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  nav.toc .toc-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  nav.toc ol { margin: 0; padding: 0; list-style: none; }
+  nav.toc li { margin: 1px 0; }
+  nav.toc a {
+    display: block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: var(--text-soft);
+    text-decoration: none;
+  }
+  nav.toc a:hover { background: var(--bg-soft); color: var(--text); }
+  nav.toc a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav.toc .toc-group {
+    margin: 14px 8px 4px;
+    color: var(--faint);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  main { min-width: 0; padding: 32px 48px 80px; }
+  @media (max-width: 860px) {
+    .layout { display: block; }
+    nav.toc {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+    }
+    main { padding: 24px 16px 60px; }
+  }
+
+  header.cover {
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  header.cover h1 { margin: 0 0 4px; font-size: 28px; line-height: 1.4; }
+  header.cover p { margin: 4px 0; color: var(--text-soft); }
+
+  section { margin-bottom: 48px; }
+  h2 {
+    margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 22px;
+    line-height: 1.4;
+  }
+  h3 { margin: 28px 0 8px; font-size: 17px; line-height: 1.5; }
+  h4 { margin: 20px 0 6px; font-size: 15px; }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 1.4em; }
+  li { margin: 3px 0; }
+
+  table {
+    width: 100%;
+    margin: 12px 0;
+    border-collapse: collapse;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  th, td {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+  td code { white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  .box {
+    margin: 14px 0;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+  }
+  .box > :first-child { margin-top: 0; }
+  .box > :last-child { margin-bottom: 0; }
+  .box .label { display: block; margin-bottom: 2px; font-size: 13px; font-weight: 700; }
+  .box.hint { border-left-color: var(--accent); }
+  .box.hint .label { color: var(--accent); }
+  .box.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .box.warn .label { color: var(--warn); }
+  .box.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+  .box.danger .label { color: var(--danger); }
+  .box.learn { border-left-color: var(--ok); background: var(--ok-soft); }
+  .box.learn .label { color: var(--ok); }
+
+  /* 実行するコマンドの見本 */
+  .cmd {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-code);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .cmd .c { color: var(--faint); }
+
+  /* 作業の流れ */
+  ol.flow {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 14px 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+  }
+  ol.flow li {
+    position: relative;
+    margin: 0;
+    padding: 8px 8px 8px 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+    font-size: 13px;
+    line-height: 1.5;
+    counter-increment: step;
+  }
+  ol.flow li::before {
+    content: counter(step);
+    position: absolute;
+    left: 9px;
+    top: 9px;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    color: var(--accent);
+    font-size: 11px;
+    line-height: 16px;
+    text-align: center;
+  }
+  ol.flow li b { display: block; font-size: 13.5px; }
+
+  /* 図 */
+  figure { margin: 16px 0; }
+  figure svg { display: block; max-width: 100%; height: auto; }
+  figcaption { margin-top: 4px; color: var(--text-soft); font-size: 13px; }
+  .svg-text { fill: var(--text); font-family: var(--font); font-size: 13px; }
+  .svg-soft { fill: var(--text-soft); font-family: var(--font); font-size: 11.5px; }
+  .svg-code { fill: var(--accent); font-family: var(--mono); font-size: 11.5px; }
+  .svg-box { fill: var(--bg-soft); stroke: var(--border); }
+  .svg-arrow { stroke: var(--text-soft); stroke-width: 1.5; fill: none; }
+  .svg-arrowhead { fill: var(--text-soft); }
+
+  /* 全体図の記号 */
+  .legend { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 12px; align-items: center; margin: 12px 0; }
+  .legend svg { width: 36px; height: 24px; }
+  .lg-l0 { stroke: var(--lane-0); }
+  .lg-l1 { stroke: var(--lane-1); }
+  .lg-fill-l0 { fill: var(--lane-0); }
+  .lg-fill-l1 { fill: var(--lane-1); }
+  .lg-faint { fill: var(--faint); }
+  .lg-bg { fill: var(--bg); }
+
+  .chip {
+    display: inline-block;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+  .chip.br { background: var(--accent-soft); color: var(--accent); }
+  .chip.head { background: var(--accent); color: var(--bg); font-weight: 600; }
+  .chip.rm { border: 1px solid var(--border); color: var(--text-soft); line-height: 18px; }
+  .chip.tg { background: var(--warn-soft); color: var(--warn); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.muted { background: var(--bg-code); color: var(--text-soft); }
+
+  .ui { font-weight: 600; }
+  .ui::before { content: "［"; font-weight: 400; color: var(--faint); }
+  .ui::after { content: "］"; font-weight: 400; color: var(--faint); }
+
+  dl.terms { margin: 12px 0; }
+  dl.terms dt { margin-top: 12px; font-weight: 700; }
+  dl.terms dt small { margin-left: 6px; color: var(--text-soft); font-weight: 400; }
+  dl.terms dd { margin: 2px 0 0 1em; }
+
+  .qa dt { margin-top: 16px; font-weight: 700; }
+  .qa dt::before { content: "Q. "; color: var(--accent); }
+  .qa dd { margin: 4px 0 0 1.4em; }
+  .qa dd::before { content: "A. "; margin-left: -1.4em; color: var(--ok); font-weight: 700; }
+
+  .theme-switch { float: right; margin-top: 4px; }
+  .theme-switch button {
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-soft); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="目次">
+  <p class="toc-title">目次</p>
+  <ol>
+    <li><a href="#intro">はじめに</a></li>
+    <li><a href="#requirements">必要なもの</a></li>
+    <li><a href="#install">インストール</a></li>
+    <li><a href="#setup">初期セットアップ</a></li>
+    <li><a href="#screen">画面の構成</a></li>
+  </ol>
+  <div class="toc-group">git で作業する（PC）</div>
+  <ol>
+    <li><a href="#git-basics">git のしくみ（まずここから）</a></li>
+    <li><a href="#prepare">使う準備（Git・名前・作業フォルダ）</a></li>
+    <li><a href="#work">作業タブ</a></li>
+    <li><a href="#branches">ブランチ画面</a></li>
+    <li><a href="#overview">全体図</a></li>
+    <li><a href="#menus">操作メニューの一覧</a></li>
+    <li><a href="#conflict">競合（コンフリクト）したとき</a></li>
+    <li><a href="#glossary">git のことば</a></li>
+  </ol>
+  <div class="toc-group">タスクを管理する</div>
+  <ol>
+    <li><a href="#tasks">タスク</a></li>
+    <li><a href="#board">ボード</a></li>
+    <li><a href="#milestones">マイルストーン</a></li>
+    <li><a href="#gantt">ガントチャート</a></li>
+    <li><a href="#routines">ルーチン</a></li>
+    <li><a href="#journal">日誌</a></li>
+    <li><a href="#issue">Issue の詳細</a></li>
+    <li><a href="#palette">コマンドパレット</a></li>
+    <li><a href="#labels">ラベルの決まり</a></li>
+  </ol>
+  <div class="toc-group">設定・チーム</div>
+  <ol>
+    <li><a href="#settings">設定</a></li>
+    <li><a href="#team">チームで使う（管理者向け）</a></li>
+    <li><a href="#faq">よくある質問・困ったとき</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="cover">
+  <div class="theme-switch"><button type="button" id="theme-toggle" title="明るい表示と暗い表示を切り替えます">表示の明るさ</button></div>
+  <h1>Life Manager マニュアル</h1>
+  <p>タスク管理と、git によるバージョン管理を、画面で見ながら行うためのアプリです。</p>
+  <p>このマニュアルは、左のサイドバーから「作業」「ブランチ」「全体図」を使える版（0.9 以降）に合わせています。</p>
+</header>
+
+<!-- ============================================================ -->
+<section id="intro">
+  <h2>はじめに</h2>
+  <p>Life Manager は、GitHub のリポジトリを使って、次の 2 つをまとめて行うアプリです。</p>
+  <ul>
+    <li><b>タスク管理</b>: やること（Issue）を作り、状態や期限、目標（マイルストーン）で整理します。</li>
+    <li><b>バージョン管理</b>: ファイルの変更を git で記録し、GitHub に送ります。どの操作でも、実際に実行される git のコマンドが画面に表示されるので、使いながら git を覚えられます。</li>
+  </ul>
+  <p>データはすべて GitHub のリポジトリに保存されます（Issue・マイルストーン・ラベル・設定ファイル）。アプリを消しても、データは GitHub に残ります。</p>
+  <div class="box learn">
+    <span class="label">学ぶためのしかけ</span>
+    <p>「作業」タブでは、今どの段階にいるのか（Issue を選ぶ → ブランチ → 変更 → コミット → プッシュ → 完了）と、次に何をすればよいかを案内します。ステージやコミットなどの意味の解説も表示されます（設定 → 表示 で消すこともできます）。</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="requirements">
+  <h2>必要なもの</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>もの</th><th>説明</th></tr>
+    <tr><td>GitHub のアカウント</td><td><a href="https://github.com">https://github.com</a> の「Sign up」から作れます（無料）。</td></tr>
+    <tr><td>GitHub のトークン</td><td>アプリが GitHub にアクセスするための鍵です。作り方は「<a href="#setup">初期セットアップ</a>」で説明します。</td></tr>
+    <tr><td>リポジトリ</td><td>タスクやファイルを置く場所です。自分で作ったものでも、招待されたものでも使えます。</td></tr>
+    <tr><td>Git（PC のみ）</td><td>「作業」「ブランチ」「全体図」で使います。入っていなければ、インストールのときやアプリを起動したときに案内が出て、そのまま入れられます。</td></tr>
+  </table>
+  </div>
+  <p>スマホ版は、タスク管理と、GitHub にある履歴を見ることに使います。git の操作（コミットやプッシュ）は PC 版で行います。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="install">
+  <h2>インストール</h2>
+  <ol>
+    <li>配布されたインストーラー（<code>Life Manager_x.x.x_x64-setup.exe</code>）を実行します。</li>
+    <li>画面の案内に沿ってインストールします。</li>
+    <li>最後に、Git が入っているかを調べます。入っていなければ「今すぐ Git をインストールしますか？」と聞かれます。<span class="ui">はい</span> を押すと、Git を自動でインストールします（数分かかります）。</li>
+    <li>終わったら、スタートメニューかデスクトップから Life Manager を起動します。</li>
+  </ol>
+  <div class="box warn">
+    <span class="label">「このアプリがデバイスに変更を加えることを許可しますか？」と出たら</span>
+    <p>Git のインストールには、PC の管理者の確認が必要です。<span class="ui">はい</span> を押してください。学校や会社の PC で管理者の確認ができないときは、PC の管理者に Git のインストールを頼んでください。</p>
+  </div>
+  <p>インストールのときに <span class="ui">いいえ</span> を選んだ場合や、うまく入らなかった場合も、アプリを起動したときにもう一度案内が出ます（「<a href="#prepare">使う準備</a>」）。</p>
+  <p>新しいバージョンが出ると、アプリの上に「新しいバージョン … が利用可能です」と表示されます。<span class="ui">今すぐ更新</span> で更新できます。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="setup">
+  <h2>初期セットアップ</h2>
+  <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。</p>
+
+  <h3>ステップ 1: リポジトリを決める</h3>
+  <p>使うリポジトリの「オーナー名」と「リポジトリ名」を入力します。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>入れるもの</th><th>例</th></tr>
+    <tr><td>オーナー名</td><td>リポジトリの持ち主の GitHub ユーザー名（または Organization 名）</td><td><code>team-leader</code></td></tr>
+    <tr><td>リポジトリ名</td><td>リポジトリの名前</td><td><code>project-tasks</code></td></tr>
+  </table>
+  </div>
+  <div class="box warn">
+    <span class="label">よくある間違い</span>
+    <p>招待されて参加しているリポジトリの場合、オーナー名は<b>自分ではなく持ち主</b>の名前です。「<code>alice/project-tasks</code> を使います」と言われたら、オーナー名は <code>alice</code> です。</p>
+  </div>
+
+  <h3>ステップ 2: トークンを作って入れる</h3>
+  <p>トークンには、Fine-grained token（おすすめ）と Classic token の 2 種類があります。</p>
+  <h4>方法 A: Fine-grained token（おすすめ）</h4>
+  <ol>
+    <li>ブラウザで GitHub にログインします。</li>
+    <li>右上のアイコン → <span class="ui">Settings</span> → <span class="ui">Developer settings</span> を開きます。</li>
+    <li><span class="ui">Personal access tokens</span> → <span class="ui">Fine-grained tokens</span> → <span class="ui">Generate new token</span> を押します。</li>
+    <li>次のように設定します。
+      <div class="table-wrap">
+      <table>
+        <tr><th>項目</th><th>設定</th></tr>
+        <tr><td>Token name</td><td><code>Life Manager</code> など、分かりやすい名前</td></tr>
+        <tr><td>Expiration</td><td>好きな期限</td></tr>
+        <tr><td>Resource owner</td><td>自分のアカウント、または Organization</td></tr>
+        <tr><td>Repository access</td><td><span class="ui">Only select repositories</span> → 使うリポジトリを選ぶ</td></tr>
+      </table>
+      </div>
+    </li>
+    <li>Permissions（権限）を次のようにします。
+      <div class="table-wrap">
+      <table>
+        <tr><th>Permission</th><th>Access</th><th>使いみち</th></tr>
+        <tr><td>Issues</td><td>Read and write</td><td>Issue やコメントの作成・編集・完了</td></tr>
+        <tr><td>Contents</td><td>Read and write</td><td>ルーチン・通知・ボードの設定の保存</td></tr>
+        <tr><td>Metadata</td><td>Read（自動で付きます）</td><td>リポジトリの情報を読む</td></tr>
+      </table>
+      </div>
+    </li>
+    <li><span class="ui">Generate token</span> を押し、表示されたトークン（<code>github_pat_</code> で始まる文字列）をコピーします。</li>
+  </ol>
+  <h4>方法 B: Classic token</h4>
+  <ol>
+    <li><span class="ui">Personal access tokens</span> → <span class="ui">Tokens (classic)</span> → <span class="ui">Generate new token (classic)</span> を押します。</li>
+    <li>Note に <code>Life Manager</code>、Select scopes で <code>repo</code> にチェックを入れます。</li>
+    <li><span class="ui">Generate token</span> を押し、表示されたトークン（<code>ghp_</code> で始まる文字列）をコピーします。</li>
+  </ol>
+  <div class="box danger">
+    <span class="label">トークンは一度しか表示されません</span>
+    <p>画面を閉じると、もう見られません。その場でコピーしてください。トークンはパスワードと同じです。人に見せたり、共有したりしないでください。</p>
+  </div>
+  <p>コピーしたトークンを Life Manager に貼り付けて、<span class="ui">次へ</span> を押します。</p>
+
+  <h3>ステップ 3: 確認して接続する</h3>
+  <p>リポジトリとトークンを確かめて <span class="ui">接続してはじめる</span> を押すと、タスクの画面になります。</p>
+  <div class="box hint">
+    <span class="label">ヒント</span>
+    <p>接続したら、設定 → ラベル の <span class="ui">ラベル一括作成</span> を一度押しておくと、Life Manager で使うラベル（種別・分野・状態・優先）がリポジトリに作られます。</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="screen">
+  <h2>画面の構成</h2>
+  <p>PC では、左のサイドバーで画面を切り替えます。上のプルダウンで、使うリポジトリ（プロジェクト）を切り替えられます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>グループ</th><th>画面</th><th>説明</th></tr>
+    <tr><td rowspan="1">作業</td><td>✏️ 作業</td><td>取り組む Issue を決めて、変更 → コミット → プッシュ まで進める画面（PC のみ）。作業中の変更があると、数が表示されます。</td></tr>
+    <tr><td rowspan="6">タスク</td><td>📋 タスク</td><td>Issue の一覧・作成・絞り込み</td></tr>
+    <tr><td>📊 ボード</td><td>状態ごとの列でタスクを並べるカンバン</td></tr>
+    <tr><td>🎯 マイルストーン</td><td>期限つきの目標と、その進み具合</td></tr>
+    <tr><td>🔄 ルーチン</td><td>毎日・毎週・毎月、自動で Issue を作る設定</td></tr>
+    <tr><td>📅 日誌</td><td>日ごとの活動の記録</td></tr>
+    <tr><td>📐 ガント</td><td>マイルストーンの中の Issue を、日程の帯で見る</td></tr>
+    <tr><td rowspan="2">リポジトリ</td><td>🌿 ブランチ</td><td>ブランチごとのコミットの履歴</td></tr>
+    <tr><td>🗺️ 全体図</td><td>ブランチがどこから分かれ、いつ合流したかの図</td></tr>
+    <tr><td></td><td>⚙️ 設定</td><td>接続・ラベル・通知・表示などの設定</td></tr>
+  </table>
+  </div>
+  <p>「プルリク」「Actions」「リリース」は、これから追加する予定の画面です。サイドバーの <span class="ui">«</span> を押すと、サイドバーを細くたためます。</p>
+  <p>「作業」「ブランチ」「全体図」は、左から右へ一歩ずつ引いて見る関係になっています。<kbd>−</kbd> キーで一段引き、<kbd>＋</kbd> キーで一段寄れます（<kbd>Ctrl</kbd> ＋ マウスホイールでも同じです）。</p>
+  <p>スマホでは、下のナビゲーションで「タスク」「ボード」「マイルストーン」「ルーチン」「日誌」「ガント」「設定」を切り替えます。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="git-basics">
+  <h2>git のしくみ（まずここから）</h2>
+  <p>git は、ファイルの変更を「いつ・だれが・何を変えたか」として記録する道具です。記録の単位を<b>コミット</b>と呼びます。Life Manager の「作業」タブは、次の流れをそのまま画面にしています。</p>
+  <figure>
+    <svg viewBox="0 0 760 170" role="img" aria-label="作業中のファイル、ステージ、コミット（この PC のリポジトリ）、GitHub の 4 つの場所と、そのあいだを移すコマンドの図">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="svg-arrowhead"/></marker>
+      </defs>
+      <rect x="10" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="85" y="60" text-anchor="middle" class="svg-text">作業中のファイル</text>
+      <text x="85" y="82" text-anchor="middle" class="svg-soft">エディタで編集する</text>
+      <rect x="210" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="285" y="60" text-anchor="middle" class="svg-text">ステージ</text>
+      <text x="285" y="82" text-anchor="middle" class="svg-soft">次のコミットに入れるもの</text>
+      <rect x="410" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="485" y="60" text-anchor="middle" class="svg-text">コミット（履歴）</text>
+      <text x="485" y="82" text-anchor="middle" class="svg-soft">この PC のリポジトリ</text>
+      <rect x="610" y="30" width="140" height="70" rx="8" class="svg-box"/>
+      <text x="680" y="60" text-anchor="middle" class="svg-text">GitHub</text>
+      <text x="680" y="82" text-anchor="middle" class="svg-soft">みんなで共有する</text>
+      <path d="M160,52 H206" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="185" y="22" text-anchor="middle" class="svg-code">git add</text>
+      <path d="M360,52 H406" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="385" y="22" text-anchor="middle" class="svg-code">git commit</text>
+      <path d="M560,52 H606" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="585" y="22" text-anchor="middle" class="svg-code">git push</text>
+      <path d="M680,100 V140 H85 V104" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="380" y="160" text-anchor="middle" class="svg-code">git pull（GitHub の新しいコミットを取り込む）</text>
+    </svg>
+    <figcaption>ファイルを編集 → 入れたい変更をステージ → コミットで記録 → プッシュで GitHub に送る。ほかの人の変更はプルで取り込む。</figcaption>
+  </figure>
+  <p><b>ブランチ</b>は、作業を分けて進めるための「流れ」です。たとえば Issue ごとにブランチを作って作業し、終わったら元のブランチに<b>マージ</b>（合流）します。こうすると、途中の作業がほかの作業と混ざりません。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="prepare">
+  <h2>使う準備（Git・名前・作業フォルダ）</h2>
+  <p>「作業」「ブランチ」「全体図」で git を使うための準備です（PC のみ）。</p>
+
+  <h3>Git のインストール</h3>
+  <p>アプリを起動したとき、Git が入っていなければ「Git をインストールしますか？」と表示されます。<span class="ui">インストールする</span> を押すと、Git を入れます。</p>
+  <div class="cmd"><span class="c"># Windows で実行されるコマンド（Windows に入っている winget を使います）</span>
+winget install --id Git.Git -e --source winget</div>
+  <p>winget が使えない PC では、Git for Windows の公式のインストーラーを GitHub から取ってきて実行します。Mac では、Git が入った「コマンドライン ツール」のインストール画面が出ます。</p>
+  <p>あとでインストールする場合は、設定 → 接続 の「作業フォルダ（この PC）」にある <span class="ui">Git をインストールする…</span> からも入れられます。起動のたびに案内が出てほしくないときは、案内の画面で「次からは起動時に表示しない」にチェックを入れます。</p>
+
+  <h3>コミットに使う名前とメールアドレス</h3>
+  <p>コミットには、だれが変更したかを残すため、名前とメールアドレスを付けます。決まっていないと、案内の画面で入力を求められます。はじめから、GitHub のアカウントの名前と、GitHub が用意する公開用のアドレス（<code>…@users.noreply.github.com</code>）が入っています。</p>
+  <div class="cmd">git config --global user.name "名前"
+git config --global user.email 12345+ユーザー名@users.noreply.github.com</div>
+  <div class="box hint">
+    <span class="label">なぜ noreply のアドレス？</span>
+    <p>コミットに付けたメールアドレスは、GitHub で公開されます。GitHub が用意する noreply のアドレスを使うと、ふだんのメールアドレスを知られずに、コミットを自分のアカウントに結びつけられます。</p>
+  </div>
+  <p>今の設定は、設定 → 接続 → 作業フォルダ の <span class="ui">使う準備を確かめる</span> で見られます（変更もできます）。</p>
+
+  <h3>作業フォルダを決める</h3>
+  <p>作業フォルダは、リポジトリのファイルを置く、この PC 上のフォルダです。設定 → 接続 の「作業フォルダ（この PC）」か、作業タブで決めます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>ボタン</th><th>使うとき</th><th>すること</th></tr>
+    <tr><td><span class="ui">GitHub からクローン…</span></td><td>まだ PC にリポジトリがないとき</td><td>選んだフォルダの中に、リポジトリと同じ名前のフォルダを作ってコピーします（<code>git clone</code>）。</td></tr>
+    <tr><td><span class="ui">フォルダを選ぶ…</span></td><td>すでにクローンしてあるとき</td><td>そのフォルダが、設定しているリポジトリのものかを確かめてから使います。中のフォルダを選んでも、リポジトリのいちばん上のフォルダになります。</td></tr>
+    <tr><td><span class="ui">設定を外す</span></td><td>別のフォルダにしたいとき</td><td>設定だけを外します。フォルダやファイルは消えません。</td></tr>
+  </table>
+  </div>
+  <div class="cmd"><span class="c"># クローンのときに実行されるコマンドの例</span>
+git clone https://github.com/オーナー名/リポジトリ名.git D:\work\リポジトリ名</div>
+  <p>作業フォルダは PC ごと・リポジトリごとに覚えます。設定 → 接続 のプロジェクト一覧では、フォルダが決まっているリポジトリに 📁 が付きます。</p>
+  <p>作業フォルダがない PC でも、「ブランチ」「全体図」は GitHub にある状態を表示できます（見るだけで、操作はできません）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="work">
+  <h2>作業タブ</h2>
+  <p>取り組む Issue を決めて、ファイルの変更をコミットし、GitHub に送るまでを進める画面です。</p>
+
+  <h3>取り組み中の Issue</h3>
+  <p>上の <span class="ui">取り組み中の Issue</span> から、未完了の Issue を選びます（番号やタイトルで絞り込めます。進行中のものが先に並びます）。Issue なしで作業するときは <span class="ui">Issue なしで作業する</span> を選びます。</p>
+  <ul>
+    <li><span class="ui">Issue を開く</span>: Issue の詳細を開きます。</li>
+    <li><span class="ui">進行中にする</span>: Issue の状態を「進行中」にします。</li>
+  </ul>
+  <p>選んだ Issue は、リポジトリごとにこの PC に覚えておきます。</p>
+
+  <h3>作業の流れ</h3>
+  <p>今どの段階にいるかが光り、下に次にすることと、そのためのボタンが表示されます。</p>
+  <ol class="flow">
+    <li><b>Issue を選ぶ</b>何をするかを決める</li>
+    <li><b>ブランチ</b>作業する場所（既定のブランチにいるときは、Issue 用のブランチを作る案内が出ます）</li>
+    <li><b>変更</b>ファイルを編集して、入れたい変更にチェック</li>
+    <li><b>コミット</b>要約を書いて記録する</li>
+    <li><b>プッシュ</b>GitHub に送る</li>
+    <li><b>完了</b>Issue を閉じる</li>
+  </ol>
+
+  <h3>変更とステージ（「変更」タブ）</h3>
+  <p>編集したファイルが一覧に出ます。<b>チェックを入れたファイル（ステージ済み）が、次のコミットに入ります</b>。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>操作</th><th>意味</th><th>コマンド</th></tr>
+    <tr><td>未ステージのファイルにチェック</td><td>次のコミットに入れる</td><td><code>git add -- ファイル</code></td></tr>
+    <tr><td>ステージ済みのファイルのチェックを外す</td><td>次のコミットから外す（変更は残る）</td><td><code>git restore --staged -- ファイル</code></td></tr>
+    <tr><td><span class="ui">すべてステージ</span></td><td>すべての変更を入れる</td><td><code>git add -- .</code></td></tr>
+    <tr><td><span class="ui">すべて外す</span></td><td>すべてを外す</td><td><code>git restore --staged -- .</code></td></tr>
+  </table>
+  </div>
+  <p>ファイルの左の文字は、変更の種類です。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>文字</th><th>意味</th></tr>
+    <tr><td><code>A</code></td><td>追加したファイル</td></tr>
+    <tr><td><code>M</code></td><td>変更したファイル</td></tr>
+    <tr><td><code>D</code></td><td>削除したファイル</td></tr>
+    <tr><td><code>R</code></td><td>名前を変えたファイル</td></tr>
+    <tr><td><code>?</code></td><td>まだ git が追跡していない新しいファイル（チェックを入れると追加になります）</td></tr>
+    <tr><td><code>U</code></td><td>競合しているファイル（「<a href="#conflict">競合したとき</a>」）</td></tr>
+  </table>
+  </div>
+  <p>ファイルを選ぶと、右に差分（変更の中身）が出ます。緑の行が追加、赤の行が削除です。<code>+12 −3</code> は、追加した行と削除した行の数です。一覧の下には、直前に実行したコマンドが表示されます。</p>
+
+  <h3>コミットする</h3>
+  <p>下のコミット欄で、変更に説明を付けて記録します。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>説明</th></tr>
+    <tr><td>変更の要約（必須）</td><td>何をしたかを短く書きます（例: 「ログイン画面のボタンの色を直す」）。</td></tr>
+    <tr><td>説明（任意）</td><td>くわしい説明。</td></tr>
+    <tr><td>要約の末尾に Issue 番号を付ける</td><td>要約の最後に <code>(#12)</code> のように付けます。GitHub で Issue とコミットがつながります。</td></tr>
+    <tr><td>マージされたら #番号 を閉じる</td><td>説明に <code>Closes #12</code> を付けます。既定のブランチに取り込まれると、Issue が自動で閉じます。</td></tr>
+    <tr><td>直前のコミットを修正する（amend）</td><td>直前のコミットに、今の変更と要約を入れ直します。まだ GitHub に送っていないコミットだけ直せます。</td></tr>
+    <tr><td>変更なしでコミットする（空コミット）</td><td>ファイルを変えずにコミットします。区切りを付けたいときや、GitHub の Actions を動かしたいときに使います。</td></tr>
+  </table>
+  </div>
+  <p>欄の下に、実行するコマンドが表示されます。<span class="ui">コミット</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）でコミットし、<span class="ui">コミットしてプッシュ</span> で、そのまま GitHub にも送ります。</p>
+  <div class="cmd">git commit -m "ログイン画面のボタンの色を直す (#12)" -m "Closes #12"</div>
+
+  <h3>上のバー（フェッチ・プル・プッシュ）</h3>
+  <p>「作業」「ブランチ」「全体図」では、上のバーに git の操作が並びます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>ボタン</th><th>すること</th><th>コマンド</th></tr>
+    <tr><td><span class="ui">現在のブランチ ▾</span></td><td>ブランチの切り替え・作成</td><td><code>git switch</code></td></tr>
+    <tr><td><span class="ui">⟳ フェッチ</span></td><td>GitHub の最新の状態を取ってくる（手元のファイルは変わりません）</td><td><code>git fetch --all --prune</code></td></tr>
+    <tr><td><span class="ui">⬇ プル</span></td><td>GitHub の新しいコミットを取り込む。数字は、まだ取り込んでいないコミットの数</td><td><code>git pull --no-rebase</code></td></tr>
+    <tr><td><span class="ui">⬆ プッシュ</span></td><td>コミットを GitHub に送る。数字は、まだ送っていないコミットの数。「未公開」は、ブランチがまだ GitHub にないこと</td><td><code>git push</code><br><code>git push -u origin ブランチ</code></td></tr>
+    <tr><td><span class="ui">その他 ▾</span></td><td>コミット・空コミット・一時退避・ブランチの作成・タグ・変更の破棄・ターミナルを開く・表示の更新</td><td></td></tr>
+  </table>
+  </div>
+  <p>操作の結果は、右下に実行したコマンドと一緒に表示されます。</p>
+
+  <h3>ブランチを切り替える・作る</h3>
+  <p><span class="ui">現在のブランチ ▾</span> から、切り替えたいブランチを選びます。作業中の変更があるときは、どうするかを選びます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>選ぶもの</th><th>すること</th></tr>
+    <tr><td>変更を今のブランチに残して切り替える</td><td>変更を一時退避してから切り替えます。あとで「退避中」タブから戻せます。<br><code>git stash push -u -m "…の作業中" &amp;&amp; git switch ブランチ</code></td></tr>
+    <tr><td>変更を持って切り替える</td><td>変更をそのまま持っていきます。同じファイルがぶつかると切り替えられません。<br><code>git switch ブランチ</code></td></tr>
+  </table>
+  </div>
+  <p>新しいブランチは、一覧の下の <span class="ui">＋ 新しいブランチを作成…</span> から作ります（<code>git switch -c 名前</code>）。名前に空白は使えません（例: <code>feature/login-form</code>、<code>issue-12</code>）。</p>
+
+  <h3>一時退避（「退避中」タブ）</h3>
+  <p>退避（スタッシュ）は、コミットせずに変更をしまっておく機能です。ブランチを切り替えるときなどに使います。</p>
+  <ul>
+    <li><span class="ui">戻す</span>: しまった変更を作業中のファイルに戻します（<code>git stash pop</code>）。</li>
+    <li><span class="ui">削除…</span>: しまった変更を捨てます（<code>git stash drop</code>）。中身が空のものには「中身は空」と表示されます。</li>
+  </ul>
+
+  <h3>その他のメニュー</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>すること</th></tr>
+    <tr><td>今のコミットにタグを付ける…</td><td>リリースの区切りなどに名前を付けます（<code>git tag 名前</code>）。GitHub に送るには、別に <code>git push origin タグ名</code> が必要です。</td></tr>
+    <tr><td>作業中の変更をすべて破棄…</td><td>コミットしていない変更を消して、直前のコミットの状態に戻します。<b>元に戻せません</b>。新しいファイルも消すかどうかを選べます。</td></tr>
+    <tr><td>このフォルダでターミナルを開く</td><td>作業フォルダで PowerShell などを開きます。画面で覚えたコマンドを、自分で打って試せます。</td></tr>
+    <tr><td>表示を更新</td><td>状態を読み直します（ほかのアプリで編集したあとも、自動で読み直します）。</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="branches">
+  <h2>ブランチ画面</h2>
+  <p>ブランチごとに、そのブランチで積み重ねてきたコミットを、日付の新しい順に見る画面です。</p>
+  <h3>ブランチを移る</h3>
+  <ul>
+    <li>上の帯の真ん中に、今見ているブランチの名前が大きく出ます。左右は隣のブランチです。</li>
+    <li><span class="ui">‹</span> <span class="ui">›</span>、キーボードの <kbd>←</kbd> <kbd>→</kbd>、隣の名前のクリック、横へのスワイプで移ります。</li>
+    <li><span class="ui">☰ ブランチ一覧</span> から選ぶと、そのブランチまでスライドします（<code>2 / 10</code> は、今が何番目か）。</li>
+    <li>並び順は、既定のブランチ → チェックアウト中のブランチ → そのほか（新しい順）です。</li>
+  </ul>
+  <h3>ページの見方</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>表示</th><th>意味</th></tr>
+    <tr><td><span class="chip warn">↑1 未プッシュ</span></td><td>まだ GitHub に送っていないコミットがある</td></tr>
+    <tr><td><span class="chip warn">↓3 未プル</span></td><td>GitHub にあって、まだ取り込んでいないコミットがある</td></tr>
+    <tr><td><span class="chip muted">未公開</span></td><td>この PC にだけあり、まだ GitHub にないブランチ</td></tr>
+    <tr><td><span class="chip muted">GitHub にだけある</span></td><td>GitHub にあって、この PC にはまだないブランチ（切り替えると取り出されます）</td></tr>
+    <tr><td><span class="chip br">✎ 作業中の変更 3 → 作業</span></td><td>チェックアウト中のブランチに、まだコミットしていない変更がある（押すと作業タブへ）</td></tr>
+    <tr><td>main より 2 先行、3 遅れ</td><td>既定のブランチにないコミットが 2 つ、既定のブランチにあってこのブランチにないコミットが 3 つ</td></tr>
+  </table>
+  </div>
+  <p>コミットの行には、時刻・要約・ハッシュ（コミットの番号）が並びます。右のラベルは、そのコミットを指しているもの（<span class="chip br">🌿 ブランチ</span> <span class="chip tg">🏷️ タグ</span> <span class="chip rm">☁ GitHub の位置</span>）です。二重の四角の印は、マージのコミットです。</p>
+  <p>Life Manager が自動で作るコミット（日次ログ・設定の保存など）は、日ごとに「🤖 アプリの自動コミット N 件」としてまとめられます。押すと中身が開きます。</p>
+  <h3>操作</h3>
+  <ul>
+    <li><span class="ui">このブランチに切り替える</span>: そのブランチに切り替えます。</li>
+    <li><span class="ui">全体図で見る</span>: 全体図に引きます（<kbd>−</kbd> キーでも同じ）。</li>
+    <li><span class="ui">⋯ ブランチの操作</span>: マージ・リベース・プッシュ・名前の変更・削除など（「<a href="#menus">操作メニューの一覧</a>」）。</li>
+    <li>コミットの行の <span class="ui">⋯</span> か右クリック: そのコミットからのブランチ作成・タグ・チェリーピック・リバート・リセット・変更内容を見る など。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="overview">
+  <h2>全体図</h2>
+  <p>ブランチ画面から一歩引いて、どこでブランチが分かれ、どうコミットが続き、いつマージされたかを 1 枚の図で見る画面です。上が新しく、下が古いコミットです。</p>
+  <h3>記号の意味</h3>
+  <div class="legend">
+    <svg viewBox="0 0 36 24" aria-hidden="true"><circle cx="18" cy="12" r="5" class="lg-fill-l1"/></svg>
+    <div>コミット。線の色はレーン（流れ）ごとの色です。左端は既定のブランチ（青）、その隣はチェックアウト中のブランチ（緑）です。</div>
+    <svg viewBox="0 0 36 24" aria-hidden="true"><rect x="12" y="6" width="12" height="12" rx="1.5" class="lg-bg lg-l0" stroke-width="2"/><rect x="15.5" y="9.5" width="5" height="5" rx="0.5" fill="none" class="lg-l0" stroke-width="1.5"/></svg>
+    <div>マージ（2 つの流れを 1 つにまとめたコミット）。二重の四角です。</div>
+    <svg viewBox="0 0 36 24" aria-hidden="true"><rect x="14" y="5" width="8" height="14" rx="4" class="lg-faint"/></svg>
+    <div>続いているアプリの自動コミットを、1 つにまとめたもの。</div>
+    <svg viewBox="0 0 36 24" aria-hidden="true"><circle cx="18" cy="12" r="6" class="lg-bg lg-l1" stroke-width="2" stroke-dasharray="3 2"/></svg>
+    <div>作業中の変更（まだコミットしていない変更）。いちばん上の「いま」の行に出ます。</div>
+    <svg viewBox="0 0 36 24" aria-hidden="true"><circle cx="18" cy="12" r="8.5" fill="none" class="lg-l1" stroke-width="1.5"/><circle cx="18" cy="12" r="5" class="lg-fill-l1"/></svg>
+    <div>輪の付いたコミットが、今チェックアウトしている位置（HEAD）です。</div>
+  </div>
+  <h3>ラベルと線</h3>
+  <p>ブランチの見せ方は 2 通りあります。全体図の左上か、設定 → 表示 で切り替えます（はじめは「ラベル」）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>見せ方</th><th>見え方</th></tr>
+    <tr><td>ラベル</td><td>Sourcetree と同じ見せ方です。コミットの横に、<span class="chip head">● チェックアウト中</span> <span class="chip br">🌿 ブランチ</span> <span class="chip rm">☁ origin/…</span> <span class="chip tg">🏷️ タグ</span> が付きます。<code>origin/…</code> は、GitHub にあるブランチの位置です。</td></tr>
+    <tr><td>線</td><td>ブランチごとに 1 本の点線で見せます。点線は、そのブランチが指しているコミットから上へ伸びるので、いつ切られたかが一目で分かります。</td></tr>
+  </table>
+  </div>
+  <h3>操作</h3>
+  <ul>
+    <li>点にマウスを重ねると、コミットの内容がカードで出ます。</li>
+    <li>点をクリックすると、そのコミットを積み重ねてきたブランチのページで、そのコミットに寄ります（<kbd>＋</kbd> キーで寄ることもできます）。</li>
+    <li>点・ブランチの名前・ラベルを右クリックすると、操作のメニューが出ます。</li>
+    <li><span class="ui">☰ ブランチ一覧</span> から選ぶと、そのブランチの位置まで動きます。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="menus">
+  <h2>操作メニューの一覧</h2>
+  <p>どの操作も、実行するコマンドがメニューに表示されます。元に戻せない操作や、履歴が変わる操作は、確認の画面を出してから実行します（確認の画面にもコマンドが出ます）。押せない項目には、その理由が小さく書かれます。</p>
+
+  <h3>コミットのメニュー</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
+    <tr><td>このコミットからブランチを作成…</td><td><code>git switch -c 名前 コミット</code></td><td>そのコミットから新しいブランチを作って切り替える</td></tr>
+    <tr><td>タグを付ける…</td><td><code>git tag 名前 コミット</code></td><td>そのコミットに名前を付ける</td></tr>
+    <tr><td>このコミットを取り出す</td><td><code>git switch --detach コミット</code></td><td>ブランチではなく、そのコミットそのものを取り出す（切り離された HEAD）</td></tr>
+    <tr><td>（今のブランチ）に取り込む（チェリーピック）</td><td><code>git cherry-pick コミット</code></td><td>そのコミットの変更を、今のブランチにもう一度コミットする</td></tr>
+    <tr><td>打ち消すコミットを作る（リバート）</td><td><code>git revert --no-edit コミット</code></td><td>そのコミットの変更を元に戻すコミットを作る（履歴は消さない）</td></tr>
+    <tr><td>ここまで戻す：ソフト…</td><td><code>git reset --soft コミット</code></td><td>今のブランチをそのコミットまで戻す。後の変更はステージに残る（確認あり）</td></tr>
+    <tr><td>ここまで戻す：混在…</td><td><code>git reset --mixed コミット</code></td><td>同じく戻す。後の変更は作業中のファイルに残る（確認あり）</td></tr>
+    <tr><td>ここまで戻す：ハード…</td><td><code>git reset --hard コミット</code></td><td>同じく戻し、後の変更も作業中の変更も捨てる。<b>元に戻せない</b>（確認あり）</td></tr>
+    <tr><td>変更内容を見る</td><td><code>git show --stat --patch コミット</code></td><td>そのコミットで変えたファイルと差分を見る</td></tr>
+    <tr><td>ハッシュをコピー / GitHub で開く</td><td></td><td>コミットの番号をコピーする / GitHub のページで見る</td></tr>
+  </table>
+  </div>
+
+  <h3>ブランチのメニュー</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
+    <tr><td>このブランチに切り替える</td><td><code>git switch ブランチ</code></td><td>そのブランチで作業する</td></tr>
+    <tr><td>（今のブランチ）に取り込む（マージ）</td><td><code>git merge --no-edit ブランチ</code></td><td>そのブランチの変更を、今のブランチに合流させる</td></tr>
+    <tr><td>（今のブランチ）を…の先に付け替える（リベース）…</td><td><code>git rebase ブランチ</code></td><td>今のブランチで作ったコミットを、そのブランチの先に作り直す。履歴が書き換わる（確認あり）</td></tr>
+    <tr><td>プッシュ</td><td><code>git push origin ブランチ</code></td><td>そのブランチを GitHub に送る（まだ GitHub になければ <code>-u</code> を付けて公開する）</td></tr>
+    <tr><td>上流ブランチを設定</td><td><code>git branch -u origin/ブランチ ブランチ</code></td><td>プッシュ・プルの相手を、GitHub の同じ名前のブランチにする</td></tr>
+    <tr><td>名前を変更…</td><td><code>git branch -m 今の名前 新しい名前</code></td><td>この PC のブランチの名前を変える（GitHub の方はそのまま）</td></tr>
+    <tr><td>削除…</td><td><code>git branch -d ブランチ</code></td><td>この PC のブランチを消す。マージしていないコミットがあると git が止める。止められても消したいときは「マージしていなくても削除する（<code>-D</code>）」を選ぶ（確認あり）</td></tr>
+    <tr><td>GitHub で開く</td><td></td><td>GitHub のページで見る</td></tr>
+  </table>
+  </div>
+  <div class="box warn">
+    <span class="label">GitHub に送ったコミットの書き換えに注意</span>
+    <p>リセットやリベース、amend は、コミットを作り直したり、ブランチから外したりします。すでに GitHub に送ったコミットを書き換えると、GitHub の履歴と食い違い、送り直すのに強制プッシュが必要になります。Life Manager では、送り済みのコミットの amend はできないようにしています。</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="conflict">
+  <h2>競合（コンフリクト）したとき</h2>
+  <p>プル・マージ・チェリーピック・退避した変更を戻す などで、同じファイルの同じところが両方で変わっていると、git は自動でまとめられずに止まります。これが競合です。作業タブの上に「〇〇の途中です」と表示され、競合したファイルが「競合」の欄に出ます。</p>
+  <ol>
+    <li>競合したファイルをエディタで開きます。次のような印が入っています。
+      <div class="cmd">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+今のブランチの内容
+=======
+取り込もうとした内容
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature</div>
+    </li>
+    <li>どちらを残すか（または両方をまとめるか）を決めて書き直し、印の行をすべて消して保存します。</li>
+    <li>作業タブで、そのファイルにチェックを入れます（<code>git add</code>。「直した」という合図です）。</li>
+    <li>すべて直したら、次へ進みます。
+      <ul>
+        <li>マージの途中なら: コミットすると、マージが完了します。</li>
+        <li>リベース・チェリーピック・リバートの途中なら: <span class="ui">続ける</span> を押します（<code>git rebase --continue</code> など）。</li>
+      </ul>
+    </li>
+  </ol>
+  <p>やめたいときは <span class="ui">〇〇を中止…</span> を押すと、始める前の状態に戻ります（<code>git merge --abort</code> など）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="glossary">
+  <h2>git のことば</h2>
+  <dl class="terms">
+    <dt>リポジトリ <small>repository</small></dt>
+    <dd>ファイルと、その変更の記録（履歴）をまとめたもの。GitHub にあるものと、PC にクローンしたものがあります。</dd>
+    <dt>クローン <small>git clone</small></dt>
+    <dd>GitHub のリポジトリを、履歴ごと PC にコピーすること。</dd>
+    <dt>コミット <small>git commit</small></dt>
+    <dd>変更を、要約を付けて履歴に記録すること。記録した 1 つ 1 つもコミットと呼びます。</dd>
+    <dt>ハッシュ</dt>
+    <dd>コミットごとに付く番号（<code>799773a</code> のような英数字）。</dd>
+    <dt>ステージ <small>git add</small></dt>
+    <dd>次のコミットに入れる変更を選ぶこと。選んだ変更の置き場所もステージ（インデックス）と呼びます。</dd>
+    <dt>差分 <small>diff</small></dt>
+    <dd>変更の中身。追加した行と削除した行で表します。</dd>
+    <dt>ブランチ <small>branch</small></dt>
+    <dd>作業を分けて進めるための流れ。ブランチは、その流れの先頭のコミットを指す「しおり」のようなものです。</dd>
+    <dt>既定のブランチ</dt>
+    <dd>GitHub で最初に表示されるブランチ（多くは <code>main</code>）。完成したものをまとめる場所として使います。</dd>
+    <dt>HEAD・チェックアウト <small>git switch</small></dt>
+    <dd>今作業しているブランチ（コミット）が HEAD です。ブランチを切り替えることをチェックアウトと呼びます。</dd>
+    <dt>切り離された HEAD</dt>
+    <dd>ブランチではなく、コミットそのものを取り出している状態。ここでコミットしても、どのブランチにも属しません。続けて作業するなら、ブランチを作ります。</dd>
+    <dt>マージ <small>git merge</small></dt>
+    <dd>別のブランチの変更を、今のブランチに合流させること。</dd>
+    <dt>リベース <small>git rebase</small></dt>
+    <dd>今のブランチのコミットを、別のブランチの先に作り直すこと。履歴が一直線になりますが、コミットは作り直されます。</dd>
+    <dt>チェリーピック <small>git cherry-pick</small></dt>
+    <dd>ほかのブランチの特定のコミットだけを、今のブランチに取り込むこと。</dd>
+    <dt>リバート <small>git revert</small></dt>
+    <dd>あるコミットの変更を打ち消す、新しいコミットを作ること。履歴は消しません。</dd>
+    <dt>リセット <small>git reset</small></dt>
+    <dd>ブランチを前のコミットまで戻すこと。後のコミットはブランチから外れます。</dd>
+    <dt>競合（コンフリクト）</dt>
+    <dd>同じところが両方で変わっていて、git が自動でまとめられない状態。</dd>
+    <dt>退避（スタッシュ） <small>git stash</small></dt>
+    <dd>コミットせずに、変更を一時的にしまっておくこと。</dd>
+    <dt>タグ <small>git tag</small></dt>
+    <dd>コミットに付ける名前。リリースの区切り（<code>v1.0.0</code> など）に使います。</dd>
+    <dt>リモート・origin</dt>
+    <dd>GitHub など、PC の外にあるリポジトリ。クローン元には <code>origin</code> という名前が付きます。<code>origin/main</code> は「GitHub にある main の位置（最後にフェッチしたとき）」です。</dd>
+    <dt>上流ブランチ</dt>
+    <dd>プッシュ・プルの相手になる、GitHub のブランチ。</dd>
+    <dt>フェッチ・プル・プッシュ</dt>
+    <dd>フェッチは GitHub の最新の状態を取ってくるだけ、プルは取ってきて今のブランチに取り込む、プッシュは自分のコミットを GitHub に送ることです。</dd>
+    <dt>amend</dt>
+    <dd>直前のコミットを作り直して、変更や要約を直すこと。</dd>
+    <dt>空コミット</dt>
+    <dd>ファイルの変更を含まないコミット（<code>git commit --allow-empty</code>）。</dd>
+    <dt>Issue</dt>
+    <dd>GitHub で管理する「やること」や課題。Life Manager ではタスクとして扱います。</dd>
+  </dl>
+</section>
+
+<!-- ============================================================ -->
+<section id="tasks">
+  <h2>タスク</h2>
+  <p>タスク（Issue）の確認・作成・管理を行う、メインの画面です。</p>
+  <h3>クイックメモ</h3>
+  <p>上の入力欄から、すばやくメモを作れます。分野（私用・仕事・やりたい・健康・学習）を選び、文字を入れて <kbd>Enter</kbd> で作ります。メモは GitHub の Issue として登録されます。</p>
+  <h3>Issue を作る</h3>
+  <p><span class="ui">＋ イシュー作成</span> から、くわしい Issue を作れます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>説明</th></tr>
+    <tr><td>タイトル</td><td>Issue の題名（必須）</td></tr>
+    <tr><td>本文</td><td>くわしい説明。マークダウンが使えます</td></tr>
+    <tr><td>ラベル</td><td>分類のラベル（複数選べます）</td></tr>
+    <tr><td>マイルストーン</td><td>結びつける目標</td></tr>
+    <tr><td>担当者</td><td>担当する人</td></tr>
+  </table>
+  </div>
+  <p>「＋ タスク項目」で、チェックボックスつきの項目（<code>- [ ]</code>）を本文に入れられます。</p>
+  <h3>絞り込み</h3>
+  <p>上のプルダウンで、種別・分野・状態・優先・担当者で絞り込めます。検索欄では、タイトル・本文・番号で探せます。</p>
+  <h3>Issue の操作</h3>
+  <ul>
+    <li>カードをクリック: Issue の詳細を開きます。</li>
+    <li>状態の変更: 進行中・ブロックなどに変えます。</li>
+    <li><span class="ui">完了</span>: Issue を閉じます。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="board">
+  <h2>ボード</h2>
+  <p>Issue を、状態ごとの列に並べて見る画面（カンバン）です。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>列</th><th>意味</th></tr>
+    <tr><td>👤 自分のタスク</td><td>自分が担当者のタスク</td></tr>
+    <tr><td>📥 未整理</td><td>まだ分類していないタスク</td></tr>
+    <tr><td>📋 未着手</td><td>まだ手をつけていないタスク</td></tr>
+    <tr><td>🔥 進行中</td><td>取り組んでいるタスク</td></tr>
+    <tr><td>👀 チェック待ち</td><td>確認を待っているタスク</td></tr>
+    <tr><td>🧪 動作確認</td><td>動作を確かめているタスク</td></tr>
+    <tr><td>✅ 完了承認待ち</td><td>完了の承認を待っているタスク</td></tr>
+    <tr><td>💭 いつか</td><td>いつかやりたいタスク</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>カードを別の列へドラッグすると、状態が変わります。「自分のタスク」へドラッグすると、自分が担当者になります。</li>
+    <li><span class="ui">⚙ カラム設定</span> で、列の並び・削除・追加ができます。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="milestones">
+  <h2>マイルストーン</h2>
+  <p>期限つきの目標を管理します。Issue をマイルストーンに結びつけると、目標に対する進み具合が見えます。</p>
+  <ol>
+    <li><span class="ui">＋ マイルストーン</span> を押します。</li>
+    <li>名前（必須）・説明・期日を入れて、<span class="ui">作成</span> を押します。</li>
+  </ol>
+  <p>カードには、完了した Issue の割合（進捗バー）、完了数 / 全体の数、期日が出ます。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="gantt">
+  <h2>ガントチャート</h2>
+  <p>マイルストーンの中の Issue を、日程の帯で見る画面です。</p>
+  <ul>
+    <li>上のプルダウンでマイルストーンを選びます（前に選んだものを覚えています）。</li>
+    <li>開始日・終了日が決まっている Issue が、帯で表示されます。帯をドラッグすると日程を動かせ、端をドラッグすると長さを変えられます。</li>
+    <li>担当者・状態・分野で絞り込めます。表示の単位は 日・週・月 から選べます。<span class="ui">今日</span> で今日に移ります。</li>
+    <li>先行タスク（依存）を決めると、矢印でつながります。クリティカルパス（遅れると全体が遅れる流れ）は赤く表示されます。</li>
+  </ul>
+  <p>日程や依存は、Issue の詳細の「ガントチャート」の欄で決めます。Issue の本文に HTML のコメントとして保存されるので、GitHub での見た目は変わりません。</p>
+  <div class="cmd">&lt;!-- gantt:2026-03-10/2026-03-20 --&gt;   開始日/終了日
+&lt;!-- depends:#12,#15 --&gt;               先行タスク
+&lt;!-- progress-mode:manual --&gt;          進み具合の数え方
+&lt;!-- progress:60 --&gt;                   手で入れた進み具合</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="routines">
+  <h2>ルーチン</h2>
+  <p>毎日・毎週・毎月、決まった時刻に Issue を自動で作る機能です。日報や定期的な確認に使えます。</p>
+  <ol>
+    <li><span class="ui">＋ ルーチン追加</span> を押します。</li>
+    <li>名前・頻度（毎日／毎週／毎月）・曜日・時刻・Issue のタイトル・ラベル・本文・自動で閉じる時刻（任意）を決めます。</li>
+    <li><span class="ui">保存</span> を押します。</li>
+  </ol>
+  <p>タイトルや本文では、次の書き方が使えます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>書き方</th><th>置き換わる例</th></tr>
+    <tr><td><code>{{date}}</code></td><td>2026-03-14</td></tr>
+    <tr><td><code>{{week}}</code></td><td>2026年第11週</td></tr>
+    <tr><td><code>{{month}}</code></td><td>2026-03</td></tr>
+  </table>
+  </div>
+  <p>ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。このとき Life Manager が自動でコミットを作ります（ブランチ画面・全体図では「アプリの自動コミット」としてまとめて表示します）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="journal">
+  <h2>日誌</h2>
+  <p>日ごとの活動の記録を見る画面です。その日に作った・閉じた Issue などがまとめられます。</p>
+  <ul>
+    <li><span class="ui">前日</span> <span class="ui">翌日</span> や日付の選択で移ります。<span class="ui">今日</span> で今日に戻ります。</li>
+    <li><span class="ui">更新</span> で、選んでいる日の日誌を作り直します。日誌の中の <code>[#12]</code> を押すと、その Issue が開きます。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="issue">
+  <h2>Issue の詳細</h2>
+  <p>Issue のカードを押すと、詳細の画面が開きます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>操作</th></tr>
+    <tr><td>タイトル</td><td>押して編集、<kbd>Enter</kbd> で保存</td></tr>
+    <tr><td>ラベル・担当者・マイルストーン</td><td>押して選び、保存</td></tr>
+    <tr><td>本文</td><td>押して編集、保存。チェックボックス（<code>- [ ]</code>）は押して切り替えられ、進み具合のバーが出ます</td></tr>
+    <tr><td>ガントチャート</td><td>開始日・終了日・先行タスク・進み具合の数え方</td></tr>
+    <tr><td>リマインダー</td><td>日時と通知先（OS の通知・Discord）を決めると、その時刻に知らせます</td></tr>
+    <tr><td>コメント</td><td>書いて <span class="ui">コメント追加</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）。GitHub の Issue のコメントとして保存されます</td></tr>
+    <tr><td>完了 / 再開</td><td>Issue を閉じる / 閉じた Issue を開き直す</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="palette">
+  <h2>コマンドパレット</h2>
+  <p><kbd>Ctrl</kbd>＋<kbd>K</kbd> で開きます。キーボードだけで、すばやく操作できます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>入力</th><th>すること</th><th>例</th></tr>
+    <tr><td><code>m 文字</code></td><td>クイックメモを作る</td><td><code>m 牛乳を買う</code></td></tr>
+    <tr><td><code>#番号</code></td><td>番号で Issue を探す</td><td><code>#42</code></td></tr>
+    <tr><td><code>@ラベル</code></td><td>ラベルで絞り込む</td><td><code>@分野:仕事</code></td></tr>
+    <tr><td>そのほかの文字</td><td>タイトル・本文を探す</td><td><code>バグ修正</code></td></tr>
+  </table>
+  </div>
+  <p><kbd>Enter</kbd> で実行、<kbd>Esc</kbd> で閉じます。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="labels">
+  <h2>ラベルの決まり</h2>
+  <p>ラベルは <code>カテゴリ:値</code> の形で付けます。設定 → ラベル の <span class="ui">ラベル一括作成</span> で、次のラベルがリポジトリに作られます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>カテゴリ</th><th>ラベル</th></tr>
+    <tr><td>種別（タスクの種類）</td><td><code>種別:イシュー</code>（ふつうのタスク）、<code>種別:メモ</code>（思いつき・タスクの手前のもの）、<code>種別:ルーチン</code>（自動で作られるタスク）</td></tr>
+    <tr><td>分野</td><td><code>分野:仕事</code>、<code>分野:私用</code>、<code>分野:やりたい</code>、<code>分野:健康</code>、<code>分野:学習</code></td></tr>
+    <tr><td>状態</td><td><code>状態:未整理</code>、<code>状態:進行中</code>、<code>状態:ブロック</code>、<code>状態:いつか</code></td></tr>
+    <tr><td>優先</td><td><code>優先:高</code>、<code>優先:中</code>、<code>優先:低</code></td></tr>
+  </table>
+  </div>
+  <p>ボードの列（未着手・チェック待ち・動作確認・完了承認待ち など）の状態ラベルは、カードを動かしたときに付きます。ラベルの名前・色・説明は、設定 → ラベル で変えられます。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="settings">
+  <h2>設定</h2>
+  <p>設定は、上のタブで「接続」「ラベル」「通知」「表示」「その他」に分かれています。</p>
+  <h3>接続</h3>
+  <ul>
+    <li><b>GitHub トークン</b>: トークンを変えます（期限が切れたときなど）。</li>
+    <li><b>リポジトリ設定</b>: 使うリポジトリ（オーナー名 / リポジトリ名）を変えます。</li>
+    <li><b>作業フォルダ（この PC）</b>: git で操作するフォルダを決めます。Git のインストールや、使う準備の確認もここから（「<a href="#prepare">使う準備</a>」）。</li>
+    <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとにトークンを決めることもできます（🔑）。</li>
+  </ul>
+  <h3>ラベル</h3>
+  <p>ラベルの一括作成・作成・編集・削除ができます。</p>
+  <h3>通知</h3>
+  <ul>
+    <li><b>Discord Webhook 通知</b>: Discord のチャンネルに通知を送るための URL を決めます。Discord のチャンネルの設定 → 連携サービス → ウェブフック で作った URL を貼り付け、<span class="ui">テスト送信</span> で確かめます。</li>
+    <li><b>通知スケジュール</b>: 今日のタスク一覧・期限超過・全体のまとめ・自由なメッセージを、決まった時刻に送ります（OS の通知 / Discord）。</li>
+    <li><b>イベント通知</b>: Issue を作った・閉じた・状態を変えた などのときに知らせるかを決めます。</li>
+  </ul>
+  <h3>表示</h3>
+  <ul>
+    <li><b>学習の補助（解説を表示する）</b>: ステージ・コミット・退避などの意味と、対応する git のコマンドの解説を、画面に出すかどうか。</li>
+    <li><b>全体図でのブランチの見せ方</b>: ラベル / 線。</li>
+  </ul>
+  <h3>その他</h3>
+  <ul>
+    <li><b>フィードバック</b>: バグの報告や機能の要望を、メールで送ります。</li>
+    <li><b>マニュアルを開く</b>: このマニュアルを開きます。</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="team">
+  <h2>チームで使う（管理者向け）</h2>
+  <h3>メンバーとして参加する</h3>
+  <ol>
+    <li>GitHub のアカウントを作ります（まだないとき）。</li>
+    <li>リポジトリへの招待を受けます。メールの「View invitation」→「Accept invitation」、または教えてもらった招待の URL を開いて「Accept invitation」を押します。<br>リポジトリのページ（<code>https://github.com/オーナー名/リポジトリ名</code>）が見られれば参加できています。</li>
+    <li>自分のアカウントでトークンを作ります（ほかの人のトークンは使いません）。</li>
+    <li>Life Manager のセットアップで、オーナー名に<b>リポジトリの持ち主</b>の名前、リポジトリ名、自分のトークンを入れます。</li>
+  </ol>
+  <h3>Organization を使う（おすすめ）</h3>
+  <p>2 人以上で続けて使うときは、GitHub の Organization（無料）がおすすめです。人ではなく Organization がリポジトリを持つので、人が抜けても残り、権限をチーム単位で管理できます。</p>
+  <ol>
+    <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
+    <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
+    <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
+    <li>メンバーは、Resource owner を Organization にした Fine-grained token を作り、Life Manager に <code>org名/リポジトリ名</code> を設定します。</li>
+  </ol>
+  <p>個人のリポジトリで使うときは、Settings → Collaborators → Add people でメンバーを招待し、Write 以上の役割を付けます。</p>
+  <h3>Fine-grained token の注意</h3>
+  <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは、Organization に移すか、Classic token（<code>repo</code>）を使います。Life Manager ではプロジェクトごとにトークンを決められるので、使い分けもできます。</p>
+  <p>トークンは、プロジェクトのトークン → セットアップで入れたトークン の順に使われます。</p>
+  <h3>git の作業をチームで行うときの流れ（例）</h3>
+  <ol>
+    <li>Issue を作り、担当を決める。</li>
+    <li>作業タブで Issue を選び、Issue 用のブランチ（<code>issue-12</code> など）を作る。</li>
+    <li>変更をコミットして、プッシュする。</li>
+    <li>GitHub でプルリクエストを作り、レビューしてから既定のブランチにマージする（要約に <code>Closes #12</code> があれば、Issue が自動で閉じる）。</li>
+  </ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="faq">
+  <h2>よくある質問・困ったとき</h2>
+  <dl class="qa">
+    <dt>「git が見つかりません」と出ます</dt>
+    <dd>Git が入っていません。設定 → 接続 → 作業フォルダ の <span class="ui">Git をインストールする…</span> から入れてください。入れたあとも見つからないときは、アプリを開き直してください。</dd>
+    <dt>プッシュやプルで「GitHub へのログインが必要です」と出ます</dt>
+    <dd>この PC の git が、まだ GitHub にログインしていません。Windows では、はじめてのプッシュのときにログインの画面（ブラウザ）が出ることがあります。出ないときは、<span class="ui">その他 ▾</span> → <span class="ui">このフォルダでターミナルを開く</span> で、同じ操作（<code>git push</code> など）を一度打ってログインしてください。</dd>
+    <dt>プッシュが「拒否された（rejected）」と出ます</dt>
+    <dd>GitHub の方に、まだ取り込んでいないコミットがあります。先に <span class="ui">⬇ プル</span> で取り込んでから、もう一度プッシュしてください。</dd>
+    <dt>コミットできません</dt>
+    <dd>コミットするファイルにチェック（ステージ）が入っているかを確かめてください。「名前とメールアドレスが決まっていません」と出るときは、設定 → 接続 → 作業フォルダ の <span class="ui">使う準備を確かめる</span> から決めてください。</dd>
+    <dt>作業フォルダに選べません</dt>
+    <dd>選べるのは、設定しているリポジトリをクローンしたフォルダだけです。まだ PC にない場合は <span class="ui">GitHub からクローン…</span> を使ってください。</dd>
+    <dt>学校の PC で Git がインストールできません</dt>
+    <dd>インストールには PC の管理者の確認が必要です。PC の管理者に Git のインストールを頼んでください（<a href="https://git-scm.com/downloads">https://git-scm.com/downloads</a>）。</dd>
+    <dt>データはどこに保存されますか？</dt>
+    <dd>すべて GitHub のリポジトリ（Issue・マイルストーン・ラベル）に保存されます。ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。アプリを消しても、データは GitHub に残ります。作業フォルダの場所や表示の設定は、この PC だけに保存されます。</dd>
+    <dt>トークンの期限が切れました</dt>
+    <dd>GitHub で新しいトークンを作り、設定 → 接続 の GitHub トークン（プロジェクトごとのトークンは 🔑）から入れ直してください。</dd>
+    <dt>複数のリポジトリを使えますか？</dt>
+    <dd>使えます。設定 → 接続 の <span class="ui">プロジェクト管理</span> で登録し、サイドバーのプルダウンで切り替えます。作業フォルダも、リポジトリごとに決められます。</dd>
+    <dt>ガントチャートに帯が出ません</dt>
+    <dd>Issue の詳細の「ガントチャート」の欄で、開始日と終了日を決めてください。</dd>
+    <dt>オフラインで使えますか？</dt>
+    <dd>タスク管理は GitHub に接続するため、オフラインでは使えません。git の作業（ステージ・コミットなど）は PC の中で行えますが、プッシュ・プル・フェッチには接続が必要です。</dd>
+  </dl>
+</section>
+
+<footer>
+  Life Manager マニュアル（0.9 系）。わからないところや間違いに気づいたら、設定 → その他 の「フィードバック」から教えてください。
+</footer>
+</main>
+</div>
+
+<script>
+  // 表示の明るさ（システムの設定に合わせる → 明るい → 暗い）
+  (function () {
+    var root = document.documentElement;
+    var button = document.getElementById("theme-toggle");
+    var order = ["", "light", "dark"];
+    var saved = "";
+    try { saved = localStorage.getItem("manual-theme") || ""; } catch (e) { /* 保存できなくても切り替えはできる */ }
+    if (saved) root.setAttribute("data-theme", saved);
+    button.addEventListener("click", function () {
+      var now = root.getAttribute("data-theme") || "";
+      var next = order[(order.indexOf(now) + 1) % order.length];
+      if (next) root.setAttribute("data-theme", next); else root.removeAttribute("data-theme");
+      try { localStorage.setItem("manual-theme", next); } catch (e) { /* 何もしない */ }
+    });
+  })();
+
+  // 目次で、今読んでいる章を目立たせる
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+    if (!("IntersectionObserver" in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove("on"); });
+        var link = byId[entry.target.id];
+        if (link) link.classList.add("on");
+      });
+    }, { rootMargin: "0px 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { observer.observe(s); });
+  })();
+</script>
+</body>
+</html>

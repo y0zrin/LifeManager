@@ -1,9 +1,13 @@
 // PC の git を呼び出す（スマホ版では使わない）。バックエンドの git::commands と対応する
 import { invoke } from "@tauri-apps/api/core";
-import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitStash, GitStatus } from "./types";
+import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus } from "./types";
 
 // --- 準備 ---
 export const gitVersion = () => invoke<string>("git_version");
+export const setupStatus = () => invoke<GitSetupStatus>("git_setup_status");
+/** Git をインストールする（数分かかる。途中で管理者の確認が出る） */
+export const installGit = () => invoke<GitRun>("git_install");
+export const setIdentity = (name: string, email: string) => invoke<GitRun>("git_set_identity", { name, email });
 export const checkFolder = (path: string, owner: string, repo: string) =>
   invoke<GitFolderCheck>("git_check_folder", { path, owner, repo });
 export const cloneRepo = (parent: string, owner: string, repo: string) =>

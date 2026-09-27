@@ -11,6 +11,10 @@ interface LocalFolderSettingProps {
   folder: string | undefined;
   /** null なら設定を外す */
   onSetFolder: (path: string | null) => Promise<void>;
+  /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
+  onOpenSetup: () => void;
+  /** 変わったら Git を確かめ直す（Git を入れたあとなど） */
+  setupVersion: number;
 }
 
 type Message = { kind: "ok" | "error"; text: string };
@@ -22,7 +26,7 @@ function samePath(a: string, b: string) {
 }
 
 /** 今のリポジトリを git で操作するときの、この PC 上のフォルダを決める（PC のみ） */
-export function LocalFolderSetting({ owner, repo, folder, onSetFolder }: LocalFolderSettingProps) {
+export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSetup, setupVersion }: LocalFolderSettingProps) {
   // git が使えるか。null は確認中
   const [git, setGit] = useState<{ version: string } | { error: string } | null>(null);
   const [busy, setBusy] = useState<"pick" | "clone" | null>(null);
@@ -33,7 +37,7 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder }: LocalFo
     gitVersion()
       .then((v) => setGit({ version: v.replace(/^git version\s*/, "") }))
       .catch((e) => setGit({ error: String(e) }));
-  }, []);
+  }, [setupVersion]);
 
   // プロジェクトを切り替えたら、前のリポジトリの結果は消す
   useEffect(() => {
@@ -146,13 +150,23 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder }: LocalFo
       )}
 
       {git === null && <p className="settings-hint">git を確認しています…</p>}
-      {git && "version" in git && <p className="settings-hint">使う git: {git.version}</p>}
+      {git && "version" in git && (
+        <p className="settings-hint local-folder-git">
+          使う git: {git.version}
+          <button type="button" className="sec-btn" onClick={onOpenSetup}>
+            使う準備を確かめる
+          </button>
+        </p>
+      )}
       {git && "error" in git && (
         <div className="local-folder-message local-folder-message--error">
-          {git.error}
-          <div style={{ marginTop: "var(--space-xs)" }}>
-            <button className="btn-sm" onClick={() => openUrl("https://git-scm.com/")}>
-              Git のサイトを開く
+          Git が見つかりません。「作業」「ブランチ」「全体図」を使うには、Git をインストールします。
+          <div className="local-folder-actions">
+            <button type="button" className="btn-primary" onClick={onOpenSetup}>
+              Git をインストールする…
+            </button>
+            <button type="button" className="btn-sm" onClick={() => openUrl("https://git-scm.com/downloads")}>
+              Git のページを開く
             </button>
           </div>
         </div>

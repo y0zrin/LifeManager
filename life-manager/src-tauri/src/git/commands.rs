@@ -1,6 +1,7 @@
 //! 画面から呼ぶ git のコマンド。git の実行には時間がかかることがあるので、どれも別スレッドで動かす
 use super::history::{self, History};
 use super::runner::{run, GitRun};
+use super::setup;
 use super::status::{self, BranchInfo, FolderCheck, RepoStatus, StashEntry};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -26,6 +27,24 @@ fn check_name(name: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn git_version() -> Result<String, String> {
     blocking(|| Ok(run(&std::env::temp_dir(), &["--version"])?.output.trim().to_string())).await
+}
+
+/// 使う準備ができているか（Git が入っているか、コミットに使う名前とメールアドレスが決まっているか）
+#[tauri::command]
+pub async fn git_setup_status() -> Result<setup::SetupStatus, String> {
+    blocking(|| Ok(setup::setup_status())).await
+}
+
+/// Git をインストールする（数分かかる。途中で管理者の確認が出る）
+#[tauri::command]
+pub async fn git_install() -> Result<GitRun, String> {
+    setup::install_git().await
+}
+
+/// コミットに使う名前とメールアドレスを決める（git config --global）
+#[tauri::command]
+pub async fn git_set_identity(name: String, email: String) -> Result<GitRun, String> {
+    blocking(move || setup::set_identity(&name, &email)).await
 }
 
 #[tauri::command]

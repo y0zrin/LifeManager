@@ -1944,8 +1944,65 @@ button:hover {
 
 .git-dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: var(--space-sm);
+}
+
+/* 使う準備（Git のインストール・コミットに使う名前） */
+.setup-dialog {
+  width: 540px;
+}
+
+.setup-dont-show {
+  margin-right: auto;
+  font-size: var(--font-xs);
+}
+
+.git-dialog-running .spinner {
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 6px;
+}
+
+.setup-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px var(--space-md);
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  font-size: var(--font-sm);
+}
+
+.setup-summary dt {
+  color: var(--text-muted);
+}
+
+.setup-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+
+.local-folder-git {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.local-folder-git .sec-btn {
+  margin-left: 0;
+}
+
+.local-folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
 }
 
 .git-choice {

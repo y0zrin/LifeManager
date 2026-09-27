@@ -34,6 +34,9 @@ interface SettingsViewProps {
   onSetLocalFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
   displaySettings: DisplaySettings;
   onChangeDisplaySettings: (patch: Partial<DisplaySettings>) => void;
+  /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
+  onOpenSetup: () => void;
+  setupVersion: number;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
 }
@@ -58,7 +61,7 @@ const PANES: { key: SettingsPane; label: string }[] = [
   { key: "other", label: "その他" },
 ];
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
+export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [tokenInput, setTokenInput] = useState("");
@@ -281,6 +284,8 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
           repo={repo}
           folder={localFolders[`${owner}/${repo}`]}
           onSetFolder={(path) => onSetLocalFolder(owner, repo, path)}
+          onOpenSetup={onOpenSetup}
+          setupVersion={setupVersion}
         />
       )}
 
@@ -905,14 +910,17 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         <button
           className="btn-sm"
           onClick={async () => {
-            try {
-              const path = await resolveResource("resources/manual.pdf");
-              await openPath(path);
-            } catch {
-              // PDFが見つからない場合はGitHubのREADMEを開く
-              const { openUrl } = await import("@tauri-apps/plugin-opener");
-              await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
+            // HTML のマニュアル（ブラウザで開く）→ 古い PDF → GitHub の README の順に試す
+            for (const file of ["resources/manual.html", "resources/manual.pdf"]) {
+              try {
+                await openPath(await resolveResource(file));
+                return;
+              } catch {
+                // 次を試す
+              }
             }
+            const { openUrl } = await import("@tauri-apps/plugin-opener");
+            await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
           }}
           style={{ fontSize: "var(--font-xs)" }}
         >

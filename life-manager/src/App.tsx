@@ -27,10 +27,12 @@ import { GitNotices } from "./components/git/GitNotices";
 import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
+import { SetupDialog } from "./components/git/SetupDialog";
+import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
 import { SetupView } from "./components/views/SetupView";
-import type { GitCommit, ViewType } from "./lib/types";
+import type { GitCommit, GitSetupStatus, ViewType } from "./lib/types";
 import "./App.css";
 
 type NavItem = { key: ViewType; icon: string; label: string };
@@ -61,6 +63,8 @@ const ALL_NAV_ITEMS: NavItem[] = [WORK_ITEM, ...TASK_ITEMS, ...REPO_ITEMS, SETTI
 const MOBILE_NAV_ITEMS: NavItem[] = [...TASK_ITEMS, SETTINGS_ITEM];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+// 「次からは起動時に表示しない」を選んだか（使う準備のダイアログ）
+const SETUP_DONT_SHOW_KEY = "setup-dont-show";
 
 // 作業 → ブランチ → 全体図 は、右へ行くほど一歩ずつ引いて見る画面。切り替えは寄る・引く動きにする
 const ZOOM_LEVELS: ViewType[] = ["work", "branches", "overview"];
@@ -91,6 +95,9 @@ function App() {
   // 右クリック・「⋯」のメニュー
   const [menu, setMenu] = useState<MenuSpec | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  // 使う準備（Git のインストール・コミットに使う名前）。setupVersion は、変わったら Git を確かめ直す合図
+  const [setup, setSetup] = useState<{ status: GitSetupStatus; auto: boolean } | null>(null);
+  const [setupVersion, setSetupVersion] = useState(0);
   const [commitDraft, setCommitDraft] = useState<CommitDraft>(EMPTY_DRAFT);
   const [commitRequest, setCommitRequest] = useState<{ empty: boolean } | null>(null);
   const clearCommitRequest = useCallback(() => setCommitRequest(null), []);
@@ -281,6 +288,48 @@ function App() {
     };
   }, [view]);
 
+  // 起動したら（PC のみ）、Git が入っているか・コミットに使う名前が決まっているかを確かめ、足りなければ案内する
+  const setupChecked = useRef(false);
+  useEffect(() => {
+    if (isMobile || !gh.connected || setupChecked.current) return;
+    setupChecked.current = true;
+    let dontShow = false;
+    try {
+      dontShow = localStorage.getItem(SETUP_DONT_SHOW_KEY) === "1";
+    } catch {
+      // 読めなければ案内する
+    }
+    if (dontShow) return;
+    readSetupStatus()
+      .then((status) => {
+        if (!status.git || !status.user_name || !status.user_email) setSetup({ status, auto: true });
+      })
+      .catch((e) => console.error("使う準備を確かめられませんでした:", e));
+  }, [gh.connected]);
+
+  const openSetup = useCallback(() => {
+    readSetupStatus()
+      .then((status) => setSetup({ status, auto: false }))
+      .catch((e) => git.notify("error", String(e)));
+  }, [git.notify]);
+
+  function closeSetup(dontShow: boolean) {
+    if (dontShow) {
+      try {
+        localStorage.setItem(SETUP_DONT_SHOW_KEY, "1");
+      } catch {
+        // 保存できなくても閉じる
+      }
+    }
+    setSetup(null);
+  }
+
+  // Git を入れた・名前を決めたあとは、Git の有無と作業フォルダの状態を読み直す
+  function handleSetupChanged() {
+    setSetupVersion((v) => v + 1);
+    git.refresh();
+  }
+
   // ツールバーの「コミット…」「空コミット…」: 作業タブを開いてコミット欄に移る
   function handleOpenCommit(empty: boolean) {
     setView("work");
@@ -439,6 +488,8 @@ function App() {
               onDraftChange={setCommitDraft}
               commitRequest={commitRequest}
               onCommitRequestHandled={clearCommitRequest}
+              onOpenSetup={openSetup}
+              setupVersion={setupVersion}
             />
           )}
 
@@ -617,6 +668,8 @@ function App() {
               onSetLocalFolder={localFolders.setFolder}
               displaySettings={display.settings}
               onChangeDisplaySettings={display.update}
+              onOpenSetup={openSetup}
+              setupVersion={setupVersion}
               eventNotifConfig={gh.eventNotifConfig}
               onSaveEventNotifConfig={gh.saveEventNotifConfig}
             />
@@ -629,6 +682,15 @@ function App() {
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
       {commitDetail && folder && <CommitDetail folder={folder} commit={commitDetail} onClose={closeCommitDetail} />}
+      {setup && (
+        <SetupDialog
+          status={setup.status}
+          auto={setup.auto}
+          onClose={closeSetup}
+          onChanged={handleSetupChanged}
+          onNotify={git.notify}
+        />
+      )}
 
       {/* ボトムナビゲーション（スマホ） */}
       <nav className="bottom-nav">

@@ -30,6 +30,8 @@ export interface GitHubIssue {
   comments: number;
   created_at: string;
   updated_at: string;
+  /** まだ GitHub に送っていない変更がある（オフラインのあいだの変更）。まだ作っていない Issue の番号は負の数（仮の番号） */
+  _pending?: boolean;
 }
 
 export interface GitHubComment {
@@ -38,6 +40,47 @@ export interface GitHubComment {
   user: { login: string; avatar_url: string };
   created_at: string;
   updated_at: string;
+  /** まだ GitHub に送っていないコメント */
+  _pending?: boolean;
+}
+
+// --- オフラインのあいだの変更（送信待ち） ---
+
+/** 送信待ちの 1 件 */
+export interface PendingItem {
+  number: number;
+  title: string;
+  /** 何をするか（「作る」「閉じる」「ラベル・本文を変える」「コメントする」など） */
+  action: string;
+  at: string;
+}
+
+/** 送るときに GitHub 側の変更とぶつかった・送れなかったもの */
+export interface SyncConflict {
+  id: number;
+  number: number;
+  title: string;
+  field: "title" | "body" | "state" | "milestone" | "error";
+  local: string;
+  remote: string;
+  message: string;
+}
+
+export interface OfflineStatus {
+  /** 最後の通信ができなかった */
+  offline: boolean;
+  pending: PendingItem[];
+  conflicts: SyncConflict[];
+}
+
+export interface SyncResult {
+  sent: number;
+  pending: number;
+  offline: boolean;
+  /** 送るのを止めた理由（トークンが無効など） */
+  stopped: string | null;
+  /** 仮の番号 → GitHub の番号 */
+  mapping: Record<string, number>;
 }
 
 export interface RoutineSchedule {

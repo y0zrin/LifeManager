@@ -10,7 +10,9 @@ import { useGit } from "./hooks/useGit";
 import { useGitActions } from "./hooks/useGitActions";
 import { useDisplaySettings } from "./hooks/useDisplaySettings";
 import { useHistory } from "./hooks/useHistory";
+import { useOffline } from "./hooks/useOffline";
 import { isMobile } from "./lib/platform";
+import { isTemporary } from "./lib/issueRef";
 import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
@@ -31,6 +33,8 @@ import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
+import { SyncIndicator } from "./components/common/SyncIndicator";
+import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import type { GitCommit, GitSetupStatus, ViewType } from "./lib/types";
 import "./App.css";
@@ -148,6 +152,27 @@ function App() {
   const [showPalette, setShowPalette] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
+  // オフラインのあいだの変更（送信待ち）。送信待ちが変わったら手元の写しで、送れたら GitHub から読み直す
+  const offline = useOffline(gh.owner, gh.repo, gh.connected, {
+    onChanged: gh.reloadCached,
+    onSynced: gh.loadAll,
+    // 仮の番号の Issue を開いていたら、GitHub に作られた番号に切り替える
+    onCreated: (temp, real) => setSelectedIssue((cur) => (cur === temp ? real : cur)),
+  });
+  const [showConflicts, setShowConflicts] = useState(false);
+  const openConflicts = useCallback(() => setShowConflicts(true), []);
+  const closeConflicts = useCallback(() => setShowConflicts(false), []);
+  const syncIndicator = (
+    <SyncIndicator
+      status={offline.status}
+      syncing={offline.syncing}
+      stopped={offline.stopped}
+      onSync={offline.sync}
+      onOpenConflicts={openConflicts}
+    />
+  );
+  // 作業タブで選べるのは、GitHub の番号がある Issue だけ（コミットのメッセージに番号を入れるため）
+  const workIssues = useMemo(() => gh.issues.filter((i) => !isTemporary(i.number)), [gh.issues]);
   const [initializing, setInitializing] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -444,6 +469,7 @@ function App() {
           <div className="topbar-right">
             {/* git の操作の結果は右下に出すので、リポジトリの画面では場所をツールバーにゆずる */}
             {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
+            {syncIndicator}
             <button className="btn-sm" onClick={() => { setShowPalette(true); }}>
               Ctrl+K
             </button>
@@ -454,6 +480,7 @@ function App() {
         <header className="header mobile-header">
           <h1 className="header-title" style={{ margin: 0, fontSize: "var(--font-xl)" }}>Life Manager</h1>
           {projectSelect}
+          {syncIndicator}
         </header>
 
         {/* アップデート通知バナー */}
@@ -480,7 +507,7 @@ function App() {
               onSetFolder={(path) => localFolders.setFolder(gh.owner, gh.repo, path)}
               git={git}
               actions={gitActions}
-              issues={gh.issues}
+              issues={workIssues}
               onOpenIssue={setSelectedIssue}
               onStartIssue={(n) => gh.changeIssueStatus(n, "状態:進行中")}
               onCloseIssue={gh.closeIssue}
@@ -682,6 +709,14 @@ function App() {
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
       {commitDetail && folder && <CommitDetail folder={folder} commit={commitDetail} onClose={closeCommitDetail} />}
+      {showConflicts && offline.status.conflicts.length > 0 && (
+        <ConflictDialog
+          conflicts={offline.status.conflicts}
+          milestones={gh.milestones}
+          onResolve={offline.resolve}
+          onClose={closeConflicts}
+        />
+      )}
       {setup && (
         <SetupDialog
           status={setup.status}

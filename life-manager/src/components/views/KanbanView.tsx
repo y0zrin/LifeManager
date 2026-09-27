@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, GitHubUser } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
+import { PendingChip } from "../common/PendingChip";
+import { issueRef } from "../../lib/issueRef";
 
 const DEFAULT_COLUMNS: BoardColumn[] = [
   { key: "状態:未整理", title: "未整理", emoji: "📥" },
@@ -454,8 +456,9 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                         onClick={() => { if (!isDraggingRef.current) onSelectIssue(issue.number); }}
                         style={{ borderLeft: `3px solid ${getPriorityColor(issue)}` }}
                       >
-                        <span className="mydesk-card-number">#{issue.number}</span>
+                        <span className="mydesk-card-number">{issueRef(issue.number)}</span>
                         <span className="mydesk-card-title">{issue.title}</span>
+                        {issue._pending && <PendingChip />}
                       </div>
                     </div>
                   ))}

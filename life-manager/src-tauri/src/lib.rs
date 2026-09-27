@@ -3,6 +3,7 @@ mod git;
 mod github;
 mod journal;
 mod notify;
+mod offline;
 mod scheduler;
 
 use credential::CredentialEntry as Entry;
@@ -303,23 +304,33 @@ fn resolve_active_token() -> Result<String, String> {
         .map_err(|_| String::from("トークンがありません"));
 }
 
-// --- Issue ---
+/// 今のトークンの GitHub クライアント。通信のあいだほかの操作を待たせないよう、複製してすぐにロックを離す
+async fn current_client(state: &tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<GitHubClient, String> {
+    let guard = state.lock().await;
+    return Ok(guard.as_ref().ok_or("トークンが未設定です")?.clone());
+}
 
+// --- Issue ---
+// つながらないときは、最後に読んだ内容を返し、変更は送信待ちに並べる（offline モジュール）
+
+/// cached が true なら GitHub に聞かず、手元の写しに送信待ちの変更を重ねたものを返す（送信待ちが変わったときの表示の更新用）
 #[tauri::command]
 async fn list_issues(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
     issue_state: Option<String>,
+    cached: Option<bool>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
+    let client = current_client(&state).await?;
     let s = issue_state.unwrap_or_else(|| "open".to_string());
-    return client.list_issues(&owner, &repo, &s).await;
+    return offline::list_issues(&app, &client, &owner, &repo, &s, cached.unwrap_or(false)).await;
 }
 
 #[tauri::command]
 async fn create_issue(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
@@ -329,19 +340,18 @@ async fn create_issue(
     milestone: Option<u32>,
     assignees: Option<Vec<String>>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client
-        .create_issue(&owner, &repo, &title, &body, labels, milestone, assignees)
-        .await;
+    let client = current_client(&state).await?;
+    return offline::create_issue(&app, &client, &owner, &repo, title, body, labels, milestone, assignees).await;
 }
 
+/// issue_number が負の数なら、まだ GitHub に送っていない Issue（仮の番号）
 #[tauri::command]
 async fn update_issue(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
+    issue_number: i64,
     title: Option<String>,
     body: Option<String>,
     issue_state: Option<String>,
@@ -349,58 +359,49 @@ async fn update_issue(
     milestone: Option<u32>,
     assignees: Option<Vec<String>>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client
-        .update_issue(
-            &owner,
-            &repo,
-            issue_number,
-            title,
-            body,
-            issue_state,
-            labels,
-            milestone,
-            assignees,
-        )
-        .await;
+    let client = current_client(&state).await?;
+    let changes = offline::store::Changes { title, body, state: issue_state, labels, milestone, assignees };
+    return offline::update_issue(&app, &client, &owner, &repo, issue_number, changes).await;
 }
 
 // --- User ---
 
+/// owner / repo が分かるときは、そのリポジトリの写しにも覚える（リポジトリごとにトークンが違うことがあるため）
 #[tauri::command]
 async fn get_current_user(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: Option<String>,
+    repo: Option<String>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    client.get_authenticated_user().await
+    let client = current_client(&state).await?;
+    return offline::get_current_user(&app, &client, owner.as_deref(), repo.as_deref()).await;
 }
 
 // --- Collaborators ---
 
 #[tauri::command]
 async fn list_collaborators(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client.list_collaborators(&owner, &repo).await;
+    let client = current_client(&state).await?;
+    return offline::read_through(&app, &owner, &repo, "collaborators", client.list_collaborators(&owner, &repo)).await;
 }
 
 // --- Labels ---
 
 #[tauri::command]
 async fn list_labels(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client.list_labels(&owner, &repo).await;
+    let client = current_client(&state).await?;
+    return offline::read_through(&app, &owner, &repo, "labels", client.list_labels(&owner, &repo)).await;
 }
 
 #[tauri::command]
@@ -499,13 +500,13 @@ async fn setup_labels(
 
 #[tauri::command]
 async fn list_milestones(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client.list_milestones(&owner, &repo).await;
+    let client = current_client(&state).await?;
+    return offline::read_through(&app, &owner, &repo, "milestones", client.list_milestones(&owner, &repo)).await;
 }
 
 #[tauri::command]
@@ -546,53 +547,79 @@ async fn update_milestone(
 
 #[tauri::command]
 async fn list_comments(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
+    issue_number: i64,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client.list_comments(&owner, &repo, issue_number).await;
+    let client = current_client(&state).await?;
+    return offline::list_comments(&app, &client, &owner, &repo, issue_number).await;
 }
 
 #[tauri::command]
 async fn create_comment(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
+    issue_number: i64,
     body: String,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client.create_comment(&owner, &repo, issue_number, &body).await;
+    let client = current_client(&state).await?;
+    return offline::create_comment(&app, &client, &owner, &repo, issue_number, body).await;
+}
+
+// --- オフライン（送信待ち） ---
+
+/// 送信待ちの一覧・ぶつかったもの・最後の通信ができなかったか
+#[tauri::command]
+fn offline_status(app: tauri::AppHandle, owner: String, repo: String) -> offline::OfflineStatus {
+    return offline::status(&app, &owner, &repo);
+}
+
+/// 送信待ちを今すぐ送る
+#[tauri::command]
+async fn sync_outbox(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<offline::sync::SyncResult, String> {
+    let client = current_client(&state).await?;
+    return offline::sync_now(&app, &client, &owner, &repo).await;
+}
+
+/// ぶつかったものを片付ける。keep_local なら自分の変更で上書きする（送信待ちに並べ直す）
+#[tauri::command]
+async fn resolve_conflict(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    id: u64,
+    keep_local: bool,
+) -> Result<(), String> {
+    let client = current_client(&state).await.ok();
+    return offline::resolve_conflict(&app, client.as_ref(), &owner, &repo, id, keep_local);
 }
 
 // --- Routines ---
 
 #[tauri::command]
 async fn get_routines(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let client = {
-        let guard = state.lock().await;
-        guard.as_ref().ok_or("トークンが未設定です")?.clone()
-    };
-    match client
-        .get_contents(&owner, &repo, "config/routines.yaml")
-        .await
-    {
-        Ok((content, _sha)) => {
-            let config: scheduler::routine::RoutineConfig =
-                serde_yaml::from_str(&content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
-            let json = serde_json::to_string(&config.routines).map_err(|e| e.to_string())?;
-            return Ok(json);
-        }
-        Err(_) => return Ok("[]".to_string()),
-    }
+    let client = current_client(&state).await?;
+    let fetched = client.get_contents(&owner, &repo, "config/routines.yaml").await;
+    return offline::config_result(&app, &owner, &repo, "config:routines", "[]", fetched, |content| {
+        let config: scheduler::routine::RoutineConfig =
+            serde_yaml::from_str(content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
+        serde_json::to_string(&config.routines).map_err(|e| e.to_string())
+    });
 }
 
 #[tauri::command]
@@ -703,27 +730,18 @@ async fn send_notification(
 
 #[tauri::command]
 async fn get_notification_schedules(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let client = {
-        let guard = state.lock().await;
-        guard.as_ref().ok_or("トークンが未設定です")?.clone()
-    };
-    match client
-        .get_contents(&owner, &repo, "config/notifications.yaml")
-        .await
-    {
-        Ok((content, _sha)) => {
-            let config: scheduler::routine::NotificationConfig =
-                serde_yaml::from_str(&content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
-            let json =
-                serde_json::to_string(&config.notifications).map_err(|e| e.to_string())?;
-            return Ok(json);
-        }
-        Err(_) => return Ok("[]".to_string()),
-    }
+    let client = current_client(&state).await?;
+    let fetched = client.get_contents(&owner, &repo, "config/notifications.yaml").await;
+    return offline::config_result(&app, &owner, &repo, "config:notifications", "[]", fetched, |content| {
+        let config: scheduler::routine::NotificationConfig =
+            serde_yaml::from_str(content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
+        serde_json::to_string(&config.notifications).map_err(|e| e.to_string())
+    });
 }
 
 #[tauri::command]
@@ -787,32 +805,21 @@ async fn save_notification_schedules(
 
 #[tauri::command]
 async fn get_event_notification_config(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let client = {
-        let guard = state.lock().await;
-        guard.as_ref().ok_or("トークンが未設定です")?.clone()
-    };
-    match client
-        .get_contents(&owner, &repo, "config/notifications.yaml")
-        .await
-    {
-        Ok((content, _sha)) => {
-            let config: scheduler::routine::NotificationConfig =
-                serde_yaml::from_str(&content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
-            match config.event_notifications {
-                Some(event_config) => {
-                    let json =
-                        serde_json::to_string(&event_config).map_err(|e| e.to_string())?;
-                    return Ok(json);
-                }
-                None => return Ok("null".to_string()),
-            }
+    let client = current_client(&state).await?;
+    let fetched = client.get_contents(&owner, &repo, "config/notifications.yaml").await;
+    return offline::config_result(&app, &owner, &repo, "config:event_notifications", "null", fetched, |content| {
+        let config: scheduler::routine::NotificationConfig =
+            serde_yaml::from_str(content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
+        match config.event_notifications {
+            Some(event_config) => serde_json::to_string(&event_config).map_err(|e| e.to_string()),
+            None => Ok("null".to_string()),
         }
-        Err(_) => return Ok("null".to_string()),
-    }
+    });
 }
 
 #[tauri::command]
@@ -894,26 +901,18 @@ async fn send_event_notification(
 
 #[tauri::command]
 async fn get_reminders(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let client = {
-        let guard = state.lock().await;
-        guard.as_ref().ok_or("トークンが未設定です")?.clone()
-    };
-    match client
-        .get_contents(&owner, &repo, "config/reminders.yaml")
-        .await
-    {
-        Ok((content, _sha)) => {
-            let config: scheduler::routine::ReminderConfig =
-                serde_yaml::from_str(&content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
-            let json = serde_json::to_string(&config.reminders).map_err(|e| e.to_string())?;
-            return Ok(json);
-        }
-        Err(_) => return Ok("[]".to_string()),
-    }
+    let client = current_client(&state).await?;
+    let fetched = client.get_contents(&owner, &repo, "config/reminders.yaml").await;
+    return offline::config_result(&app, &owner, &repo, "config:reminders", "[]", fetched, |content| {
+        let config: scheduler::routine::ReminderConfig =
+            serde_yaml::from_str(content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
+        serde_json::to_string(&config.reminders).map_err(|e| e.to_string())
+    });
 }
 
 #[tauri::command]
@@ -967,26 +966,18 @@ fn refresh_scheduler() {
 
 #[tauri::command]
 async fn get_board_config(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    let client = {
-        let guard = state.lock().await;
-        guard.as_ref().ok_or("トークンが未設定です")?.clone()
-    };
-    match client
-        .get_contents(&owner, &repo, "config/board.yaml")
-        .await
-    {
-        Ok((content, _sha)) => {
-            let config: serde_json::Value =
-                serde_yaml::from_str(&content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
-            let json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
-            return Ok(json);
-        }
-        Err(_) => return Ok("null".to_string()),
-    }
+    let client = current_client(&state).await?;
+    let fetched = client.get_contents(&owner, &repo, "config/board.yaml").await;
+    return offline::config_result(&app, &owner, &repo, "config:board", "null", fetched, |content| {
+        let config: serde_json::Value =
+            serde_yaml::from_str(content).map_err(|e| format!("YAMLパースエラー: {}", e))?;
+        serde_json::to_string(&config).map_err(|e| e.to_string())
+    });
 }
 
 #[tauri::command]
@@ -1114,6 +1105,9 @@ pub fn run() {
             update_milestone,
             list_comments,
             create_comment,
+            offline_status,
+            sync_outbox,
+            resolve_conflict,
             get_routines,
             save_routines,
             generate_journal,

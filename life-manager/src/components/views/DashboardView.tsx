@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { serializeGanttDates } from "../../lib/ganttParser";
+import { issueRef } from "../../lib/issueRef";
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
@@ -225,7 +226,7 @@ export function DashboardView({
                     <span className={`suggestion-state suggestion-state--${s.state}`}>
                       {s.state === "open" ? "●" : "○"}
                     </span>
-                    <span className="suggestion-number">#{s.number}</span>
+                    <span className="suggestion-number">{issueRef(s.number)}</span>
                     <span className="suggestion-title">{s.title}</span>
                   </button>
                 ))}

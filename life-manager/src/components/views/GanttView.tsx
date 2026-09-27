@@ -3,6 +3,7 @@ import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../.
 import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG, DEFAULT_BAR_COLORS, BAR_COLOR_LABELS } from "../../lib/ganttTypes";
 import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates } from "../../lib/ganttParser";
+import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
 
 interface GanttViewProps {
@@ -508,7 +509,7 @@ export function GanttView({
                     }}
                     onClick={() => onSelectIssue(task.issueNumber)}
                   >
-                    <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>#{task.issueNumber}</span>
+                    <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{issueRef(task.issueNumber)}</span>
                     <span style={{
                       color: task.state === "closed" ? "var(--text-faint)" : "var(--text-secondary)",
                       whiteSpace: "nowrap",
@@ -585,7 +586,7 @@ export function GanttView({
                   left: tooltip.x - (canvasRef.current?.getBoundingClientRect().left ?? 0) + 12,
                   top: tooltip.y - (canvasRef.current?.getBoundingClientRect().top ?? 0) - 8,
                 }}>
-                  <div className="gantt-tooltip-title">#{tooltip.task.issueNumber} {tooltip.task.title}</div>
+                  <div className="gantt-tooltip-title">{issueRef(tooltip.task.issueNumber)} {tooltip.task.title}</div>
                   {tooltip.task.startDate && tooltip.task.endDate && (
                     <div className="gantt-tooltip-dates">{tooltip.task.startDate} 〜 {tooltip.task.endDate}</div>
                   )}

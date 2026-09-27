@@ -1,5 +1,7 @@
 import type { GitHubIssue } from "../../lib/types";
 import { LabelBadge } from "./LabelBadge";
+import { PendingChip } from "./PendingChip";
+import { issueRef } from "../../lib/issueRef";
 
 export function IssueCard({
   issue,
@@ -34,7 +36,8 @@ export function IssueCard({
       style={{ cursor: onSelect ? "pointer" : "default" }}>
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
-          <span className="issue-card-number">#{issue.number}</span>
+          <span className="issue-card-number">{issueRef(issue.number)}</span>
+          {issue._pending && <PendingChip />}
           <strong>{issue.title}</strong>
           {issue.milestone && (
             <span style={{ color: "var(--text-muted)", fontSize: "var(--font-xs)", marginLeft: "8px" }}>

@@ -3,6 +3,18 @@ use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT}
 
 const BASE_URL: &str = "https://api.github.com";
 
+/// 通信そのものができなかった（オフラインなど）ときのエラーの頭に付ける。これが付いたエラーは、つながってから送り直せる
+pub const NETWORK_ERROR: &str = "通信できませんでした: ";
+
+fn network_error(e: reqwest::Error) -> String {
+    return format!("{}{}", NETWORK_ERROR, e);
+}
+
+/// 通信できなかったためのエラーか（GitHub が断ったエラーとは分ける）
+pub fn is_network_error(message: &str) -> bool {
+    return message.starts_with(NETWORK_ERROR);
+}
+
 #[derive(Clone)]
 pub struct GitHubClient {
     http: reqwest::Client,
@@ -11,10 +23,19 @@ pub struct GitHubClient {
 
 impl GitHubClient {
     pub fn new(token: String) -> GitHubClient {
-        return GitHubClient {
-            http: reqwest::Client::new(),
-            token: token,
-        };
+        // つながらないときに長く待たせないよう、時間を区切る
+        let http = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        return GitHubClient { http, token: token };
+    }
+
+    /// 1 つの Issue（送信待ちの変更を送る前に、今の GitHub の内容と比べるため）
+    pub async fn get_issue(&self, owner: &str, repo: &str, issue_number: u32) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/issues/{}", BASE_URL, owner, repo, issue_number);
+        return self.get(&url).await;
     }
 
     // --- Issue ---
@@ -376,7 +397,7 @@ impl GitHubClient {
                 .headers(self.build_headers())
                 .send()
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(network_error)?;
 
             // Linkヘッダーから次ページURLを抽出
             let link_header = response
@@ -386,7 +407,7 @@ impl GitHubClient {
                 .map(|s| s.to_string());
 
             let status = response.status();
-            let body = response.text().await.map_err(|e| e.to_string())?;
+            let body = response.text().await.map_err(network_error)?;
 
             // APIエラーレスポンスのチェック
             if !status.is_success() {
@@ -470,10 +491,10 @@ impl GitHubClient {
             .headers(self.build_headers())
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let body = response.text().await.map_err(|e| e.to_string())?;
+        let body = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, body));
         }
@@ -488,10 +509,10 @@ impl GitHubClient {
             .json(payload)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let result = response.text().await.map_err(|e| e.to_string())?;
+        let result = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, result));
         }
@@ -510,10 +531,10 @@ impl GitHubClient {
             .json(payload)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let result = response.text().await.map_err(|e| e.to_string())?;
+        let result = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, result));
         }
@@ -528,10 +549,10 @@ impl GitHubClient {
             .json(payload)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let result = response.text().await.map_err(|e| e.to_string())?;
+        let result = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, result));
         }
@@ -545,10 +566,10 @@ impl GitHubClient {
             .headers(self.build_headers())
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let result = response.text().await.map_err(|e| e.to_string())?;
+        let result = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, result));
         }
@@ -563,10 +584,10 @@ impl GitHubClient {
             .json(payload)
             .send()
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
 
         let status = response.status();
-        let result = response.text().await.map_err(|e| e.to_string())?;
+        let result = response.text().await.map_err(network_error)?;
         if !status.is_success() {
             return Err(format!("HTTP {}: {}", status, result));
         }

@@ -1,4 +1,6 @@
 import type { GitHubIssue } from "../../lib/types";
+import { issueRef } from "../../lib/issueRef";
+import { PendingChip } from "./PendingChip";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -37,8 +39,9 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
     >
       {/* Header: number + title */}
       <div className="ticket-header">
-        <span className="ticket-number">#{issue.number}</span>
+        <span className="ticket-number">{issueRef(issue.number)}</span>
         <span className="ticket-title">{issue.title}</span>
+        {issue._pending && <PendingChip />}
       </div>
 
       {/* Labels row */}

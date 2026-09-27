@@ -4,6 +4,8 @@ import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
+import { PendingChip } from "./PendingChip";
+import { isTemporary, issueRef } from "../../lib/issueRef";
 
 interface IssueDetailModalProps {
   issue: GitHubIssue;
@@ -58,7 +60,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   const depSuggestions = depSearch.length >= 1
     ? allIssues
         .filter((i) => {
-          if (i.number === issue.number) return false;
+          if (i.number === issue.number || isTemporary(i.number)) return false;
           const numMatch = depSearch.match(/^#?(\d+)$/);
           if (numMatch) return String(i.number).includes(numMatch[1]);
           return i.title.toLowerCase().includes(depSearch.toLowerCase());
@@ -176,7 +178,8 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
         <div style={{ marginBottom: "12px" }}>
           <div style={{ flex: 1 }}>
             <div className="flex-row flex-wrap" style={{ marginBottom: "4px" }}>
-              <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>#{issue.number}</span>
+              <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
+              {issue._pending && <PendingChip />}
               <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
                 {issue.state === "open" ? "🟢 Open" : "🟣 Closed"}
               </span>
@@ -621,6 +624,9 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
         <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
           <div className="flex-row" style={{ marginBottom: "6px" }}>
             <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)" }}>リマインダー</span>
+            {isTemporary(issue.number) ? (
+              <span className="pending-note">GitHub に送ったあとで設定できます</span>
+            ) : (
             <button className="btn-sm" style={{ fontSize: "11px" }}
               onClick={() => {
                 if (!showReminderForm) {
@@ -633,6 +639,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               }}>
               {showReminderForm ? "×" : "+ 設定"}
             </button>
+            )}
           </div>
 
           {showReminderForm && (
@@ -693,6 +700,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span style={{ fontSize: "12px", fontWeight: 600, color: "#58a6ff" }}>
                     {c.user?.login ?? "unknown"}
+                    {c._pending && <PendingChip />}
                   </span>
                   <span style={{ fontSize: "11px", color: "#666" }}>
                     {new Date(c.created_at).toLocaleString("ja-JP")}

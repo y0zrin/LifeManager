@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
@@ -213,7 +213,6 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       ? `${feedbackBody}\n\n---\nLife Manager v${appVersion}`
       : `Life Manager v${appVersion}`;
     const mailto = `mailto:lifemanagerforgit@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    const { openUrl } = await import("@tauri-apps/plugin-opener");
     await openUrl(mailto);
     setFeedbackTitle("");
     setFeedbackBody("");
@@ -917,7 +916,6 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
             } catch {
               // README へ
             }
-            const { openUrl } = await import("@tauri-apps/plugin-opener");
             await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
           }}
           style={{ fontSize: "var(--font-xs)" }}

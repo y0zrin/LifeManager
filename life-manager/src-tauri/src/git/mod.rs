@@ -7,3 +7,6 @@ pub mod history;
 mod runner;
 mod setup;
 mod status;
+
+#[cfg(test)]
+mod scenario_tests;

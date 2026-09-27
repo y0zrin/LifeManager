@@ -393,7 +393,8 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         run: () => reset(c.hash, mode),
       })),
       "sep",
-      { label: "🔍 変更内容を見る", code: `git show ${h}`, disabled: !can, run: () => setDetail(c) },
+      // 作業フォルダがなくても、GitHub から読んで見せられる
+      { label: "🔍 変更内容を見る", code: `git show ${h}`, run: () => setDetail(c) },
       { label: "📋 ハッシュをコピー", run: () => copyHash(c.hash) },
       { label: "↗ GitHub で開く", run: () => { openUrl(`${githubUrl}/commit/${c.hash}`); } },
     ];

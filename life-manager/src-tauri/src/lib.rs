@@ -174,6 +174,21 @@ async fn github_history(
     return github::history::read_history(&client, &owner, &repo).await;
 }
 
+/// GitHub にある 1 つのコミットの内容（作業フォルダのないときの「変更内容を見る」。形は git_show と同じ）
+#[tauri::command]
+async fn github_commit_detail(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    hash: String,
+) -> Result<github::history::CommitDetail, String> {
+    let client = {
+        let guard = state.lock().await;
+        guard.as_ref().ok_or("トークンが未設定です")?.clone()
+    };
+    return github::history::commit_detail(&client, &owner, &repo, &hash).await;
+}
+
 #[tauri::command]
 async fn switch_project(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
@@ -885,6 +900,7 @@ pub fn run() {
             load_local_folders,
             set_local_folder,
             github_history,
+            github_commit_detail,
             list_issues,
             create_issue,
             update_issue,

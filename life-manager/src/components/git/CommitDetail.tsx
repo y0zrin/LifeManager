@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { showCommit, splitGitError } from "../../lib/git";
+import { showCommit, showGitHubCommit, splitGitError } from "../../lib/git";
 import { shortWhen } from "../../lib/history";
 import type { GitCommit, GitRun } from "../../lib/types";
 import { DiffRows, parseDiff } from "./DiffView";
 
+/** どこから読むか：この PC の作業フォルダ（git show）か、GitHub（作業フォルダのないとき・スマホ版） */
+export type CommitSource = { folder: string } | { owner: string; repo: string };
+
 interface CommitDetailProps {
-  folder: string;
+  source: CommitSource;
   commit: GitCommit;
   onClose: () => void;
 }
@@ -30,17 +33,21 @@ function splitShow(output: string) {
 }
 
 /** 「変更内容を見る」: 1 つのコミットで何が変わったか */
-export function CommitDetail({ folder, commit, onClose }: CommitDetailProps) {
+export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
   const [run, setRun] = useState<GitRun | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sourceKey = "folder" in source ? source.folder : `${source.owner}/${source.repo}`;
 
   useEffect(() => {
     let alive = true;
-    showCommit(folder, commit.hash)
+    const load = "folder" in source ? showCommit(source.folder, commit.hash) : showGitHubCommit(source.owner, source.repo, commit.hash);
+    load
       .then((r) => { if (alive) setRun(r); })
       .catch((e) => { if (alive) setError(splitGitError(e).message); });
     return () => { alive = false; };
-  }, [folder, commit.hash]);
+    // source は毎回作り直されるので、中身（sourceKey）で読み直すかを決める
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKey, commit.hash]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

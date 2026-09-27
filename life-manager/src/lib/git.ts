@@ -49,6 +49,9 @@ export const openTerminal = (path: string) => invoke<void>("git_open_terminal", 
 export const detach = (path: string, hash: string) => invoke<GitRun>("git_detach", { path, hash });
 /** コミットの内容（git show） */
 export const showCommit = (path: string, hash: string) => invoke<GitRun>("git_show", { path, hash });
+/** コミットの内容（GitHub API から。作業フォルダのないとき。形は git show と同じ） */
+export const showGitHubCommit = (owner: string, repo: string, hash: string) =>
+  invoke<GitRun>("github_commit_detail", { owner, repo, hash });
 export const cherryPick = (path: string, hash: string) => invoke<GitRun>("git_cherry_pick", { path, hash });
 export const revert = (path: string, hash: string) => invoke<GitRun>("git_revert", { path, hash });
 export const reset = (path: string, hash: string, mode: "soft" | "mixed" | "hard") =>

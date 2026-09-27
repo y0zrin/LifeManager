@@ -494,6 +494,12 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    /// 1 つのコミット（変更したファイルと、ファイルごとの差分つき）
+    pub async fn get_commit(&self, owner: &str, repo: &str, sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/commits/{}", BASE_URL, owner, repo, urlencoding::encode(sha));
+        return self.get(&url).await;
+    }
+
     // --- User ---
 
     pub async fn get_authenticated_user(&self) -> Result<String, String> {

@@ -708,7 +708,13 @@ function App() {
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
-      {commitDetail && folder && <CommitDetail folder={folder} commit={commitDetail} onClose={closeCommitDetail} />}
+      {commitDetail && (folder || gh.owner) && (
+        <CommitDetail
+          source={folder ? { folder } : { owner: gh.owner, repo: gh.repo }}
+          commit={commitDetail}
+          onClose={closeCommitDetail}
+        />
+      )}
       {showConflicts && offline.status.conflicts.length > 0 && (
         <ConflictDialog
           conflicts={offline.status.conflicts}

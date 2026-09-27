@@ -910,14 +910,12 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
         <button
           className="btn-sm"
           onClick={async () => {
-            // HTML のマニュアル（ブラウザで開く）→ 古い PDF → GitHub の README の順に試す
-            for (const file of ["resources/manual.html", "resources/manual.pdf"]) {
-              try {
-                await openPath(await resolveResource(file));
-                return;
-              } catch {
-                // 次を試す
-              }
+            // HTML のマニュアル（ブラウザで開く）。開けなければ GitHub の README
+            try {
+              await openPath(await resolveResource("resources/manual.html"));
+              return;
+            } catch {
+              // README へ
             }
             const { openUrl } = await import("@tauri-apps/plugin-opener");
             await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");

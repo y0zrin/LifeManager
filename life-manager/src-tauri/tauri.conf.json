@@ -34,8 +34,7 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": [
-      "resources/manual.html",
-      "resources/manual.pdf"
+      "resources/manual.html"
     ],
     "windows": {
       "nsis": {

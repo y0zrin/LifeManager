@@ -97,12 +97,15 @@ pub async fn generate_journal(
     let weekday = weekday_jp(&parsed_date);
     let mut md = format!("# {} ({})\n\n", date, weekday);
 
-    // 既存ジャーナルの「## ノート」セクションを保持（完了の上に配置）
+    // 既存ジャーナルの「## ノート」セクションを保持（完了の上に配置）。上書きに使う sha もここで取る。
+    // 「ない」以外の理由で読めないときは書かずに止める（ノートを消したり、sha なしで書いて 422 になったりしないように）
     let path = format!("journal/{}.md", date);
-    let existing_notes = match client.get_contents(owner, repo, &path).await {
-        Ok((content, _)) => extract_notes_section(&content),
-        Err(_) => None,
+    let existing = match client.get_contents(owner, repo, &path).await {
+        Ok((content, sha)) => Some((content, sha)),
+        Err(e) if e.starts_with("HTTP 404") => None,
+        Err(e) => return Err(e),
     };
+    let existing_notes = existing.as_ref().and_then(|(content, _)| extract_notes_section(content));
     if let Some(notes) = &existing_notes {
         md.push_str("## ノート\n");
         md.push_str(notes);
@@ -162,12 +165,7 @@ pub async fn generate_journal(
     // GitHub Contents APIでアップロード
     let commit_message = format!("{}の日次ログを生成", date);
 
-    // 既存ファイルがあればSHAを取得（上書き更新のため）
-    let sha = match client.get_contents(owner, repo, &path).await {
-        Ok((_, existing_sha)) => Some(existing_sha),
-        Err(_) => None,
-    };
-
+    let sha = existing.map(|(_, sha)| sha);
     client
         .put_contents(owner, repo, &path, &md, &commit_message, sha)
         .await?;

@@ -7,6 +7,7 @@ pub mod store;
 pub mod sync;
 
 use crate::github::client::{is_network_error, GitHubClient};
+use crate::github::recent;
 use crate::journal::generator;
 use serde::Serialize;
 use serde_json::Value;
@@ -283,6 +284,20 @@ async fn write_config(client: &GitHubClient, owner: &str, repo: &str, kind: &con
     config::read_part(kind, Some(&yaml))
 }
 
+/// 読んでから書くまでのあいだに GitHub の版がずれて断られたら（書いた直後は古い版が返ることがある）、少し待って一度だけやり直す（#64）
+async fn retry_if_stale<T, F, Fut>(mut attempt: F) -> Result<T, String>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, String>>,
+{
+    match attempt().await {
+        Err(e) if recent::is_stale_write(&e) => {
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+            attempt().await
+        }
+        result => result,
+    }
+}
 /// 設定を書き換える。つながらないとき・同じ設定の書き換えが送信待ちのときは、送信待ちに並べる。返すのは画面に出す言葉
 pub async fn save_config(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, key: &str, json: String) -> Result<String, String> {
     let kind = config::kind(key)?;
@@ -292,7 +307,7 @@ pub async fn save_config(app: &AppHandle, client: &GitHubClient, owner: &str, re
     // まだ GitHub に作っていない Issue のリマインダーは、その Issue を送ったあとに書く
     let temporary = key == "reminders" && config::has_temporary_reminders(&json);
     if !waiting && !temporary {
-        let result = write_config(client, owner, repo, kind, &json).await;
+        let result = retry_if_stale(|| write_config(client, owner, repo, kind, &json)).await;
         note_result(app, &result);
         match result {
             Ok(written) => {
@@ -352,7 +367,7 @@ pub async fn save_journal_notes(
     let key = format!("journal:{}", date);
     let waiting = store::pending_journal_notes(&store::read_store(app, owner, repo), date).is_some();
     if !waiting {
-        let result = generator::save_journal_notes(client, owner, repo, date, &notes).await;
+        let result = retry_if_stale(|| generator::save_journal_notes(client, owner, repo, date, &notes)).await;
         note_result(app, &result);
         match result {
             Ok(md) => {
@@ -375,7 +390,7 @@ pub async fn save_journal_notes(
 /// 日誌を作る。つながらないときは、つながってから作る
 pub async fn generate_journal(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, date: &str) -> Result<JournalResult, String> {
     let key = format!("journal:{}", date);
-    let result = generator::generate_journal(client, owner, repo, date).await;
+    let result = retry_if_stale(|| generator::generate_journal(client, owner, repo, date)).await;
     note_result(app, &result);
     match result {
         Ok(md) => {

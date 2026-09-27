@@ -62,6 +62,8 @@ fn classify(error: String) -> Outcome {
     match status_of(&error) {
         // 409: 読んでから書くまでのあいだにファイルが変わった。次に送るときに読み直す
         401 | 403 | 409 | 429 => Outcome::Stop(error),
+        // 422 の「sha がない」も、読んだ版がずれていただけ（次に送るときに読み直す）
+        422 if error.contains("sha") => Outcome::Stop(error),
         s if s >= 500 => Outcome::Stop(error),
         _ => Outcome::Failed(error),
     }

@@ -320,7 +320,18 @@ impl GitHubClient {
 
     // --- Contents API ---
 
+    /// ファイルの中身と sha。書いた直後に GitHub が古い版を返したときは、自分が書いた版にする（recent）
     pub async fn get_contents(
+        &self,
+        owner: &str,
+        repo: &str,
+        path: &str,
+    ) -> Result<(String, String), String> {
+        let fetched = self.fetch_contents(owner, repo, path).await;
+        return super::recent::correct(owner, repo, path, fetched);
+    }
+
+    async fn fetch_contents(
         &self,
         owner: &str,
         repo: &str,
@@ -368,10 +379,18 @@ impl GitHubClient {
             "message": message,
             "content": encoded,
         });
-        if let Some(s) = sha {
-            payload["sha"] = serde_json::Value::String(s);
+        if let Some(s) = &sha {
+            payload["sha"] = serde_json::Value::String(s.clone());
         }
-        return self.put(&url, &payload).await;
+        let result = self.put(&url, &payload).await?;
+        // 書いた版を覚えておく（直後に読み直したとき、GitHub がまだ古い版を返すことがあるため）
+        if let Some(new_sha) = serde_json::from_str::<serde_json::Value>(&result)
+            .ok()
+            .and_then(|v| v["content"]["sha"].as_str().map(|s| s.to_string()))
+        {
+            super::recent::remember(owner, repo, path, sha.as_deref(), &new_sha, content);
+        }
+        return Ok(result);
     }
 
     // --- ページネーション対応メソッド ---

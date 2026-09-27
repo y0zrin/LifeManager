@@ -33,10 +33,11 @@ import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
+import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssueMarks";
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
-import type { GitCommit, GitSetupStatus, ViewType } from "./lib/types";
+import type { GitCommit, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import "./App.css";
 
 type NavItem = { key: ViewType; icon: string; label: string };
@@ -173,6 +174,20 @@ function App() {
   );
   // 作業タブで選べるのは、GitHub の番号がある Issue だけ（コミットのメッセージに番号を入れるため）
   const workIssues = useMemo(() => gh.issues.filter((i) => !isTemporary(i.number)), [gh.issues]);
+  // 番号で Issue を引く（カードに親の題名を出すなど）
+  const issueIndex = useMemo<IssueIndex>(() => {
+    const byNumber = new Map<number, GitHubIssue>();
+    for (const i of gh.closedIssues) byNumber.set(i.number, i);
+    for (const i of gh.issues) byNumber.set(i.number, i);
+    return { owner: gh.owner, repo: gh.repo, find: (n) => byNumber.get(n) };
+  }, [gh.issues, gh.closedIssues, gh.owner, gh.repo]);
+  // 詳細の中で子を開いたとき、その子がまだ一覧にない（読み込んだあとに GitHub で作られたなど）なら、渡された中身で開く
+  const [openedFallback, setOpenedFallback] = useState<GitHubIssue | null>(null);
+  const openIssue = useCallback((n: number, fallback?: GitHubIssue) => {
+    setOpenedFallback(fallback ?? null);
+    setSelectedIssue(n);
+  }, []);
+  const subIssueApi = { list: gh.listSubIssues, create: gh.createSubIssue, add: gh.addSubIssue, remove: gh.removeSubIssue };
   const [initializing, setInitializing] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -424,7 +439,7 @@ function App() {
     return <SetupView onComplete={handleSetup} status={gh.status} />;
   }
 
-  return (
+  const shell = (
     <main className={`app app-shell${display.settings.hints ? "" : " hints-off"}`}>
       {/* サイドバー（PC） */}
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
@@ -769,9 +784,12 @@ function App() {
       {/* Issue詳細モーダル */}
       {selectedIssue !== null && (() => {
         const issueObj = gh.issues.find((i) => i.number === selectedIssue)
-          || gh.closedIssues.find((i) => i.number === selectedIssue);
+          || gh.closedIssues.find((i) => i.number === selectedIssue)
+          || (openedFallback?.number === selectedIssue ? openedFallback : undefined);
         return issueObj ? (
           <IssueDetailModal
+            // 親・子へ移ったら、書きかけの状態を持ち越さないよう作り直す
+            key={issueObj.number}
             issue={issueObj}
             onClose={() => setSelectedIssue(null)}
             listComments={gh.listComments}
@@ -787,11 +805,14 @@ function App() {
             onAddReminder={gh.addReminder}
             onRemoveReminder={gh.removeReminder}
             allIssues={[...gh.issues, ...gh.closedIssues]}
+            onOpenIssue={openIssue}
+            subIssueApi={subIssueApi}
           />
         ) : null;
       })()}
     </main>
   );
+  return <IssueIndexContext.Provider value={issueIndex}>{shell}</IssueIndexContext.Provider>;
 }
 
 export default App;

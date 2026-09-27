@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
+import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
 
 /** つながらないときの変更は送信待ちに並ぶ（結果に _pending が付く）。そのときに状態の表示に添える言葉 */
 const PENDING_NOTE = "（未送信。つながったら GitHub に送ります）";
@@ -358,6 +359,7 @@ export function useGitHub() {
       if (closedIssue) {
         setClosedIssues((prev) => [{ ...closedIssue, state: "closed" }, ...prev]);
       }
+      adjustParentOf(closedIssue, 1);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -380,6 +382,7 @@ export function useGitHub() {
       if (reopenedIssue) {
         setIssues((prev) => [{ ...reopenedIssue, state: "open" }, ...prev]);
       }
+      adjustParentOf(reopenedIssue, -1);
     } catch (e) {
       setStatus("エラー: " + e);
       await loadIssues();
@@ -729,6 +732,72 @@ export function useGitHub() {
     }
   }
 
+  // --- サブイシュー（親子）。つながっているときだけ使える ---
+
+  /** 手元の一覧（開いている・閉じた）の Issue を書き換える */
+  function patchIssue(n: number, change: (i: GitHubIssue) => GitHubIssue) {
+    setIssues((prev) => prev.map((i) => (i.number === n ? change(i) : i)));
+    setClosedIssues((prev) => prev.map((i) => (i.number === n ? change(i) : i)));
+  }
+
+  /** 子を閉じた・開き直したら、同じリポジトリの親の「完了した子の数」も合わせる */
+  function adjustParentOf(child: GitHubIssue | undefined, completed: number) {
+    const parent = parseIssueApiUrl(child?.parent_issue_url);
+    if (parent && isSameRepo(parent, owner, repo)) {
+      patchIssue(parent.number, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, 0, completed) }));
+    }
+  }
+
+  async function listSubIssues(parent: number): Promise<GitHubIssue[]> {
+    const result = await invoke("list_sub_issues", { owner, repo, issueNumber: parent });
+    return JSON.parse(result as string);
+  }
+
+  /** 子にする（ほかの親の子なら、付け替える） */
+  async function addSubIssue(parent: number, child: GitHubIssue) {
+    if (!child.id || child.number <= 0) {
+      throw new Error(`${issueRef(child.number)} はまだ GitHub に送っていないので、子にできません`);
+    }
+    const oldParent = parseIssueApiUrl(child.parent_issue_url);
+    await invoke("add_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id, replaceParent: !!oldParent });
+    const done = child.state === "closed" ? 1 : 0;
+    if (oldParent && isSameRepo(oldParent, owner, repo)) {
+      patchIssue(oldParent.number, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, -done) }));
+    }
+    patchIssue(parent, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, 1, done) }));
+    patchIssue(child.number, (i) => ({ ...i, parent_issue_url: issueApiUrl(owner, repo, parent) }));
+    setStatus(`${issueRef(child.number)} を ${issueRef(parent)} の子にしました`);
+  }
+
+  /** 子の Issue を作って、つなぐ。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じ */
+  async function createSubIssue(parent: GitHubIssue, title: string): Promise<GitHubIssue> {
+    const labelNames = ["種別:イシュー", "状態:未整理", ...parent.labels.map((l) => l.name).filter((n) => n.startsWith("分野:"))];
+    const result = await invoke("create_issue", {
+      owner, repo,
+      title, body: "",
+      labels: labelNames,
+      milestone: parent.milestone?.number ?? null,
+      assignees: null,
+      notice: eventNotice("issue_created", `📝 {issue} ${title} を作成`),
+    });
+    const created = JSON.parse(result as string) as GitHubIssue;
+    setIssues((prev) => [created, ...prev.filter((i) => i.number !== created.number)]);
+    if (isPending(result) || !created.id) {
+      throw new Error(`${title} は作りましたが、まだ GitHub に送れていないので、子にはつなげていません。送れたあとで「既存の Issue をつなぐ」からつないでください`);
+    }
+    await addSubIssue(parent.number, created);
+    return { ...created, parent_issue_url: issueApiUrl(owner, repo, parent.number) };
+  }
+
+  /** 子から外す（Issue は消えない） */
+  async function removeSubIssue(parent: number, child: GitHubIssue) {
+    if (!child.id) throw new Error(`${issueRef(child.number)} の id が分からないので、外せません`);
+    await invoke("remove_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id });
+    patchIssue(parent, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, child.state === "closed" ? -1 : 0) }));
+    patchIssue(child.number, (i) => ({ ...i, parent_issue_url: null }));
+    setStatus(`${issueRef(child.number)} を ${issueRef(parent)} の子から外しました`);
+  }
+
   // --- ルーチン操作 ---
 
   async function saveRoutines(routinesList: Routine[]) {
@@ -935,6 +1004,8 @@ export function useGitHub() {
     boardConfig, saveBoardConfig, loadBoardConfig,
     // イベント通知
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
+    // サブイシュー（親子）
+    listSubIssues, addSubIssue, createSubIssue, removeSubIssue,
     // プロジェクト管理
     projects, loadProjects, addProject, removeProject, switchProject, setProjectToken,
     // 現在のユーザー

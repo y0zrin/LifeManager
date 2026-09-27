@@ -1,6 +1,7 @@
 import type { GitHubIssue } from "../../lib/types";
 import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
+import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 import { issueRef } from "../../lib/issueRef";
 
 export function IssueCard({
@@ -34,6 +35,7 @@ export function IssueCard({
   return (
     <div className="issue-card" onClick={handleCardClick}
       style={{ cursor: onSelect ? "pointer" : "default" }}>
+      <ParentMark issue={issue} />
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
           <span className="issue-card-number">{issueRef(issue.number)}</span>
@@ -44,6 +46,7 @@ export function IssueCard({
               📌 {issue.milestone.title}
             </span>
           )}
+          <SubIssueBadge issue={issue} />
         </div>
         <span className="issue-card-date">{dateStr}</span>
       </div>

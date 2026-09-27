@@ -30,8 +30,23 @@ export interface GitHubIssue {
   comments: number;
   created_at: string;
   updated_at: string;
+  /** Issue の id（番号とは別。サブイシューをつなぐときに使う）。まだ送っていない Issue にはない */
+  id?: number;
+  /** 子の Issue の数と、そのうちクローズした数 */
+  sub_issues_summary?: SubIssuesSummary;
+  /** 親の Issue（API の URL。…/repos/持ち主/名前/issues/番号）。親がなければ null */
+  parent_issue_url?: string | null;
+  /** この Issue のリポジトリ（API の URL）。サブイシューの一覧では、ほかのリポジトリの Issue が混じることがある */
+  repository_url?: string;
+  html_url?: string;
   /** まだ GitHub に送っていない変更がある（オフラインのあいだの変更）。まだ作っていない Issue の番号は負の数（仮の番号） */
   _pending?: boolean;
+}
+
+export interface SubIssuesSummary {
+  total: number;
+  completed: number;
+  percent_completed: number;
 }
 
 export interface GitHubComment {

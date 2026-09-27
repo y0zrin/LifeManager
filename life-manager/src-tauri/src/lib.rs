@@ -589,6 +589,48 @@ async fn create_comment(
     return offline::create_comment(&app, &client, &owner, &repo, issue_number, body, notice).await;
 }
 
+// --- サブイシュー（親子）。つながっているときだけ使える（送信待ちには並べない） ---
+
+#[tauri::command]
+async fn list_sub_issues(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    issue_number: u32,
+) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    return offline::list_sub_issues(&app, &client, &owner, &repo, issue_number).await;
+}
+
+/// sub_issue_id は子にする Issue の id（番号ではない）。replace_parent なら、ほかの親から付け替える
+#[tauri::command]
+async fn add_sub_issue(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    issue_number: u32,
+    sub_issue_id: u64,
+    replace_parent: Option<bool>,
+) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    return offline::add_sub_issue(&app, &client, &owner, &repo, issue_number, sub_issue_id, replace_parent.unwrap_or(false)).await;
+}
+
+#[tauri::command]
+async fn remove_sub_issue(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    issue_number: u32,
+    sub_issue_id: u64,
+) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    return offline::remove_sub_issue(&app, &client, &owner, &repo, issue_number, sub_issue_id).await;
+}
+
 // --- オフライン（送信待ち） ---
 
 /// 送信待ちの一覧・ぶつかったもの・最後の通信ができなかったか
@@ -916,6 +958,9 @@ pub fn run() {
             update_milestone,
             list_comments,
             create_comment,
+            list_sub_issues,
+            add_sub_issue,
+            remove_sub_issue,
             offline_status,
             sync_outbox,
             resolve_conflict,

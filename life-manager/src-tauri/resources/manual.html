@@ -593,7 +593,26 @@ git config --global user.email 12345+ユーザー名@users.noreply.github.com</d
   <div class="cmd"><span class="c"># クローンのときに実行されるコマンドの例</span>
 git clone https://github.com/オーナー名/リポジトリ名.git D:\work\リポジトリ名</div>
   <p>作業フォルダは PC ごと・リポジトリごとに覚えます。設定 → 接続 のプロジェクト一覧では、フォルダが決まっているリポジトリに 📁 が付きます。</p>
-  <p>作業フォルダがない PC でも、「ブランチ」「全体図」は GitHub にある状態を表示できます（見るだけで、操作はできません）。</p>
+  <p>作業フォルダがない PC やスマホでも、「ブランチ」「全体図」は GitHub にある状態を表示でき、コミットの <span class="ui">変更内容を見る</span> も使えます（見るだけで、操作はできません）。</p>
+
+  <h3>ほかのリポジトリを追加する（URL を貼ってクローン）</h3>
+  <p>設定 → 接続 → プロジェクト管理 の <span class="ui">＋ 追加</span> で、GitHub のリポジトリの URL を貼ります（<code>https://github.com/持ち主/名前</code>、<code>git@github.com:持ち主/名前.git</code>、<code>持ち主/名前</code> のどれでも）。<span class="ui">この PC にも持ってくる（クローン）</span> にチェックを入れると、置き場所を選んでクローンし、そのフォルダを作業フォルダにします。チェックを外すと、プロジェクトに登録するだけです。</p>
+
+  <h3>手元のフォルダを GitHub に上げる</h3>
+  <p>まだ GitHub に無いフォルダ（課題や作品のフォルダ）は、<span class="ui">＋ 追加</span> の画面の下の <span class="ui">GitHub にまだ無い → 手元のフォルダを GitHub に上げる</span> から、4 つの手順で上げられます。</p>
+  <ol>
+    <li><b>記録を始める</b>: 上げるフォルダを選びます。まだ Git の記録がなければ、記録を始め（<code>git init</code>）、<code>.gitignore</code> のひな形（Visual Studio / Unity / Unreal Engine）を置いて、今の中身を最初のコミットにします。</li>
+    <li><b>GitHub に場所を作る</b>: <span class="ui">GitHub で作る</span> でブラウザが開きます。README や .gitignore は付けずに「Create repository」を押し、戻って <span class="ui">作ったので次へ</span> を押します（リポジトリができたかを確かめます）。</li>
+    <li><b>つないで送る</b>: GitHub の置き場所を <code>origin</code> という名前で登録し、送ります（<code>git push -u</code>）。</li>
+    <li><b>できあがり</b>: プロジェクトに登録し、このフォルダを作業フォルダにします。</li>
+  </ol>
+  <div class="cmd"><span class="c"># 実行されるコマンドの例</span>
+git init -b main
+git add .
+git commit -m "最初のコミット"
+git remote add origin https://github.com/持ち主/名前.git
+git push -u origin main</div>
+  <p>ほかのリポジトリの中にあるフォルダは上げられません。GitHub は 100MB を超えるファイルを受け付けないので、そういうファイルがあるときは、コミットする前に知らせます（記録しないなら <code>.gitignore</code> に書き、記録するなら Git LFS を使います）。</p>
 </section>
 
 <!-- ============================================================ -->
@@ -1016,12 +1035,22 @@ git clone https://github.com/オーナー名/リポジトリ名.git D:\work\リ�
     <tr><td>タイトル</td><td>押して編集、<kbd>Enter</kbd> で保存</td></tr>
     <tr><td>ラベル・担当者・マイルストーン</td><td>押して選び、保存</td></tr>
     <tr><td>本文</td><td>押して編集、保存。チェックボックス（<code>- [ ]</code>）は押して切り替えられ、進み具合のバーが出ます</td></tr>
+    <tr><td>サブイシュー</td><td>大きな Issue を、小さな「子」の Issue に分けます（下の説明）</td></tr>
     <tr><td>ガントチャート</td><td>開始日・終了日・先行タスク・進み具合の数え方</td></tr>
     <tr><td>リマインダー</td><td>日時と通知先（OS の通知・Discord）を決めると、その時刻に知らせます</td></tr>
     <tr><td>コメント</td><td>書いて <span class="ui">コメント追加</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）。GitHub の Issue のコメントとして保存されます</td></tr>
     <tr><td>完了 / 再開</td><td>Issue を閉じる / 閉じた Issue を開き直す</td></tr>
   </table>
   </div>
+  <h3>サブイシュー（親子）</h3>
+  <p>詳細の <span class="ui">🧩 サブイシュー</span> の欄に、子の Issue の一覧と、いくつ終わったか（<code>2 / 5 完了</code> とバー）が出ます。GitHub の画面でも同じ親子で見えます。</p>
+  <ul>
+    <li><b>子を作る</b>: タイトルを入れて <kbd>Enter</kbd>。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じになります。</li>
+    <li><b>今ある Issue を子にする</b>: <span class="ui">既存の Issue をつなぐ…</span> を押し、番号かタイトルで探して選びます。ほかの親の子なら、付け替えます。</li>
+    <li><b>子から外す</b>: 行の <span class="ui">×</span>。親子のつながりを外すだけで、Issue は消えません。</li>
+    <li>子の <span class="ui">○</span> を押すとクローズ、題名を押すとその子の詳細が開きます。子の詳細のいちばん上の <span class="ui">↑ 親：#45 …</span> で親に戻れます。</li>
+  </ul>
+  <p>タスク・ボード・マイルストーンのカードには、子のある Issue に <b>🧩 2/5</b>（子 5 件のうち 2 件が完了）、子の Issue に <b>↑ #45 親の題名</b> が出ます。子を全部クローズしても、親は自動では閉じません。サブイシューは、GitHub につながっているときだけ使えます。</p>
 </section>
 
 <!-- ============================================================ -->
@@ -1107,7 +1136,7 @@ git clone https://github.com/オーナー名/リポジトリ名.git D:\work\リ�
     <li><b>GitHub トークン</b>: トークンを変えます（期限が切れたときなど）。</li>
     <li><b>リポジトリ設定</b>: 使うリポジトリ（オーナー名 / リポジトリ名）を変えます。</li>
     <li><b>作業フォルダ（この PC）</b>: git で操作するフォルダを決めます。Git のインストールや、使う準備の確認もここから（「<a href="#prepare">使う準備</a>」）。</li>
-    <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとにトークンを決めることもできます（🔑）。</li>
+    <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとにトークンを決めることもできます（🔑）。<span class="ui">＋ 追加</span> では、URL を貼って登録・クローンしたり、手元のフォルダを GitHub に上げたりできます（「<a href="#prepare">使う準備</a>」）。</li>
   </ul>
   <h3>ラベル</h3>
   <p>ラベルの一括作成・作成・編集・削除ができます。</p>

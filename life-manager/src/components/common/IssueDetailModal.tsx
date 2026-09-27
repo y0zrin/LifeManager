@@ -5,6 +5,7 @@ import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates,
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
 import { PendingChip } from "./PendingChip";
+import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
 import { issueRef } from "../../lib/issueRef";
 
 interface IssueDetailModalProps {
@@ -23,9 +24,13 @@ interface IssueDetailModalProps {
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
   onRemoveReminder: (issueNumber: number, datetime: string) => Promise<void>;
   allIssues?: GitHubIssue[];
+  /** ほかの Issue の詳細に切り替える（親・子へ移るとき。一覧にない子は、その中身も渡す） */
+  onOpenIssue?: (n: number, fallback?: GitHubIssue) => void;
+  /** サブイシュー（親子）の読み書き。渡さなければ、サブイシューの欄を出さない */
+  subIssueApi?: SubIssueApi;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [] }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi }: IssueDetailModalProps) {
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -177,6 +182,7 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
         {/* ヘッダー */}
         <div style={{ marginBottom: "12px" }}>
           <div style={{ flex: 1 }}>
+            {onOpenIssue && <ParentCrumb issue={issue} onOpenIssue={onOpenIssue} />}
             <div className="flex-row flex-wrap" style={{ marginBottom: "4px" }}>
               <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
               {issue._pending && <PendingChip />}
@@ -493,6 +499,18 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "#238636", borderRadius: "3px" }} />
             </div>
           </div>
+        )}
+
+        {/* サブイシュー（子の一覧と進み具合）。まだ送っていない Issue（仮の番号）には付けられない */}
+        {subIssueApi && onOpenIssue && issue.number > 0 && (
+          <SubIssues
+            issue={issue}
+            allIssues={allIssues}
+            api={subIssueApi}
+            onOpenIssue={onOpenIssue}
+            onCloseIssue={onCloseIssue}
+            onReopenIssue={onReopenIssue}
+          />
         )}
 
         {/* ガントチャート設定 */}

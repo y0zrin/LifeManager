@@ -24,12 +24,14 @@
   --accent-red: #f85149;
   --accent-red-strong: #da3633;
   --accent-yellow: #d29915;
+  --accent-purple: #bc8cff;
   --text-on-accent: #ffffff;
 
   /* Colors - Accent（薄い背景。お知らせ・バッジ・差分） */
   --accent-green-bg: #2ea04326;
   --accent-red-bg: #f8514926;
   --accent-yellow-bg: #d2991526;
+  --accent-purple-bg: #bc8cff1a;
   --diff-add-bg: #2ea04326;
   --diff-del-bg: #f8514926;
   --diff-hunk-bg: #1f6feb1a;
@@ -1340,6 +1342,248 @@ button:hover {
   font-size: var(--font-xs);
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* --- サブイシュー（親子） --- */
+
+/* カードの「↑ 親」 */
+.parent-mark {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* カードの「🧩 2/5」 */
+.sub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: var(--space-sm);
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--accent-purple-bg);
+  border-radius: 10px;
+  background: var(--accent-purple-bg);
+  color: var(--accent-purple);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ticket-meta .sub-badge {
+  margin-left: 0;
+}
+
+.sub-badge-bar {
+  display: inline-block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.sub-badge-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent-green-hover);
+}
+
+/* 詳細のいちばん上の「↑ 親：#45 …」 */
+.parent-crumb {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 6px;
+  padding: 1px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.parent-crumb:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* 詳細の「🧩 サブイシュー」 */
+.sub-issues {
+  margin-bottom: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-default);
+}
+
+.sub-issues-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.sub-issues-count {
+  color: var(--text-secondary);
+}
+
+.sub-issues-bar {
+  height: 6px;
+  margin-bottom: 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.sub-issues-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent-green);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.sub-issues-list {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.sub-issue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-md);
+}
+
+.sub-issue:hover {
+  background: var(--bg-secondary);
+}
+
+.sub-issue-state,
+.sub-issue-title,
+.sub-issue-remove {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sub-issue-state {
+  width: 22px;
+  color: var(--accent-green-hover);
+  font-size: var(--font-lg);
+}
+
+.sub-issue--closed .sub-issue-state {
+  color: var(--accent-purple);
+}
+
+.sub-issue-state:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.sub-issue-number {
+  color: var(--text-faint);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.sub-issue-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-issue-title:hover {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
+.sub-issue--closed .sub-issue-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.sub-issue-status {
+  padding: 0 6px;
+  border: 1px solid var(--accent-yellow-bg);
+  border-radius: 10px;
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.sub-issue-remove {
+  visibility: hidden;
+  padding: 0 var(--space-xs);
+  color: var(--text-faint);
+  font-size: var(--font-lg);
+}
+
+.sub-issue:hover .sub-issue-remove,
+.sub-issue-remove:focus-visible {
+  visibility: visible;
+}
+
+.sub-issue-remove:hover {
+  color: var(--accent-red);
+}
+
+/* タッチの画面では、指を乗せて出すことができないので、いつも見せる */
+@media (hover: none) {
+  .sub-issue-remove {
+    visibility: visible;
+  }
+}
+
+.sub-issues-add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sub-issues-add .input-full {
+  flex: 1;
+}
+
+.sub-issues-add .link-button {
+  white-space: nowrap;
+}
+
+.sub-issues-moving {
+  margin-left: auto;
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.sub-issues-note {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.sub-issues-note--ok {
+  color: var(--accent-green-hover);
+}
+
+.sub-issues-note--error {
+  color: var(--accent-red);
+  white-space: pre-wrap;
 }
 
 .ticket-footer {

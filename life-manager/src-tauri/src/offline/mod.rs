@@ -248,6 +248,48 @@ pub async fn create_comment(
     Ok(comment.to_string())
 }
 
+// --- サブイシュー（親子）。送信待ちには並べない（つながっているときだけ使える） ---
+
+/// つながらなかったときは、そう伝える（ほかの操作と違い、あとで送ることはしないため）
+fn sub_issue_error(e: String) -> String {
+    if is_network_error(&e) {
+        "つながっていないので、サブイシューは使えません。つながってから、もう一度やってください".into()
+    } else {
+        e
+    }
+}
+
+pub async fn list_sub_issues(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, number: u32) -> Result<String, String> {
+    let result = client.list_sub_issues(owner, repo, number).await;
+    note_result(app, &result);
+    result.map_err(sub_issue_error)
+}
+
+/// 子にする。手元の写しの「子の数」と「親」も合わせる（次に GitHub から読むまで、古い数が戻ってこないように）
+pub async fn add_sub_issue(
+    app: &AppHandle,
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    parent: u32,
+    sub_issue_id: u64,
+    replace_parent: bool,
+) -> Result<String, String> {
+    let result = client.add_sub_issue(owner, repo, parent, sub_issue_id, replace_parent).await;
+    note_result(app, &result);
+    let json = result.map_err(sub_issue_error)?;
+    let _ = store::with_store(app, owner, repo, |s| store::note_sub_issue(s, parent as i64, sub_issue_id as i64, true));
+    Ok(json)
+}
+
+pub async fn remove_sub_issue(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, parent: u32, sub_issue_id: u64) -> Result<String, String> {
+    let result = client.remove_sub_issue(owner, repo, parent, sub_issue_id).await;
+    note_result(app, &result);
+    let json = result.map_err(sub_issue_error)?;
+    let _ = store::with_store(app, owner, repo, |s| store::note_sub_issue(s, parent as i64, sub_issue_id as i64, false));
+    Ok(json)
+}
+
 // --- 設定（config/*.yaml） ---
 
 /// 設定を読む（つながらないときは最後に読んだ内容。ファイルがないときは空。送信待ちの書き換えがあれば、それを見せる）

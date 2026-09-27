@@ -644,6 +644,65 @@ pub fn note_comment(store: &mut RepoStore, number: i64, comment: &Value) {
     }
 }
 
+// --- サブイシュー（親子） ---
+
+/// 手元の写しの Issue（開いている・閉じた）のうち、pred に合うものを書き換える
+fn edit_issues(store: &mut RepoStore, pred: impl Fn(&Value) -> bool, mut f: impl FnMut(&mut Value)) {
+    for key in ["issues:open", "issues:closed"] {
+        let Some(raw) = store.reads.get(key) else { continue };
+        let mut list: Vec<Value> = serde_json::from_str(raw).unwrap_or_default();
+        let mut changed = false;
+        for issue in list.iter_mut().filter(|x| pred(x)) {
+            f(issue);
+            changed = true;
+        }
+        if changed {
+            store.reads.insert(key.to_string(), serde_json::to_string(&list).unwrap_or_default());
+        }
+    }
+}
+
+fn find_issue_where(store: &RepoStore, pred: impl Fn(&Value) -> bool) -> Option<Value> {
+    ["issues:open", "issues:closed"].iter().flat_map(|key| parse_list(store, key)).find(|x| pred(x))
+}
+
+/// 子の数（total）と、そのうち閉じた数（completed）を増やす・減らす
+fn adjust_summary(issue: &mut Value, total: i64, completed: i64) {
+    let s = &issue["sub_issues_summary"];
+    let t = (s["total"].as_i64().unwrap_or(0) + total).max(0);
+    let c = (s["completed"].as_i64().unwrap_or(0) + completed).clamp(0, t);
+    let percent = if t > 0 { (c * 100 + t / 2) / t } else { 0 };
+    issue["sub_issues_summary"] = json!({ "total": t, "completed": c, "percent_completed": percent });
+}
+
+/// サブイシューをつないだ（linked）・外したことを、手元の写しに入れる（親の「子の数」と、子の「親」）。
+/// 子は id で探す（GitHub の API が id で指すため）。次に GitHub から読めば、GitHub の内容に置き換わる
+pub fn note_sub_issue(store: &mut RepoStore, parent: i64, child_id: i64, linked: bool) {
+    let child = find_issue_where(store, |x| x["id"].as_i64() == Some(child_id));
+    let done = child.as_ref().map_or(0, |c| (c["state"].as_str() == Some("closed")) as i64);
+    let old_parent = child.as_ref().and_then(|c| c["parent_issue_url"].as_str().map(String::from));
+    let is_child = |x: &Value| x["id"].as_i64() == Some(child_id);
+    let is_parent = |x: &Value| number_of(x) == Some(parent);
+    if !linked {
+        edit_issues(store, is_parent, |x| adjust_summary(x, -1, -done));
+        edit_issues(store, is_child, |x| x["parent_issue_url"] = Value::Null);
+        return;
+    }
+    // 親の API の URL（子の parent_issue_url と同じ形）
+    let parent_url = find_issue_where(store, is_parent)
+        .and_then(|p| p["url"].as_str().map(String::from))
+        .or_else(|| child.as_ref().and_then(|c| c["repository_url"].as_str()).map(|r| format!("{}/issues/{}", r, parent)));
+    if old_parent.is_some() && old_parent == parent_url {
+        return;
+    }
+    if let Some(old) = &old_parent {
+        // ほかの親から付け替えた
+        edit_issues(store, |x| x["url"].as_str() == Some(old.as_str()), |x| adjust_summary(x, -1, -done));
+    }
+    edit_issues(store, is_parent, |x| adjust_summary(x, 1, done));
+    edit_issues(store, is_child, |x| x["parent_issue_url"] = parent_url.clone().map_or(Value::Null, Value::String));
+}
+
 /// 文章の中の、仮の番号への参照（#-1）を本当の番号（#66）に直す（#-10 のような別の番号は直さない）
 pub fn rewrite_refs(text: &str, temp: i64, real: i64) -> String {
     let pattern = format!("#{}", temp);
@@ -737,6 +796,40 @@ mod tests {
             Op::UpdateIssue { base: Some(base), .. } => assert_eq!(base.state.as_deref(), Some("open")),
             other => panic!("{:?}", other),
         }
+    }
+
+    #[test]
+    fn linking_sub_issues_updates_the_counts_and_the_parent() {
+        let url = |n: i64| format!("https://api.github.com/repos/o/r/issues/{}", n);
+        let issue = |n: i64, id: i64| json!({ "number": n, "id": id, "url": url(n), "state": "open", "labels": [], "parent_issue_url": null });
+        let mut store = store_with(json!([issue(45, 450), issue(46, 460), issue(47, 470)]));
+        store.reads.insert(
+            "issues:closed".into(),
+            json!([{ "number": 48, "id": 480, "url": url(48), "state": "closed", "labels": [], "parent_issue_url": null }]).to_string(),
+        );
+        let get = |s: &RepoStore, n: i64| find_issue_where(s, |x| number_of(x) == Some(n)).unwrap();
+        let summary = |s: &RepoStore, n: i64| {
+            let v = get(s, n);
+            (v["sub_issues_summary"]["total"].as_i64().unwrap_or(0), v["sub_issues_summary"]["completed"].as_i64().unwrap_or(0))
+        };
+
+        // 開いている子と、閉じた子をつなぐ
+        note_sub_issue(&mut store, 45, 460, true);
+        note_sub_issue(&mut store, 45, 480, true);
+        assert_eq!(summary(&store, 45), (2, 1));
+        assert_eq!(get(&store, 46)["parent_issue_url"], json!(url(45)));
+        assert_eq!(get(&store, 48)["parent_issue_url"], json!(url(45)));
+        // 同じ親に二度つないでも、数は増えない
+        note_sub_issue(&mut store, 45, 460, true);
+        assert_eq!(summary(&store, 45), (2, 1));
+        // ほかの親（#47）に付け替えると、前の親の数が減る
+        note_sub_issue(&mut store, 47, 480, true);
+        assert_eq!((summary(&store, 45), summary(&store, 47)), ((1, 0), (1, 1)));
+        assert_eq!(get(&store, 48)["parent_issue_url"], json!(url(47)));
+        // 外すと、親の数が減り、子の親がなくなる
+        note_sub_issue(&mut store, 45, 460, false);
+        assert_eq!(summary(&store, 45), (0, 0));
+        assert_eq!(get(&store, 46)["parent_issue_url"], Value::Null);
     }
 
     #[test]

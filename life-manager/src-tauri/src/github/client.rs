@@ -318,6 +318,44 @@ impl GitHubClient {
         return self.post(&url, &payload).await;
     }
 
+    // --- サブイシュー（親子） ---
+
+    /// 子の Issue の一覧（GitHub の画面と同じ並び）
+    pub async fn list_sub_issues(&self, owner: &str, repo: &str, issue_number: u32) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/sub_issues?per_page=100",
+            BASE_URL, owner, repo, issue_number
+        );
+        return self.get_all_pages(&url).await;
+    }
+
+    /// 子にする。sub_issue_id は Issue の番号ではなく id。replace_parent なら、ほかの親から付け替える
+    pub async fn add_sub_issue(
+        &self,
+        owner: &str,
+        repo: &str,
+        issue_number: u32,
+        sub_issue_id: u64,
+        replace_parent: bool,
+    ) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/sub_issues",
+            BASE_URL, owner, repo, issue_number
+        );
+        let payload = serde_json::json!({ "sub_issue_id": sub_issue_id, "replace_parent": replace_parent });
+        return self.post(&url, &payload).await;
+    }
+
+    /// 子から外す（親子のつながりを外すだけで、Issue は消えない）
+    pub async fn remove_sub_issue(&self, owner: &str, repo: &str, issue_number: u32, sub_issue_id: u64) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/sub_issue",
+            BASE_URL, owner, repo, issue_number
+        );
+        let payload = serde_json::json!({ "sub_issue_id": sub_issue_id });
+        return self.delete_json(&url, &payload).await;
+    }
+
     // --- Contents API ---
 
     /// ファイルの中身と sha。書いた直後に GitHub が古い版を返したときは、自分が書いた版にする（recent）
@@ -589,6 +627,25 @@ impl GitHubClient {
             .http
             .delete(url)
             .headers(self.build_headers())
+            .send()
+            .await
+            .map_err(network_error)?;
+
+        let status = response.status();
+        let result = response.text().await.map_err(network_error)?;
+        if !status.is_success() {
+            return Err(format!("HTTP {}: {}", status, result));
+        }
+        return Ok(result);
+    }
+
+    /// 送る中身のある DELETE（サブイシューを外すときなど）
+    async fn delete_json(&self, url: &str, payload: &serde_json::Value) -> Result<String, String> {
+        let response = self
+            .http
+            .delete(url)
+            .headers(self.build_headers())
+            .json(payload)
             .send()
             .await
             .map_err(network_error)?;

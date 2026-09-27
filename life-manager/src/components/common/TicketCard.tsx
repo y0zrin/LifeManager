@@ -1,6 +1,7 @@
 import type { GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "./PendingChip";
+import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -37,6 +38,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
       onClick={() => onSelect(issue.number)}
       style={{ borderLeft: `3px solid ${priorityColor}` }}
     >
+      <ParentMark issue={issue} />
       {/* Header: number + title */}
       <div className="ticket-header">
         <span className="ticket-number">{issueRef(issue.number)}</span>
@@ -76,6 +78,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
             ✅ {todoDone}/{todoTotal}
           </span>
         )}
+        <SubIssueBadge issue={issue} />
         {issue.comments > 0 && (
           <span className="ticket-meta-item">
             💬 {issue.comments}

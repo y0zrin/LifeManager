@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult } from "../lib/types";
+import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult, TimelineEvent } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
 
@@ -343,21 +343,28 @@ export function useGitHub() {
 
   // --- Issue操作 ---
 
-  async function closeIssue(n: number) {
+  /** Issue を閉じる。reason で閉じ方（完了・予定なし・重複）を選べる。重複なら、元の Issue も渡す */
+  async function closeIssue(n: number, reason?: CloseReason, duplicateOf?: GitHubIssue) {
     try {
       const closedIssue = issues.find((i) => i.number === n);
       const issueTitle = closedIssue?.title || issueRef(n);
+      if (reason === "duplicate" && !duplicateOf?.id) {
+        throw new Error("元の Issue がまだ GitHub にないので、重複として閉じられません");
+      }
+      const how = reason === "not_planned" ? "を予定なしとして閉じました" : reason === "duplicate" ? `を ${issueRef(duplicateOf!.number)} の重複として閉じました` : "を完了";
       const result = await invoke("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: "closed", labels: null, milestone: null, assignees: null,
-        notice: eventNotice("issue_closed", `✅ {issue} ${issueTitle} を完了`),
+        stateReason: reason ?? null,
+        duplicateIssueId: reason === "duplicate" ? duplicateOf!.id : null,
+        notice: eventNotice("issue_closed", `✅ {issue} ${issueTitle} ${how}`),
       });
       const pending = isPending(result);
-      setStatus(`${issueRef(n)} 完了${pending ? PENDING_NOTE : ""}`);
+      setStatus(`${issueRef(n)} ${how === "を完了" ? "完了" : how.slice(1)}${pending ? PENDING_NOTE : ""}`);
       // 楽観的更新: openから除去し、closedに追加（副作用をupdater外に分離）
       setIssues((prev) => prev.filter((i) => i.number !== n));
       if (closedIssue) {
-        setClosedIssues((prev) => [{ ...closedIssue, state: "closed" }, ...prev]);
+        setClosedIssues((prev) => [{ ...closedIssue, state: "closed", state_reason: reason ?? "completed" }, ...prev]);
       }
       adjustParentOf(closedIssue, 1);
     } catch (e) {
@@ -732,6 +739,13 @@ export function useGitHub() {
     }
   }
 
+  // --- 変更の履歴（タイムライン）。つながっているときだけ ---
+
+  async function listTimeline(issueNumber: number): Promise<TimelineEvent[]> {
+    const result = await invoke("list_issue_timeline", { owner, repo, issueNumber });
+    return JSON.parse(result as string);
+  }
+
   // --- サブイシュー（親子）。つながっているときだけ使える ---
 
   /** 手元の一覧（開いている・閉じた）の Issue を書き換える */
@@ -1004,8 +1018,8 @@ export function useGitHub() {
     boardConfig, saveBoardConfig, loadBoardConfig,
     // イベント通知
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
-    // サブイシュー（親子）
-    listSubIssues, addSubIssue, createSubIssue, removeSubIssue,
+    // サブイシュー（親子）・変更の履歴
+    listSubIssues, addSubIssue, createSubIssue, removeSubIssue, listTimeline,
     // プロジェクト管理
     projects, loadProjects, addProject, removeProject, switchProject, setProjectToken,
     // 現在のユーザー

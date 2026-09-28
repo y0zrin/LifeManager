@@ -375,10 +375,12 @@ async fn update_issue(
     labels: Option<Vec<String>>,
     milestone: Option<u32>,
     assignees: Option<Vec<String>>,
+    state_reason: Option<String>,
+    duplicate_issue_id: Option<u64>,
     notice: Option<offline::store::Notice>,
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
-    let changes = offline::store::Changes { title, body, state: issue_state, labels, milestone, assignees };
+    let changes = offline::store::Changes { title, body, state: issue_state, labels, milestone, assignees, state_reason, duplicate_issue_id };
     return offline::update_issue(&app, &client, &owner, &repo, issue_number, changes, notice).await;
 }
 
@@ -587,6 +589,19 @@ async fn create_comment(
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
     return offline::create_comment(&app, &client, &owner, &repo, issue_number, body, notice).await;
+}
+
+/// Issue の変更の履歴（タイムライン）。つながっているときだけ
+#[tauri::command]
+async fn list_issue_timeline(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    issue_number: u32,
+) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    return offline::list_timeline(&app, &client, &owner, &repo, issue_number).await;
 }
 
 // --- サブイシュー（親子）。つながっているときだけ使える（送信待ちには並べない） ---
@@ -958,6 +973,7 @@ pub fn run() {
             update_milestone,
             list_comments,
             create_comment,
+            list_issue_timeline,
             list_sub_issues,
             add_sub_issue,
             remove_sub_issue,

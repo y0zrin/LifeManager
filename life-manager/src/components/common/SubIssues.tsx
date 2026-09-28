@@ -4,6 +4,7 @@ import type { GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { githubMessage, isSameRepo, repoOf } from "../../lib/subIssues";
 import { IssueIndexContext, useParentOf } from "./SubIssueMarks";
+import { findIssues } from "../../lib/issueSearch";
 import { isEnter } from "../../lib/keys";
 
 /** サブイシューの読み書き（useGitHub のもの） */
@@ -87,13 +88,8 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
   const done = rows.filter((c) => c.state === "closed").length;
   const percent = rows.length ? Math.round((done / rows.length) * 100) : 0;
 
-  const query = text.trim().toLowerCase();
-  const numberQuery = query.match(/^#?(\d+)$/)?.[1];
-  const candidates = linking && query
-    ? allIssues
-        .filter((i) => i.number > 0 && i.number !== issue.number && !list.some((c) => c.number === i.number && inThisRepo(c)))
-        .filter((i) => (numberQuery ? String(i.number).includes(numberQuery) : i.title.toLowerCase().includes(query)))
-        .slice(0, 6)
+  const candidates = linking
+    ? findIssues(allIssues.filter((i) => i.number !== issue.number && !list.some((c) => c.number === i.number && inThisRepo(c))), text)
     : [];
 
   async function run(work: () => Promise<string>) {

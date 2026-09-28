@@ -26,6 +26,12 @@ pub struct Changes {
     pub milestone: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignees: Option<Vec<String>>,
+    /// 閉じるときの理由（completed / not_planned / duplicate）。state を変えるときだけ使われる
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_reason: Option<String>,
+    /// 重複として閉じるときの、元の Issue の id（番号ではない）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duplicate_issue_id: Option<u64>,
 }
 
 impl Changes {
@@ -537,6 +543,7 @@ fn base_of(issue: &Value, changes: &Changes) -> Changes {
         labels: changes.labels.as_ref().map(|_| names("labels", "name")),
         milestone: changes.milestone.map(|_| issue["milestone"]["number"].as_u64().unwrap_or(0) as u32),
         assignees: changes.assignees.as_ref().map(|_| names("assignees", "login")),
+        ..Default::default()
     }
 }
 

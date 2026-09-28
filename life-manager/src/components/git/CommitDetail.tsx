@@ -59,18 +59,21 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
   }, [onClose]);
 
   const parts = useMemo(() => (run ? splitShow(run.output) : null), [run]);
+  // Issue の履歴から開いたときは、題名が分からない（読み込んだ内容の 1 行目を題名にする）
+  const subject = commit.subject || parts?.message.split("\n")[0] || "";
+  const author = commit.author || (run ? run.output.split("\n")[1]?.replace(/\s*<[^>]*>\s*$/, "") ?? "" : "");
   const rows = useMemo(() => (parts ? parseDiff(parts.patch, true) : []), [parts]);
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={onClose}>
       <div className="commit-detail" role="dialog" aria-modal="true" aria-label="コミットの内容" onClick={(e) => e.stopPropagation()}>
         <div className="cd-head">
-          <div className="cd-title">{commit.subject}</div>
+          <div className="cd-title">{subject || "読み込んでいます…"}</div>
           <button type="button" className="git-notice-close" aria-label="閉じる" onClick={onClose}>
             ×
           </button>
           <div className="cd-meta">
-            {commit.author} · {shortWhen(commit.date)} · <code>{commit.hash.slice(0, 7)}</code>
+            {author}{commit.date && ` · ${shortWhen(commit.date)}`} · <code>{commit.hash.slice(0, 7)}</code>
             {run && <code className="cd-cmd">{run.command}</code>}
           </div>
         </div>

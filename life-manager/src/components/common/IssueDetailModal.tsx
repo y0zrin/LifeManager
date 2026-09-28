@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import type { GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder } from "../../lib/types";
+import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineEvent } from "../../lib/types";
 import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
 import { PendingChip } from "./PendingChip";
 import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
+import { CloseMenu, closeReasonText } from "./CloseMenu";
+import { RelatedIssues } from "./RelatedIssues";
+import { IssueTimeline } from "./IssueTimeline";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 
@@ -18,7 +21,8 @@ interface IssueDetailModalProps {
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
   updateIssue: (n: number, updates: { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null }) => Promise<void>;
-  onCloseIssue: (issueNumber: number) => Promise<void>;
+  /** 閉じる（reason で閉じ方。重複なら元の Issue も） */
+  onCloseIssue: (issueNumber: number, reason?: CloseReason, duplicateOf?: GitHubIssue) => Promise<void>;
   onReopenIssue: (issueNumber: number) => Promise<void>;
   onToggleTodo: (issueNumber: number, newBody: string) => Promise<void>;
   reminders: Reminder[];
@@ -29,9 +33,13 @@ interface IssueDetailModalProps {
   onOpenIssue?: (n: number, fallback?: GitHubIssue) => void;
   /** サブイシュー（親子）の読み書き。渡さなければ、サブイシューの欄を出さない */
   subIssueApi?: SubIssueApi;
+  /** 変更の履歴（タイムライン）を読む。渡さなければ、コメントだけを出す */
+  listTimeline?: (n: number) => Promise<TimelineEvent[]>;
+  /** 履歴のコミットを押したとき（変更内容を見る） */
+  onShowCommit?: (hash: string, actor: string, date: string) => void;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit }: IssueDetailModalProps) {
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -188,26 +196,27 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
               {issue._pending && <PendingChip />}
               <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
-                {issue.state === "open" ? "🟢 Open" : "🟣 Closed"}
+                {issue.state === "open" ? "🟢 Open" : `${issue.state_reason === "not_planned" ? "⚪" : "🟣"} Closed（${closeReasonText(issue.state_reason)}）`}
               </span>
               {issue.milestone && (
                 <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>
                   📌 {issue.milestone.title}
                 </span>
               )}
-              <button
-                className={issue.state === "open" ? "btn-sm" : "btn-primary"}
-                style={{ marginLeft: "auto", fontSize: "var(--font-sm)", padding: "3px 10px" }}
-                onClick={async () => {
-                  if (issue.state === "open") {
-                    await onCloseIssue(issue.number);
-                  } else {
-                    await onReopenIssue(issue.number);
-                  }
-                }}
-              >
-                {issue.state === "open" ? "クローズ" : "リオープン"}
-              </button>
+              {issue.state === "open" ? (
+                // 閉じ方（完了・予定なし・重複）を選んで閉じる
+                <span style={{ marginLeft: "auto" }}>
+                  <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} />
+                </span>
+              ) : (
+                <button
+                  className="btn-primary"
+                  style={{ marginLeft: "auto", fontSize: "var(--font-sm)", padding: "3px 10px" }}
+                  onClick={() => onReopenIssue(issue.number)}
+                >
+                  リオープン
+                </button>
+              )}
             </div>
 
             {/* タイトル（クリックで編集） */}
@@ -514,6 +523,16 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
           />
         )}
 
+        {/* 関連（意味の近い Issue。本文の見えない印に残し、相手の詳細にも出す） */}
+        {onOpenIssue && issue.number > 0 && (
+          <RelatedIssues
+            issue={issue}
+            allIssues={allIssues}
+            onUpdateBody={(n, body) => updateIssue(n, { body })}
+            onOpenIssue={onOpenIssue}
+          />
+        )}
+
         {/* ガントチャート設定 */}
         <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
           <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)", display: "block", marginBottom: "6px" }}>ガントチャート</span>
@@ -701,7 +720,18 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
           ))}
         </div>
 
-        {/* コメント */}
+        {/* コメント（と変更の履歴） */}
+        {listTimeline && onOpenIssue ? (
+          <IssueTimeline
+            issue={issue}
+            comments={comments}
+            loadingComments={loading}
+            listTimeline={listTimeline}
+            onOpenIssue={onOpenIssue}
+            onShowCommit={onShowCommit}
+          />
+        ) : (
+        <>
         <h3 className="section-header">
           💬 コメント ({comments.length})
         </h3>
@@ -730,6 +760,8 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               <p style={{ color: "#484f58", fontSize: "12px" }}>コメントはまだありません</p>
             )}
           </div>
+        )}
+        </>
         )}
 
         {/* コメント入力 */}

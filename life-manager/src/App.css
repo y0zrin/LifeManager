@@ -1586,6 +1586,282 @@ button:hover {
   white-space: pre-wrap;
 }
 
+/* --- Issue の詳細: 閉じ方・関連・コメントと変更の履歴 --- */
+
+/* 「クローズ ▾」（完了として／予定なしとして／重複として） */
+.close-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.close-menu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: 270px;
+  padding: var(--space-xs);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+}
+
+.close-menu-pop > button {
+  display: block;
+  width: 100%;
+  padding: 6px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.close-menu-pop > button:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.close-menu-pop small {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.close-menu-dup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+}
+
+.close-menu-title {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 🔗 関連 */
+.related-issues {
+  margin-bottom: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-default);
+}
+
+.related-issues-head {
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.related-issues-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.related-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 1px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  font-size: var(--font-sm);
+}
+
+.related-chip-title,
+.related-chip-remove {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.related-chip-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.related-chip-title:hover {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
+.related-chip--closed .related-chip-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.related-chip-number {
+  color: var(--text-faint);
+}
+
+.related-chip-note {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.related-chip-remove {
+  color: var(--text-faint);
+}
+
+.related-chip-remove:hover:not(:disabled) {
+  color: var(--accent-red);
+}
+
+.related-issues-add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 6px;
+}
+
+.related-issues-add .input-full {
+  flex: 1;
+}
+
+/* 💬 コメントと変更の履歴 */
+.issue-timeline-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.issue-timeline-filter {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.issue-timeline-filter button {
+  min-height: 0;
+  padding: 2px 10px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+
+.issue-timeline-filter button.on {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.timeline {
+  margin: 6px 0 var(--space-md);
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--border-subtle);
+  list-style: none;
+}
+
+.timeline > li {
+  position: relative;
+  margin-bottom: var(--space-sm);
+}
+
+.timeline-event {
+  padding-left: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.timeline-event::before,
+.timeline-comment::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+}
+
+.timeline-comment::before {
+  top: 12px;
+  border-color: var(--accent-blue);
+  background: var(--accent-blue);
+}
+
+.timeline-event b {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.timeline-comment {
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.timeline-comment-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.timeline-comment-who {
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.timeline-comment-body {
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.timeline-when {
+  margin-left: 6px;
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.timeline-link {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-blue);
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-link:hover {
+  text-decoration: underline;
+}
+
+.timeline-commit {
+  font-family: var(--font-mono);
+}
+
+.issue-timeline-note {
+  color: var(--text-faint);
+  font-size: var(--font-sm);
+}
+
 /* --- タスク一覧（絞り込み・並び・期限・まとめて変える） --- */
 
 /* ラベルの種類ごとの絞り込み（押すと複数選べる） */
@@ -1658,6 +1934,7 @@ button:hover {
 
 .label-filter-mode button {
   flex: 1;
+  min-height: 0;
   padding: 3px 0;
   border: none;
   border-radius: 0;

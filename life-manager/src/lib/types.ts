@@ -39,8 +39,34 @@ export interface GitHubIssue {
   /** この Issue のリポジトリ（API の URL）。サブイシューの一覧では、ほかのリポジトリの Issue が混じることがある */
   repository_url?: string;
   html_url?: string;
+  /** 閉じた理由（completed＝完了 / not_planned＝予定なし / duplicate＝重複）。開いていれば null か reopened */
+  state_reason?: string | null;
+  /** 作った人 */
+  user?: { login: string; avatar_url: string };
   /** まだ GitHub に送っていない変更がある（オフラインのあいだの変更）。まだ作っていない Issue の番号は負の数（仮の番号） */
   _pending?: boolean;
+}
+
+/** 閉じ方（GitHub の「Close as …」と同じ） */
+export type CloseReason = "completed" | "not_planned" | "duplicate";
+
+/** Issue の変更の履歴（GitHub のタイムライン）の 1 件。使う項目だけ */
+export interface TimelineEvent {
+  event: string;
+  id?: number;
+  actor?: { login: string } | null;
+  created_at?: string;
+  label?: { name: string; color: string };
+  assignee?: { login: string };
+  milestone?: { title: string };
+  rename?: { from: string; to: string };
+  commit_id?: string | null;
+  state_reason?: string | null;
+  /** cross-referenced: どこから触れられたか */
+  source?: { type?: string; issue?: { number: number; title: string; html_url?: string; repository_url?: string; pull_request?: unknown } };
+  /** sub_issue_added など */
+  sub_issue?: { number: number; title: string };
+  parent_issue?: { number: number; title: string };
 }
 
 export interface SubIssuesSummary {

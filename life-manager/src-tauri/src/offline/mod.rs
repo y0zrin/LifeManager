@@ -183,7 +183,7 @@ pub async fn update_issue(
     if number > 0 && can_send_directly(app, owner, repo) {
         let c = changes.clone();
         let result = client
-            .update_issue(owner, repo, number as u32, c.title, c.body, c.state, c.labels, c.milestone, c.assignees)
+            .update_issue(owner, repo, number as u32, c.title, c.body, c.state, c.labels, c.milestone, c.assignees, c.state_reason, c.duplicate_issue_id)
             .await;
         note_result(app, &result);
         match result {
@@ -246,6 +246,20 @@ pub async fn create_comment(
     let comment = store::with_store(app, owner, repo, |s| store::enqueue_comment(s, number, body, &user, notice))?;
     queued(app, client, owner, repo);
     Ok(comment.to_string())
+}
+
+// --- 変更の履歴（タイムライン）。つながっているときだけ ---
+
+pub async fn list_timeline(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, number: u32) -> Result<String, String> {
+    let result = client.list_timeline(owner, repo, number).await;
+    note_result(app, &result);
+    result.map_err(|e| {
+        if is_network_error(&e) {
+            "つながっていないので、変更の履歴は出せません（コメントは出せます）".into()
+        } else {
+            e
+        }
+    })
 }
 
 // --- サブイシュー（親子）。送信待ちには並べない（つながっているときだけ使える） ---

@@ -121,6 +121,8 @@ impl GitHubClient {
         labels: Option<Vec<String>>,
         milestone: Option<u32>,
         assignees: Option<Vec<String>>,
+        state_reason: Option<String>,
+        duplicate_issue_id: Option<u64>,
     ) -> Result<String, String> {
         let url = format!(
             "{}/repos/{}/{}/issues/{}",
@@ -149,6 +151,13 @@ impl GitHubClient {
         }
         if let Some(a) = assignees {
             payload.insert("assignees".to_string(), serde_json::json!(a));
+        }
+        // 閉じる理由（完了・予定なし・重複）。重複なら、元の Issue の id も
+        if let Some(r) = state_reason {
+            payload.insert("state_reason".to_string(), serde_json::Value::String(r));
+        }
+        if let Some(id) = duplicate_issue_id {
+            payload.insert("duplicate_issue_id".to_string(), serde_json::json!(id));
         }
         return self.patch(&url, &payload).await;
     }
@@ -316,6 +325,17 @@ impl GitHubClient {
         );
         let payload = serde_json::json!({ "body": body });
         return self.post(&url, &payload).await;
+    }
+
+    // --- 変更の履歴（タイムライン） ---
+
+    /// Issue に起きたこと（コメント・ラベル・担当・閉じた・ほかの Issue やコミットから触れられた など）を古い順に
+    pub async fn list_timeline(&self, owner: &str, repo: &str, issue_number: u32) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/timeline?per_page=100",
+            BASE_URL, owner, repo, issue_number
+        );
+        return self.get_all_pages(&url).await;
     }
 
     // --- サブイシュー（親子） ---

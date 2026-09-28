@@ -126,11 +126,22 @@ fn decide(number: i64, remote: &Value, changes: &Changes, base: Option<&Changes>
                 let force = if field == "title" {
                     Changes { title: Some(local.clone()), ..Default::default() }
                 } else {
-                    Changes { state: Some(local.clone()), ..Default::default() }
+                    Changes {
+                        state: Some(local.clone()),
+                        state_reason: changes.state_reason.clone(),
+                        duplicate_issue_id: changes.duplicate_issue_id,
+                        ..Default::default()
+                    }
                 };
                 conflicts.push(conflict(number, remote, field, (local.clone(), remote_value, base_value), force));
             }
         }
+    }
+
+    // 閉じる理由は、状態を送るときだけ一緒に送る
+    if send.state.is_some() {
+        send.state_reason = changes.state_reason.clone();
+        send.duplicate_issue_id = changes.duplicate_issue_id;
     }
 
     if let Some(local) = &changes.body {
@@ -301,8 +312,8 @@ async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcom
             if to_send.is_empty() {
                 return Outcome::Done(Done { issue: Some(remote), conflicts, ..Default::default() });
             }
-            let Changes { title, body, state, labels, milestone, assignees } = to_send;
-            match client.update_issue(owner, repo, n, title, body, state, labels, milestone, assignees).await {
+            let Changes { title, body, state, labels, milestone, assignees, state_reason, duplicate_issue_id } = to_send;
+            match client.update_issue(owner, repo, n, title, body, state, labels, milestone, assignees, state_reason, duplicate_issue_id).await {
                 Ok(json) => Outcome::Done(Done { issue: Some(parse(&json)), conflicts, notify: Some(*number), ..Default::default() }),
                 Err(e) => classify(e),
             }
@@ -486,6 +497,23 @@ mod tests {
         let (send, conflicts) = decide(5, &remote, &changes, Some(&base));
         assert!(conflicts.is_empty());
         assert_eq!(send.body.as_deref(), Some("目的: 発表\nメモ: 金曜まで"));
+    }
+
+    #[test]
+    fn the_close_reason_is_sent_with_the_state() {
+        let issue = |state: &str| json!({ "title": "t", "state": state, "body": "", "labels": [], "assignees": [] });
+        let base = Changes { state: Some("open".into()), ..Default::default() };
+        let changes = Changes {
+            state: Some("closed".into()),
+            state_reason: Some("duplicate".into()),
+            duplicate_issue_id: Some(99),
+            ..Default::default()
+        };
+        let (send, _) = decide(5, &issue("open"), &changes, Some(&base));
+        assert_eq!((send.state.as_deref(), send.state_reason.as_deref(), send.duplicate_issue_id), (Some("closed"), Some("duplicate"), Some(99)));
+        // GitHub の側がもう閉じていれば、理由だけを送ることはしない
+        let (send, _) = decide(5, &issue("closed"), &changes, Some(&base));
+        assert!(send.is_empty());
     }
 
     #[test]

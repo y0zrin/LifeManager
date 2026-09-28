@@ -190,6 +190,11 @@ function App() {
     setSelectedIssue(n);
   }, []);
   const subIssueApi = { list: gh.listSubIssues, create: gh.createSubIssue, add: gh.addSubIssue, remove: gh.removeSubIssue };
+  // Issue の変更の履歴から開いたコミット（手元にまだないこともあるので、GitHub から読む）
+  const [timelineCommit, setTimelineCommit] = useState<GitCommit | null>(null);
+  const showTimelineCommit = useCallback((hash: string, actor: string, date: string) => {
+    setTimelineCommit({ hash, parents: [], author: actor, date, subject: "" });
+  }, []);
   const [initializing, setInitializing] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -734,6 +739,9 @@ function App() {
           onClose={closeCommitDetail}
         />
       )}
+      {timelineCommit && gh.owner && (
+        <CommitDetail source={{ owner: gh.owner, repo: gh.repo }} commit={timelineCommit} onClose={() => setTimelineCommit(null)} />
+      )}
       {showConflicts && offline.status.conflicts.length > 0 && (
         <ConflictDialog
           conflicts={offline.status.conflicts}
@@ -810,6 +818,8 @@ function App() {
             allIssues={[...gh.issues, ...gh.closedIssues]}
             onOpenIssue={openIssue}
             subIssueApi={subIssueApi}
+            listTimeline={gh.listTimeline}
+            onShowCommit={showTimelineCommit}
           />
         ) : null;
       })()}

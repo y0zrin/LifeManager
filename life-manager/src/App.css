@@ -75,11 +75,13 @@
 
   /* Layout */
   --header-height: 48px;
+  /* サイドバーを上・下の横の帯にしたときの高さと、高さいっぱいの画面から引く分（帯を出しているときだけ） */
+  --hbar-height: 48px;
+  --hbar-offset: 0px;
   --bottom-nav-height: 0px;
   --content-max-width: 800px;
   --modal-max-width: 700px;
   --sidebar-width: 200px;
-  --sidebar-width-collapsed: 56px;
 
   /* Motion（画面遷移には基本的にイージングを入れる） */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -182,10 +184,6 @@ body {
   transition: width var(--dur-base) var(--ease-standard);
 }
 
-.sidebar.collapsed {
-  width: var(--sidebar-width-collapsed);
-}
-
 .sidebar-top {
   display: flex;
   flex-direction: column;
@@ -269,25 +267,6 @@ body {
   color: var(--text-muted);
 }
 
-/* たたんだとき: アイコンだけ。グループ名は区切り線にする */
-.sidebar.collapsed .sidebar-top,
-.sidebar.collapsed .sidebar-label {
-  display: none;
-}
-
-.sidebar.collapsed .sidebar-group {
-  height: 0;
-  margin: var(--space-sm);
-  padding: 0;
-  border-top: 1px solid var(--border-default);
-  font-size: 0;
-}
-
-.sidebar.collapsed .sidebar-item {
-  justify-content: center;
-  padding: 8px 0;
-}
-
 /* これから作る画面（押せない） */
 .sidebar-item.planned,
 .sidebar-item.planned:hover {
@@ -305,11 +284,7 @@ body {
   line-height: 16px;
 }
 
-.sidebar.collapsed .sidebar-item.planned {
-  display: none;
-}
-
-/* 作業中の変更の数（たたんでいるときは点だけ） */
+/* 作業中の変更の数 */
 .sidebar-count {
   margin-left: auto;
   padding: 0 6px;
@@ -321,26 +296,209 @@ body {
   line-height: 17px;
 }
 
-.sidebar.collapsed .sidebar-item {
-  position: relative;
-}
-
-.sidebar.collapsed .sidebar-count {
-  position: absolute;
-  top: 5px;
-  right: 10px;
-  width: 7px;
-  height: 7px;
-  padding: 0;
-  background: var(--accent-yellow);
-  font-size: 0;
-}
-
 .app-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* --- サイドバーを置く場所（左・右・上・下）と、たたんだとき --- */
+
+/* 右: 本体の右に置く */
+.app-shell.sb-right {
+  flex-direction: row-reverse;
+}
+
+.sb-right .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border-default);
+}
+
+/* 上・下: 横に並んだ帯にする（グループ名は細い区切り線にする） */
+.app-shell.sb-top {
+  flex-direction: column;
+}
+
+.app-shell.sb-bottom {
+  flex-direction: column-reverse;
+}
+
+.sb-top:not(.sb-hidden),
+.sb-bottom:not(.sb-hidden) {
+  --hbar-offset: var(--hbar-height);
+}
+
+.sb-top .sidebar,
+.sb-bottom .sidebar {
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: var(--hbar-height);
+  border-right: none;
+}
+
+.sb-top .sidebar {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.sb-bottom .sidebar {
+  top: auto;
+  bottom: 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.sb-top .sidebar-top,
+.sb-bottom .sidebar-top {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-md);
+  border-bottom: none;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.sb-top .sidebar-top .project-select,
+.sb-bottom .sidebar-top .project-select {
+  width: auto;
+  max-width: 180px;
+}
+
+/* 横の帯では、アプリの名前は出さない（ウィンドウの題にある） */
+.sb-top .sidebar-title,
+.sb-bottom .sidebar-title {
+  display: none;
+}
+
+.sb-top .sidebar-nav,
+.sb-bottom .sidebar-nav {
+  min-width: 0;
+  flex-direction: row;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 var(--space-xs);
+}
+
+.sb-top .sidebar-group,
+.sb-bottom .sidebar-group {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-xs);
+  padding: 0;
+  overflow: hidden;
+  background: var(--border-default);
+  font-size: 0;
+}
+
+.sb-top .sidebar-item,
+.sb-bottom .sidebar-item {
+  flex: none;
+  width: auto;
+}
+
+/* 横の帯では、これから作る画面は出さない（場所を取るので） */
+.sb-top .sidebar-item.planned,
+.sb-bottom .sidebar-item.planned {
+  display: none;
+}
+
+.sb-top .sidebar-bottom,
+.sb-bottom .sidebar-bottom {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  height: 100%;
+  border-top: none;
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* 横の帯が入りきらない幅では、選んでいる画面のほかは絵だけにする（名前はマウスを乗せると出る） */
+@media (max-width: 1180px) {
+  .sb-top .sidebar-nav .sidebar-item:not(.active) .sidebar-label,
+  .sb-bottom .sidebar-nav .sidebar-item:not(.active) .sidebar-label {
+    display: none;
+  }
+}
+
+/* 上の帯を出しているときは、画面の上のバーを帯のすぐ下に貼りつける */
+.sb-top:not(.sb-hidden) .topbar {
+  top: var(--hbar-height);
+}
+
+/* たたんだとき: サイドバーは隠し、画面の端にマウスを寄せると、本体の上に重ねて出す */
+.sb-hidden .sidebar {
+  position: fixed;
+  z-index: 60;
+  box-shadow: var(--shadow-popover);
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+.sb-hidden.sb-left .sidebar {
+  top: 0;
+  left: 0;
+  transform: translateX(-100%);
+}
+
+.sb-hidden.sb-right .sidebar {
+  top: 0;
+  right: 0;
+  transform: translateX(100%);
+}
+
+.sb-hidden.sb-top .sidebar {
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(-100%);
+}
+
+.sb-hidden.sb-bottom .sidebar {
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(100%);
+}
+
+.sb-hidden .sidebar.peek {
+  transform: none;
+}
+
+/* 出すきっかけになる、画面の端の細い帯（見えない） */
+.sidebar-hotzone {
+  position: fixed;
+  z-index: 59;
+}
+
+.sb-left .sidebar-hotzone {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+}
+
+.sb-right .sidebar-hotzone {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+}
+
+.sb-top .sidebar-hotzone {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.sb-bottom .sidebar-hotzone {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
 }
 
 .topbar {
@@ -959,7 +1117,7 @@ button:hover {
   gap: var(--space-sm);
   padding: var(--space-md);
   overflow-x: auto;
-  height: calc(100vh - var(--header-height));
+  height: calc(100vh - var(--header-height) - var(--hbar-offset));
 }
 
 .kanban-column {
@@ -3451,7 +3609,7 @@ button:hover {
 
 /* 画面の高さいっぱいに広げ、左（ファイル・コミット欄）と右（差分）をそれぞれスクロールする */
 .wview {
-  height: calc(100vh - var(--header-height));
+  height: calc(100vh - var(--header-height) - var(--hbar-offset));
   display: flex;
   flex-direction: column;
 }
@@ -4128,7 +4286,7 @@ button:hover {
 }
 
 .repo-screen {
-  height: calc(100vh - var(--header-height));
+  height: calc(100vh - var(--header-height) - var(--hbar-offset));
   display: flex;
   flex-direction: column;
 }
@@ -5036,6 +5194,22 @@ button.lh:hover {
   stroke: var(--accent-blue);
 }
 
+/* サイドバーの位置: 2 つずつ並べる（左・右 / 上・下） */
+.display-opts.pos-opts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pv-win {
+  fill: var(--bg-primary);
+  stroke: var(--border-default);
+  stroke-width: 1.5;
+}
+
+.pv-bar {
+  fill: var(--accent-blue);
+}
+
 /* --- Bottom Navigation (mobile) --- */
 
 .bottom-nav {
@@ -5068,8 +5242,17 @@ button.lh:hover {
   }
 
   .sidebar,
-  .topbar {
+  .topbar,
+  .sidebar-hotzone {
     display: none;
+  }
+
+  .app-shell.sb-left,
+  .app-shell.sb-right,
+  .app-shell.sb-top,
+  .app-shell.sb-bottom {
+    flex-direction: column;
+    --hbar-offset: 0px;
   }
 
   .mobile-header {

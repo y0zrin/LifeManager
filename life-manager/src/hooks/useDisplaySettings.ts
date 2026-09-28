@@ -3,14 +3,20 @@ import { useCallback, useState } from "react";
 /** 全体図でのブランチの見せ方。線 = ブランチごとに 1 本、ラベル = Sourcetree と同じくコミットの横に名前を付ける */
 export type BranchStyle = "label" | "line";
 
+/** サイドバーを置く場所（上・下は横に並んだ帯になる） */
+export type SidebarPosition = "left" | "right" | "top" | "bottom";
+
+export const SIDEBAR_POSITIONS: SidebarPosition[] = ["left", "right", "top", "bottom"];
+
 export interface DisplaySettings {
   /** 学習の補助: ステージ・コミット・退避などの意味と、対応する git コマンドを画面に添える */
   hints: boolean;
   branchStyle: BranchStyle;
+  sidebarPosition: SidebarPosition;
 }
 
 const STORAGE_KEY = "display-settings";
-const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label" };
+const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label", sidebarPosition: "left" };
 
 function load(): DisplaySettings {
   try {
@@ -18,6 +24,7 @@ function load(): DisplaySettings {
     return {
       hints: typeof saved.hints === "boolean" ? saved.hints : DEFAULTS.hints,
       branchStyle: saved.branchStyle === "line" ? "line" : DEFAULTS.branchStyle,
+      sidebarPosition: SIDEBAR_POSITIONS.includes(saved.sidebarPosition) ? saved.sidebarPosition : DEFAULTS.sidebarPosition,
     };
   } catch {
     return DEFAULTS;

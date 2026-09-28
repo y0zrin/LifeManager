@@ -71,6 +71,8 @@ const ALL_NAV_ITEMS: NavItem[] = [WORK_ITEM, ...TASK_ITEMS, ...REPO_ITEMS, SETTI
 const MOBILE_NAV_ITEMS: NavItem[] = [...TASK_ITEMS, SETTINGS_ITEM];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
+// たたむボタンの矢印（サイドバーのある端へ向ける）
+const HIDE_ARROW = { left: "◀", right: "▶", top: "▲", bottom: "▼" } as const;
 // 「次からは起動時に表示しない」を選んだか（使う準備のダイアログ）
 const SETUP_DONT_SHOW_KEY = "setup-dont-show";
 
@@ -153,6 +155,17 @@ function App() {
       return false;
     }
   });
+  // たたんだサイドバーを、画面の端にマウスを寄せたときだけ出す
+  const [sidebarPeek, setSidebarPeek] = useState(false);
+  const peekTimer = useRef(0);
+  const showSidebar = useCallback(() => {
+    window.clearTimeout(peekTimer.current);
+    setSidebarPeek(true);
+  }, []);
+  const hideSidebarSoon = useCallback(() => {
+    window.clearTimeout(peekTimer.current);
+    peekTimer.current = window.setTimeout(() => setSidebarPeek(false), 350);
+  }, []);
   const [showPalette, setShowPalette] = useState(false);
   const [filters, setFilters] = useState<LabelFilters>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
@@ -261,6 +274,11 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setShowPalette((prev) => !prev);
+      }
+      // Ctrl+B でサイドバーをたたむ・固定する
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        toggleSidebar();
       }
       if (isEscape(e)) {
         setShowPalette(false);
@@ -381,6 +399,7 @@ function App() {
   }
 
   function toggleSidebar() {
+    setSidebarPeek(false);
     setSidebarCollapsed((prev) => {
       const next = !prev;
       try {
@@ -399,7 +418,10 @@ function App() {
       <button
         key={item.key}
         className={`sidebar-item ${view === item.key ? "active" : ""}`}
-        onClick={() => setView(item.key)}
+        onClick={() => {
+          setView(item.key);
+          setSidebarPeek(false);
+        }}
         title={count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
       >
         <span className="sidebar-icon">{item.icon}</span>
@@ -444,9 +466,25 @@ function App() {
   }
 
   const shell = (
-    <main className={`app app-shell${display.settings.hints ? "" : " hints-off"}`}>
-      {/* サイドバー（PC） */}
-      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+    <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""}${display.settings.hints ? "" : " hints-off"}`}>
+      {/* たたんだサイドバーは、画面の端にマウスを寄せると出てくる */}
+      {sidebarCollapsed && (
+        <div className="sidebar-hotzone" aria-hidden="true" onMouseEnter={showSidebar} onMouseLeave={hideSidebarSoon} />
+      )}
+      {/* サイドバー（PC。置く場所は 設定 → 表示 で左右上下から選べる） */}
+      <aside
+        className={`sidebar${sidebarCollapsed && sidebarPeek ? " peek" : ""}`}
+        onMouseEnter={sidebarCollapsed ? showSidebar : undefined}
+        onMouseLeave={sidebarCollapsed ? hideSidebarSoon : undefined}
+        onFocus={sidebarCollapsed ? showSidebar : undefined}
+        onBlur={
+          sidebarCollapsed
+            ? (e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hideSidebarSoon();
+              }
+            : undefined
+        }
+      >
         <div className="sidebar-top">
           <div className="sidebar-title">Life Manager</div>
           {projectSelect}
@@ -470,10 +508,10 @@ function App() {
           <button
             className="sidebar-item sidebar-toggle"
             onClick={toggleSidebar}
-            title={sidebarCollapsed ? "サイドバーをひらく" : "サイドバーをたたむ"}
+            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）。たたむと、画面の端にマウスを寄せたときだけ出てきます"}
           >
-            <span className="sidebar-icon">{sidebarCollapsed ? "»" : "«"}</span>
-            <span className="sidebar-label">たたむ</span>
+            <span className="sidebar-icon">{sidebarCollapsed ? "📌" : HIDE_ARROW[display.settings.sidebarPosition]}</span>
+            <span className="sidebar-label">{sidebarCollapsed ? "固定する" : "たたむ"}</span>
           </button>
         </div>
       </aside>

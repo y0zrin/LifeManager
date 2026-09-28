@@ -5,7 +5,7 @@ import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { isMobile } from "../../lib/platform";
-import type { DisplaySettings } from "../../hooks/useDisplaySettings";
+import type { DisplaySettings, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { LabelBadge } from "../common/LabelBadge";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { AddProjectDialog } from "../common/AddProjectDialog";
@@ -64,6 +64,14 @@ const PANES: { key: SettingsPane; label: string }[] = [
   { key: "notifications", label: "通知" },
   { key: "display", label: "表示" },
   { key: "other", label: "その他" },
+];
+
+// サイドバーの位置の選択肢。bar は見本の絵で、帯を描く場所
+const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: string; bar: { x: number; y: number; width: number; height: number } }[] = [
+  { value: "left", label: "左", note: "はじめはこれ", bar: { x: 5, y: 5, width: 9, height: 24 } },
+  { value: "right", label: "右", note: "", bar: { x: 32, y: 5, width: 9, height: 24 } },
+  { value: "top", label: "上", note: "横に並んだ帯になります", bar: { x: 5, y: 5, width: 36, height: 7 } },
+  { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
 export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
@@ -793,6 +801,29 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>サイドバーの位置</h3>
+        <div className="display-opts pos-opts">
+          {SIDEBAR_POSITION_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="sidebar-position" checked={displaySettings.sidebarPosition === opt.value}
+                onChange={() => onChangeDisplaySettings({ sidebarPosition: opt.value })} />
+              <svg className="display-preview" width="46" height="34" aria-hidden="true">
+                <rect x="2" y="2" width="42" height="30" rx="4" className="pv-win" />
+                <rect {...opt.bar} rx="1.5" className="pv-bar" />
+              </svg>
+              <span>
+                <b>{opt.label}</b>
+                {opt.note && <small>{opt.note}</small>}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          サイドバーの「たたむ」（Ctrl+B）で隠すと、その端にマウスを寄せたときだけ出てきます。
+        </p>
       </div>
 
       </>}

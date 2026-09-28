@@ -11,6 +11,7 @@ import { LabelBadge } from "../common/LabelBadge";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { AddProjectDialog } from "../common/AddProjectDialog";
 import { TokenSettings } from "../common/TokenSettings";
+import { TeamPane } from "../common/TeamPane";
 
 interface SettingsViewProps {
   labels: GitHubLabel[];
@@ -48,6 +49,8 @@ interface SettingsViewProps {
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
   /** GitHub にログインしている人（手元のフォルダを GitHub に上げるときの、持ち主の候補） */
   login: string;
+  /** 開いたときに出すペイン（セットアップのあと「メンバーを招待する」で チーム を開く） */
+  initialPane?: SettingsPane;
 }
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -61,9 +64,10 @@ const notifyTypes: Record<string, string> = {
   custom: "カスタムメッセージ",
 };
 
-type SettingsPane = "connection" | "labels" | "notifications" | "display" | "other";
+export type SettingsPane = "connection" | "team" | "labels" | "notifications" | "display" | "other";
 const PANES: { key: SettingsPane; label: string }[] = [
   { key: "connection", label: "接続" },
+  { key: "team", label: "チーム" },
   { key: "labels", label: "ラベル" },
   { key: "notifications", label: "通知" },
   { key: "display", label: "表示" },
@@ -78,8 +82,8 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
-  const [activePane, setActivePane] = useState<SettingsPane>("connection");
+export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
+  const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
   const [appVersion, setAppVersion] = useState("");
   const [ownerInput, setOwnerInput] = useState(owner);
   const [repoInput, setRepoInput] = useState(repo);
@@ -248,6 +252,9 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
           </button>
         ))}
       </div>
+
+      {/* === チームペイン（招待・メンバー） === */}
+      {activePane === "team" && <TeamPane owner={owner} repo={repo} login={login} />}
 
       {/* === 接続ペイン === */}
       {activePane === "connection" && <>

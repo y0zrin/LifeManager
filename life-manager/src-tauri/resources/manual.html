@@ -498,26 +498,47 @@
   <h2>初期セットアップ</h2>
   <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。<b>トークンを自分で作る必要はありません。</b></p>
 
-  <h3>ステップ 1: GitHub にログイン</h3>
+  <h3>ステップ 1: GitHub のアカウント</h3>
+  <p>「アカウントを持っている」と「持っていない」の 2 つが並びます。</p>
   <ol>
-    <li><span class="ui">GitHub でログイン</span> を押すと、ブラウザで GitHub が開き、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出ます。</li>
-    <li>ブラウザでコードを入れて <span class="ui">Continue</span> → <span class="ui">Authorize</span> を押します（GitHub にログインしていなければ、先にログインします）。</li>
+    <li><b>持っている</b>: <span class="ui">GitHub でログイン</span> を押すと、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出て、<b>コピーされた状態で</b>ブラウザに GitHub が開きます。</li>
+    <li>ブラウザで貼り付け（<kbd>Ctrl</kbd>+<kbd>V</kbd>）、<span class="ui">Continue</span> → <span class="ui">Authorize</span> を押します（GitHub にログインしていなければ、先にログインします）。</li>
     <li>アプリに戻ると「○○ としてログインしています」と出て、次に進みます。</li>
+  </ol>
+  <h4>アカウントを持っていないとき</h4>
+  <p>「持っていない」の欄に、用意するものが出ています。先に用意しておくと、登録の途中で止まりません。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>用意するもの</th><th>決まり</th></tr>
+    <tr><td>メールアドレス</td><td>今すぐ受け取れるもの。登録の途中で、数字のコードが届きます</td></tr>
+    <tr><td>パスワード</td><td>15 文字以上か、8 文字以上で数字と英小文字を入れる</td></tr>
+    <tr><td>ユーザー名</td><td>英数字とハイフン。チームに伝える名前で、公開されます（あとで変えられます）</td></tr>
+  </table>
+  </div>
+  <ol>
+    <li><span class="ui">GitHub で作る</span> を押すと、ブラウザで GitHub の登録のページが開きます。</li>
+    <li>メール・パスワード・ユーザー名を入れて <span class="ui">Continue</span>。人の確認（パズル）をして、メールに届いたコードを入れると登録できます。使い方などの質問が出たら、飛ばして（Skip）かまいません。</li>
+    <li>アプリに戻って <span class="ui">作れた・ログインへ</span> を押します。コードをコピーしてログインのページを開くので、貼って <span class="ui">Continue</span> → <span class="ui">Authorize</span> を押すだけです（登録したばかりなので、GitHub にはもう入っています）。</li>
   </ol>
   <div class="box hint">
     <span class="label">ログインで許可すること</span>
     <p>Life Manager が、あなたの代わりに、あなたが入っているリポジトリの Issue とファイル（設定・日誌）を読み書きできるようになります。パスワードはアプリに渡りません。やめたいときは、GitHub の Settings → Applications → Authorized OAuth Apps から取り消せます。</p>
   </div>
 
-  <h3>ステップ 2: 使うリポジトリを選ぶ</h3>
-  <p>自分が使えるリポジトリ（自分のもの・招待されたもの・入っている組織のもの）が、新しく使った順に出ます。選ぶと、使えるかをその場で確かめます。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。</p>
+  <h3>ステップ 2: チームに入る・選ぶ</h3>
+  <p>自分が使えるリポジトリ（自分のもの・招待されたもの・入っている組織のもの）が、新しく使った順に出ます。選ぶと、使えるかをその場で確かめます。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。<span class="ui">読み直す</span> で一覧を読み直します。</p>
+  <ul>
+    <li><b>届いている招待</b>: リポジトリへの招待が届いていると、上に出ます。<span class="ui">参加する</span> を押すと、メールを開かずに参加でき、そのリポジトリが選ばれます。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。</li>
+    <li><b>チームで使う（まだ招待が来ていない）</b>: <span class="ui">名前をコピー</span> で自分の GitHub の名前をコピーして、リーダーに伝えます。招待が届くと、30 秒ほどで自動で出てきます。</li>
+    <li><b>1 人で使う</b>: <span class="ui">自分用のリポジトリを作る</span> で、名前を決めて作れます（はじめは非公開）。</li>
+  </ul>
   <div class="box warn">
     <span class="label">チームのリポジトリが出てこない・「組織の許可がまだです」と出る</span>
     <p>組織（Organization）のリポジトリは、組織の管理者が一度だけ Life Manager を許可すると使えるようになります。<span class="ui">組織に許可をお願いする</span> を押すと GitHub が開くので、組織の横の <span class="ui">Request</span>（管理者なら <span class="ui">Grant</span>）を押します（「<a href="#team">チームで使う</a>」）。招待をまだ受けていない（メールの「Accept invitation」を押していない）ときも出てきません。</p>
   </div>
 
   <h3>ステップ 3: できあがり</h3>
-  <p><span class="ui">はじめる</span> を押すと、タスクの画面になります。PC では続けて、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。</p>
+  <p><span class="ui">はじめる</span> を押すと、タスクの画面になります。PC では続けて、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。リーダーは <span class="ui">はじめて、メンバーを招待する</span> を押すと、設定 → チーム が開きます（「<a href="#team">チームで使う</a>」）。</p>
   <div class="box hint">
     <span class="label">ヒント</span>
     <p>接続したら、設定 → ラベル の <span class="ui">ラベル一括作成</span> を一度押しておくと、Life Manager で使うラベル（種別・分野・状態・優先）がリポジトリに作られます。</p>
@@ -1309,7 +1330,7 @@ labels: ["種別:バグ", "状態:未整理"]
 <!-- ============================================================ -->
 <section id="settings">
   <h2>設定</h2>
-  <p>設定は、上のタブで「接続」「ラベル」「通知」「表示」「その他」に分かれています。</p>
+  <p>設定は、上のタブで「接続」「チーム」「ラベル」「通知」「表示」「その他」に分かれています。</p>
   <h3>接続</h3>
   <ul>
     <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
@@ -1323,6 +1344,14 @@ labels: ["種別:バグ", "状態:未整理"]
     <li><b>リポジトリ設定</b>: 使うリポジトリ（オーナー名 / リポジトリ名）を変えます。</li>
     <li><b>作業フォルダ（この PC）</b>: git で操作するフォルダを決めます。Git のインストールや、使う準備の確認もここから（「<a href="#prepare">使う準備</a>」）。</li>
     <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとのトークンは、上の「GitHub トークン」で決めます。<span class="ui">＋ 追加</span> では、URL を貼って登録・クローンしたり、手元のフォルダを GitHub に上げたりできます（「<a href="#prepare">使う準備</a>」）。</li>
+  </ul>
+  <h3>チーム</h3>
+  <ul>
+    <li><b>あなた宛ての招待</b>: 届いているリポジトリへの招待に <span class="ui">参加する</span>・<span class="ui">断る</span>。組織への招待は <span class="ui">GitHub で参加</span>。</li>
+    <li><b>招待する</b>（今のリポジトリの管理者だけ）: メンバーから届いた GitHub の名前を、改行・カンマ・空白で区切って何人でも貼り、<span class="ui">招待を送る</span>。1 人ずつ「招待しました」「もうこのリポジトリを使えます」「その名前の人は GitHub にいません」などの結果が出ます。うまくいかなかった名前は欄に残るので、直して送り直せます。組織のリポジトリでは権限（書き込み・運営・整理・読むだけ・管理）を選べます。</li>
+    <li><b>送った招待</b>（管理者だけ）: まだ受けていない招待。<span class="ui">リンクをコピー</span>（招待を受けるページの URL。チャットで送る用）・<span class="ui">取り消す</span>。招待は 7 日で切れ、切れたものは <span class="ui">送り直す</span>。</li>
+    <li><b>メンバー</b>: このリポジトリを使える人と権限。外すのは、間違えないよう GitHub の画面（リポジトリの Settings → Collaborators）で行います。</li>
+    <li>管理者でないときは、リーダーに伝える自分の名前（<span class="ui">コピー</span>）が出ます。</li>
   </ul>
   <h3>ラベル</h3>
   <p>ラベルの一括作成・作成・編集・削除ができます。</p>
@@ -1352,11 +1381,17 @@ labels: ["種別:バグ", "状態:未整理"]
     <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
     <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリ（または組織）に招待することだけです。</p>
   </div>
+  <h3>リーダー: メンバーを招待する</h3>
+  <ol>
+    <li>メンバーに、GitHub の名前を送ってもらいます（メンバーはセットアップの <span class="ui">名前をコピー</span> で送れます）。</li>
+    <li>設定 → チーム の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
+    <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
+  </ol>
   <h3>メンバーとして参加する</h3>
   <ol>
-    <li>GitHub のアカウントを作ります（まだないとき）。</li>
-    <li>リポジトリへの招待を受けます。メールの「View invitation」→「Accept invitation」、または教えてもらった招待の URL を開いて「Accept invitation」を押します。<br>リポジトリのページ（<code>https://github.com/オーナー名/リポジトリ名</code>）が見られれば参加できています。</li>
-    <li>Life Manager で <span class="ui">GitHub でログイン</span> し、使うリポジトリを一覧から選びます（「<a href="#setup">初期セットアップ</a>」）。</li>
+    <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
+    <li>ログインしたら、<span class="ui">名前をコピー</span> で GitHub の名前をリーダーに送ります。</li>
+    <li>招待が届くと、セットアップ（または 設定 → チーム）に出るので、<span class="ui">参加する</span> を押します。メールの「View invitation」→「Accept invitation」から参加しても同じです。</li>
     <li>組織のリポジトリで「組織の許可がまだです」と出たら、<span class="ui">組織に許可をお願いする</span> を押し、管理者に許可してもらいます（最初の一度だけ）。</li>
   </ol>
   <h3>Organization を使う（おすすめ）</h3>
@@ -1367,7 +1402,7 @@ labels: ["種別:バグ", "状態:未整理"]
     <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
     <li><b>Life Manager を許可します（一度だけ）。</b>新しい Organization は、外部のアプリが非公開のリポジトリを使うのに、管理者の許可がいる設定になっています。メンバーから届いたお願い（メール）から許可するか、Organization の Settings → Third-party Access → OAuth app policy で Life Manager を許可します。</li>
   </ol>
-  <p>個人のリポジトリで使うときは、Settings → Collaborators → Add people でメンバーを招待し、Write 以上の役割を付けます（組織の許可はいりません）。</p>
+  <p>個人のリポジトリで使うときは、設定 → チーム から招待します（GitHub の Settings → Collaborators → Add people でも同じです。組織の許可はいりません）。</p>
   <h3>トークンで使うときの注意</h3>
   <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは <span class="ui">GitHub でログイン</span> を使うか、Organization に移します。トークンは、プロジェクト専用のトークン → いつものトークン の順に使われます。</p>
   <h3>git の作業をチームで行うときの流れ（例）</h3>

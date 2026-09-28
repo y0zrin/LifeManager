@@ -7,15 +7,17 @@ interface GitHubLoginProps {
   onDone: () => void;
   /** ボタンの文字（「GitHub でログイン」「ログインし直す」など） */
   label?: string;
+  /** すぐに始める（アカウントを作ったあとの「作れた・ログインへ」で、もう一度押さなくてよいように） */
+  autoStart?: boolean;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * 「GitHub でログイン」（デバイスフロー）。ブラウザで GitHub が開くので、画面のコードを入れて「Authorize」を押す。
- * 許可されるまで、GitHub に数秒ごとに確かめに行く
+ * 「GitHub でログイン」（デバイスフロー）。コードをコピーしてからブラウザで GitHub を開くので、
+ * 貼って「Continue」→「Authorize」を押すだけ。許可されるまで、GitHub に数秒ごとに確かめに行く
  */
-export function GitHubLogin({ onDone, label = "GitHub でログイン" }: GitHubLoginProps) {
+export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStart = false }: GitHubLoginProps) {
   const [code, setCode] = useState<DeviceCode | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -38,6 +40,12 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン" }: GitHub
       const dc = await authStart();
       if (!alive.current || mine !== attempt.current) return;
       setCode(dc);
+      // 貼るだけで済むよう、ブラウザを開く前にコードをコピーしておく
+      setCopied(false);
+      await navigator.clipboard
+        .writeText(dc.user_code)
+        .then(() => setCopied(true))
+        .catch(() => {});
       openUrl(dc.verification_uri).catch(() => {});
       let interval = Math.max(dc.interval, 5);
       const deadline = Date.now() + dc.expires_in * 1000;
@@ -87,20 +95,30 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン" }: GitHub
     try {
       await navigator.clipboard.writeText(code.user_code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
     } catch {
       // コピーできなくても、コードは画面に出ている
     }
   }
 
+  // 「作れた・ログインへ」: 出したらすぐに始める（開発中の二重の呼び出しでも、1 回だけ）
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return;
+    autoStarted.current = true;
+    start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
+
   if (code) {
     return (
       <div className="gh-login">
-        <p className="gh-login-lead">ブラウザで GitHub が開きました。次のコードを入れて「Continue」→「Authorize」を押してください。</p>
+        <p className="gh-login-lead">
+          ブラウザで GitHub が開きました。{copied ? "コードはコピーしてあるので、貼って（Ctrl+V）" : "次のコードを入れて"}「Continue」→「Authorize」を押してください。
+        </p>
         <div className="gh-login-code">
           <b>{code.user_code}</b>
           <button type="button" className="btn-sm" onClick={copy}>
-            {copied ? "コピーしました" : "コピー"}
+            {copied ? "✔ コピーしてあります（もう一度）" : "コピー"}
           </button>
         </div>
         <p className="gh-login-wait">

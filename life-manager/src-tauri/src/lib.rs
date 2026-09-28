@@ -384,6 +384,129 @@ async fn list_user_repos(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -
     client.list_user_repos().await
 }
 
+// --- チーム（招待・メンバー）。最初のセットアップの「チームに入る」と、設定 → チーム ---
+
+fn parse_json(text: &str) -> Result<serde_json::Value, String> {
+    serde_json::from_str(text).map_err(|e| e.to_string())
+}
+
+/// 自分宛ての招待。{"repos": [リポジトリへの招待], "orgs": [組織への招待]}
+#[tauri::command]
+async fn list_my_invitations(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    let repos = parse_json(&client.list_my_repo_invitations().await?)?;
+    // 組織の招待を読むには read:org が要る。トークンで入った人は読めないことがあるので、そのときは無しとする
+    let orgs = match client.list_my_org_invitations().await {
+        Ok(text) => parse_json(&text).unwrap_or_else(|_| serde_json::json!([])),
+        Err(_) => serde_json::json!([]),
+    };
+    Ok(serde_json::json!({ "repos": repos, "orgs": orgs }).to_string())
+}
+
+/// リポジトリへの招待を受ける（accept = true）・断る
+#[tauri::command]
+async fn answer_invitation(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, id: u64, accept: bool) -> Result<(), String> {
+    let client = current_client(&state).await?;
+    client.answer_repo_invitation(id, accept).await
+}
+
+/// 自分用のリポジトリを作る（作ったリポジトリを返す）
+#[tauri::command]
+async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, name: String, private: bool) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("リポジトリの名前を入れてください".into());
+    }
+    let client = current_client(&state).await?;
+    client.create_user_repo(name, private).await.map_err(|e| {
+        if e.contains("already exists") {
+            format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
+        } else {
+            e
+        }
+    })
+}
+
+/// 設定 → チーム に出すもの。自分の権限（管理者・書き込み）、組織のリポジトリか、メンバー、送った招待（管理者だけ）
+#[tauri::command]
+async fn team_overview(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, owner: String, repo: String) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    let info = parse_json(&client.get_repo(&owner, &repo).await?)?;
+    let admin = info["permissions"]["admin"].as_bool().unwrap_or(false);
+    let push = info["permissions"]["push"].as_bool().unwrap_or(false);
+    let organization = info["owner"]["type"].as_str() == Some("Organization");
+    let members = if push { parse_json(&client.list_collaborators(&owner, &repo).await?)? } else { serde_json::json!([]) };
+    let invitations = if admin { parse_json(&client.list_repo_invitations(&owner, &repo).await?)? } else { serde_json::Value::Null };
+    Ok(serde_json::json!({
+        "admin": admin,
+        "push": push,
+        "organization": organization,
+        "members": members,
+        "invitations": invitations,
+    })
+    .to_string())
+}
+
+/// 招待の結果（画面で 1 人ずつ出す）
+#[derive(Debug, serde::Serialize, PartialEq)]
+struct InviteOutcome {
+    /// invited = 招待した、already = もう使える人、no_user = その名前の人がいない、forbidden = 招待できない、invalid = GitHub が受け付けない、failed = そのほか
+    status: &'static str,
+    message: Option<String>,
+}
+
+/// GitHub の返事（状態と本文）を、招待の結果に直す。user_exists は 404 のときに確かめた結果
+fn invite_outcome(status: u16, body: &str, user_exists: Option<bool>) -> InviteOutcome {
+    let json: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let github_message = json["errors"][0]["message"]
+        .as_str()
+        .or_else(|| json["message"].as_str())
+        .map(|s| s.to_string());
+    let outcome = |status: &'static str, message: Option<String>| InviteOutcome { status, message };
+    match status {
+        201 => outcome("invited", None),
+        204 => outcome("already", None),
+        404 if user_exists == Some(false) => outcome("no_user", None),
+        404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます（リポジトリが見つからないか、管理者の権限がありません）".into())),
+        403 => {
+            let raw = github_message.unwrap_or_default();
+            let message = if raw.to_lowercase().contains("limit") {
+                "招待の数が上限に達しました。時間をおいてから送ってください".to_string()
+            } else if raw.to_lowercase().contains("admin") {
+                "このリポジトリの管理者だけが招待できます".to_string()
+            } else {
+                format!("招待できませんでした（{}）", raw)
+            };
+            outcome("forbidden", Some(message))
+        }
+        422 => outcome("invalid", Some(format!("GitHub が受け付けませんでした（{}）", github_message.unwrap_or_default()))),
+        _ => outcome("failed", Some(format!("HTTP {}: {}", status, github_message.unwrap_or_default()))),
+    }
+}
+
+/// 名前で招待する（1 人ずつ呼ぶ）。permission は組織のリポジトリのときだけ（pull / triage / push / maintain / admin）
+#[tauri::command]
+async fn invite_member(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    username: String,
+    permission: Option<String>,
+) -> Result<InviteOutcome, String> {
+    let client = current_client(&state).await?;
+    let username = username.trim().trim_start_matches('@');
+    let (status, body) = client.invite_collaborator(&owner, &repo, username, permission.as_deref()).await?;
+    let exists = if status == 404 { Some(client.user_exists(username).await?) } else { None };
+    Ok(invite_outcome(status, &body, exists))
+}
+
+/// 送った招待を取り消す
+#[tauri::command]
+async fn cancel_invitation(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, owner: String, repo: String, id: u64) -> Result<(), String> {
+    let client = current_client(&state).await?;
+    client.cancel_repo_invitation(&owner, &repo, id).await
+}
+
 /// 今のトークンの GitHub クライアント。通信のあいだほかの操作を待たせないよう、複製してすぐにロックを離す
 async fn current_client(state: &tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<GitHubClient, String> {
     let guard = state.lock().await;
@@ -1092,6 +1215,12 @@ pub fn run() {
             token_overview,
             clear_project_token,
             list_user_repos,
+            list_my_invitations,
+            answer_invitation,
+            create_my_repo,
+            team_overview,
+            invite_member,
+            cancel_invitation,
             set_repo_config,
             load_repo_config,
             list_projects,
@@ -1199,4 +1328,25 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod team_tests {
+    use super::*;
+
+    #[test]
+    fn invite_results_are_told_apart() {
+        assert_eq!(invite_outcome(201, "{}", None).status, "invited");
+        assert_eq!(invite_outcome(204, "", None).status, "already");
+        // 404 は、その名前の人がいないのか、リポジトリを管理できないのかを確かめてから分ける
+        assert_eq!(invite_outcome(404, r#"{"message":"Not Found"}"#, Some(false)).status, "no_user");
+        assert_eq!(invite_outcome(404, r#"{"message":"Not Found"}"#, Some(true)).status, "forbidden");
+        let limit = invite_outcome(403, r#"{"message":"You have exceeded the invitation rate limit"}"#, None);
+        assert_eq!(limit.status, "forbidden");
+        assert!(limit.message.unwrap().contains("上限"));
+        let invalid = invite_outcome(422, r#"{"message":"Validation Failed","errors":[{"message":"Repository owner cannot be a collaborator"}]}"#, None);
+        assert_eq!(invalid.status, "invalid");
+        assert!(invalid.message.unwrap().contains("Repository owner cannot be a collaborator"));
+        assert_eq!(invite_outcome(500, "oops", None).status, "failed");
+    }
 }

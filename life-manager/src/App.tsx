@@ -17,7 +17,7 @@ import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
 import { MilestoneView } from "./components/views/MilestoneView";
-import { SettingsView } from "./components/views/SettingsView";
+import { SettingsView, type SettingsPane } from "./components/views/SettingsView";
 import { RoutinesView } from "./components/views/RoutinesView";
 import { TimelineView } from "./components/views/TimelineView";
 import { GanttView } from "./components/views/GanttView";
@@ -94,6 +94,11 @@ function App() {
   const localFolders = useLocalFolders();
   const display = useDisplaySettings();
   const [view, setView] = useState<ViewType>("dashboard");
+  // 設定を開いたときに出すペイン（セットアップのあとの「メンバーを招待する」だけ。設定を離れたら元に戻す）
+  const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
+  useEffect(() => {
+    if (view !== "settings") setSettingsPane(null);
+  }, [view]);
   // git の操作は PC だけ。作業・ブランチ・全体図を開いているあいだは、状態をこまめに読み直す
   const folder = isMobile ? undefined : localFolders.folders[`${gh.owner}/${gh.repo}`];
   const repoView = view === "work" || view === "branches" || view === "overview";
@@ -297,11 +302,13 @@ function App() {
 
   // 最初のセットアップ: ログイン（またはトークン）はもう済んでいる。使うリポジトリをプロジェクトにして、つなぐ
   // （トークンはプロジェクト専用には入れない。いつものトークンを使う）
-  async function handleSetupDone(owner: string, repo: string) {
+  async function handleSetupDone(owner: string, repo: string, inviteNext = false) {
     await gh.setRepoConfig(owner, repo);
     await gh.addProject(owner, repo, `${owner}/${repo}`);
     await gh.loadToken();
-    setView("dashboard");
+    // 「はじめて、メンバーを招待する」なら 設定 → チーム を開く
+    if (inviteNext) setSettingsPane("team");
+    setView(inviteNext ? "settings" : "dashboard");
   }
 
   async function handleSwitchProject(projOwner: string, projRepo: string) {
@@ -776,6 +783,7 @@ function App() {
               eventNotifConfig={gh.eventNotifConfig}
               onSaveEventNotifConfig={gh.saveEventNotifConfig}
               login={gh.currentUser}
+              initialPane={settingsPane ?? undefined}
             />
           )}
         </div>

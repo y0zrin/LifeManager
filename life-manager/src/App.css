@@ -1836,7 +1836,7 @@ button:hover {
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  max-width: 560px;
+  max-width: 640px;
   padding: var(--space-xl);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -1988,6 +1988,333 @@ button:hover {
   display: flex;
   justify-content: space-between;
   margin-top: var(--space-sm);
+}
+
+.setup-actions-right {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* ① アカウントを持っている／持っていない（持っていない人は、用意するものを見てから GitHub で作る） */
+.setup-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.setup-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.setup-choice h3 {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.setup-choice ul {
+  flex: 1;
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.setup-choice--new {
+  border-color: var(--accent-blue);
+}
+
+/* スマホ・狭い窓では、2 つのカードを縦に並べる */
+@media (max-width: 639px) {
+  .setup-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.setup-choice .gh-login-button {
+  padding: 10px;
+  font-size: var(--font-lg);
+}
+
+.setup-choice .gh-login-code {
+  flex-wrap: wrap;
+}
+
+.setup-choice .gh-login-code b {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
+.setup-signup {
+  padding: 10px;
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+/* 登録のページを開いたあと（作れた・ログインへ） */
+.setup-signup-wait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.setup-lead {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.setup-tips {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* ② チームに入る（新しいアカウントには、まだリポジトリがない） */
+.setup-join {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.setup-join ul {
+  margin: var(--space-xs) 0;
+  padding-left: 1.2em;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.setup-search {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.setup-search .btn-sm {
+  min-height: 36px;
+}
+
+.setup-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+.setup-create-label {
+  color: var(--text-muted);
+}
+
+.setup-create-owner {
+  color: var(--text-secondary);
+}
+
+.setup-create-name {
+  width: 170px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
+.setup-create-name:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
+/* 自分宛ての招待（セットアップ・設定 → チーム）。メールを開かずに、ここで参加する */
+.invites {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.invite-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  background: var(--accent-blue-bg);
+}
+
+.invite-icon {
+  font-size: 18px;
+}
+
+.invite-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.invite-main b {
+  overflow-wrap: anywhere;
+}
+
+.invite-main small,
+.invite-ask {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 設定 → チーム（招待・送った招待・メンバー） */
+.team-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.team-card {
+  margin-bottom: 0;
+}
+
+.team-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.team-h small,
+.team-note {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 400;
+}
+
+.team-note {
+  margin: 0;
+}
+
+.team-names {
+  width: 100%;
+  min-height: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  resize: vertical;
+}
+
+.team-names:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
+.team-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 6px;
+}
+
+.team-form-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.team-results {
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-sm);
+}
+
+.team-result--ok {
+  color: var(--accent-green-hover);
+}
+
+.team-result--warn {
+  color: var(--accent-yellow);
+}
+
+.team-result--bad {
+  color: var(--accent-red);
+}
+
+.team-cmd {
+  margin-top: var(--space-sm);
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.team-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-sm);
+}
+
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 5px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+}
+
+.team-h + .team-row {
+  border-top: none;
+}
+
+.team-row img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.team-row-main {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.team-row-main small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.team-row-main small.team-expired {
+  color: var(--accent-red);
+}
+
+.team-role {
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  white-space: nowrap;
 }
 
 /* GitHub でログイン（コードを出して、許可を待つ） */

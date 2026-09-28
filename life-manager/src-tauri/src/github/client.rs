@@ -644,6 +644,84 @@ impl GitHubClient {
         return self.get_all_pages(&url).await;
     }
 
+    // --- チーム（招待・メンバー）。最初のセットアップの「チームに入る」と、設定 → チーム ---
+
+    /// 状態と本文をそのまま返す（招待の結果を、状態で見分けるため）。path は /repos/... などの API のパス
+    async fn send_raw(&self, method: reqwest::Method, path: &str, payload: Option<&serde_json::Value>) -> Result<(u16, String), String> {
+        let mut request = self.http.request(method, format!("{}{}", BASE_URL, path)).headers(self.build_headers());
+        if let Some(p) = payload {
+            request = request.json(p);
+        }
+        let response = request.send().await.map_err(network_error)?;
+        let status = response.status().as_u16();
+        let body = response.text().await.map_err(network_error)?;
+        Ok((status, body))
+    }
+
+    /// 自分宛ての、リポジトリへの招待
+    pub async fn list_my_repo_invitations(&self) -> Result<String, String> {
+        self.get_all_pages(&format!("{}/user/repository_invitations?per_page=100", BASE_URL)).await
+    }
+
+    /// 自分宛ての、組織への招待（まだ受けていないもの）。受けるのは GitHub の画面で（アプリには write:org の権限がないため）
+    pub async fn list_my_org_invitations(&self) -> Result<String, String> {
+        self.get_all_pages(&format!("{}/user/memberships/orgs?state=pending&per_page=100", BASE_URL)).await
+    }
+
+    /// リポジトリへの招待を受ける（accept = true）・断る
+    pub async fn answer_repo_invitation(&self, id: u64, accept: bool) -> Result<(), String> {
+        let url = format!("{}/user/repository_invitations/{}", BASE_URL, id);
+        if accept {
+            self.patch_json(&url, &serde_json::json!({})).await?;
+        } else {
+            self.delete(&url).await?;
+        }
+        Ok(())
+    }
+
+    /// 自分のリポジトリを作る（README つき。すぐ clone できるように）
+    pub async fn create_user_repo(&self, name: &str, private: bool) -> Result<String, String> {
+        let payload = serde_json::json!({
+            "name": name,
+            "private": private,
+            "auto_init": true,
+            "description": "Life Manager で使うリポジトリ",
+        });
+        self.post(&format!("{}/user/repos", BASE_URL), &payload).await
+    }
+
+    /// リポジトリの情報（自分の権限 permissions と、持ち主が組織か）
+    pub async fn get_repo(&self, owner: &str, repo: &str) -> Result<String, String> {
+        self.get(&format!("{}/repos/{}/{}", BASE_URL, owner, repo)).await
+    }
+
+    /// 送った招待（まだ受けていないもの。管理者だけ読める）
+    pub async fn list_repo_invitations(&self, owner: &str, repo: &str) -> Result<String, String> {
+        self.get_all_pages(&format!("{}/repos/{}/{}/invitations?per_page=100", BASE_URL, owner, repo)).await
+    }
+
+    /// 招待する（201 = 招待した、204 = もう使える人）。permission は組織のリポジトリのときだけ効く
+    pub async fn invite_collaborator(&self, owner: &str, repo: &str, username: &str, permission: Option<&str>) -> Result<(u16, String), String> {
+        let path = format!("/repos/{}/{}/collaborators/{}", owner, repo, urlencoding::encode(username));
+        let payload = match permission {
+            Some(p) => serde_json::json!({ "permission": p }),
+            None => serde_json::json!({}),
+        };
+        self.send_raw(reqwest::Method::PUT, &path, Some(&payload)).await
+    }
+
+    /// その名前の人が GitHub にいるか（招待できなかったとき、理由を見分けるため）
+    pub async fn user_exists(&self, username: &str) -> Result<bool, String> {
+        let (status, _) = self.send_raw(reqwest::Method::GET, &format!("/users/{}", urlencoding::encode(username)), None).await?;
+        Ok(status != 404)
+    }
+
+    /// 送った招待を取り消す
+    pub async fn cancel_repo_invitation(&self, owner: &str, repo: &str, id: u64) -> Result<(), String> {
+        self.delete(&format!("{}/repos/{}/{}/invitations/{}", BASE_URL, owner, repo, id)).await?;
+        Ok(())
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {

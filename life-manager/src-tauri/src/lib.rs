@@ -390,6 +390,18 @@ fn parse_json(text: &str) -> Result<serde_json::Value, String> {
     serde_json::from_str(text).map_err(|e| e.to_string())
 }
 
+/// 自分で作ったトークン（Fine-grained token）に権限がないときの GitHub の言葉を、直し方つきの言葉にする。what は「招待すること」など
+fn token_permission_message(err: &str, what: &str) -> String {
+    if err.contains("not accessible by personal access token") {
+        format!(
+            "今のトークン（自分で作ったトークン）では、{}ができません。「GitHub でログイン」で入り直すか、GitHub のトークンの画面でこのトークンに「Administration」の権限（Read and write）を足してください",
+            what
+        )
+    } else {
+        err.to_string()
+    }
+}
+
 /// 自分宛ての招待。{"repos": [リポジトリへの招待], "orgs": [組織への招待]}
 #[tauri::command]
 async fn list_my_invitations(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
@@ -407,7 +419,11 @@ async fn list_my_invitations(state: tauri::State<'_, Mutex<Option<GitHubClient>>
 #[tauri::command]
 async fn answer_invitation(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, id: u64, accept: bool) -> Result<(), String> {
     let client = current_client(&state).await?;
-    client.answer_repo_invitation(id, accept).await
+    client.answer_repo_invitation(id, accept).await.map_err(|e| {
+        let what = if accept { "招待を受けること" } else { "招待を断ること" };
+        let message = token_permission_message(&e, what);
+        if message != e { format!("{}（メールの「View invitation」からも受けられます）", message) } else { e }
+    })
 }
 
 /// 自分用のリポジトリを作る（作ったリポジトリを返す）
@@ -421,6 +437,8 @@ async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, na
     client.create_user_repo(name, private).await.map_err(|e| {
         if e.contains("already exists") {
             format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
+        } else if e.contains("not accessible by personal access token") {
+            format!("{}（GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです）", token_permission_message(&e, "リポジトリを作ること"))
         } else {
             e
         }
@@ -435,14 +453,31 @@ async fn team_overview(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, own
     let admin = info["permissions"]["admin"].as_bool().unwrap_or(false);
     let push = info["permissions"]["push"].as_bool().unwrap_or(false);
     let organization = info["owner"]["type"].as_str() == Some("Organization");
-    let members = if push { parse_json(&client.list_collaborators(&owner, &repo).await?)? } else { serde_json::json!([]) };
-    let invitations = if admin { parse_json(&client.list_repo_invitations(&owner, &repo).await?)? } else { serde_json::Value::Null };
+    // 読めないものがあっても、読めたものは出す（トークンの権限が足りないときなど）
+    let (members, members_error) = if push {
+        match client.list_collaborators(&owner, &repo).await {
+            Ok(text) => (parse_json(&text)?, None),
+            Err(e) => (serde_json::json!([]), Some(token_permission_message(&e, "メンバーを読むこと"))),
+        }
+    } else {
+        (serde_json::json!([]), None)
+    };
+    let (invitations, invitations_error) = if admin {
+        match client.list_repo_invitations(&owner, &repo).await {
+            Ok(text) => (parse_json(&text)?, None),
+            Err(e) => (serde_json::Value::Null, Some(token_permission_message(&e, "招待すること・送った招待を読むこと"))),
+        }
+    } else {
+        (serde_json::Value::Null, None)
+    };
     Ok(serde_json::json!({
         "admin": admin,
         "push": push,
         "organization": organization,
         "members": members,
+        "members_error": members_error,
         "invitations": invitations,
+        "invitations_error": invitations_error,
     })
     .to_string())
 }
@@ -470,7 +505,9 @@ fn invite_outcome(status: u16, body: &str, user_exists: Option<bool>) -> InviteO
         404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます（リポジトリが見つからないか、管理者の権限がありません）".into())),
         403 => {
             let raw = github_message.unwrap_or_default();
-            let message = if raw.to_lowercase().contains("limit") {
+            let message = if raw.contains("not accessible by personal access token") {
+                token_permission_message(&raw, "招待すること")
+            } else if raw.to_lowercase().contains("limit") {
                 "招待の数が上限に達しました。時間をおいてから送ってください".to_string()
             } else if raw.to_lowercase().contains("admin") {
                 "このリポジトリの管理者だけが招待できます".to_string()
@@ -504,7 +541,7 @@ async fn invite_member(
 #[tauri::command]
 async fn cancel_invitation(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, owner: String, repo: String, id: u64) -> Result<(), String> {
     let client = current_client(&state).await?;
-    client.cancel_repo_invitation(&owner, &repo, id).await
+    client.cancel_repo_invitation(&owner, &repo, id).await.map_err(|e| token_permission_message(&e, "招待を取り消すこと"))
 }
 
 /// 今のトークンの GitHub クライアント。通信のあいだほかの操作を待たせないよう、複製してすぐにロックを離す
@@ -1348,5 +1385,9 @@ mod team_tests {
         assert_eq!(invalid.status, "invalid");
         assert!(invalid.message.unwrap().contains("Repository owner cannot be a collaborator"));
         assert_eq!(invite_outcome(500, "oops", None).status, "failed");
+        // 自分で作ったトークンに Administration の権限がないとき
+        let pat = invite_outcome(403, r#"{"message":"Resource not accessible by personal access token"}"#, None);
+        assert_eq!(pat.status, "forbidden");
+        assert!(pat.message.unwrap().contains("Administration"));
     }
 }

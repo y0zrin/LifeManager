@@ -2204,6 +2204,10 @@ button:hover {
   margin: 0;
 }
 
+.team-error {
+  margin-bottom: var(--space-sm);
+}
+
 .team-names {
   width: 100%;
   min-height: 72px;

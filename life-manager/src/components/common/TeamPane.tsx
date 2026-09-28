@@ -149,6 +149,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
               <h3 className="team-h">
                 {owner}/{repo} に招待する <small>あなたはこのリポジトリの管理者です</small>
               </h3>
+              {overview.invitations_error && <p className="token-error team-error">{overview.invitations_error}</p>}
               <textarea
                 className="team-names"
                 value={text}
@@ -210,7 +211,11 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                 <h3 className="team-h">
                   送った招待 <small>まだ受けていない（{INVITATION_DAYS} 日で切れます）</small>
                 </h3>
-                {invitations.length === 0 && <p className="team-note">ありません。</p>}
+                {overview.invitations_error ? (
+                  <p className="team-note">読めませんでした（上の「招待する」の欄を見てください）。</p>
+                ) : (
+                  invitations.length === 0 && <p className="team-note">ありません。</p>
+                )}
                 {invitations.map((inv) => {
                   const left = daysLeft(inv.created_at);
                   const expired = inv.expired || left <= 0;
@@ -242,6 +247,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                 <h3 className="team-h">
                   メンバー <small>このリポジトリを使える人</small>
                 </h3>
+                {overview.members_error && <p className="token-error">{overview.members_error}</p>}
                 {overview.members.map((m) => (
                   <div key={m.login} className="team-row">
                     {m.avatar_url && <img src={m.avatar_url} alt="" />}

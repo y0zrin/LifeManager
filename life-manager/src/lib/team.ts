@@ -61,8 +61,12 @@ export interface TeamOverview {
   /** 持ち主が組織か（権限を選べる） */
   organization: boolean;
   members: Member[];
+  /** メンバーを読めなかったとき、その理由（トークンの権限が足りないときは直し方つき） */
+  members_error?: string | null;
   /** 送った招待（管理者でなければ null） */
   invitations: RepoInvitation[] | null;
+  /** 送った招待を読めなかったとき、その理由（このときは招待もできないことが多い） */
+  invitations_error?: string | null;
 }
 
 export const teamOverview = async (owner: string, repo: string) =>

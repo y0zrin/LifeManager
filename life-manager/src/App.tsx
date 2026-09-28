@@ -30,6 +30,7 @@ import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
 import { GitignoreEditor } from "./components/git/GitignoreEditor";
+import { DEFAULT_COLUMNS } from "./lib/board";
 import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
@@ -670,6 +671,9 @@ function App() {
               onRefresh={gh.loadAll}
               onSelectIssue={setSelectedIssue}
               onAddReminder={gh.addReminder}
+              savedViews={gh.savedViews}
+              onSaveViews={gh.saveSavedViews}
+              stateOrder={(gh.boardConfig?.columns ?? DEFAULT_COLUMNS).map((c) => c.key)}
               status={gh.status}
             />
           )}

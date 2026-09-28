@@ -194,7 +194,7 @@ fn decide(number: i64, remote: &Value, changes: &Changes, base: Option<&Changes>
     (send, conflicts)
 }
 
-/// 設定ファイルの一部を書き換える。GitHub 側でも変えられていたら、リマインダーは両方の足し引きをまとめ、ほかは知らせる
+/// 設定ファイルの一部を書き換える。GitHub 側でも変えられていたら、リマインダーと保存した見方は両方の足し引きをまとめ、ほかは知らせる
 async fn send_config(client: &GitHubClient, owner: &str, repo: &str, key: &str, json: &str, base: Option<&str>) -> Outcome {
     let kind = match config::kind(key) {
         Ok(kind) => kind,
@@ -212,10 +212,10 @@ async fn send_config(client: &GitHubClient, owner: &str, repo: &str, key: &str, 
     let read_key = format!("config:{}", key);
     let mut json = json.to_string();
     if let Some(base) = base.filter(|base| !config::same_json(&remote_part, base)) {
-        if key == "reminders" {
+        if key == "reminders" || key == "views" {
             match config::merge_lists(base, &json, &remote_part) {
                 Some(merged) => json = merged,
-                None => return Outcome::Failed("リマインダーの一覧を読めませんでした".into()),
+                None => return Outcome::Failed(format!("{}の一覧を読めませんでした", kind.label)),
             }
         } else if !config::same_json(&remote_part, &json) {
             let conflict = Conflict {

@@ -977,6 +977,29 @@ async fn save_board_config(
     return save_config(&app, &state, &owner, &repo, "board", config).await;
 }
 
+// --- 保存した見方（タスク一覧） ---
+
+#[tauri::command]
+async fn get_saved_views(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<String, String> {
+    return read_config(&app, &state, &owner, &repo, "views").await;
+}
+
+#[tauri::command]
+async fn save_saved_views(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    views: String,
+) -> Result<String, String> {
+    return save_config(&app, &state, &owner, &repo, "views", views).await;
+}
+
 // --- Discord Webhook（プロジェクト別対応） ---
 
 #[tauri::command]
@@ -1096,6 +1119,8 @@ pub fn run() {
             refresh_scheduler,
             get_board_config,
             save_board_config,
+            get_saved_views,
+            save_saved_views,
             set_discord_webhook,
             load_discord_webhook,
             test_discord_webhook,

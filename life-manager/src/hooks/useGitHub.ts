@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { normalizeViews, type SavedView } from "../lib/savedViews";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult, TimelineEvent } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
@@ -35,6 +36,8 @@ export function useGitHub() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [collaborators, setCollaborators] = useState<GitHubUser[]>([]);
   const [boardConfig, setBoardConfig] = useState<BoardConfig | null>(null);
+  // タスク一覧の「保存した見方」（config/views.yaml。チームで共有する）
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [needsReload, setNeedsReload] = useState(false);
   const [eventNotifConfig, setEventNotifConfig] = useState<EventNotificationConfig | null>(null);
@@ -179,9 +182,18 @@ export function useGitHub() {
     } catch { /* ignore */ }
   }, [owner, repo]);
 
+  const loadSavedViews = useCallback(async () => {
+    try {
+      const result = await invoke("get_saved_views", { owner, repo });
+      setSavedViews(normalizeViews(JSON.parse(result as string)));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [owner, repo]);
+
   const loadAll = useCallback(async () => {
-    await Promise.all([loadIssues(), loadClosedIssues(), loadLabels(), loadMilestones(), loadRoutines(), loadNotificationSchedules(), loadReminders(), loadCollaborators(), loadBoardConfig(), loadEventNotifConfig(), loadCurrentUser()]);
-  }, [loadIssues, loadClosedIssues, loadLabels, loadMilestones, loadRoutines, loadNotificationSchedules, loadReminders, loadCollaborators, loadBoardConfig, loadEventNotifConfig, loadCurrentUser]);
+    await Promise.all([loadIssues(), loadClosedIssues(), loadLabels(), loadMilestones(), loadRoutines(), loadNotificationSchedules(), loadReminders(), loadCollaborators(), loadBoardConfig(), loadSavedViews(), loadEventNotifConfig(), loadCurrentUser()]);
+  }, [loadIssues, loadClosedIssues, loadLabels, loadMilestones, loadRoutines, loadNotificationSchedules, loadReminders, loadCollaborators, loadBoardConfig, loadSavedViews, loadEventNotifConfig, loadCurrentUser]);
 
   // --- プロジェクト管理 ---
 
@@ -227,6 +239,7 @@ export function useGitHub() {
       setReminders([]);
       setCollaborators([]);
       setBoardConfig(null);
+      setSavedViews([]);
 
       // バックエンドでトークン切り替え + repo設定を同時に行う
       await invoke("switch_project", { owner: projOwner, repo: projRepo });
@@ -971,6 +984,19 @@ export function useGitHub() {
     }
   }
 
+  // --- 保存した見方（タスク一覧） ---
+
+  async function saveSavedViews(views: SavedView[]) {
+    try {
+      const result = await invoke("save_saved_views", { owner, repo, views: JSON.stringify(views) });
+      setSavedViews(views);
+      setStatus(result as string);
+    } catch (e) {
+      setStatus("エラー: " + e);
+      throw e;
+    }
+  }
+
   // --- Discord Webhook ---
 
   async function setDiscordWebhook(webhookUrl: string) {
@@ -1041,6 +1067,8 @@ export function useGitHub() {
     setDiscordWebhook, loadDiscordWebhook, testDiscordWebhook,
     // ボード設定
     boardConfig, saveBoardConfig, loadBoardConfig,
+    // タスク一覧の保存した見方
+    savedViews, saveSavedViews, loadSavedViews,
     // イベント通知
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
     // サブイシュー（親子）・変更の履歴

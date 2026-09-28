@@ -3,16 +3,7 @@ import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColum
 import { TicketCard } from "../common/TicketCard";
 import { PendingChip } from "../common/PendingChip";
 import { issueRef } from "../../lib/issueRef";
-
-const DEFAULT_COLUMNS: BoardColumn[] = [
-  { key: "状態:未整理", title: "未整理", emoji: "📥" },
-  { key: "状態:未着手", title: "未着手", emoji: "📋" },
-  { key: "状態:進行中", title: "進行中", emoji: "🔥" },
-  { key: "状態:チェック待ち", title: "チェック待ち", emoji: "👀" },
-  { key: "状態:動作確認", title: "動作確認", emoji: "🧪" },
-  { key: "状態:完了承認待ち", title: "完了承認待ち", emoji: "✅" },
-  { key: "状態:いつか", title: "いつか", emoji: "💭" },
-];
+import { DEFAULT_COLUMNS } from "../../lib/board";
 
 interface KanbanViewProps {
   issues: GitHubIssue[];

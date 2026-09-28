@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, useMemo, useContext } from "react";
+import { Fragment, useState, useRef, useEffect, useMemo, useContext } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
+import { IssueTable } from "../common/IssueTable";
 import { LabelFilterButton } from "../common/LabelFilterButton";
+import { SavedViewsMenu } from "../common/SavedViewsMenu";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
@@ -10,10 +12,17 @@ import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
-import { groupByParent, matchesLabelFilters, sortIssues, SORT_LABELS, type LabelFilters, type SortKey } from "../../lib/taskList";
+import { ME, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
+import {
+  GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
+  type GroupKey, type LabelFilters, type ListMode, type SortKey,
+} from "../../lib/taskList";
 
-/** 並び・親子でまとめるかは、次に開いたときも同じにする */
+/** 並び・まとめ方・カード／表は、次に開いたときも同じにする */
 const SORT_STORE = "task-list-sort";
+const GROUP_STORE = "task-list-group";
+const MODE_STORE = "task-list-mode";
+/** 前の版の「親子でまとめる」（まとめ方がまだ無いときに読む） */
 const TREE_STORE = "task-list-tree";
 
 function loadSort(): SortKey {
@@ -25,11 +34,21 @@ function loadSort(): SortKey {
   }
 }
 
-function loadTree(): boolean {
+function loadGroup(): GroupKey {
   try {
-    return localStorage.getItem(TREE_STORE) !== "off";
+    const v = localStorage.getItem(GROUP_STORE);
+    if (v && v in GROUP_LABELS) return v as GroupKey;
+    return localStorage.getItem(TREE_STORE) === "off" ? "none" : "tree";
   } catch {
-    return true;
+    return "tree";
+  }
+}
+
+function loadMode(): ListMode {
+  try {
+    return localStorage.getItem(MODE_STORE) === "table" ? "table" : "card";
+  } catch {
+    return "card";
   }
 }
 
@@ -84,13 +103,18 @@ interface DashboardViewProps {
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
+  /** 保存した見方（config/views.yaml。チームで共有する） */
+  savedViews: SavedView[];
+  onSaveViews: (views: SavedView[]) => Promise<void>;
+  /** 「状態」でまとめるときの順番（ボードの列の順） */
+  stateOrder: string[];
   status?: string;
 }
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
-  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, status,
+  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, status,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const [memoText, setMemoText] = useState("");
@@ -122,9 +146,10 @@ export function DashboardView({
     setIssueMilestone(undefined);
   }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
-  const [stateFilter, setStateFilter] = useState<"open" | "closed" | "all">("open");
+  const [stateFilter, setStateFilter] = useState<StateFilter>("open");
   const [sortKey, setSortKey] = useState<SortKey>(loadSort);
-  const [tree, setTree] = useState(loadTree);
+  const [group, setGroup] = useState<GroupKey>(loadGroup);
+  const [mode, setMode] = useState<ListMode>(loadMode);
   // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -271,14 +296,51 @@ export function DashboardView({
     return matchesLabelFilters(issue, filters);
   });
 
-  // 並べ替え、親子でまとめる（同じリポジトリの親が一覧に出ているときだけ、その下に並べる）
+  // 並べ替えてから、選んだ項目でまとめる（親子は、同じリポジトリの親が一覧に出ているときだけ、その下に並べる）
   const sorted = sortIssues(filteredIssues, sortKey);
-  const rows = tree
-    ? groupByParent(sorted, (issue) => {
-        const parent = parseIssueApiUrl(issue.parent_issue_url);
-        return parent && isSameRepo(parent, index.owner, index.repo) ? parent.number : null;
-      })
-    : sorted.map((issue) => ({ issue, depth: 0 }));
+  const groups = groupIssues(sorted, group, {
+    parentOf: (issue) => {
+      const parent = parseIssueApiUrl(issue.parent_issue_url);
+      return parent && isSameRepo(parent, index.owner, index.repo) ? parent.number : null;
+    },
+    stateOrder,
+  });
+  const rows = groups.flatMap((g) => g.rows);
+
+  // 今の見方（保存した見方と比べる・保存する形）。担当が自分なら「自分」として持つ
+  const currentView: ViewSettings = {
+    filters,
+    assignee: assigneeFilter && assigneeFilter === currentUser ? ME : assigneeFilter,
+    state: stateFilter,
+    sort: sortKey,
+    group,
+    mode,
+  };
+
+  function changeSort(v: SortKey) {
+    setSortKey(v);
+    store(SORT_STORE, v);
+  }
+
+  function changeGroup(v: GroupKey) {
+    setGroup(v);
+    store(GROUP_STORE, v);
+  }
+
+  function changeMode(v: ListMode) {
+    setMode(v);
+    store(MODE_STORE, v);
+  }
+
+  /** 保存した見方を当てる（「自分」は開いた人に読み替える） */
+  function applyView(v: SavedView) {
+    onFiltersChange(v.filters);
+    setAssigneeFilter(v.assignee === ME ? currentUser : v.assignee);
+    setStateFilter(v.state);
+    changeSort(v.sort);
+    changeGroup(v.group);
+    changeMode(v.mode);
+  }
 
   const activeFilterCount = Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
 
@@ -384,7 +446,7 @@ export function DashboardView({
             <option key={c.login} value={c.login}>{c.login}</option>
           ))}
         </select>
-        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as "open" | "closed" | "all")} className="select-sm">
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as StateFilter)} className="select-sm">
           <option value="open">オープンのみ</option>
           <option value="closed">クローズのみ</option>
           <option value="all">両方</option>
@@ -551,35 +613,56 @@ export function DashboardView({
         </div>
       )}
 
-      {/* 並び・親子でまとめる・選ぶ */}
+      {/* カード／表・まとめる・並び・選ぶ・保存した見方 */}
       <div className="task-list-options">
-        <select value={sortKey} className="select-sm" aria-label="並び"
-          onChange={(e) => { const v = e.target.value as SortKey; setSortKey(v); store(SORT_STORE, v); }}>
+        <span className="list-mode" role="group" aria-label="見せ方">
+          {(["card", "table"] as ListMode[]).map((m) => (
+            <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
+              {m === "card" ? "カード" : "表"}
+            </button>
+          ))}
+        </span>
+        <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+          {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
+            <option key={k} value={k}>まとめる: {GROUP_LABELS[k]}</option>
+          ))}
+        </select>
+        <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
           {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
             <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
           ))}
         </select>
-        <label className="chk task-list-tree">
-          <input type="checkbox" checked={tree}
-            onChange={(e) => { setTree(e.target.checked); store(TREE_STORE, e.target.checked ? "on" : "off"); }} />
-          親子でまとめる
-        </label>
         <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
           onClick={() => (picking ? quitPicking() : setPicking(true))}>
           ☑ 選ぶ
         </button>
+        <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} />
         <span className="issue-count task-list-count">{filteredIssues.length} 件</span>
       </div>
 
-      {/* Issue一覧 */}
-      {rows.map(({ issue, depth }) => (
-        <IssueCard key={issue.number} issue={issue}
-          onClose={onClose} onReopen={onReopen}
-          onPromote={onPromote} onStatusChange={onStatusChange}
-          onSelect={onSelectIssue}
-          depth={depth}
-          picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick} />
-      ))}
+      {/* Issue一覧（表か、まとまりごとのカード） */}
+      {mode === "table" && rows.length > 0 ? (
+        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} />
+      ) : (
+        groups.map((g) => (
+          <Fragment key={g.title || "all"}>
+            {g.title && (
+              <div className="task-group-head">
+                {g.title}
+                <span>{g.rows.length} 件</span>
+              </div>
+            )}
+            {g.rows.map(({ issue, depth }) => (
+              <IssueCard key={issue.number} issue={issue}
+                onClose={onClose} onReopen={onReopen}
+                onPromote={onPromote} onStatusChange={onStatusChange}
+                onSelect={onSelectIssue}
+                depth={depth}
+                picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick} />
+            ))}
+          </Fragment>
+        ))
+      )}
       {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
         <div className="error-message">
           <p className="error-message__title">⚠️ {status}</p>

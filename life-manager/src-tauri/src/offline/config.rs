@@ -1,7 +1,7 @@
 //! 設定ファイル（config/*.yaml）の読み書き。画面とは、ファイルの「一部」を JSON でやりとりする。
 //! notifications.yaml は「通知スケジュール」と「イベント通知」の 2 つに分けて扱う（片方を書き換えても、もう片方は今のファイルのものを残す）
 use crate::scheduler::routine::{EventNotificationConfig, NotificationConfig, Reminder, ReminderConfig, Routine, RoutineConfig};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub struct Kind {
@@ -14,7 +14,7 @@ pub struct Kind {
     pub commit: &'static str,
 }
 
-pub const KINDS: [Kind; 5] = [
+pub const KINDS: [Kind; 6] = [
     Kind { key: "routines", path: "config/routines.yaml", label: "ルーチン設定", empty: "[]", commit: "ルーチン設定を更新" },
     Kind {
         key: "notifications",
@@ -32,6 +32,8 @@ pub const KINDS: [Kind; 5] = [
     },
     Kind { key: "reminders", path: "config/reminders.yaml", label: "リマインダー", empty: "[]", commit: "リマインダーを更新" },
     Kind { key: "board", path: "config/board.yaml", label: "ボード設定", empty: "null", commit: "ボード設定を更新" },
+    // タスク一覧の「保存した見方」。チームで共有する（一覧そのままの形で書く）
+    Kind { key: "views", path: "config/views.yaml", label: "保存した見方", empty: "[]", commit: "保存した見方を更新" },
 ];
 
 pub fn kind(key: &str) -> Result<&'static Kind, String> {
@@ -54,6 +56,14 @@ fn to_yaml(value: &impl Serialize) -> Result<String, String> {
     serde_yaml::to_string(value).map_err(|e| format!("YAMLシリアライズエラー: {}", e))
 }
 
+/// 保存した見方の一つ。人が views.yaml を読んだときに分かりやすいよう、名前を先頭に書く（ほかの項目は画面が決める）
+#[derive(Serialize, Deserialize)]
+struct SavedView {
+    name: String,
+    #[serde(flatten)]
+    rest: serde_json::Map<String, Value>,
+}
+
 fn notification_config(content: Option<&str>) -> NotificationConfig {
     content
         .and_then(|c| serde_yaml::from_str::<NotificationConfig>(c).ok())
@@ -73,6 +83,7 @@ pub fn read_part(kind: &Kind, content: Option<&str>) -> Result<String, String> {
             }
         }
         "reminders" => to_json(&serde_yaml::from_str::<ReminderConfig>(content).map_err(yaml_error)?.reminders),
+        "views" => to_json(&serde_yaml::from_str::<Option<Vec<SavedView>>>(content).map_err(yaml_error)?.unwrap_or_default()),
         _ => to_json(&serde_yaml::from_str::<Value>(content).map_err(yaml_error)?),
     }
 }
@@ -100,6 +111,7 @@ pub fn write_part(kind: &Kind, content: Option<&str>, json: &str) -> Result<Stri
             let reminders = reminders.into_iter().filter(|r| r.issue_number > 0).collect();
             to_yaml(&ReminderConfig { reminders })
         }
+        "views" => to_yaml(&serde_json::from_str::<Vec<SavedView>>(json).map_err(json_error)?),
         _ => to_yaml(&serde_json::from_str::<Value>(json).map_err(json_error)?),
     }
 }
@@ -119,7 +131,7 @@ pub fn same_json(a: &str, b: &str) -> bool {
     }
 }
 
-/// 一覧（JSON の配列）を、足したもの・外したものだけ当ててまとめる（リマインダー用。どちらの変更も残る）
+/// 一覧（JSON の配列）を、足したもの・外したものだけ当ててまとめる（リマインダー・保存した見方。どちらの変更も残る）
 pub fn merge_lists(base: &str, local: &str, remote: &str) -> Option<String> {
     let parse = |s: &str| serde_json::from_str::<Vec<Value>>(s).ok();
     let (base, local, remote) = (parse(base)?, parse(local)?, parse(remote)?);
@@ -146,6 +158,22 @@ mod tests {
         assert!(same_json(&read_part(events, Some(&written)).unwrap(), &read_part(events, Some(file)).unwrap()));
         // ファイルがないときは空
         assert_eq!(read_part(events, None).unwrap(), "null");
+    }
+
+    #[test]
+    fn saved_views_are_written_as_a_plain_list_and_merged() {
+        let views = kind("views").unwrap();
+        let mine = r#"{"name":"今週やること","filters":{"状態:":{"values":["状態:進行中"],"mode":"any"}},"assignee":"@me","state":"open","sort":"due","group":"state","mode":"table"}"#;
+        let yaml = write_part(views, None, &format!("[{}]", mine)).unwrap();
+        // 手で読めるよう、一覧をそのまま YAML にする
+        assert!(yaml.starts_with("- name: 今週やること"), "{}", yaml);
+        assert!(same_json(&read_part(views, Some(&yaml)).unwrap(), &format!("[{}]", mine)));
+        // ファイルがないときは空の一覧
+        assert_eq!(read_part(views, None).unwrap(), "[]");
+        // 二人が同時に足した見方は、どちらも残る
+        let other = r#"{"name":"不具合だけ","filters":{},"assignee":"","state":"open","sort":"priority","group":"none","mode":"card"}"#;
+        let merged = merge_lists("[]", &format!("[{}]", mine), &format!("[{}]", other)).unwrap();
+        assert!(same_json(&merged, &format!("[{},{}]", other, mine)));
     }
 
     #[test]

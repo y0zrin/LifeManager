@@ -557,12 +557,7 @@ async fn setup_labels(
         ("優先:高",         "B60205", "高優先度"),
         ("優先:中",         "FBCA04", "中優先度"),
         ("優先:低",         "0E8A16", "低優先度"),
-        // 見積もり（タスクの大きさ。画面の lib/estimate.ts と同じ数と色）
-        ("見積:1",          "39C5CF", "見積もり（タスクの大きさ）"),
-        ("見積:2",          "39C5CF", "見積もり（タスクの大きさ）"),
-        ("見積:3",          "39C5CF", "見積もり（タスクの大きさ）"),
-        ("見積:5",          "39C5CF", "見積もり（タスクの大きさ）"),
-        ("見積:8",          "39C5CF", "見積もり（タスクの大きさ）"),
+        // 見積もり（見積:3pt など）は、単位がリポジトリの設定で変わるので、付けるときに画面が作る
     ];
 
     let mut created = 0;
@@ -983,6 +978,29 @@ async fn save_board_config(
     return save_config(&app, &state, &owner, &repo, "board", config).await;
 }
 
+// --- 見積もりの単位 ---
+
+#[tauri::command]
+async fn get_estimate_config(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<String, String> {
+    return read_config(&app, &state, &owner, &repo, "estimate").await;
+}
+
+#[tauri::command]
+async fn save_estimate_config(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    config: String,
+) -> Result<String, String> {
+    return save_config(&app, &state, &owner, &repo, "estimate", config).await;
+}
+
 // --- 保存した見方（タスク一覧） ---
 
 #[tauri::command]
@@ -1127,6 +1145,8 @@ pub fn run() {
             save_board_config,
             get_saved_views,
             save_saved_views,
+            get_estimate_config,
+            save_estimate_config,
             set_discord_webhook,
             load_discord_webhook,
             test_discord_webhook,

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { normalizeViews, type SavedView } from "../lib/savedViews";
-import { ESTIMATE_COLOR, ESTIMATE_DESCRIPTION, ESTIMATE_PREFIX, estimateLabel, withEstimate } from "../lib/estimate";
+import { DEFAULT_UNIT, ESTIMATE_COLOR, ESTIMATE_PREFIX, UNITS, estimateLabel, isEstimateUnit, withEstimate, type EstimateUnit } from "../lib/estimate";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult, TimelineEvent } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
@@ -39,6 +39,8 @@ export function useGitHub() {
   const [boardConfig, setBoardConfig] = useState<BoardConfig | null>(null);
   // タスク一覧の「保存した見方」（config/views.yaml。チームで共有する）
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  // 見積もりの単位（config/estimate.yaml。チームで一つ）
+  const [estimateUnit, setEstimateUnit] = useState<EstimateUnit>(DEFAULT_UNIT);
   const [projects, setProjects] = useState<Project[]>([]);
   const [needsReload, setNeedsReload] = useState(false);
   const [eventNotifConfig, setEventNotifConfig] = useState<EventNotificationConfig | null>(null);
@@ -192,9 +194,19 @@ export function useGitHub() {
     }
   }, [owner, repo]);
 
+  const loadEstimateConfig = useCallback(async () => {
+    try {
+      const result = await invoke("get_estimate_config", { owner, repo });
+      const parsed = JSON.parse(result as string) as { unit?: unknown } | null;
+      setEstimateUnit(isEstimateUnit(parsed?.unit) ? parsed.unit : DEFAULT_UNIT);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [owner, repo]);
+
   const loadAll = useCallback(async () => {
-    await Promise.all([loadIssues(), loadClosedIssues(), loadLabels(), loadMilestones(), loadRoutines(), loadNotificationSchedules(), loadReminders(), loadCollaborators(), loadBoardConfig(), loadSavedViews(), loadEventNotifConfig(), loadCurrentUser()]);
-  }, [loadIssues, loadClosedIssues, loadLabels, loadMilestones, loadRoutines, loadNotificationSchedules, loadReminders, loadCollaborators, loadBoardConfig, loadSavedViews, loadEventNotifConfig, loadCurrentUser]);
+    await Promise.all([loadIssues(), loadClosedIssues(), loadLabels(), loadMilestones(), loadRoutines(), loadNotificationSchedules(), loadReminders(), loadCollaborators(), loadBoardConfig(), loadSavedViews(), loadEstimateConfig(), loadEventNotifConfig(), loadCurrentUser()]);
+  }, [loadIssues, loadClosedIssues, loadLabels, loadMilestones, loadRoutines, loadNotificationSchedules, loadReminders, loadCollaborators, loadBoardConfig, loadSavedViews, loadEstimateConfig, loadEventNotifConfig, loadCurrentUser]);
 
   // --- プロジェクト管理 ---
 
@@ -241,6 +253,7 @@ export function useGitHub() {
       setCollaborators([]);
       setBoardConfig(null);
       setSavedViews([]);
+      setEstimateUnit(DEFAULT_UNIT);
 
       // バックエンドでトークン切り替え + repo設定を同時に行う
       await invoke("switch_project", { owner: projOwner, repo: projRepo });
@@ -634,24 +647,36 @@ export function useGitHub() {
 
   // --- 見積もり（ラベル「見積:3」） ---
 
-  /** 見積もりのラベルがリポジトリになければ作る（色をそろえるため。作れなくても、付けるときに GitHub が作る） */
+  /** 見積もりのラベル（今の単位の「見積:3pt」など）がリポジトリになければ作る（色をそろえるため。作れなくても、付けるときに GitHub が作る） */
   async function ensureEstimateLabel(value: number) {
-    const name = estimateLabel(value);
+    const name = estimateLabel(value, estimateUnit);
     if (labels.some((l) => l.name === name)) return;
     try {
-      await invoke("create_label", { owner, repo, name, color: ESTIMATE_COLOR, description: ESTIMATE_DESCRIPTION });
+      await invoke("create_label", { owner, repo, name, color: ESTIMATE_COLOR, description: `見積もり（${UNITS[estimateUnit].name}）` });
       await loadLabels();
     } catch {
       // つながらないとき・もうあるときなど。付けるときに GitHub が作る
     }
   }
 
-  /** Issue の見積もりを付け替える（null なら外す） */
+  /** Issue の見積もりを、今の単位で付け替える（null なら外す） */
   async function setEstimate(n: number, value: number | null) {
     const current = [...issues, ...closedIssues].find((i) => i.number === n);
     if (!current) return;
     if (value !== null) await ensureEstimateLabel(value);
-    await updateIssue(n, { labels: withEstimate(current.labels.map((l) => l.name), value) });
+    await updateIssue(n, { labels: withEstimate(current.labels.map((l) => l.name), value, estimateUnit) });
+  }
+
+  /** 見積もりの単位を変える（config/estimate.yaml に書いて GitHub に送る） */
+  async function saveEstimateUnit(unit: EstimateUnit) {
+    try {
+      const result = await invoke("save_estimate_config", { owner, repo, config: JSON.stringify({ unit }) });
+      setEstimateUnit(unit);
+      setStatus(result as string);
+    } catch (e) {
+      setStatus("エラー: " + e);
+      throw e;
+    }
   }
 
   // --- マイルストーン操作 ---
@@ -1093,7 +1118,7 @@ export function useGitHub() {
     // タスク一覧の保存した見方
     savedViews, saveSavedViews, loadSavedViews,
     // 見積もり
-    setEstimate, ensureEstimateLabel,
+    estimateUnit, saveEstimateUnit, setEstimate, ensureEstimateLabel,
     // イベント通知
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
     // サブイシュー（親子）・変更の履歴

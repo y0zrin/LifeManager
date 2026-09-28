@@ -6,6 +6,7 @@ import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, Event
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, SidebarPosition } from "../../hooks/useDisplaySettings";
+import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
 import { LabelBadge } from "../common/LabelBadge";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { AddProjectDialog } from "../common/AddProjectDialog";
@@ -37,6 +38,9 @@ interface SettingsViewProps {
   onSetLocalFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
   displaySettings: DisplaySettings;
   onChangeDisplaySettings: (patch: Partial<DisplaySettings>) => void;
+  /** 見積もりの単位（config/estimate.yaml。チームで一つ） */
+  estimateUnit: EstimateUnit;
+  onSaveEstimateUnit: (unit: EstimateUnit) => Promise<void>;
   /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
   onOpenSetup: () => void;
   setupVersion: number;
@@ -74,7 +78,7 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
   const [ownerInput, setOwnerInput] = useState(owner);
@@ -335,6 +339,28 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
 
       {/* === ラベルペイン === */}
       {activePane === "labels" && <>
+
+      {/* 見積もりの単位（ラベル「見積:3pt」などの単位。チームで一つ） */}
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>見積もりの単位</h3>
+        <div className="display-opts">
+          {UNIT_KEYS.map((key) => (
+            <label key={key} className="display-opt">
+              <input type="radio" name="estimate-unit" checked={estimateUnit === key}
+                onChange={() => { onSaveEstimateUnit(key).catch(() => undefined); }} />
+              <span>
+                <b>{UNITS[key].name}<span className="est-unit-values">{UNITS[key].values.map((v) => formatEstimate(v, key)).join("・")}</span></b>
+                <small>{UNITS[key].guide}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          チームで一つの単位を使います（リポジトリの <code>config/estimate.yaml</code> に置き、GitHub に送ります）。
+          単位を変えても、付けてある見積もりのラベルはそのままです。時間・日・人月どうしは 1 日＝{HOURS_PER_DAY} 時間、1 人月＝{DAYS_PER_PERSON_MONTH} 日で換算して合計し、
+          ポイントと時間の単位は換算しません。
+        </p>
+      </div>
 
       {/* ラベル管理 */}
       <div className="form-card">

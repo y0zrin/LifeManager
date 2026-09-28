@@ -31,6 +31,7 @@ import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
 import { GitignoreEditor } from "./components/git/GitignoreEditor";
 import { DEFAULT_COLUMNS } from "./lib/board";
+import { EstimateUnitContext } from "./components/common/EstimateChip";
 import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
@@ -768,6 +769,8 @@ function App() {
               onSetLocalFolder={localFolders.setFolder}
               displaySettings={display.settings}
               onChangeDisplaySettings={display.update}
+              estimateUnit={gh.estimateUnit}
+              onSaveEstimateUnit={gh.saveEstimateUnit}
               onOpenSetup={openSetup}
               setupVersion={setupVersion}
               eventNotifConfig={gh.eventNotifConfig}
@@ -877,7 +880,11 @@ function App() {
       })()}
     </main>
   );
-  return <IssueIndexContext.Provider value={issueIndex}>{shell}</IssueIndexContext.Provider>;
+  return (
+    <IssueIndexContext.Provider value={issueIndex}>
+      <EstimateUnitContext.Provider value={gh.estimateUnit}>{shell}</EstimateUnitContext.Provider>
+    </IssueIndexContext.Provider>
+  );
 }
 
 export default App;

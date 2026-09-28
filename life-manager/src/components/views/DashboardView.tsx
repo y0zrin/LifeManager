@@ -4,7 +4,7 @@ import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
 import { LabelFilterButton } from "../common/LabelFilterButton";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
-import { EstimateSumText } from "../common/EstimateChip";
+import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
@@ -14,7 +14,7 @@ import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
 import { ME, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
-import { ESTIMATE_PREFIX, ESTIMATE_VALUES, estimateOf, sumEstimates, withEstimate } from "../../lib/estimate";
+import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
 import {
   GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
   type GroupKey, type LabelFilters, type ListMode, type SortKey,
@@ -123,6 +123,7 @@ export function DashboardView({
   onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
+  const unit = useEstimateUnit();
   const [memoText, setMemoText] = useState("");
   const [memoTheme, setMemoTheme] = useState("分野:私用");
   const [showIssueForm, setShowIssueForm] = useState(false);
@@ -253,7 +254,7 @@ export function DashboardView({
     }
     const labels = [...issueSelectedLabels];
     const milestone = issueMilestone || null;
-    const estimate = labels.map((name) => name.startsWith(ESTIMATE_PREFIX) ? Number(name.slice(ESTIMATE_PREFIX.length)) : NaN).find((v) => v > 0);
+    const estimate = labels.map(parseEstimateLabel).find((e) => e !== null && e.unit === unit)?.value;
     const assignees = issueAssignees.length > 0 ? [...issueAssignees] : undefined;
     const reminderDt = issueReminderDatetime;
     const reminderCh = [...issueReminderChannels];
@@ -398,8 +399,11 @@ export function DashboardView({
       case "assignee":
         return onUpdateIssue(issue.number, { assignees: action.login ? [action.login] : [] });
       case "estimate":
-        if (estimateOf(issue) === action.value) return;
-        return onUpdateIssue(issue.number, { labels: withEstimate(names, action.value) });
+        {
+          const e = estimateOf(issue);
+          if (action.value === null ? e === null : e?.unit === unit && e.value === action.value) return;
+          return onUpdateIssue(issue.number, { labels: withEstimate(names, action.value, unit) });
+        }
     }
   }
 
@@ -553,20 +557,14 @@ export function DashboardView({
               );
             })}
           </div>
-          {/* 見積もり（ラベル「見積:3」。1 つだけ） */}
+          {/* 見積もり（ラベル「見積:3pt」など。1 つだけ） */}
           <div className="est-row est-row--form">
             <span className="est-row-label">📏 見積もり</span>
-            <span className="est-picker" role="group" aria-label="見積もり">
-              {ESTIMATE_VALUES.map((v) => {
-                const on = issueSelectedLabels.includes(`${ESTIMATE_PREFIX}${v}`);
-                return (
-                  <button key={v} type="button" className={on ? "on" : ""} aria-pressed={on}
-                    onClick={() => setIssueSelectedLabels(withEstimate(issueSelectedLabels, on ? null : v))}>
-                    {v}
-                  </button>
-                );
-              })}
-            </span>
+            <EstimatePicker
+              value={issueSelectedLabels.map(parseEstimateLabel).find((e) => e !== null) ?? null}
+              onChange={(v) => setIssueSelectedLabels(withEstimate(issueSelectedLabels, v, unit))}
+              showGuide={false}
+            />
           </div>
           <select value={issueMilestone || ""} onChange={(e) => setIssueMilestone(e.target.value ? parseInt(e.target.value) : undefined)} className="select-sm">
             <option value="">マイルストーンなし</option>
@@ -666,7 +664,7 @@ export function DashboardView({
         <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} />
         <span className="issue-count task-list-count">
           {filteredIssues.length} 件
-          <EstimateSumText sum={sumEstimates(filteredIssues)} showMissing={false} />
+          <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
         </span>
       </div>
 
@@ -680,7 +678,7 @@ export function DashboardView({
               <div className="task-group-head">
                 {g.title}
                 <span>{g.rows.length} 件</span>
-                <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue))} />
+                <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
               </div>
             )}
             {g.rows.map(({ issue, depth }) => (

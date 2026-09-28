@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
 import { DatePickerButton } from "../common/DatePickerButton";
-import { sumEstimates } from "../../lib/estimate";
+import { formatEstimate, formatNumber, sumEstimates } from "../../lib/estimate";
+import { useEstimateUnit } from "../common/EstimateChip";
 
 interface MilestoneViewProps {
   milestones: GitHubMilestone[];
@@ -16,6 +17,7 @@ interface MilestoneViewProps {
 }
 
 export function MilestoneView({ milestones, issues, closedIssues, onCreateMilestone, onUpdateMilestone, onCloseMilestone, onRefresh, onSelectIssue }: MilestoneViewProps) {
+  const unit = useEstimateUnit();
   const [showForm, setShowForm] = useState(false);
   const [msTitle, setMsTitle] = useState("");
   const [msDesc, setMsDesc] = useState("");
@@ -84,8 +86,8 @@ export function MilestoneView({ milestones, issues, closedIssues, onCreateMilest
         const total = openCount + closedCount;
         const percent = total > 0 ? Math.round((closedCount / total) * 100) : 0;
         // 見積もり（済んだ分／全部）。見積もりが 1 件もなければ出さない
-        const estAll = sumEstimates([...msOpenIssues, ...msClosedIssues]);
-        const estDone = sumEstimates(msClosedIssues);
+        const estAll = sumEstimates([...msOpenIssues, ...msClosedIssues], unit);
+        const estDone = sumEstimates(msClosedIssues, unit);
         return (
           <div key={ms.number} className="milestone-card" style={{ cursor: "pointer" }}
             onClick={() => setExpandedMs(isExpanded ? null : ms.number)}>
@@ -128,7 +130,7 @@ export function MilestoneView({ milestones, issues, closedIssues, onCreateMilest
                       {percent}% ({closedCount}/{total})
                       {estAll.counted > 0 && (
                         <span className="est-sum" title={`見積もりのある ${estAll.counted} 件のうち、閉じた分の合計／全部の合計`}>
-                          見積 {estDone.total}/{estAll.total}
+                          見積 {formatNumber(estDone.total)}/{formatEstimate(estAll.total, unit)}
                         </span>
                       )}
                     </span>

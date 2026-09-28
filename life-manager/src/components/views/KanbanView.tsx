@@ -5,7 +5,7 @@ import { PendingChip } from "../common/PendingChip";
 import { issueRef } from "../../lib/issueRef";
 import { DEFAULT_COLUMNS } from "../../lib/board";
 import { sumEstimates } from "../../lib/estimate";
-import { EstimateSumText } from "../common/EstimateChip";
+import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 
 interface KanbanViewProps {
   issues: GitHubIssue[];
@@ -42,6 +42,7 @@ function getPriorityColor(issue: GitHubIssue): string {
 
 export function KanbanView({ issues, labels, milestones, collaborators, boardConfig, currentUser, onStatusChange, onAssignToMe, onSelectIssue, onSaveBoardConfig }: KanbanViewProps) {
   const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
+  const unit = useEstimateUnit();
   const isMobile = useIsMobile();
 
   // Filters
@@ -477,7 +478,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                   <span style={{ color: "var(--text-faint)", fontWeight: "normal", fontSize: "var(--font-sm)", marginLeft: "6px" }}>
                     {col.issues.length}
                   </span>
-                  <EstimateSumText sum={sumEstimates(col.issues)} showMissing={false} />
+                  <EstimateSumText sum={sumEstimates(col.issues, unit)} showMissing={false} />
                 </h3>
                 <div className="kanban-body">
                   {col.issues.map((issue) => (

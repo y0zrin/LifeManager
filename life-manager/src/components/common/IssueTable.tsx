@@ -2,7 +2,7 @@ import type { GitHubIssue } from "../../lib/types";
 import type { TaskGroup } from "../../lib/taskList";
 import { issueRef } from "../../lib/issueRef";
 import { DueChip } from "./DueChip";
-import { EstimateChip, EstimateSumText } from "./EstimateChip";
+import { EstimateChip, EstimateSumText, useEstimateUnit } from "./EstimateChip";
 import { sumEstimates } from "../../lib/estimate";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
@@ -30,6 +30,7 @@ function LabelPill({ issue, prefix }: { issue: GitHubIssue; prefix: string }) {
 /** タスク一覧の「表」。1 行に 1 件。まとめたときは、まとまりごとに見出しの行を入れる */
 export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: IssueTableProps) {
   const columns = picking ? 9 : 8;
+  const unit = useEstimateUnit();
   return (
     <div className="task-table-wrap">
       <table className="task-table">
@@ -53,7 +54,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
                 <td colSpan={columns}>
                   {g.title}
                   <span>{g.rows.length} 件</span>
-                  <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue))} />
+                  <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
                 </td>
               </tr>
             ) : null,

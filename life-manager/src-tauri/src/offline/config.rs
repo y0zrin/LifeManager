@@ -14,7 +14,7 @@ pub struct Kind {
     pub commit: &'static str,
 }
 
-pub const KINDS: [Kind; 6] = [
+pub const KINDS: [Kind; 7] = [
     Kind { key: "routines", path: "config/routines.yaml", label: "ルーチン設定", empty: "[]", commit: "ルーチン設定を更新" },
     Kind {
         key: "notifications",
@@ -34,6 +34,8 @@ pub const KINDS: [Kind; 6] = [
     Kind { key: "board", path: "config/board.yaml", label: "ボード設定", empty: "null", commit: "ボード設定を更新" },
     // タスク一覧の「保存した見方」。チームで共有する（一覧そのままの形で書く）
     Kind { key: "views", path: "config/views.yaml", label: "保存した見方", empty: "[]", commit: "保存した見方を更新" },
+    // 見積もりの単位（ポイント・時間・日・人月）。チームで一つ
+    Kind { key: "estimate", path: "config/estimate.yaml", label: "見積もりの単位", empty: "null", commit: "見積もりの単位を更新" },
 ];
 
 pub fn kind(key: &str) -> Result<&'static Kind, String> {

@@ -2869,6 +2869,7 @@ button:hover {
 /* Issue の詳細・作るときの「📏 見積もり」 */
 .est-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
   margin-top: 10px;
@@ -2917,6 +2918,33 @@ button:hover {
 
 .est-picker button:disabled {
   opacity: 0.5;
+}
+
+/* ほかの数（決めた数にない見積もり） */
+.est-other {
+  width: 88px;
+  min-height: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
+/* 単位の目安（見積もりの欄の下） */
+.est-guide {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 設定: 単位ごとの数の並び */
+.est-unit-values {
+  margin-left: var(--space-sm);
+  color: var(--accent-teal);
+  font-size: var(--font-xs);
+  font-weight: 400;
 }
 
 /* 保存した見方 */

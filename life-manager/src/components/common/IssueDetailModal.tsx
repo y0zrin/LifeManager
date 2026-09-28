@@ -11,7 +11,8 @@ import { RelatedIssues } from "./RelatedIssues";
 import { IssueTimeline } from "./IssueTimeline";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
-import { ESTIMATE_PREFIX, ESTIMATE_VALUES, estimateOf } from "../../lib/estimate";
+import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
+import { EstimatePicker } from "./EstimateChip";
 
 interface IssueDetailModalProps {
   issue: GitHubIssue;
@@ -405,24 +406,11 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
               </select>
             </div>
 
-            {/* 見積もり（ラベル「見積:3」を付け替える） */}
+            {/* 見積もり（ラベル「見積:3pt」などを、リポジトリの単位で付け替える） */}
             {onSetEstimate && (
               <div className="est-row">
                 <span className="est-row-label">📏 見積もり</span>
-                <span className="est-picker" role="group" aria-label="見積もり">
-                  {ESTIMATE_VALUES.map((v) => (
-                    <button key={v} type="button" className={estimate === v ? "on" : ""} aria-pressed={estimate === v}
-                      onClick={() => { if (estimate !== v) onSetEstimate(issue.number, v); }}>
-                      {v}
-                    </button>
-                  ))}
-                  <button type="button" disabled={estimate === null} onClick={() => onSetEstimate(issue.number, null)}>
-                    なし
-                  </button>
-                </span>
-                {estimate !== null && !(ESTIMATE_VALUES as readonly number[]).includes(estimate) && (
-                  <span className="est-chip" title="GitHub で付けた見積もり">{estimate}</span>
-                )}
+                <EstimatePicker value={estimate} onChange={(v) => onSetEstimate(issue.number, v)} other />
               </div>
             )}
         </div>

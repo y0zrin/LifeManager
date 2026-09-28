@@ -49,9 +49,12 @@ interface WorkViewProps {
   /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
   onOpenSetup: () => void;
   setupVersion: number;
+  /** ファイルの右クリックのメニュー（.gitignore で無視する など） */
+  onFileMenu: (pos: MenuPos, file: GitFileChange, conflict: boolean) => void;
 }
 
 type Side = "staged" | "unstaged";
+type MenuPos = { x: number; y: number };
 type Selected = { path: string; side: Side };
 /** 取り組み中の Issue。"none" は「Issue なしで作業する」を選んだとき、null はまだ選んでいないとき */
 type IssueChoice = number | "none" | null;
@@ -208,6 +211,7 @@ function Workspace({
   onDraftChange,
   commitRequest,
   onCommitRequestHandled,
+  onFileMenu,
   status: st,
 }: WorkViewProps & { status: GitStatus; folder: string }) {
   const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo));
@@ -422,6 +426,7 @@ function Workspace({
               actions={actions}
               lastCommand={g.lastCommand}
               onEmptyCommit={() => focusCommit(true)}
+              onFileMenu={onFileMenu}
             />
           ) : (
             <StashPane stashes={g.stashes} actions={actions} busy={g.busy !== null} />
@@ -568,9 +573,10 @@ interface ChangesPaneProps {
   actions: GitActions;
   lastCommand: string | null;
   onEmptyCommit: () => void;
+  onFileMenu: (pos: MenuPos, file: GitFileChange, conflict: boolean) => void;
 }
 
-function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions, lastCommand, onEmptyCommit }: ChangesPaneProps) {
+function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions, lastCommand, onEmptyCommit, onFileMenu }: ChangesPaneProps) {
   const total = conflicts.length + staged.length + unstaged.length;
 
   const row = (f: GitFileChange, side: Side, conflict = false) => {
@@ -583,7 +589,16 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
         ? actions.unstage(f.orig_path ? [f.path, f.orig_path] : [f.path])
         : actions.stage([f.path]);
     return (
-      <div key={`${side}:${f.path}`} className={`fr${isSel ? " sel" : ""}`} onClick={() => onSelect({ path: f.path, side })}>
+      <div
+        key={`${side}:${f.path}`}
+        className={`fr${isSel ? " sel" : ""}`}
+        onClick={() => onSelect({ path: f.path, side })}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onSelect({ path: f.path, side });
+          onFileMenu({ x: e.clientX, y: e.clientY }, f, conflict);
+        }}
+      >
         <input
           type="checkbox"
           checked={side === "staged"}
@@ -604,7 +619,7 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
     <div className="w-pane">
       <p className="hint">
         チェックを入れたファイル（ステージ済み）が、次のコミットに入ります。チェックを入れるのは <code>git add</code>、外すのは{" "}
-        <code>git restore --staged</code> にあたります。
+        <code>git restore --staged</code> にあたります。記録しないファイルは、右クリックで <code>.gitignore</code> に書いて無視できます。
       </p>
       {total === 0 ? (
         <div className="ws-none">

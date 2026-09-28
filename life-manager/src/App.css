@@ -3378,6 +3378,46 @@ button:hover {
   gap: var(--space-sm);
 }
 
+/* .gitignore の編集 */
+.gi-editor {
+  width: 600px;
+}
+
+.gi-text {
+  min-height: 200px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* 書き方の早見表（パターンと意味を 2 列で） */
+.gi-help {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--space-md);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.gi-help div {
+  display: contents;
+}
+
+.gi-help dd {
+  margin: 0;
+}
+
+.gi-dirty {
+  margin-right: auto;
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+}
+
 /* 使う準備（Git のインストール・コミットに使う名前） */
 .setup-dialog {
   width: 540px;

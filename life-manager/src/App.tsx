@@ -29,6 +29,7 @@ import { GitNotices } from "./components/git/GitNotices";
 import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
+import { GitignoreEditor } from "./components/git/GitignoreEditor";
 import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
@@ -38,7 +39,7 @@ import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import { TokenBanner } from "./components/common/TokenBanner";
-import type { GitCommit, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
+import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
 import { isEscape } from "./lib/keys";
@@ -101,6 +102,8 @@ function App() {
     closeDialog: closeGitDialog,
     detail: commitDetail,
     closeDetail: closeCommitDetail,
+    gitignoreOpen,
+    closeGitignore,
   } = useGitActions(git, { owner: gh.owner, repo: gh.repo });
   // 右クリック・「⋯」のメニュー
   const [menu, setMenu] = useState<MenuSpec | null>(null);
@@ -144,6 +147,8 @@ function App() {
     });
   const openBranchMenu = (pos: { x: number; y: number }, e: BranchEntry) =>
     setMenu({ ...pos, title: `ブランチ ${e.name}`, items: gitActions.branchMenu(e, historyIsLocal) });
+  const openFileMenu = (pos: { x: number; y: number }, f: GitFileChange, conflict: boolean) =>
+    setMenu({ ...pos, title: f.path, items: gitActions.fileMenu(f, conflict) });
 
   // 画面の切り替えの動き（同じ画面のあいだは変えない）
   const viewAnim = useRef<{ view: ViewType; anim: string }>({ view, anim: "" });
@@ -577,6 +582,7 @@ function App() {
               onCommitRequestHandled={clearCommitRequest}
               onOpenSetup={openSetup}
               setupVersion={setupVersion}
+              onFileMenu={openFileMenu}
             />
           )}
 
@@ -771,6 +777,7 @@ function App() {
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
+      {gitignoreOpen && folder && <GitignoreEditor folder={folder} onSave={gitActions.saveGitignore} onClose={closeGitignore} />}
       {commitDetail && (folder || gh.owner) && (
         <CommitDetail
           source={folder ? { folder } : { owner: gh.owner, repo: gh.repo }}

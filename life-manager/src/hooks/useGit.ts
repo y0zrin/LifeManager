@@ -127,8 +127,9 @@ export function useGit(folder: string | undefined, active: boolean) {
         if (!options.quiet) setBusy(label);
         try {
           const run = await action(folder);
-          setLastCommand(run.command);
-          if (!options.quiet) notify("ok", typeof success === "function" ? success(run) : success, run.command);
+          // git を使わない操作（.gitignore に書き足すだけ など）は、コマンドを残さない
+          if (run.command) setLastCommand(run.command);
+          if (!options.quiet) notify("ok", typeof success === "function" ? success(run) : success, run.command || undefined);
           return { ok: true, run };
         } catch (e) {
           const { command, message } = git.splitGitError(e);

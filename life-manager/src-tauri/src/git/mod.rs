@@ -4,6 +4,7 @@
 
 pub mod commands;
 pub mod history;
+mod ignore;
 pub mod publish;
 mod runner;
 mod setup;

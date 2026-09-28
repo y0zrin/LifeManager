@@ -1,5 +1,6 @@
 //! 画面から呼ぶ git のコマンド。git の実行には時間がかかることがあるので、どれも別スレッドで動かす
 use super::history::{self, History};
+use super::ignore::{self, GitignoreText};
 use super::publish;
 use super::runner::{run, GitRun};
 use super::setup;
@@ -290,6 +291,30 @@ pub async fn git_discard_all(path: String, include_untracked: bool) -> Result<Gi
         Ok(combine(runs))
     })
     .await
+}
+
+// --- 無視するファイル（.gitignore） ---
+
+/// パターンに当てはまる、git で管理しているファイル（.gitignore に書いても無視されないもの）
+#[tauri::command]
+pub async fn git_ignore_tracked(path: String, pattern: String) -> Result<Vec<String>, String> {
+    blocking(move || ignore::tracked_matching(Path::new(&path), &pattern)).await
+}
+
+/// .gitignore にパターンを書き足す。untrack があれば、そのパスに当てはまるファイルを管理から外す（git rm --cached）
+#[tauri::command]
+pub async fn git_ignore_add(path: String, pattern: String, untrack: Option<String>, recursive: bool) -> Result<GitRun, String> {
+    blocking(move || ignore::add_ignore(Path::new(&path), &pattern, untrack.as_deref(), recursive)).await
+}
+
+#[tauri::command]
+pub async fn git_gitignore_read(path: String) -> Result<GitignoreText, String> {
+    blocking(move || ignore::read_gitignore(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn git_gitignore_write(path: String, text: String) -> Result<GitRun, String> {
+    blocking(move || ignore::write_gitignore(Path::new(&path), &text)).await
 }
 
 // --- コミットの操作（ブランチ画面・全体図のメニュー） ---

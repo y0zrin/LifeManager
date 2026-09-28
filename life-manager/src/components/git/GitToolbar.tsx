@@ -192,6 +192,7 @@ function MoreMenu({ git: g, actions, disabled, onOpenCommit }: MoreMenuProps) {
           })}
           {item("🌿 ブランチを作成…", () => actions.createBranch(), { code: "git switch -c {名前}" })}
           {item("🏷️ 今のコミットにタグを付ける…", actions.tag, { code: "git tag {名前}", off: !st.head })}
+          {item("📝 .gitignore を編集…", actions.editGitignore)}
           <hr />
           {item("🗑 作業中の変更をすべて破棄…", actions.discardAll, {
             code: "git restore --staged --worktree -- .",

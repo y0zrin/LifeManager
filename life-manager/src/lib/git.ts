@@ -88,6 +88,54 @@ export const discardAll = (path: string, includeUntracked: boolean) =>
   invoke<GitRun>("git_discard_all", { path, includeUntracked });
 export const openTerminal = (path: string) => invoke<void>("git_open_terminal", { path });
 
+// --- 無視するファイル（.gitignore） ---
+/** パターンに当てはまる、git で管理しているファイル（.gitignore に書いても無視されないもの） */
+export const ignoreTracked = (path: string, pattern: string) => invoke<string[]>("git_ignore_tracked", { path, pattern });
+/** .gitignore にパターンを 1 行書き足す。untrack があれば、先にそのパスのファイルを管理から外す（git rm --cached） */
+export const ignoreAdd = (path: string, pattern: string, untrack: string | null, recursive: boolean) =>
+  invoke<GitRun>("git_ignore_add", { path, pattern, untrack, recursive });
+/** .gitignore の中身（改行は \n にそろえてある）。まだ無ければ exists: false */
+export const readGitignore = (path: string) => invoke<{ text: string; exists: boolean }>("git_gitignore_read", { path });
+export const writeGitignore = (path: string, text: string) => invoke<GitRun>("git_gitignore_write", { path, text });
+
+/** 右クリックの「無視する」の選び方 */
+export interface IgnoreRule {
+  kind: "file" | "ext" | "folder";
+  /** 画面に出す名前（ファイル名・.log・build/ など） */
+  label: string;
+  /** .gitignore に書く 1 行 */
+  pattern: string;
+  /** すでに管理しているファイルを外すときの、git rm のパスの指定（pattern と同じ範囲に当てはまる） */
+  pathspec: string;
+  /** git rm に -r が要る（フォルダ・拡張子） */
+  recursive: boolean;
+}
+
+/** .gitignore で特別な意味を持つ文字（* ? [ \）と末尾の空白を、ただの文字として書く */
+function escapeIgnore(name: string): string {
+  return name.replace(/[\\*?[]/g, "\\$&").replace(/ +$/, (spaces) => spaces.replace(/ /g, "\\ "));
+}
+
+/**
+ * そのファイルを無視するときの選び方: このファイルだけ・同じ拡張子のファイル・入っているフォルダ（すぐ上と、いちばん上）。
+ * ファイルとフォルダは頭に / を付けて、その場所だけに当てはまるようにする（git rm --cached で外す範囲と同じになる）
+ */
+export function ignoreRules(path: string): IgnoreRule[] {
+  const parts = path.split("/");
+  const name = parts[parts.length - 1];
+  const rules: IgnoreRule[] = [{ kind: "file", label: name, pattern: `/${escapeIgnore(path)}`, pathspec: path, recursive: false }];
+  const dot = name.lastIndexOf(".");
+  if (dot > 0 && dot < name.length - 1) {
+    const ext = name.slice(dot + 1);
+    rules.push({ kind: "ext", label: `.${ext}`, pattern: `*.${escapeIgnore(ext)}`, pathspec: `*.${ext}`, recursive: true });
+  }
+  const folders = new Set(parts.length > 1 ? [parts.slice(0, -1).join("/"), parts[0]] : []);
+  for (const dir of folders) {
+    rules.push({ kind: "folder", label: `${dir}/`, pattern: `/${escapeIgnore(dir)}/`, pathspec: `${dir}/`, recursive: true });
+  }
+  return rules;
+}
+
 // --- コミットの操作 ---
 export const detach = (path: string, hash: string) => invoke<GitRun>("git_detach", { path, hash });
 /** コミットの内容（git show） */
@@ -118,12 +166,12 @@ export const continueOperation = (path: string, operation: GitOperation) =>
 // --- 画面に見せるコマンド ---
 
 /**
- * 表示用のコマンド文字列（バックエンドの display_command と同じ書き方: 空白や " を含む引数だけ " で囲み、
+ * 表示用のコマンド文字列（バックエンドの display_command と同じ書き方: 空白・"・* ? を含む引数だけ " で囲み、
  * 40 桁のコミットのハッシュは 7 桁で見せる）
  */
 export function displayCommand(args: string[]): string {
   const parts = args.map((a) =>
-    /^[0-9a-f]{40}$/i.test(a) ? a.slice(0, 7) : a === "" || /[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a,
+    /^[0-9a-f]{40}$/i.test(a) ? a.slice(0, 7) : a === "" || /[\s"*?]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a,
   );
   return ["git", ...parts].join(" ");
 }

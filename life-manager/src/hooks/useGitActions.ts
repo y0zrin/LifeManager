@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as git from "../lib/git";
-import type { GitCommit, GitOperation, GitStash } from "../lib/types";
+import type { GitCommit, GitFileChange, GitOperation, GitStash } from "../lib/types";
 import type { BranchEntry } from "../lib/history";
 import type { GitDialogSpec } from "../components/git/GitDialog";
 import type { MenuItem } from "../components/git/ContextMenu";
@@ -34,6 +34,9 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
   // 「変更内容を見る」で開くコミット
   const [detail, setDetail] = useState<GitCommit | null>(null);
   const closeDetail = useCallback(() => setDetail(null), []);
+  // 「.gitignore を編集」を開いているか
+  const [gitignoreOpen, setGitignoreOpen] = useState(false);
+  const closeGitignore = useCallback(() => setGitignoreOpen(false), []);
 
   const st = g.status;
   const branch = st?.branch ?? "";
@@ -207,6 +210,72 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       submit: (withNew) =>
         g.exec("破棄しています", (p) => git.discardAll(p, withNew), "作業中の変更を破棄しました", { inlineError: true }),
     });
+  }
+
+  // --- 無視するファイル（.gitignore） ---
+
+  /**
+   * .gitignore に 1 行書き足して無視する。すでに git で管理しているファイルが当てはまるときは、
+   * 書くだけでは無視されないので、管理から外すか（git rm --cached）を聞く
+   */
+  async function ignore(rule: git.IgnoreRule) {
+    const folder = g.folder;
+    if (!folder) return;
+    let tracked: string[];
+    try {
+      tracked = await git.ignoreTracked(folder, rule.pattern);
+    } catch (e) {
+      const { command, message } = git.splitGitError(e);
+      g.notify("error", message, command);
+      return;
+    }
+    const add = (untrack: boolean) =>
+      g.exec(
+        "無視する設定をしています",
+        (p) => git.ignoreAdd(p, rule.pattern, untrack ? rule.pathspec : null, rule.recursive),
+        (run) => run.output,
+        { inlineError: untrack || tracked.length > 0 },
+      );
+    if (tracked.length === 0) return add(false);
+
+    const rm = git.displayCommand(["rm", ...(rule.recursive ? ["-r"] : []), "--cached", "--", rule.pathspec]);
+    const kept =
+      "ファイルはこの PC に残り、次のコミットで記録から外れます（GitHub からも消えるので、ほかの人がプルすると、その人の手元からも消えます）。";
+    if (rule.kind === "file") {
+      setDialog({
+        kind: "confirm",
+        title: `${rule.label} を無視する`,
+        message: `${rule.pathspec} は、すでに git で管理しているファイルです。.gitignore に書くだけでは無視されないので、管理から外します。${kept}`,
+        okLabel: "管理から外して無視する",
+        commandFor: () => rm,
+        submit: () => add(true),
+      });
+      return;
+    }
+    const examples = tracked.slice(0, 3).join("、") + (tracked.length > 3 ? " など" : "");
+    setDialog({
+      kind: "choice",
+      title: rule.kind === "ext" ? `拡張子 ${rule.label} のファイルを無視する` : `フォルダ ${rule.label} を無視する`,
+      message: `当てはまるファイルのうち ${tracked.length} 個（${examples}）は、すでに git で管理しています。.gitignore に書くだけでは、これらは無視されません。`,
+      choices: [
+        { key: "untrack", title: "管理しているファイルも外して無視する", detail: kept, command: rm },
+        {
+          key: "keep",
+          title: ".gitignore に書くだけにする",
+          detail: "管理しているファイルは、これまでどおり記録されます。まだ管理していないファイルだけが無視されます。",
+          command: "",
+        },
+      ],
+      submit: (key) => add(key === "untrack"),
+    });
+  }
+
+  function editGitignore() {
+    if (g.folder) setGitignoreOpen(true);
+  }
+
+  function saveGitignore(text: string) {
+    return g.exec("保存しています", (p) => git.writeGitignore(p, text), (run) => run.output, { inlineError: true });
   }
 
   // --- 途中で止まった操作（マージ・リベース・チェリーピック・リバート） ---
@@ -460,6 +529,27 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     return items;
   }
 
+  /** 作業タブのファイルの右クリック: .gitignore で無視する（このファイル・同じ拡張子・フォルダ）、.gitignore の編集 */
+  function fileMenu(f: GitFileChange, conflict: boolean): MenuItem[] {
+    // 管理している（索引にある）ファイルは、書くだけでは無視されないので、管理から外すかを聞く（…）
+    const tracked = f.unstaged !== "?";
+    const isGitignore = f.path === ".gitignore" || f.path.endsWith("/.gitignore");
+    const why = isGitignore ? ".gitignore そのものは無視できません" : conflict ? "競合を直してから使えます" : undefined;
+    const items: MenuItem[] = git.ignoreRules(f.path).map((r, i) => ({
+      label:
+        r.kind === "file" ? `🙈 このファイルを無視する${tracked ? "（管理から外す）…" : ""}`
+        : r.kind === "ext" ? `🙈 拡張子 ${r.label} のファイルをすべて無視する`
+        : `🙈 フォルダ ${r.label} を無視する`,
+      code: `.gitignore に追記: ${r.pattern}`,
+      disabled: !!why,
+      // 押せない理由は最初の項目にだけ書く
+      hint: i === 0 ? why : undefined,
+      run: () => { ignore(r); },
+    }));
+    items.push("sep", { label: "📝 .gitignore を編集…", run: editGitignore });
+    return items;
+  }
+
   async function openTerminal() {
     if (!g.folder) return;
     try {
@@ -496,14 +586,18 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     setUpstream,
     renameBranch,
     deleteBranch,
+    ignore,
+    editGitignore,
+    saveGitignore,
     commitMenu,
     branchMenu,
+    fileMenu,
     showCommit: setDetail,
     openTerminal,
     refresh: g.refresh,
   };
 
-  return { actions, dialog, closeDialog, detail, closeDetail };
+  return { actions, dialog, closeDialog, detail, closeDetail, gitignoreOpen, closeGitignore };
 }
 
 export type GitActions = ReturnType<typeof useGitActions>["actions"];

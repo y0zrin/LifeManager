@@ -626,3 +626,112 @@ fn clone_url_makes_a_folder_named_after_the_repository() {
     // 同じ場所には二度作らない
     assert!(super::publish::clone_url(&parent, &s(&remote)).unwrap_err().contains("すでにあります"));
 }
+
+// --- 無視するファイル（.gitignore） ---
+
+/// 最初のコミットがあるリポジトリ（1 人分）
+fn solo(name: &str) -> (Sandbox, PathBuf) {
+    let sb = Sandbox::new(name);
+    let dir = sb.dir("repo");
+    init_repo(&dir);
+    write(&dir, "README.md", "はじめに\n");
+    commit_all(&dir, "最初のコミット");
+    (sb, dir)
+}
+
+fn paths(dir: &Path) -> Vec<String> {
+    status(dir).files.into_iter().map(|f| f.path).collect()
+}
+
+#[test]
+fn ignore_adds_the_line_once_and_hides_new_files() {
+    let (_sb, dir) = solo("ignore-add");
+    write(&dir, "logs/debug.log", "ログ\n");
+    write(&dir, "logs/keep.txt", "残す\n");
+    assert!(paths(&dir).contains(&"logs/debug.log".to_string()));
+
+    // まだ管理していないので、書き足すだけでよい（作業フォルダの中のフォルダから呼んでも、いちばん上の .gitignore に書く）
+    assert!(block(git_ignore_tracked(s(&dir.join("logs")), "*.log".into())).unwrap().is_empty());
+    let r = block(git_ignore_add(s(&dir.join("logs")), "*.log".into(), None, false)).unwrap();
+    assert_eq!(r.command, "");
+    assert!(r.output.contains("書き足しました"), "{}", r.output);
+    assert_eq!(read(&dir, ".gitignore"), "*.log\n");
+    let now = paths(&dir);
+    assert!(!now.contains(&"logs/debug.log".to_string()), "{:?}", now);
+    assert!(now.contains(&"logs/keep.txt".to_string()) && now.contains(&".gitignore".to_string()), "{:?}", now);
+
+    // 同じ行は二度書かない
+    let again = block(git_ignore_add(s(&dir), "*.log".into(), None, false)).unwrap();
+    assert!(again.output.contains("もう"), "{}", again.output);
+    assert_eq!(read(&dir, ".gitignore"), "*.log\n");
+}
+
+#[test]
+fn ignore_keeps_the_newline_style_of_the_file() {
+    let (_sb, dir) = solo("ignore-crlf");
+    // 最後の行に改行がない、CRLF の .gitignore
+    write(&dir, ".gitignore", "a\r\nb");
+    block(git_ignore_add(s(&dir), "/c".into(), None, false)).unwrap();
+    assert_eq!(read(&dir, ".gitignore"), "a\r\nb\r\n/c\r\n");
+    // 改行を含むパターンは受け付けない
+    assert!(block(git_ignore_add(s(&dir), "x\ny".into(), None, false)).is_err());
+}
+
+#[test]
+fn ignoring_a_tracked_folder_untracks_only_that_folder() {
+    let (_sb, dir) = solo("ignore-tracked");
+    write(&dir, "build/a.txt", "a\n");
+    write(&dir, "build/sub/b.txt", "b\n");
+    write(&dir, "app/build/c.txt", "c\n");
+    commit_all(&dir, "ビルドの結果までコミットしてしまった");
+
+    // 頭に / を付けたパターンは、いちばん上の build だけに当てはまる（git rm -r --cached -- build/ と同じ範囲）
+    let tracked = block(git_ignore_tracked(s(&dir), "/build/".into())).unwrap();
+    assert_eq!(tracked, vec!["build/a.txt".to_string(), "build/sub/b.txt".to_string()]);
+
+    let r = block(git_ignore_add(s(&dir), "/build/".into(), Some("build/".into()), true)).unwrap();
+    assert_eq!(r.command, "git rm -r --cached -- build/");
+    assert!(r.output.contains("管理から外した"), "{}", r.output);
+    // ファイルは残り、記録からは「削除」としてステージされる。無視されるので、新しいファイルとしては出ない
+    assert_eq!(read(&dir, "build/a.txt"), "a\n");
+    let st = status(&dir);
+    let removed: Vec<_> = st.files.iter().filter(|f| f.staged == "D").map(|f| f.path.as_str()).collect();
+    assert_eq!(removed, vec!["build/a.txt", "build/sub/b.txt"]);
+    assert!(st.files.iter().all(|f| f.unstaged != "?" || f.path == ".gitignore"), "{:?}", paths(&dir));
+    assert!(block(git_ignore_tracked(s(&dir), "/build/".into())).unwrap().is_empty());
+    // app/build はそのまま管理されている
+    assert!(git(&dir, &["ls-files", "app/build"]).contains("app/build/c.txt"));
+}
+
+#[test]
+fn untracking_a_single_file_does_not_need_recursive() {
+    let (_sb, dir) = solo("ignore-file");
+    write(&dir, ".env", "SECRET=1\n");
+    commit_all(&dir, "うっかり .env をコミット");
+    let r = block(git_ignore_add(s(&dir), "/.env".into(), Some(".env".into()), false)).unwrap();
+    assert_eq!(r.command, "git rm --cached -- .env");
+    assert_eq!(read(&dir, ".gitignore"), "/.env\n");
+    let st = status(&dir);
+    assert!(st.files.iter().any(|f| f.path == ".env" && f.staged == "D"));
+    assert!(!st.files.iter().any(|f| f.path == ".env" && f.unstaged == "?"));
+}
+
+#[test]
+fn gitignore_can_be_read_and_saved() {
+    let (_sb, dir) = solo("gitignore-edit");
+    let before = block(git_gitignore_read(s(&dir))).unwrap();
+    assert!(!before.exists && before.text.is_empty());
+
+    // 最後に改行がなくても足して保存する
+    block(git_gitignore_write(s(&dir), "*.log\n/build/".into())).unwrap();
+    assert_eq!(read(&dir, ".gitignore"), "*.log\n/build/\n");
+    let after = block(git_gitignore_read(s(&dir))).unwrap();
+    assert!(after.exists);
+    assert_eq!(after.text, "*.log\n/build/\n");
+
+    // もとが CRLF なら CRLF のまま保存する（画面には LF にそろえて渡す）
+    write(&dir, ".gitignore", "a\r\n");
+    assert_eq!(block(git_gitignore_read(s(&dir))).unwrap().text, "a\n");
+    block(git_gitignore_write(s(&dir), "a\nb\n".into())).unwrap();
+    assert_eq!(read(&dir, ".gitignore"), "a\r\nb\r\n");
+}

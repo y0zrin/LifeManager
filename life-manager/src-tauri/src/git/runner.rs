@@ -54,14 +54,14 @@ pub struct GitRun {
     pub output: String,
 }
 
-/// 表示用のコマンド文字列（空白や引用符を含む引数だけ引用符で囲む）。
+/// 表示用のコマンド文字列（空白・引用符・* ? を含む引数だけ引用符で囲む。* ? は、写して打ったときにシェルが展開しないように）。
 /// コミットのハッシュ（40 桁）は、画面のほかの場所と同じ 7 桁で見せる（実行するときは 40 桁のまま）
 pub fn display_command(args: &[&str]) -> String {
     let mut parts = vec!["git".to_string()];
     for arg in args {
         if arg.len() == 40 && arg.bytes().all(|b| b.is_ascii_hexdigit()) {
             parts.push(arg[..7].to_string());
-        } else if arg.is_empty() || arg.contains(char::is_whitespace) || arg.contains('"') {
+        } else if arg.is_empty() || arg.contains(char::is_whitespace) || arg.contains(['"', '*', '?']) {
             parts.push(format!("\"{}\"", arg.replace('"', "\\\"")));
         } else {
             parts.push(arg.to_string());
@@ -141,6 +141,7 @@ mod tests {
         assert_eq!(display_command(&["commit", "-m", "READMEを更新"]), "git commit -m READMEを更新");
         assert_eq!(display_command(&["commit", "-m", "fix bug (#64)"]), "git commit -m \"fix bug (#64)\"");
         assert_eq!(display_command(&["commit", "-m", "say \"hi\""]), "git commit -m \"say \\\"hi\\\"\"");
+        assert_eq!(display_command(&["rm", "-r", "--cached", "--", "*.log"]), "git rm -r --cached -- \"*.log\"");
         assert_eq!(
             display_command(&["cherry-pick", "9ba192d376af99e09155aa9feea1347f2de68848"]),
             "git cherry-pick 9ba192d"

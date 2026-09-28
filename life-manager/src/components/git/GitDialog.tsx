@@ -147,7 +147,7 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
             >
               <b>{c.title}</b>
               <small>{c.detail}</small>
-              <code>{c.command}</code>
+              {c.command && <code>{c.command}</code>}
             </button>
           ))}
 

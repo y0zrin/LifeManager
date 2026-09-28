@@ -647,6 +647,21 @@ git push -u origin main</div>
   </div>
   <p>ファイルを選ぶと、右に差分（変更の中身）が出ます。緑の行が追加、赤の行が削除です。<code>+12 −3</code> は、追加した行と削除した行の数です。一覧の下には、直前に実行したコマンドが表示されます。</p>
 
+  <h3 id="gitignore">記録しないファイル（.gitignore）</h3>
+  <p>ビルドの結果・ログ・エンジンが作るキャッシュ・パスワードの入った設定など、記録しないファイルは <code>.gitignore</code> に書いて<b>無視</b>させます。一覧のファイルを<b>右クリック</b>すると、次のメニューが出ます（<code>logs/debug.log</code> を右クリックしたときの例）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>.gitignore に書き足す行</th><th>無視されるもの</th></tr>
+    <tr><td>このファイルを無視する</td><td><code>/logs/debug.log</code></td><td>そのファイルだけ</td></tr>
+    <tr><td>拡張子 .log のファイルをすべて無視する</td><td><code>*.log</code></td><td>どのフォルダの .log も</td></tr>
+    <tr><td>フォルダ logs/ を無視する</td><td><code>/logs/</code></td><td>そのフォルダの中すべて（すぐ上のフォルダと、いちばん上のフォルダを選べます）</td></tr>
+    <tr><td>.gitignore を編集…</td><td></td><td>.gitignore を直接書き換える（下の説明）</td></tr>
+  </table>
+  </div>
+  <p>頭の <code>/</code> は「リポジトリのいちばん上から数えた場所」という意味で、その場所だけに当てはまります。書き足したあとは <code>.gitignore</code> 自身が変更として出るので、ほかの変更と一緒にコミットします。</p>
+  <p><b>すでに git で管理しているファイル</b>（一度コミットしたファイル）は、<code>.gitignore</code> に書くだけでは無視されません。そのときは確認の画面が出て、<b>管理から外して</b>無視できます（<code>git rm --cached -- ファイル</code>、フォルダなら <code>git rm -r --cached -- フォルダ/</code>）。ファイルは PC に残り、次のコミットで記録から外れます。GitHub からも消えるので、ほかの人がプルすると、その人の手元からも消えます。</p>
+  <p><span class="ui">.gitignore を編集…</span>（右クリック、または <span class="ui">その他 ▾</span>）では、<code>.gitignore</code> を直接書き換えられます。書きまちがえた行を消すときなどに使います。<kbd>Ctrl</kbd>＋<kbd>S</kbd> で保存します。まだ <code>.gitignore</code> がなければ、保存したときにリポジトリのいちばん上に作ります。</p>
+
   <h3>コミットする</h3>
   <p>下のコミット欄で、変更に説明を付けて記録します。</p>
   <div class="table-wrap">
@@ -672,7 +687,7 @@ git push -u origin main</div>
     <tr><td><span class="ui">⟳ フェッチ</span></td><td>GitHub の最新の状態を取ってくる（手元のファイルは変わりません）</td><td><code>git fetch --all --prune</code></td></tr>
     <tr><td><span class="ui">⬇ プル</span></td><td>GitHub の新しいコミットを取り込む。数字は、まだ取り込んでいないコミットの数</td><td><code>git pull --no-rebase</code></td></tr>
     <tr><td><span class="ui">⬆ プッシュ</span></td><td>コミットを GitHub に送る。数字は、まだ送っていないコミットの数。「未公開」は、ブランチがまだ GitHub にないこと</td><td><code>git push</code><br><code>git push -u origin ブランチ</code></td></tr>
-    <tr><td><span class="ui">その他 ▾</span></td><td>コミット・空コミット・一時退避・ブランチの作成・タグ・変更の破棄・ターミナルを開く・表示の更新</td><td></td></tr>
+    <tr><td><span class="ui">その他 ▾</span></td><td>コミット・空コミット・一時退避・ブランチの作成・タグ・.gitignore の編集・変更の破棄・ターミナルを開く・表示の更新</td><td></td></tr>
   </table>
   </div>
   <p>操作の結果は、右下に実行したコマンドと一緒に表示されます。</p>
@@ -700,6 +715,7 @@ git push -u origin main</div>
   <table>
     <tr><th>項目</th><th>すること</th></tr>
     <tr><td>今のコミットにタグを付ける…</td><td>リリースの区切りなどに名前を付けます（<code>git tag 名前</code>）。GitHub に送るには、別に <code>git push origin タグ名</code> が必要です。</td></tr>
+    <tr><td>.gitignore を編集…</td><td>記録しないファイルの一覧を、直接書き換えます（「<a href="#gitignore">記録しないファイル</a>」）。</td></tr>
     <tr><td>作業中の変更をすべて破棄…</td><td>コミットしていない変更を消して、直前のコミットの状態に戻します。<b>元に戻せません</b>。新しいファイルも消すかどうかを選べます。</td></tr>
     <tr><td>このフォルダでターミナルを開く</td><td>作業フォルダで PowerShell などを開きます。画面で覚えたコマンドを、自分で打って試せます。</td></tr>
     <tr><td>表示を更新</td><td>状態を読み直します（ほかのアプリで編集したあとも、自動で読み直します）。</td></tr>
@@ -781,6 +797,8 @@ git push -u origin main</div>
   <h2>操作メニューの一覧</h2>
   <p>どの操作も、実行するコマンドがメニューに表示されます。元に戻せない操作や、履歴が変わる操作は、確認の画面を出してから実行します（確認の画面にもコマンドが出ます）。押せない項目には、その理由が小さく書かれます。</p>
 
+  <p>作業タブのファイルのメニュー（右クリック）は、「<a href="#gitignore">記録しないファイル（.gitignore）</a>」を見てください。</p>
+
   <h3>コミットのメニュー</h3>
   <div class="table-wrap">
   <table>
@@ -856,6 +874,8 @@ git push -u origin main</div>
     <dd>コミットごとに付く番号（<code>799773a</code> のような英数字）。</dd>
     <dt>ステージ <small>git add</small></dt>
     <dd>次のコミットに入れる変更を選ぶこと。選んだ変更の置き場所もステージ（インデックス）と呼びます。</dd>
+    <dt>.gitignore</dt>
+    <dd>git で記録しない（無視する）ファイルを、1 行に 1 つ書いておくファイル。すでに記録しているファイルには効かないので、<code>git rm --cached</code> で管理から外します。</dd>
     <dt>差分 <small>diff</small></dt>
     <dd>変更の中身。追加した行と削除した行で表します。</dd>
     <dt>ブランチ <small>branch</small></dt>

@@ -364,6 +364,12 @@ fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, known: &Kno
             issue["updated_at"] = json!(at);
             issue["_pending"] = json!(true);
             let is_open = issue["state"].as_str() != Some("closed");
+            // 閉じた日時（タスク画面の分析で、閉じた数を週ごとに数える）
+            if was_open && !is_open {
+                issue["closed_at"] = json!(at);
+            } else if !was_open && is_open {
+                issue["closed_at"] = Value::Null;
+            }
             match (was_open, is_open) {
                 (true, true) => open.insert(index.min(open.len()), issue),
                 (false, false) => closed.insert(index.min(closed.len()), issue),
@@ -798,6 +804,7 @@ mod tests {
         assert_eq!(open.iter().map(|i| i["number"].as_i64().unwrap()).collect::<Vec<_>>(), vec![-1]);
         assert_eq!(closed[0]["number"], json!(5));
         assert_eq!(closed[0]["_pending"], json!(true));
+        assert!(closed[0]["closed_at"].is_string());
         // 変える前の状態を覚えておく（送るときに GitHub の状態と比べる）
         match &store.outbox[1] {
             Op::UpdateIssue { base: Some(base), .. } => assert_eq!(base.state.as_deref(), Some("open")),

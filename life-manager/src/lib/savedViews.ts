@@ -3,12 +3,17 @@ import { GROUP_LABELS, SORT_LABELS, type GroupKey, type LabelFilters, type ListM
 
 export type StateFilter = "open" | "closed" | "all";
 
+/** マイルストーンの絞り込み（番号か、マイルストーンのないもの） */
+export type MilestoneFilter = number | "none";
+
 export interface SavedView {
   name: string;
   /** ラベルの絞り込み（種類ごとに、値と どれか／すべて） */
   filters: LabelFilters;
   /** 担当。ME は開いた人（自分）、空は全員 */
   assignee: string;
+  /** マイルストーン（番号）。"none" はマイルストーンなし、ないときは全部 */
+  milestone?: MilestoneFilter;
   state: StateFilter;
   sort: SortKey;
   group: GroupKey;
@@ -34,6 +39,12 @@ function normalizeFilters(raw: unknown): LabelFilters {
   return out;
 }
 
+function milestoneOf(raw: unknown): { milestone?: MilestoneFilter } {
+  if (raw === "none") return { milestone: "none" };
+  const n = typeof raw === "number" ? raw : typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : NaN;
+  return Number.isInteger(n) && n > 0 ? { milestone: n } : {};
+}
+
 /** 読んだ一覧を確かめ、足りない所を補う（手で書き換えた views.yaml でも画面が止まらないように） */
 export function normalizeViews(raw: unknown): SavedView[] {
   if (!Array.isArray(raw)) return [];
@@ -46,6 +57,7 @@ export function normalizeViews(raw: unknown): SavedView[] {
       name: r.name.trim(),
       filters: normalizeFilters(r.filters),
       assignee: typeof r.assignee === "string" ? r.assignee : "",
+      ...milestoneOf(r.milestone),
       state: STATES.includes(r.state as StateFilter) ? (r.state as StateFilter) : "open",
       sort: typeof r.sort === "string" && r.sort in SORT_LABELS ? (r.sort as SortKey) : "new",
       group: typeof r.group === "string" && r.group in GROUP_LABELS ? (r.group as GroupKey) : "none",
@@ -67,6 +79,7 @@ function filterKey(filters: LabelFilters): string {
 export function sameSettings(a: ViewSettings, b: ViewSettings): boolean {
   return (
     a.assignee === b.assignee &&
+    (a.milestone ?? null) === (b.milestone ?? null) &&
     a.state === b.state &&
     a.sort === b.sort &&
     a.group === b.group &&
@@ -75,9 +88,16 @@ export function sameSettings(a: ViewSettings, b: ViewSettings): boolean {
   );
 }
 
+/** マイルストーンの絞り込みの説明（「マイルストーン:0.5.0」など）。titleOf は番号から名前を引く */
+export function describeMilestone(m: MilestoneFilter, titleOf?: (n: number) => string | undefined): string {
+  if (m === "none") return "マイルストーンなし";
+  return `マイルストーン:${titleOf?.(m) ?? `#${m}`}`;
+}
+
 /** メニューに出す、見方の中身の短い説明 */
-export function describeView(v: ViewSettings): string {
+export function describeView(v: ViewSettings, milestoneTitle?: (n: number) => string | undefined): string {
   const parts: string[] = [];
+  if (v.milestone !== undefined) parts.push(describeMilestone(v.milestone, milestoneTitle));
   for (const f of Object.values(v.filters)) {
     if (f && f.values.length > 0) parts.push(f.values.join(f.mode === "all" ? "＋" : "・"));
   }

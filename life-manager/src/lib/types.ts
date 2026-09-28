@@ -30,6 +30,8 @@ export interface GitHubIssue {
   comments: number;
   created_at: string;
   updated_at: string;
+  /** 閉じた日時。開いている（開き直した）Issue は null */
+  closed_at?: string | null;
   /** Issue の id（番号とは別。サブイシューをつなぐときに使う）。まだ送っていない Issue にはない */
   id?: number;
   /** 子の Issue の数と、そのうちクローズした数 */

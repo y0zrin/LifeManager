@@ -4,6 +4,7 @@ import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
 import { LabelFilterButton } from "../common/LabelFilterButton";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
+import { AnalyticsPanel } from "../common/AnalyticsPanel";
 import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
@@ -13,7 +14,7 @@ import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
-import { ME, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
+import { describeMilestone, ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
 import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
 import {
   GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
@@ -153,6 +154,8 @@ export function DashboardView({
     setIssueMilestone(undefined);
   }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
+  // マイルストーンで絞る（null は全部）
+  const [milestoneFilter, setMilestoneFilter] = useState<MilestoneFilter | null>(null);
   const [stateFilter, setStateFilter] = useState<StateFilter>("open");
   const [sortKey, setSortKey] = useState<SortKey>(loadSort);
   const [group, setGroup] = useState<GroupKey>(loadGroup);
@@ -283,9 +286,9 @@ export function DashboardView({
     "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
   };
 
-  const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : [...issues, ...closedIssues];
   const allIssues = [...issues, ...closedIssues];
-  const filteredIssues = baseIssues.filter((issue) => {
+  // 絞り込み（オープン／クローズの切り替えのほか）に当てはまるか
+  const matchesFilters = (issue: GitHubIssue) => {
     // テキスト検索
     if (searchQuery.length >= 1) {
       const raw = searchQuery.trim();
@@ -301,9 +304,19 @@ export function DashboardView({
     if (assigneeFilter) {
       if (!issue.assignees?.some((a) => a.login === assigneeFilter)) return false;
     }
+    // マイルストーン
+    if (milestoneFilter === "none" ? issue.milestone : milestoneFilter !== null && issue.milestone?.number !== milestoneFilter) return false;
     // ラベルフィルタ（種類ごとに、どれか／すべて）
     return matchesLabelFilters(issue, filters);
-  });
+  };
+  const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : allIssues;
+  const filteredIssues = baseIssues.filter(matchesFilters);
+  // 分析は、オープン／クローズの切り替えによらず、絞り込みに当てはまる全部の Issue で数える
+  const scopeIssues = stateFilter === "all" ? filteredIssues : allIssues.filter(matchesFilters);
+
+  // マイルストーンの名前（閉じたマイルストーンは一覧にないので、Issue に付いている名前から引く）
+  const milestoneTitle = (n: number) =>
+    milestones.find((m) => m.number === n)?.title ?? allIssues.find((i) => i.milestone?.number === n)?.milestone?.title;
 
   // 並べ替えてから、選んだ項目でまとめる（親子は、同じリポジトリの親が一覧に出ているときだけ、その下に並べる）
   const sorted = sortIssues(filteredIssues, sortKey);
@@ -320,6 +333,7 @@ export function DashboardView({
   const currentView: ViewSettings = {
     filters,
     assignee: assigneeFilter && assigneeFilter === currentUser ? ME : assigneeFilter,
+    ...(milestoneFilter !== null ? { milestone: milestoneFilter } : {}),
     state: stateFilter,
     sort: sortKey,
     group,
@@ -345,13 +359,23 @@ export function DashboardView({
   function applyView(v: SavedView) {
     onFiltersChange(v.filters);
     setAssigneeFilter(v.assignee === ME ? currentUser : v.assignee);
+    setMilestoneFilter(v.milestone ?? null);
     setStateFilter(v.state);
     changeSort(v.sort);
     changeGroup(v.group);
     changeMode(v.mode);
   }
 
-  const activeFilterCount = Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  const activeFilterCount =
+    Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (milestoneFilter !== null ? 1 : 0) + (searchQuery ? 1 : 0);
+
+  // 分析の見出しに出す、今の絞り込みの説明
+  const scopeText = [
+    ...(milestoneFilter !== null ? [describeMilestone(milestoneFilter, milestoneTitle)] : []),
+    ...Object.values(filters).filter((f) => f?.values.length).map((f) => f.values.join(f.mode === "all" ? "＋" : "・")),
+    ...(assigneeFilter ? [`担当:${assigneeFilter === currentUser ? "自分" : assigneeFilter}`] : []),
+    ...(searchQuery.trim() ? [`検索「${searchQuery.trim()}」`] : []),
+  ].join("／");
 
   const pickedIssues = allIssues.filter((i) => picked.has(i.number));
 
@@ -462,13 +486,24 @@ export function DashboardView({
             <option key={c.login} value={c.login}>{c.login}</option>
           ))}
         </select>
+        <select value={milestoneFilter ?? ""} className="select-sm" aria-label="マイルストーン"
+          onChange={(e) => setMilestoneFilter(e.target.value === "" ? null : e.target.value === "none" ? "none" : Number(e.target.value))}>
+          <option value="">マイルストーン: 全て</option>
+          {milestones.map((m) => (
+            <option key={m.number} value={m.number}>🎯 {m.title}</option>
+          ))}
+          {typeof milestoneFilter === "number" && !milestones.some((m) => m.number === milestoneFilter) && (
+            <option value={milestoneFilter}>🎯 {milestoneTitle(milestoneFilter) ?? `#${milestoneFilter}`}（閉じた）</option>
+          )}
+          <option value="none">マイルストーンなし</option>
+        </select>
         <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as StateFilter)} className="select-sm">
           <option value="open">オープンのみ</option>
           <option value="closed">クローズのみ</option>
           <option value="all">両方</option>
         </select>
         {activeFilterCount > 0 && (
-          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); setSearchQuery(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
+          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); setMilestoneFilter(null); setSearchQuery(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
             リセット
           </button>
         )}
@@ -661,12 +696,15 @@ export function DashboardView({
           onClick={() => (picking ? quitPicking() : setPicking(true))}>
           ☑ 選ぶ
         </button>
-        <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} />
+        <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
         <span className="issue-count task-list-count">
           {filteredIssues.length} 件
           <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
         </span>
       </div>
+
+      {/* 分析（今の絞り込みの範囲の数字と図） */}
+      <AnalyticsPanel scope={scopeIssues} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} />
 
       {/* Issue一覧（表か、まとまりごとのカード） */}
       {mode === "table" && rows.length > 0 ? (

@@ -43,6 +43,19 @@
   /* Shadow */
   --shadow-popover: 0 8px 24px #01040999;
 
+  /* 分析の図の色（作った数・閉じた数） */
+  --chart-created: #58a6ff;
+  --chart-closed: #3fb950;
+  /* 分析の「状態ごと」の色（ボードの列の順: 未整理・未着手・進行中・チェック待ち・動作確認・完了承認待ち・いつか…） */
+  --state-0: #8b949e;
+  --state-1: #58a6ff;
+  --state-2: #d29915;
+  --state-3: #bc8cff;
+  --state-4: #3fb950;
+  --state-5: #39c5cf;
+  --state-6: #f778ba;
+  --state-7: #ffa657;
+
   /* 全体図のレーンの色（0 = 既定のブランチ、1 = チェックアウト中、あとは順に） */
   --lane-0: #58a6ff;
   --lane-1: #3fb950;
@@ -2760,6 +2773,307 @@ button:hover {
 .list-mode button.on {
   background: var(--accent-blue-bg);
   color: var(--accent-blue);
+}
+
+/* --- 分析（タスク画面の一覧の上） --- */
+.analytics {
+  container-type: inline-size;
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.analytics--folded {
+  padding-bottom: var(--space-sm);
+}
+
+.analytics-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.analytics-scope {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.analytics-line {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.analytics-line b {
+  margin: 0 2px;
+}
+
+.analytics-toggle {
+  min-height: 0;
+  margin-left: auto;
+  padding: 0 var(--space-xs);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.analytics-toggle:hover {
+  color: var(--text-primary);
+}
+
+.analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0 var(--space-md);
+}
+
+.analytics-kpi {
+  min-width: 0;
+  padding: var(--space-sm) 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.analytics-kpi-k {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.analytics-kpi-v {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.analytics-kpi--over .analytics-kpi-v,
+.analytics-over {
+  color: var(--accent-red);
+}
+
+.analytics-kpi--soon .analytics-kpi-v,
+.analytics-soon {
+  color: var(--accent-yellow);
+}
+
+.analytics-kpi-s {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.analytics-kpi-s .est-sum {
+  margin-left: 0;
+}
+
+.analytics-ref {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-blue);
+  font-size: inherit;
+}
+
+.analytics-ref:hover {
+  text-decoration: underline;
+}
+
+.analytics-muted {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.analytics-est {
+  color: var(--accent-teal);
+}
+
+.analytics-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-box {
+  min-width: 0;
+  padding: var(--space-sm) 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.analytics-box h5 {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.analytics-box h5:not(:first-child) {
+  margin-top: var(--space-md);
+}
+
+.analytics-box p {
+  margin: 0;
+}
+
+/* 状態ごと: 割合の帯と、色の見本 */
+.analytics-stack {
+  display: flex;
+  height: 14px;
+  margin: var(--space-xs) 0 6px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.analytics-stack i {
+  display: block;
+  height: 100%;
+}
+
+.analytics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
+.analytics-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-xs);
+  border-radius: 2px;
+}
+
+/* 担当ごと: 名前・帯・件数と見積もり */
+.analytics-person {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 3px 0;
+  font-size: var(--font-sm);
+}
+
+.analytics-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-person--none .analytics-name {
+  color: var(--text-muted);
+}
+
+.analytics-bar {
+  height: 10px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.analytics-bar i {
+  display: block;
+  height: 100%;
+  background: var(--chart-created);
+}
+
+.analytics-person--none .analytics-bar i {
+  background: var(--text-muted);
+}
+
+.analytics-num {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.analytics-rest {
+  margin: 3px 0;
+}
+
+/* 8 週の流れ: 週ごとに、作った数と閉じた数の 2 本 */
+.analytics-weeks {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  padding-top: 6px;
+}
+
+.analytics-week {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analytics-pair {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 72px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.analytics-pair i {
+  display: block;
+  width: 9px;
+  border-radius: 2px 2px 0 0;
+}
+
+.analytics-weeks small {
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.analytics .created {
+  background: var(--chart-created);
+}
+
+.analytics .closed {
+  background: var(--chart-closed);
+}
+
+.analytics-wlegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
+.analytics-wlegend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-xs);
+  border-radius: 2px;
+}
+
+/* 幅が狭いとき（スマホ・狭い窓）は、数字を 2 つずつ、図を縦に並べる（上の決まりより後に置く） */
+@container (max-width: 560px) {
+  .analytics-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* まとまりの見出し（カードのとき） */

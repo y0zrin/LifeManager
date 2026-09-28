@@ -402,7 +402,7 @@ export function useGitHub() {
       // 楽観的更新: openから除去し、closedに追加（副作用をupdater外に分離）
       setIssues((prev) => prev.filter((i) => i.number !== n));
       if (closedIssue) {
-        setClosedIssues((prev) => [{ ...closedIssue, state: "closed", state_reason: reason ?? "completed" }, ...prev]);
+        setClosedIssues((prev) => [{ ...closedIssue, state: "closed", state_reason: reason ?? "completed", closed_at: new Date().toISOString() }, ...prev]);
       }
       adjustParentOf(closedIssue, 1);
     } catch (e) {
@@ -425,7 +425,7 @@ export function useGitHub() {
       // 楽観的更新: closedから除去し、openに追加（副作用をupdater外に分離）
       setClosedIssues((prev) => prev.filter((i) => i.number !== n));
       if (reopenedIssue) {
-        setIssues((prev) => [{ ...reopenedIssue, state: "open" }, ...prev]);
+        setIssues((prev) => [{ ...reopenedIssue, state: "open", closed_at: null }, ...prev]);
       }
       adjustParentOf(reopenedIssue, -1);
     } catch (e) {

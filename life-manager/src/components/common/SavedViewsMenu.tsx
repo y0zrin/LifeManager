@@ -10,13 +10,15 @@ interface SavedViewsMenuProps {
   onApply: (view: SavedView) => void;
   /** 一覧を書き換えて保存する（config/views.yaml に書いて GitHub に送る） */
   onSave: (views: SavedView[]) => Promise<void>;
+  /** マイルストーンの番号から名前を引く（見方の説明に使う） */
+  milestoneTitle?: (n: number) => string | undefined;
 }
 
 /**
  * 保存した見方。今の設定と同じ見方があれば、その名前をボタンに出す。
  * 保存・名前の変更・削除は、リポジトリの config/views.yaml を書き換える（チームの全員が同じ見方を使える）
  */
-export function SavedViewsMenu({ views, current, onApply, onSave }: SavedViewsMenuProps) {
+export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle }: SavedViewsMenuProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -89,7 +91,7 @@ export function SavedViewsMenu({ views, current, onApply, onSave }: SavedViewsMe
               onClick={() => { onApply(v); setOpen(false); }}
             >
               <b>{v.name}</b>
-              <small>{describeView(v)}</small>
+              <small>{describeView(v, milestoneTitle)}</small>
             </button>
           ))}
           <div className="views-menu-save">

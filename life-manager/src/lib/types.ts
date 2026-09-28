@@ -17,6 +17,9 @@ export interface GitHubMilestone {
   state: string;
   open_issues: number;
   closed_issues: number;
+  /** 作った日時（スプリントの開始日を決めていないときに使う） */
+  created_at?: string;
+  closed_at?: string | null;
 }
 
 export interface GitHubIssue {

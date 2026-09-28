@@ -714,6 +714,9 @@ function App() {
               onCloseMilestone={gh.closeMilestone}
               onRefresh={gh.loadMilestones}
               onSelectIssue={setSelectedIssue}
+              owner={gh.owner}
+              repo={gh.repo}
+              onListTimeline={gh.listTimeline}
             />
           )}
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { normalizeViews, type SavedView } from "../lib/savedViews";
+import { ESTIMATE_COLOR, ESTIMATE_DESCRIPTION, ESTIMATE_PREFIX, estimateLabel, withEstimate } from "../lib/estimate";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult, TimelineEvent } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
@@ -631,6 +632,28 @@ export function useGitHub() {
     }
   }
 
+  // --- 見積もり（ラベル「見積:3」） ---
+
+  /** 見積もりのラベルがリポジトリになければ作る（色をそろえるため。作れなくても、付けるときに GitHub が作る） */
+  async function ensureEstimateLabel(value: number) {
+    const name = estimateLabel(value);
+    if (labels.some((l) => l.name === name)) return;
+    try {
+      await invoke("create_label", { owner, repo, name, color: ESTIMATE_COLOR, description: ESTIMATE_DESCRIPTION });
+      await loadLabels();
+    } catch {
+      // つながらないとき・もうあるときなど。付けるときに GitHub が作る
+    }
+  }
+
+  /** Issue の見積もりを付け替える（null なら外す） */
+  async function setEstimate(n: number, value: number | null) {
+    const current = [...issues, ...closedIssues].find((i) => i.number === n);
+    if (!current) return;
+    if (value !== null) await ensureEstimateLabel(value);
+    await updateIssue(n, { labels: withEstimate(current.labels.map((l) => l.name), value) });
+  }
+
   // --- マイルストーン操作 ---
 
   async function createMilestone(title: string, description: string, dueOn: string | null) {
@@ -1033,7 +1056,7 @@ export function useGitHub() {
 
   const customLabels = labels.filter(
     (l) => l.name.startsWith("種別:") || l.name.startsWith("分野:") ||
-           l.name.startsWith("状態:") || l.name.startsWith("優先:")
+           l.name.startsWith("状態:") || l.name.startsWith("優先:") || l.name.startsWith(ESTIMATE_PREFIX)
   );
 
   return {
@@ -1069,6 +1092,8 @@ export function useGitHub() {
     boardConfig, saveBoardConfig, loadBoardConfig,
     // タスク一覧の保存した見方
     savedViews, saveSavedViews, loadSavedViews,
+    // 見積もり
+    setEstimate, ensureEstimateLabel,
     // イベント通知
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
     // サブイシュー（親子）・変更の履歴

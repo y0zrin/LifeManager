@@ -1,4 +1,5 @@
 import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
+import { ESTIMATE_PREFIX, ESTIMATE_VALUES } from "../../lib/estimate";
 
 /** まとめて変える操作 */
 export type BulkAction =
@@ -7,7 +8,8 @@ export type BulkAction =
   | { kind: "status"; label: string }
   | { kind: "label"; label: string }
   | { kind: "milestone"; number: number | null; title: string }
-  | { kind: "assignee"; login: string | null };
+  | { kind: "assignee"; login: string | null }
+  | { kind: "estimate"; value: number | null };
 
 interface BulkBarProps {
   count: number;
@@ -29,7 +31,8 @@ interface BulkBarProps {
 export function BulkBar({ count, hasOpen, hasClosed, labels, milestones, collaborators, currentUser, busy, message, onRun, onSelectAll, onQuit }: BulkBarProps) {
   const disabled = count === 0 || !!busy;
   const statusLabels = labels.filter((l) => l.name.startsWith("状態:"));
-  const otherLabels = labels.filter((l) => !l.name.startsWith("状態:"));
+  // 見積もりは別の欄で付け替える（ラベルとして足すと、見積もりが 2 つ付いてしまう）
+  const otherLabels = labels.filter((l) => !l.name.startsWith("状態:") && !l.name.startsWith(ESTIMATE_PREFIX));
   const people = [currentUser, ...collaborators.map((c) => c.login).filter((l) => l !== currentUser)].filter(Boolean);
 
   // 選んだらすぐ実行し、選択肢は見出しに戻す
@@ -72,6 +75,16 @@ export function BulkBar({ count, hasOpen, hasClosed, labels, milestones, collabo
               {l.name}
             </option>
           ))}
+        </select>
+        <select className="select-sm" defaultValue="" disabled={disabled}
+          onChange={(e) => pick(e, (v) => onRun({ kind: "estimate", value: v === "none" ? null : Number(v) }))}>
+          <option value="">見積もり…</option>
+          {ESTIMATE_VALUES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+          <option value="none">（外す）</option>
         </select>
         <select
           className="select-sm"

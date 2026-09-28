@@ -4,6 +4,8 @@ import { TicketCard } from "../common/TicketCard";
 import { PendingChip } from "../common/PendingChip";
 import { issueRef } from "../../lib/issueRef";
 import { DEFAULT_COLUMNS } from "../../lib/board";
+import { sumEstimates } from "../../lib/estimate";
+import { EstimateSumText } from "../common/EstimateChip";
 
 interface KanbanViewProps {
   issues: GitHubIssue[];
@@ -475,6 +477,7 @@ export function KanbanView({ issues, labels, milestones, collaborators, boardCon
                   <span style={{ color: "var(--text-faint)", fontWeight: "normal", fontSize: "var(--font-sm)", marginLeft: "6px" }}>
                     {col.issues.length}
                   </span>
+                  <EstimateSumText sum={sumEstimates(col.issues)} showMissing={false} />
                 </h3>
                 <div className="kanban-body">
                   {col.issues.map((issue) => (

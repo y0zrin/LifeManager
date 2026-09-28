@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
 import { DatePickerButton } from "../common/DatePickerButton";
+import { sumEstimates } from "../../lib/estimate";
 
 interface MilestoneViewProps {
   milestones: GitHubMilestone[];
@@ -82,6 +83,9 @@ export function MilestoneView({ milestones, issues, closedIssues, onCreateMilest
         const closedCount = msClosedIssues.length;
         const total = openCount + closedCount;
         const percent = total > 0 ? Math.round((closedCount / total) * 100) : 0;
+        // 見積もり（済んだ分／全部）。見積もりが 1 件もなければ出さない
+        const estAll = sumEstimates([...msOpenIssues, ...msClosedIssues]);
+        const estDone = sumEstimates(msClosedIssues);
         return (
           <div key={ms.number} className="milestone-card" style={{ cursor: "pointer" }}
             onClick={() => setExpandedMs(isExpanded ? null : ms.number)}>
@@ -122,6 +126,11 @@ export function MilestoneView({ milestones, issues, closedIssues, onCreateMilest
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-sm)" }}>
                     <span className="milestone-progress-text" style={{ minWidth: 0 }}>
                       {percent}% ({closedCount}/{total})
+                      {estAll.counted > 0 && (
+                        <span className="est-sum" title={`見積もりのある ${estAll.counted} 件のうち、閉じた分の合計／全部の合計`}>
+                          見積 {estDone.total}/{estAll.total}
+                        </span>
+                      )}
                     </span>
                     <button
                       className="btn-sm"

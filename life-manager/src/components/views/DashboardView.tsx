@@ -4,6 +4,7 @@ import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
 import { LabelFilterButton } from "../common/LabelFilterButton";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
+import { EstimateSumText } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
@@ -13,6 +14,7 @@ import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
 import { ME, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
+import { ESTIMATE_PREFIX, ESTIMATE_VALUES, estimateOf, sumEstimates, withEstimate } from "../../lib/estimate";
 import {
   GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
   type GroupKey, type LabelFilters, type ListMode, type SortKey,
@@ -77,6 +79,8 @@ function bulkMessage(action: BulkAction, n: number): string {
       return action.number === null ? `${n} 件のマイルストーンを外しました` : `${n} 件のマイルストーンを「${action.title}」にしました`;
     case "assignee":
       return action.login === null ? `${n} 件の担当を外しました` : `${n} 件の担当を「${action.login}」にしました`;
+    case "estimate":
+      return action.value === null ? `${n} 件の見積もりを外しました` : `${n} 件の見積もりを「${action.value}」にしました`;
   }
 }
 
@@ -108,13 +112,15 @@ interface DashboardViewProps {
   onSaveViews: (views: SavedView[]) => Promise<void>;
   /** 「状態」でまとめるときの順番（ボードの列の順） */
   stateOrder: string[];
+  /** 見積もりのラベルがなければ作る（色をそろえるため） */
+  onEnsureEstimateLabel: (value: number) => Promise<void>;
   status?: string;
 }
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
-  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, status,
+  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const [memoText, setMemoText] = useState("");
@@ -247,6 +253,7 @@ export function DashboardView({
     }
     const labels = [...issueSelectedLabels];
     const milestone = issueMilestone || null;
+    const estimate = labels.map((name) => name.startsWith(ESTIMATE_PREFIX) ? Number(name.slice(ESTIMATE_PREFIX.length)) : NaN).find((v) => v > 0);
     const assignees = issueAssignees.length > 0 ? [...issueAssignees] : undefined;
     const reminderDt = issueReminderDatetime;
     const reminderCh = [...issueReminderChannels];
@@ -262,16 +269,17 @@ export function DashboardView({
     setIssueGanttEnd("");
     setAppliedTemplate(null);
     setTemplateNote(null);
-    // バックグラウンドで作成
+    // バックグラウンドで作成（見積もりのラベルは、なければ先に作って色をそろえる）
+    if (estimate) await onEnsureEstimateLabel(estimate);
     const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
     if (reminderDt && reminderCh.length > 0 && issueNumber) {
       await onAddReminder(issueNumber, title, reminderDt, reminderCh);
     }
   }
 
-  const categories = ["種別:", "分野:", "状態:", "優先:"] as const;
+  const categories = ["種別:", "分野:", "状態:", "優先:", ESTIMATE_PREFIX] as const;
   const categoryLabels: Record<string, string> = {
-    "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先",
+    "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
   };
 
   const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : [...issues, ...closedIssues];
@@ -347,6 +355,7 @@ export function DashboardView({
   const pickedIssues = allIssues.filter((i) => picked.has(i.number));
 
   async function runBulk(action: BulkAction) {
+    if (action.kind === "estimate" && action.value !== null) await onEnsureEstimateLabel(action.value);
     const targets = pickedIssues.filter((i) =>
       action.kind === "close" || action.kind === "status" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
     );
@@ -388,6 +397,9 @@ export function DashboardView({
         return onUpdateIssue(issue.number, { milestone: action.number });
       case "assignee":
         return onUpdateIssue(issue.number, { assignees: action.login ? [action.login] : [] });
+      case "estimate":
+        if (estimateOf(issue) === action.value) return;
+        return onUpdateIssue(issue.number, { labels: withEstimate(names, action.value) });
     }
   }
 
@@ -521,7 +533,7 @@ export function DashboardView({
                 {name}
               </span>
             ))}
-            {labels.map((l) => {
+            {labels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX)).map((l) => {
               const active = issueSelectedLabels.includes(l.name);
               return (
                 <span
@@ -540,6 +552,21 @@ export function DashboardView({
                 </span>
               );
             })}
+          </div>
+          {/* 見積もり（ラベル「見積:3」。1 つだけ） */}
+          <div className="est-row est-row--form">
+            <span className="est-row-label">📏 見積もり</span>
+            <span className="est-picker" role="group" aria-label="見積もり">
+              {ESTIMATE_VALUES.map((v) => {
+                const on = issueSelectedLabels.includes(`${ESTIMATE_PREFIX}${v}`);
+                return (
+                  <button key={v} type="button" className={on ? "on" : ""} aria-pressed={on}
+                    onClick={() => setIssueSelectedLabels(withEstimate(issueSelectedLabels, on ? null : v))}>
+                    {v}
+                  </button>
+                );
+              })}
+            </span>
           </div>
           <select value={issueMilestone || ""} onChange={(e) => setIssueMilestone(e.target.value ? parseInt(e.target.value) : undefined)} className="select-sm">
             <option value="">マイルストーンなし</option>
@@ -637,7 +664,10 @@ export function DashboardView({
           ☑ 選ぶ
         </button>
         <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} />
-        <span className="issue-count task-list-count">{filteredIssues.length} 件</span>
+        <span className="issue-count task-list-count">
+          {filteredIssues.length} 件
+          <EstimateSumText sum={sumEstimates(filteredIssues)} showMissing={false} />
+        </span>
       </div>
 
       {/* Issue一覧（表か、まとまりごとのカード） */}
@@ -650,6 +680,7 @@ export function DashboardView({
               <div className="task-group-head">
                 {g.title}
                 <span>{g.rows.length} 件</span>
+                <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue))} />
               </div>
             )}
             {g.rows.map(({ issue, depth }) => (

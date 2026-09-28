@@ -674,6 +674,7 @@ function App() {
               savedViews={gh.savedViews}
               onSaveViews={gh.saveSavedViews}
               stateOrder={(gh.boardConfig?.columns ?? DEFAULT_COLUMNS).map((c) => c.key)}
+              onEnsureEstimateLabel={gh.ensureEstimateLabel}
               status={gh.status}
             />
           )}
@@ -870,6 +871,7 @@ function App() {
             subIssueApi={subIssueApi}
             listTimeline={gh.listTimeline}
             onShowCommit={showTimelineCommit}
+            onSetEstimate={gh.setEstimate}
           />
         ) : null;
       })()}

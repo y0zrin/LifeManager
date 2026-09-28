@@ -3,6 +3,8 @@ import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 import { DueChip } from "./DueChip";
+import { EstimateChip } from "./EstimateChip";
+import { ESTIMATE_PREFIX } from "../../lib/estimate";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -17,9 +19,9 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
     : priorityLabel?.name === "優先:低" ? "#3fb950"
     : "transparent";
 
-  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere)
+  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
   const displayLabels = issue.labels.filter(
-    (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:")
+    (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:") && !l.name.startsWith(ESTIMATE_PREFIX)
   );
 
   // Todo progress
@@ -65,6 +67,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
           </span>
         )}
         <DueChip issue={issue} />
+        <EstimateChip issue={issue} />
         {todoTotal > 0 && (
           <span className="ticket-meta-item">
             ✅ {todoDone}/{todoTotal}

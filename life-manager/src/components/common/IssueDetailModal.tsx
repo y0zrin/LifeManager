@@ -11,6 +11,7 @@ import { RelatedIssues } from "./RelatedIssues";
 import { IssueTimeline } from "./IssueTimeline";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
+import { ESTIMATE_PREFIX, ESTIMATE_VALUES, estimateOf } from "../../lib/estimate";
 
 interface IssueDetailModalProps {
   issue: GitHubIssue;
@@ -37,9 +38,12 @@ interface IssueDetailModalProps {
   listTimeline?: (n: number) => Promise<TimelineEvent[]>;
   /** 履歴のコミットを押したとき（変更内容を見る） */
   onShowCommit?: (hash: string, actor: string, date: string) => void;
+  /** 見積もりを付け替える（null なら外す）。渡さなければ、見積もりの行を出さない */
+  onSetEstimate?: (issueNumber: number, value: number | null) => Promise<void>;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit }: IssueDetailModalProps) {
+export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate }: IssueDetailModalProps) {
+  const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -263,7 +267,8 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
             {editingLabels ? (
               <div>
                 <div className="label-selector" style={{ marginBottom: "8px" }}>
-                  {availableLabels.map((l) => {
+                  {/* 見積もりは下の「📏 見積もり」で付け替える（ここで選ぶと 2 つ付いてしまうため出さない） */}
+                  {availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX)).map((l) => {
                     const active = editLabels.includes(l.name);
                     return (
                       <span
@@ -399,6 +404,27 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                 ))}
               </select>
             </div>
+
+            {/* 見積もり（ラベル「見積:3」を付け替える） */}
+            {onSetEstimate && (
+              <div className="est-row">
+                <span className="est-row-label">📏 見積もり</span>
+                <span className="est-picker" role="group" aria-label="見積もり">
+                  {ESTIMATE_VALUES.map((v) => (
+                    <button key={v} type="button" className={estimate === v ? "on" : ""} aria-pressed={estimate === v}
+                      onClick={() => { if (estimate !== v) onSetEstimate(issue.number, v); }}>
+                      {v}
+                    </button>
+                  ))}
+                  <button type="button" disabled={estimate === null} onClick={() => onSetEstimate(issue.number, null)}>
+                    なし
+                  </button>
+                </span>
+                {estimate !== null && !(ESTIMATE_VALUES as readonly number[]).includes(estimate) && (
+                  <span className="est-chip" title="GitHub で付けた見積もり">{estimate}</span>
+                )}
+              </div>
+            )}
         </div>
 
         {/* 本文（クリックで編集） */}

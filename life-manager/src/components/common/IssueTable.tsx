@@ -2,6 +2,8 @@ import type { GitHubIssue } from "../../lib/types";
 import type { TaskGroup } from "../../lib/taskList";
 import { issueRef } from "../../lib/issueRef";
 import { DueChip } from "./DueChip";
+import { EstimateChip, EstimateSumText } from "./EstimateChip";
+import { sumEstimates } from "../../lib/estimate";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
 
@@ -27,7 +29,7 @@ function LabelPill({ issue, prefix }: { issue: GitHubIssue; prefix: string }) {
 
 /** タスク一覧の「表」。1 行に 1 件。まとめたときは、まとまりごとに見出しの行を入れる */
 export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: IssueTableProps) {
-  const columns = picking ? 8 : 7;
+  const columns = picking ? 9 : 8;
   return (
     <div className="task-table-wrap">
       <table className="task-table">
@@ -38,6 +40,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
             <th>題</th>
             <th>状態</th>
             <th>優先</th>
+            <th>見積</th>
             <th>担当</th>
             <th>マイルストーン</th>
             <th>期限</th>
@@ -50,6 +53,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
                 <td colSpan={columns}>
                   {g.title}
                   <span>{g.rows.length} 件</span>
+                  <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue))} />
                 </td>
               </tr>
             ) : null,
@@ -78,6 +82,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
                   </td>
                   <td>{issue.state === "closed" ? <span className="tt-pill tt-pill--closed">完了</span> : <LabelPill issue={issue} prefix="状態:" />}</td>
                   <td><LabelPill issue={issue} prefix="優先:" /></td>
+                  <td><EstimateChip issue={issue} plain /></td>
                   <td>
                     {assignee ? (
                       <span className="tt-who" title={issue.assignees?.map((a) => a.login).join("、")}>

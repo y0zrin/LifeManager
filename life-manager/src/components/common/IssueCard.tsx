@@ -3,7 +3,9 @@ import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 import { DueChip } from "./DueChip";
+import { EstimateChip } from "./EstimateChip";
 import { issueRef } from "../../lib/issueRef";
+import { ESTIMATE_PREFIX } from "../../lib/estimate";
 
 export function IssueCard({
   issue,
@@ -66,6 +68,7 @@ export function IssueCard({
           )}
           <SubIssueBadge issue={issue} />
           <DueChip issue={issue} />
+          <EstimateChip issue={issue} />
         </div>
         <span className="issue-card-date">{dateStr}</span>
       </div>
@@ -86,7 +89,8 @@ export function IssueCard({
       )}
 
       <div className="issue-card-labels">
-        {issue.labels.map((l) => (
+        {/* 見積もりは上の「📏 3」で出すので、ラベルには並べない */}
+        {issue.labels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX)).map((l) => (
           <LabelBadge key={l.name} name={l.name} color={l.color} />
         ))}
         {issue.assignees && issue.assignees.length > 0 && (

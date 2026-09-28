@@ -19,6 +19,10 @@
   /* Colors - Accent */
   --accent-blue: #58a6ff;
   --accent-blue-bg: #1f6feb33;
+  /* 見積もりの印（青緑） */
+  --accent-teal: #39c5cf;
+  --accent-teal-bg: #39c5cf1f;
+  --accent-teal-border: #39c5cf66;
   --accent-green: #238636;
   --accent-green-hover: #2ea043;
   --accent-red: #f85149;
@@ -2827,6 +2831,92 @@ button:hover {
 
 .task-table .due-chip {
   margin-left: 0;
+}
+
+/* 見積もり（タスクの大きさ。ラベル「見積:3」） */
+.est-chip {
+  display: inline-block;
+  margin-left: var(--space-sm);
+  padding: 0 7px;
+  border: 1px solid var(--accent-teal-border);
+  border-radius: 10px;
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.task-table .est-chip {
+  margin-left: 0;
+}
+
+.est-sum {
+  margin-left: var(--space-sm);
+  color: var(--accent-teal);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.est-sum-missing {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Issue の詳細・作るときの「📏 見積もり」 */
+.est-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.est-row--form {
+  margin: 4px 0;
+  padding: 0;
+  border: none;
+}
+
+.est-row-label {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.est-picker {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.est-picker button {
+  min-height: 0;
+  padding: 2px 11px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.est-picker button + button {
+  border-left: 1px solid var(--border-default);
+}
+
+.est-picker button.on {
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal);
+  font-weight: 700;
+}
+
+.est-picker button:disabled {
+  opacity: 0.5;
 }
 
 /* 保存した見方 */

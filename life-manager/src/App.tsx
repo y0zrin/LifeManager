@@ -37,6 +37,7 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
+import { TokenBanner } from "./components/common/TokenBanner";
 import type { GitCommit, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
@@ -269,16 +270,12 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  async function handleSetToken(token: string) {
-    await gh.setToken(token);
-    setView("dashboard");
-  }
-
-  async function handleSetup(token: string, owner: string, repo: string) {
+  // 最初のセットアップ: ログイン（またはトークン）はもう済んでいる。使うリポジトリをプロジェクトにして、つなぐ
+  // （トークンはプロジェクト専用には入れない。いつものトークンを使う）
+  async function handleSetupDone(owner: string, repo: string) {
     await gh.setRepoConfig(owner, repo);
-    await gh.setToken(token);
-    // プロジェクトリストに追加（トークンも保存）
-    await gh.addProject(owner, repo, `${owner}/${repo}`, token);
+    await gh.addProject(owner, repo, `${owner}/${repo}`);
+    await gh.loadToken();
     setView("dashboard");
   }
 
@@ -443,7 +440,7 @@ function App() {
 
   // 未接続 → セットアップ画面
   if (!gh.connected) {
-    return <SetupView onComplete={handleSetup} status={gh.status} />;
+    return <SetupView onDone={handleSetupDone} />;
   }
 
   const shell = (
@@ -517,6 +514,9 @@ function App() {
             </button>
           </div>
         )}
+
+        {/* トークンの期限が近い・切れた・使えないときのお知らせ */}
+        <TokenBanner owner={gh.owner} repo={gh.repo} onOpenSettings={() => setView("settings")} />
 
         {/* 画面（切り替えるたびにイージング付きで表示。作業・ブランチ・全体図のあいだは寄る・引く動き） */}
         <div key={view} className={`view-enter${viewAnim.current.anim}`}>
@@ -697,11 +697,9 @@ function App() {
           {/* 設定 */}
           {view === "settings" && (
             <SettingsView
-              connected={gh.connected}
               labels={gh.customLabels}
               owner={gh.owner}
               repo={gh.repo}
-              onSetToken={handleSetToken}
               onSetupLabels={gh.setupLabels}
               onSetRepoConfig={gh.setRepoConfig}
               onUpdateLabel={gh.updateLabel}
@@ -715,7 +713,8 @@ function App() {
               projects={gh.projects}
               onAddProject={gh.addProject}
               onRemoveProject={gh.removeProject}
-              onSetProjectToken={gh.setProjectToken}
+              onTokensChanged={gh.loadAll}
+              onSignOut={gh.signOut}
               localFolders={localFolders.folders}
               onSetLocalFolder={localFolders.setFolder}
               displaySettings={display.settings}

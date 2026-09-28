@@ -9,13 +9,12 @@ import type { DisplaySettings } from "../../hooks/useDisplaySettings";
 import { LabelBadge } from "../common/LabelBadge";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { AddProjectDialog } from "../common/AddProjectDialog";
+import { TokenSettings } from "../common/TokenSettings";
 
 interface SettingsViewProps {
-  connected: boolean;
   labels: GitHubLabel[];
   owner: string;
   repo: string;
-  onSetToken: (token: string) => Promise<void>;
   onSetupLabels: () => Promise<void>;
   onSetRepoConfig: (owner: string, repo: string) => Promise<void>;
   onUpdateLabel: (currentName: string, newName: string, color: string, description: string) => Promise<void>;
@@ -29,7 +28,10 @@ interface SettingsViewProps {
   projects: Project[];
   onAddProject: (owner: string, repo: string, name: string, token?: string) => Promise<void>;
   onRemoveProject: (owner: string, repo: string) => Promise<void>;
-  onSetProjectToken: (owner: string, repo: string, token: string) => Promise<void>;
+  /** トークンを変えたあと（今のプロジェクトを読み直す） */
+  onTokensChanged: () => Promise<void>;
+  /** ログアウト（この PC からトークンを消して、最初のセットアップに戻る） */
+  onSignOut: () => Promise<void>;
   /** この PC の作業フォルダ（キーは "owner/repo"） */
   localFolders: Record<string, string>;
   onSetLocalFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
@@ -64,10 +66,9 @@ const PANES: { key: SettingsPane; label: string }[] = [
   { key: "other", label: "その他" },
 ];
 
-export function SettingsView({ connected, labels, owner, repo, onSetToken, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onSetProjectToken, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>("connection");
   const [appVersion, setAppVersion] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
   const [ownerInput, setOwnerInput] = useState(owner);
   const [repoInput, setRepoInput] = useState(repo);
   const [discordWebhookInput, setDiscordWebhookInput] = useState("");
@@ -90,8 +91,6 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
   // プロジェクト管理
   const [showAddProject, setShowAddProject] = useState(false);
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
-  const [editingTokenProject, setEditingTokenProject] = useState<string | null>(null);
-  const [editTokenValue, setEditTokenValue] = useState("");
 
   useEffect(() => {
     invoke("get_app_version").then((v) => setAppVersion(v as string)).catch(() => {});
@@ -218,12 +217,6 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
     setFeedbackBody("");
   }
 
-  async function handleSetToken() {
-    if (!tokenInput.trim()) return;
-    await onSetToken(tokenInput);
-    setTokenInput("");
-  }
-
   async function handleSetRepoConfig() {
     if (!ownerInput.trim() || !repoInput.trim()) return;
     await onSetRepoConfig(ownerInput.trim(), repoInput.trim());
@@ -247,18 +240,8 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
       {/* === 接続ペイン === */}
       {activePane === "connection" && <>
 
-      {/* GitHubトークン */}
-      <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>GitHubトークン</h3>
-        <div className="flex-row">
-          <input type="password" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)}
-            placeholder="ghp_xxxxxxxxxxxx" className="input-full" />
-          <button onClick={handleSetToken} className="btn-primary">設定</button>
-        </div>
-        <p className="settings-hint">
-          {connected ? "✅ トークン設定済み（Keychainに保存）" : "❌ 未設定"}
-        </p>
-      </div>
+      {/* GitHub トークン（いつものトークンと、プロジェクトごとに使うトークン） */}
+      <TokenSettings projects={projects} onChanged={onTokensChanged} onSignOut={onSignOut} />
 
       {/* リポジトリ設定 */}
       <div className="form-card">
@@ -331,37 +314,7 @@ export function SettingsView({ connected, labels, owner, repo, onSetToken, onSet
                   onClick={() => onRemoveProject(p.owner, p.repo)}>
                   削除
                 </button>
-                <button className="btn-sm" style={{ fontSize: "var(--font-xs)" }}
-                  onClick={() => {
-                    if (editingTokenProject === `${p.owner}/${p.repo}`) {
-                      setEditingTokenProject(null);
-                    } else {
-                      setEditingTokenProject(`${p.owner}/${p.repo}`);
-                      setEditTokenValue("");
-                    }
-                  }}>
-                  🔑
-                </button>
               </div>
-              {editingTokenProject === `${p.owner}/${p.repo}` && (
-                <div className="flex-row" style={{ padding: "var(--space-xs) var(--space-sm)", marginBottom: "var(--space-xs)" }}>
-                  <input type="password" value={editTokenValue} onChange={(e) => setEditTokenValue(e.target.value)}
-                    placeholder="新しいトークン" className="input-full" style={{ flex: 1 }} />
-                  <button className="btn-primary" style={{ fontSize: "var(--font-xs)" }}
-                    disabled={!editTokenValue.trim()}
-                    onClick={async () => {
-                      await onSetProjectToken(p.owner, p.repo, editTokenValue.trim());
-                      setEditingTokenProject(null);
-                      setEditTokenValue("");
-                    }}>
-                    保存
-                  </button>
-                  <button className="btn-sm" style={{ fontSize: "var(--font-xs)" }}
-                    onClick={() => setEditingTokenProject(null)}>
-                    ×
-                  </button>
-                </div>
-              )}
             </div>
           ))}
           {projects.length === 0 && (

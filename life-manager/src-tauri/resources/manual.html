@@ -405,7 +405,7 @@
   <table>
     <tr><th>もの</th><th>説明</th></tr>
     <tr><td>GitHub のアカウント</td><td><a href="https://github.com">https://github.com</a> の「Sign up」から作れます（無料）。</td></tr>
-    <tr><td>GitHub のトークン</td><td>アプリが GitHub にアクセスするための鍵です。作り方は「<a href="#setup">初期セットアップ</a>」で説明します。</td></tr>
+    <tr><td>（トークンは不要）</td><td>アプリの <span class="ui">GitHub でログイン</span> で、自分の GitHub アカウントで入ります。トークンを作る必要はありません（「<a href="#setup">初期セットアップ</a>」）。</td></tr>
     <tr><td>リポジトリ</td><td>タスクやファイルを置く場所です。自分で作ったものでも、招待されたものでも使えます。</td></tr>
     <tr><td>Git（PC のみ）</td><td>「作業」「ブランチ」「全体図」で使います。入っていなければ、インストールのときやアプリを起動したときに案内が出て、そのまま入れられます。</td></tr>
   </table>
@@ -433,69 +433,51 @@
 <!-- ============================================================ -->
 <section id="setup">
   <h2>初期セットアップ</h2>
-  <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。</p>
+  <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。<b>トークンを自分で作る必要はありません。</b></p>
 
-  <h3>ステップ 1: リポジトリを決める</h3>
-  <p>使うリポジトリの「オーナー名」と「リポジトリ名」を入力します。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>項目</th><th>入れるもの</th><th>例</th></tr>
-    <tr><td>オーナー名</td><td>リポジトリの持ち主の GitHub ユーザー名（または Organization 名）</td><td><code>team-leader</code></td></tr>
-    <tr><td>リポジトリ名</td><td>リポジトリの名前</td><td><code>project-tasks</code></td></tr>
-  </table>
+  <h3>ステップ 1: GitHub にログイン</h3>
+  <ol>
+    <li><span class="ui">GitHub でログイン</span> を押すと、ブラウザで GitHub が開き、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出ます。</li>
+    <li>ブラウザでコードを入れて <span class="ui">Continue</span> → <span class="ui">Authorize</span> を押します（GitHub にログインしていなければ、先にログインします）。</li>
+    <li>アプリに戻ると「○○ としてログインしています」と出て、次に進みます。</li>
+  </ol>
+  <div class="box hint">
+    <span class="label">ログインで許可すること</span>
+    <p>Life Manager が、あなたの代わりに、あなたが入っているリポジトリの Issue とファイル（設定・日誌）を読み書きできるようになります。パスワードはアプリに渡りません。やめたいときは、GitHub の Settings → Applications → Authorized OAuth Apps から取り消せます。</p>
   </div>
+
+  <h3>ステップ 2: 使うリポジトリを選ぶ</h3>
+  <p>自分が使えるリポジトリ（自分のもの・招待されたもの・入っている組織のもの）が、新しく使った順に出ます。選ぶと、使えるかをその場で確かめます。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。</p>
   <div class="box warn">
-    <span class="label">よくある間違い</span>
-    <p>招待されて参加しているリポジトリの場合、オーナー名は<b>自分ではなく持ち主</b>の名前です。「<code>alice/project-tasks</code> を使います」と言われたら、オーナー名は <code>alice</code> です。</p>
+    <span class="label">チームのリポジトリが出てこない・「組織の許可がまだです」と出る</span>
+    <p>組織（Organization）のリポジトリは、組織の管理者が一度だけ Life Manager を許可すると使えるようになります。<span class="ui">組織に許可をお願いする</span> を押すと GitHub が開くので、組織の横の <span class="ui">Request</span>（管理者なら <span class="ui">Grant</span>）を押します（「<a href="#team">チームで使う</a>」）。招待をまだ受けていない（メールの「Accept invitation」を押していない）ときも出てきません。</p>
   </div>
 
-  <h3>ステップ 2: トークンを作って入れる</h3>
-  <p>トークンには、Fine-grained token（おすすめ）と Classic token の 2 種類があります。</p>
-  <h4>方法 A: Fine-grained token（おすすめ）</h4>
-  <ol>
-    <li>ブラウザで GitHub にログインします。</li>
-    <li>右上のアイコン → <span class="ui">Settings</span> → <span class="ui">Developer settings</span> を開きます。</li>
-    <li><span class="ui">Personal access tokens</span> → <span class="ui">Fine-grained tokens</span> → <span class="ui">Generate new token</span> を押します。</li>
-    <li>次のように設定します。
-      <div class="table-wrap">
-      <table>
-        <tr><th>項目</th><th>設定</th></tr>
-        <tr><td>Token name</td><td><code>Life Manager</code> など、分かりやすい名前</td></tr>
-        <tr><td>Expiration</td><td>好きな期限</td></tr>
-        <tr><td>Resource owner</td><td>自分のアカウント、または Organization</td></tr>
-        <tr><td>Repository access</td><td><span class="ui">Only select repositories</span> → 使うリポジトリを選ぶ</td></tr>
-      </table>
-      </div>
-    </li>
-    <li>Permissions（権限）を次のようにします。
-      <div class="table-wrap">
-      <table>
-        <tr><th>Permission</th><th>Access</th><th>使いみち</th></tr>
-        <tr><td>Issues</td><td>Read and write</td><td>Issue やコメントの作成・編集・完了</td></tr>
-        <tr><td>Contents</td><td>Read and write</td><td>ルーチン・通知・ボードの設定の保存</td></tr>
-        <tr><td>Metadata</td><td>Read（自動で付きます）</td><td>リポジトリの情報を読む</td></tr>
-      </table>
-      </div>
-    </li>
-    <li><span class="ui">Generate token</span> を押し、表示されたトークン（<code>github_pat_</code> で始まる文字列）をコピーします。</li>
-  </ol>
-  <h4>方法 B: Classic token</h4>
-  <ol>
-    <li><span class="ui">Personal access tokens</span> → <span class="ui">Tokens (classic)</span> → <span class="ui">Generate new token (classic)</span> を押します。</li>
-    <li>Note に <code>Life Manager</code>、Select scopes で <code>repo</code> にチェックを入れます。</li>
-    <li><span class="ui">Generate token</span> を押し、表示されたトークン（<code>ghp_</code> で始まる文字列）をコピーします。</li>
-  </ol>
-  <div class="box danger">
-    <span class="label">トークンは一度しか表示されません</span>
-    <p>画面を閉じると、もう見られません。その場でコピーしてください。トークンはパスワードと同じです。人に見せたり、共有したりしないでください。</p>
-  </div>
-  <p>コピーしたトークンを Life Manager に貼り付けて、<span class="ui">次へ</span> を押します。</p>
-
-  <h3>ステップ 3: 確認して接続する</h3>
-  <p>リポジトリとトークンを確かめて <span class="ui">接続してはじめる</span> を押すと、タスクの画面になります。</p>
+  <h3>ステップ 3: できあがり</h3>
+  <p><span class="ui">はじめる</span> を押すと、タスクの画面になります。PC では続けて、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。</p>
   <div class="box hint">
     <span class="label">ヒント</span>
     <p>接続したら、設定 → ラベル の <span class="ui">ラベル一括作成</span> を一度押しておくと、Life Manager で使うラベル（種別・分野・状態・優先）がリポジトリに作られます。</p>
+  </div>
+
+  <h3>トークンで入る（学校で指定されたときなど）</h3>
+  <p>ログインの画面の下の <span class="ui">トークンで入る</span> から、自分で作ったトークン（Fine-grained token）でも使えます。</p>
+  <ol>
+    <li><span class="ui">GitHub で作る</span> を押すと、名前・期限（90 日）・権限が入った状態で、GitHub のトークンの作成ページが開きます。</li>
+    <li><span class="ui">Repository access</span> で <span class="ui">Only select repositories</span> を選び、使うリポジトリを選びます（ここだけは自分で選びます）。組織のリポジトリなら、Resource owner を組織にします。</li>
+    <li><span class="ui">Generate token</span> を押し、出てきたトークン（<code>github_pat_</code> で始まる文字列）をコピーして、アプリに貼ります。貼るとすぐ、だれのトークンか・期限・リポジトリが見えるかを確かめ、足りないときは直し方が出ます。</li>
+  </ol>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Permission</th><th>Access</th><th>使いみち</th></tr>
+    <tr><td>Issues</td><td>Read and write</td><td>Issue やコメントの作成・編集・完了</td></tr>
+    <tr><td>Contents</td><td>Read and write</td><td>ルーチン・通知・ボードの設定、日誌、Issue テンプレートの保存</td></tr>
+    <tr><td>Metadata</td><td>Read（自動で付きます）</td><td>リポジトリの情報を読む</td></tr>
+  </table>
+  </div>
+  <div class="box danger">
+    <span class="label">トークンは一度しか表示されません</span>
+    <p>画面を閉じると、もう見られません。その場でコピーしてください。トークンはパスワードと同じ「合鍵」です。人に見せたり、共有したりしないでください。ほかの人に作ってもらったトークンも使いません。</p>
   </div>
 </section>
 
@@ -1181,10 +1163,17 @@ labels: ["種別:バグ", "状態:未整理"]
   <p>設定は、上のタブで「接続」「ラベル」「通知」「表示」「その他」に分かれています。</p>
   <h3>接続</h3>
   <ul>
-    <li><b>GitHub トークン</b>: トークンを変えます（期限が切れたときなど）。</li>
+    <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
+      <ul>
+        <li><span class="ui">GitHub でログインし直す</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます。<span class="ui">確かめる</span>: もう一度確かめます。</li>
+        <li>プロジェクトの行の <span class="ui">専用のトークンにする…</span>: そのプロジェクトだけ別のトークンを使います（別のアカウントのリポジトリなど）。<span class="ui">いつものに戻す</span> で外せます。使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。</li>
+        <li>🔴 や 🟡 のときは <span class="ui">直し方</span> を押すと、何をすれば直るかと、そのページを開くボタンが出ます。</li>
+        <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。次に開くと、最初のセットアップの画面になります。</li>
+      </ul>
+    </li>
     <li><b>リポジトリ設定</b>: 使うリポジトリ（オーナー名 / リポジトリ名）を変えます。</li>
     <li><b>作業フォルダ（この PC）</b>: git で操作するフォルダを決めます。Git のインストールや、使う準備の確認もここから（「<a href="#prepare">使う準備</a>」）。</li>
-    <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとにトークンを決めることもできます（🔑）。<span class="ui">＋ 追加</span> では、URL を貼って登録・クローンしたり、手元のフォルダを GitHub に上げたりできます（「<a href="#prepare">使う準備</a>」）。</li>
+    <li><b>プロジェクト管理</b>: 複数のリポジトリを登録して、サイドバーのプルダウンで切り替えられます。プロジェクトごとのトークンは、上の「GitHub トークン」で決めます。<span class="ui">＋ 追加</span> では、URL を貼って登録・クローンしたり、手元のフォルダを GitHub に上げたりできます（「<a href="#prepare">使う準備</a>」）。</li>
   </ul>
   <h3>ラベル</h3>
   <p>ラベルの一括作成・作成・編集・削除ができます。</p>
@@ -1209,12 +1198,16 @@ labels: ["種別:バグ", "状態:未整理"]
 <!-- ============================================================ -->
 <section id="team">
   <h2>チームで使う（管理者向け）</h2>
+  <div class="box warn">
+    <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
+    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリ（または組織）に招待することだけです。</p>
+  </div>
   <h3>メンバーとして参加する</h3>
   <ol>
     <li>GitHub のアカウントを作ります（まだないとき）。</li>
     <li>リポジトリへの招待を受けます。メールの「View invitation」→「Accept invitation」、または教えてもらった招待の URL を開いて「Accept invitation」を押します。<br>リポジトリのページ（<code>https://github.com/オーナー名/リポジトリ名</code>）が見られれば参加できています。</li>
-    <li>自分のアカウントでトークンを作ります（ほかの人のトークンは使いません）。</li>
-    <li>Life Manager のセットアップで、オーナー名に<b>リポジトリの持ち主</b>の名前、リポジトリ名、自分のトークンを入れます。</li>
+    <li>Life Manager で <span class="ui">GitHub でログイン</span> し、使うリポジトリを一覧から選びます（「<a href="#setup">初期セットアップ</a>」）。</li>
+    <li>組織のリポジトリで「組織の許可がまだです」と出たら、<span class="ui">組織に許可をお願いする</span> を押し、管理者に許可してもらいます（最初の一度だけ）。</li>
   </ol>
   <h3>Organization を使う（おすすめ）</h3>
   <p>2 人以上で続けて使うときは、GitHub の Organization（無料）がおすすめです。人ではなく Organization がリポジトリを持つので、人が抜けても残り、権限をチーム単位で管理できます。</p>
@@ -1222,12 +1215,11 @@ labels: ["種別:バグ", "状態:未整理"]
     <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
     <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
     <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
-    <li>メンバーは、Resource owner を Organization にした Fine-grained token を作り、Life Manager に <code>org名/リポジトリ名</code> を設定します。</li>
+    <li><b>Life Manager を許可します（一度だけ）。</b>新しい Organization は、外部のアプリが非公開のリポジトリを使うのに、管理者の許可がいる設定になっています。メンバーから届いたお願い（メール）から許可するか、Organization の Settings → Third-party Access → OAuth app policy で Life Manager を許可します。</li>
   </ol>
-  <p>個人のリポジトリで使うときは、Settings → Collaborators → Add people でメンバーを招待し、Write 以上の役割を付けます。</p>
-  <h3>Fine-grained token の注意</h3>
-  <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは、Organization に移すか、Classic token（<code>repo</code>）を使います。Life Manager ではプロジェクトごとにトークンを決められるので、使い分けもできます。</p>
-  <p>トークンは、プロジェクトのトークン → セットアップで入れたトークン の順に使われます。</p>
+  <p>個人のリポジトリで使うときは、Settings → Collaborators → Add people でメンバーを招待し、Write 以上の役割を付けます（組織の許可はいりません）。</p>
+  <h3>トークンで使うときの注意</h3>
+  <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは <span class="ui">GitHub でログイン</span> を使うか、Organization に移します。トークンは、プロジェクト専用のトークン → いつものトークン の順に使われます。</p>
   <h3>git の作業をチームで行うときの流れ（例）</h3>
   <ol>
     <li>Issue を作り、担当を決める。</li>
@@ -1242,7 +1234,7 @@ labels: ["種別:バグ", "状態:未整理"]
   <h2>よくある質問・困ったとき</h2>
   <dl class="qa">
     <dt>上の「未送信」がなかなか消えません</dt>
-    <dd>まだ GitHub につながっていないか、トークンが無効になっているかもしれません。<span class="ui">未送信</span> を押すと、送れなかった理由が出ます。トークンが無効のときは、設定 → 接続 でトークンを設定し直してください（「<a href="#offline">つながらないとき</a>」）。</dd>
+    <dd>まだ GitHub につながっていないか、トークンが無効になっているかもしれません。<span class="ui">未送信</span> を押すと、送れなかった理由が出ます。トークンが無効のときは、設定 → 接続 の「GitHub トークン」で、ログインし直すかトークンを入れ直してください（「<a href="#offline">つながらないとき</a>」）。</dd>
     <dt>「git が見つかりません」と出ます</dt>
     <dd>Git が入っていません。設定 → 接続 → 作業フォルダ の <span class="ui">Git をインストールする…</span> から入れてください。入れたあとも見つからないときは、アプリを開き直してください。</dd>
     <dt>プッシュやプルで「GitHub へのログインが必要です」と出ます</dt>
@@ -1257,8 +1249,12 @@ labels: ["種別:バグ", "状態:未整理"]
     <dd>インストールには PC の管理者の確認が必要です。PC の管理者に Git のインストールを頼んでください（<a href="https://git-scm.com/downloads">https://git-scm.com/downloads</a>）。</dd>
     <dt>データはどこに保存されますか？</dt>
     <dd>すべて GitHub のリポジトリ（Issue・マイルストーン・ラベル）に保存されます。ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。アプリを消しても、データは GitHub に残ります。作業フォルダの場所や表示の設定は、この PC だけに保存されます。</dd>
-    <dt>トークンの期限が切れました</dt>
-    <dd>GitHub で新しいトークンを作り、設定 → 接続 の GitHub トークン（プロジェクトごとのトークンは 🔑）から入れ直してください。</dd>
+    <dt>画面の上に「トークンの期限が…」「トークンが使えません」と出ます</dt>
+    <dd>設定 → 接続 の「GitHub トークン」で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、期限はありません。</dd>
+    <dt>学校の PC で使い終わったら？</dt>
+    <dd>設定 → 接続 の <span class="ui">ログアウト</span> を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications から Life Manager を取り消します。</dd>
+    <dt>チームのリポジトリが一覧に出てきません</dt>
+    <dd>招待を受けているか（メールの「Accept invitation」）、組織が Life Manager を許可しているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
     <dt>複数のリポジトリを使えますか？</dt>
     <dd>使えます。設定 → 接続 の <span class="ui">プロジェクト管理</span> で登録し、サイドバーのプルダウンで切り替えます。作業フォルダも、リポジトリごとに決められます。</dd>
     <dt>ガントチャートに帯が出ません</dt>

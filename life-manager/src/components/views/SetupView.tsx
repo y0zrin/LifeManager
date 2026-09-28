@@ -1,137 +1,239 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { GitHubLogin } from "../common/GitHubLogin";
+import { TokenEntry } from "../common/TokenEntry";
+import { TokenReportView } from "../common/TokenReportView";
+import { authClientId, checkToken, listUserRepos, orgApprovalUrl, setDefaultToken, type TokenReport, type UserRepo } from "../../lib/auth";
+import { parseGitHub } from "../../lib/git";
 
 interface SetupViewProps {
-  onComplete: (token: string, owner: string, repo: string) => Promise<void>;
-  status: string;
+  /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある） */
+  onDone: (owner: string, repo: string) => Promise<void>;
 }
 
-export function SetupView({ onComplete, status }: SetupViewProps) {
-  const [step, setStep] = useState(1);
-  const [token, setToken] = useState("");
-  const [owner, setOwner] = useState("");
-  const [repo, setRepo] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+const STEPS = ["GitHub にログイン", "使うリポジトリを選ぶ", "できあがり"];
 
-  async function handleSubmit() {
-    if (!token.trim() || !owner.trim() || !repo.trim()) return;
-    setSubmitting(true);
+function ago(iso: string): string {
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+  if (days <= 0) return "今日";
+  if (days === 1) return "昨日";
+  if (days < 30) return `${days} 日前`;
+  return `${Math.floor(days / 30)} か月前`;
+}
+
+/**
+ * 最初のセットアップ。① GitHub でログイン（トークンを作らなくてよい。「トークンで入る」もできる）
+ * → ② 使うリポジトリを一覧から選ぶ（URL を貼ってもよい）→ ③ できあがり
+ */
+export function SetupView({ onDone }: SetupViewProps) {
+  const [step, setStep] = useState(0);
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [useToken, setUseToken] = useState(false);
+  const [me, setMe] = useState<TokenReport | null>(null);
+  const [repos, setRepos] = useState<UserRepo[] | null>(null);
+  const [reposError, setReposError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<{ owner: string; repo: string } | null>(null);
+  const [check, setCheck] = useState<TokenReport | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    authClientId()
+      .then(setClientId)
+      .catch(() => setClientId(""));
+  }, []);
+  const canLogin = !!clientId;
+
+  // ログインできた・トークンを入れた → だれのトークンかを出す
+  async function loggedIn() {
+    setError(null);
     try {
-      await onComplete(token.trim(), owner.trim(), repo.trim());
-    } catch {
-      setSubmitting(false);
+      setMe(await checkToken({ repos: [] }));
+      setStep(1);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  // ② に来たら、使えるリポジトリを読む
+  useEffect(() => {
+    if (step !== 1 || repos !== null) return;
+    listUserRepos()
+      .then(setRepos)
+      .catch((e) => {
+        setRepos([]);
+        setReposError(String(e));
+      });
+  }, [step, repos]);
+
+  // 選んだリポジトリを使えるか確かめる
+  useEffect(() => {
+    setCheck(null);
+    if (!picked) return;
+    let alive = true;
+    setChecking(true);
+    checkToken({ repos: [picked] })
+      .then((r) => alive && setCheck(r))
+      .catch((e) => alive && setError(String(e)))
+      .finally(() => alive && setChecking(false));
+    return () => {
+      alive = false;
+    };
+  }, [picked]);
+
+  const q = query.trim().toLowerCase();
+  const pasted = parseGitHub(query);
+  const shown = useMemo(() => (repos ?? []).filter((r) => !q || r.full_name.toLowerCase().includes(q)), [repos, q]);
+  const pickedOk = !!check && check.repos[0]?.ok;
+
+  async function finish() {
+    if (!picked) return;
+    setFinishing(true);
+    setError(null);
+    try {
+      await onDone(picked.owner, picked.repo);
+    } catch (e) {
+      setError(String(e));
+      setFinishing(false);
     }
   }
 
   return (
-    <div style={{
-      display: "flex", justifyContent: "center", alignItems: "center",
-      minHeight: "100vh", background: "var(--bg-primary)", padding: "var(--space-lg)",
-    }}>
-      <div style={{
-        background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)",
-        padding: "40px", maxWidth: "480px", width: "100%",
-      }}>
-        <h1 style={{ fontSize: "24px", color: "var(--text-primary)", marginBottom: "var(--space-sm)", textAlign: "center" }}>
-          Life Manager
-        </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "var(--font-md)", textAlign: "center", marginBottom: "32px" }}>
-          GitHubリポジトリをバックエンドとしたタスク管理ツール
-        </p>
-
-        {/* ステップインジケーター */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "var(--space-sm)", marginBottom: "var(--space-xl)" }}>
-          {[1, 2, 3].map((s) => (
-            <div key={s} style={{
-              width: "8px", height: "8px", borderRadius: "50%",
-              background: s <= step ? "var(--accent-blue)" : "var(--border-default)",
-              transition: "background 0.2s",
-            }} />
+    <div className="setup-view">
+      <div className="setup-card">
+        <h1 className="setup-title">Life Manager へようこそ</h1>
+        <p className="setup-sub">タスク（GitHub の Issue）と git の作業を、ひとつの画面で。</p>
+        <ol className="setup-steps">
+          {STEPS.map((s, i) => (
+            <li key={s} className={i < step ? "done" : i === step ? "on" : ""}>
+              {i + 1}. {s}
+            </li>
           ))}
-        </div>
+        </ol>
+
+        {step === 0 && (
+          <>
+            {canLogin && !useToken && <GitHubLogin onDone={loggedIn} />}
+            {(useToken || clientId === "") && (
+              <TokenEntry repos={[]} clientId={clientId ?? ""} saveLabel="このトークンで入る" onSave={async (t) => { await setDefaultToken(t); await loggedIn(); }}
+                onCancel={canLogin ? () => setUseToken(false) : undefined} />
+            )}
+            {canLogin && !useToken && (
+              <>
+                <p className="hint">
+                  <b>ログイン</b>すると、このアプリがあなたの代わりに GitHub の Issue やファイルを読み書きできるようになります。パスワードはアプリに渡りません。あとで
+                  GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーはメンバーをリポジトリに招待するだけ。メンバーはそれぞれ自分のアカウントでログインします。
+                </p>
+                <p className="setup-alt">
+                  学校から「トークンを使って」と言われたとき：
+                  <button type="button" className="link-button" onClick={() => setUseToken(true)}>
+                    トークンで入る
+                  </button>
+                </p>
+              </>
+            )}
+          </>
+        )}
 
         {step === 1 && (
-          <div>
-            <h2 style={{ fontSize: "var(--font-xl)", color: "var(--text-primary)", marginBottom: "var(--space-md)" }}>
-              1. GitHubリポジトリ
-            </h2>
-            <p style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", marginBottom: "var(--space-lg)" }}>
-              Issueやマイルストーンを管理するリポジトリを指定してください。
-              新規リポジトリでも既存でも構いません。
-            </p>
-            <div className="flex-row" style={{ marginBottom: "var(--space-md)" }}>
-              <input value={owner} onChange={(e) => setOwner(e.target.value)}
-                placeholder="オーナー名" className="input-full" style={{ flex: 1 }} />
-              <span style={{ color: "var(--text-muted)", fontSize: "var(--font-2xl)" }}>/</span>
-              <input value={repo} onChange={(e) => setRepo(e.target.value)}
-                placeholder="リポジトリ名" className="input-full" style={{ flex: 1 }} />
+          <>
+            {me && (
+              <div className="setup-me">
+                {me.avatar_url && <img src={me.avatar_url} alt="" />}
+                <span>
+                  <b>{me.login}</b> としてログインしています
+                </span>
+              </div>
+            )}
+            <input
+              className="input-full"
+              value={query}
+              autoFocus
+              placeholder="名前で探す、または URL を貼る（https://github.com/持ち主/名前）"
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className="setup-repos">
+              {repos === null && (
+                <p className="setup-note">
+                  <i className="spinner" aria-hidden="true" /> 使えるリポジトリを読んでいます…
+                </p>
+              )}
+              {pasted && !shown.some((r) => r.full_name.toLowerCase() === `${pasted.owner}/${pasted.repo}`.toLowerCase()) && (
+                <button type="button" className={`setup-repo${picked?.owner === pasted.owner && picked.repo === pasted.repo ? " on" : ""}`}
+                  onClick={() => setPicked(pasted)}>
+                  <span className="setup-repo-name">{pasted.owner}/{pasted.repo}</span>
+                  <span className="setup-repo-badge">貼った URL</span>
+                </button>
+              )}
+              {shown.map((r) => (
+                <button key={r.full_name} type="button"
+                  className={`setup-repo${picked?.owner === r.owner.login && picked.repo === r.name ? " on" : ""}`}
+                  onClick={() => setPicked({ owner: r.owner.login, repo: r.name })}>
+                  {r.owner.avatar_url && <img src={r.owner.avatar_url} alt="" />}
+                  <span className="setup-repo-name">{r.full_name}</span>
+                  <span className="setup-repo-badge">{r.owner.type === "Organization" ? "チーム" : r.owner.login === me?.login ? "自分" : "招待"}</span>
+                  {r.private && <span className="setup-repo-badge">非公開</span>}
+                  <span className="setup-repo-when">{ago(r.updated_at)}</span>
+                </button>
+              ))}
+              {repos !== null && shown.length === 0 && !pasted && <p className="setup-note">見つかりません。URL を貼っても選べます。</p>}
             </div>
-            <p style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)", marginBottom: "var(--space-lg)" }}>
-              例: y0zrin / life
+            {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）。URL を貼って選んでください</p>}
+            <p className="setup-note">
+              チームのリポジトリが出てこないときは、招待を受けていないか、組織がまだ Life Manager を許可していないかもしれません。
+              {canLogin && (
+                <button type="button" className="link-button" onClick={() => openUrl(orgApprovalUrl(clientId!))}>
+                  組織に許可をお願いする
+                </button>
+              )}
             </p>
-            <button className="btn-primary" style={{ width: "100%", padding: "10px" }}
-              disabled={!owner.trim() || !repo.trim()} onClick={() => setStep(2)}>
+            {checking && (
+              <p className="setup-note">
+                <i className="spinner" aria-hidden="true" /> 使えるか確かめています…
+              </p>
+            )}
+            {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={{ ...check, repos: check.repos }} clientId={clientId ?? ""} />}
+            {check && check.repos[0]?.ok && check.repos[0].message && <p className="setup-note">⚠ {check.repos[0].message}</p>}
+            <p className="setup-note">リポジトリがまだ無いときは、あとで「設定 → 接続 → プロジェクト管理 → ＋ 追加 → 手元のフォルダを GitHub に上げる」で作れます。</p>
+          </>
+        )}
+
+        {step === 2 && picked && (
+          <>
+            <ul className="setup-done">
+              <li>
+                ✔ <b>{me?.login}</b> としてログイン
+              </li>
+              <li>
+                ✔ <b>{picked.owner}/{picked.repo}</b> を使う
+              </li>
+            </ul>
+            <p className="setup-note">
+              このあと、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。ラベル（状態・優先など）は、設定 → ラベル でまとめて作れます。
+            </p>
+          </>
+        )}
+
+        {error && <p className="token-error">{error}</p>}
+
+        <div className="setup-actions">
+          <button type="button" className="btn-sm" style={{ visibility: step > 0 ? "visible" : "hidden" }} disabled={finishing}
+            onClick={() => setStep((s) => Math.max(0, s - 1))}>
+            ← 戻る
+          </button>
+          {step === 1 && (
+            <button type="button" className="btn-primary" disabled={!pickedOk} onClick={() => setStep(2)}>
               次へ
             </button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div>
-            <h2 style={{ fontSize: "var(--font-xl)", color: "var(--text-primary)", marginBottom: "var(--space-md)" }}>
-              2. GitHubトークン
-            </h2>
-            <p style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", marginBottom: "var(--space-lg)" }}>
-              Personal Access Token (Classic) を入力してください。
-              repo スコープが必要です。トークンはOSキーチェーンに安全に保存されます。
-            </p>
-            <input type="password" value={token} onChange={(e) => setToken(e.target.value)}
-              placeholder="ghp_xxxxxxxxxxxx" className="input-full" style={{ marginBottom: "var(--space-lg)" }} />
-            <div className="flex-row">
-              <button className="btn-sm" onClick={() => setStep(1)} style={{ flex: 1, padding: "10px" }}>戻る</button>
-              <button className="btn-primary" style={{ flex: 2, padding: "10px" }}
-                disabled={!token.trim()} onClick={() => setStep(3)}>次へ</button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div>
-            <h2 style={{ fontSize: "var(--font-xl)", color: "var(--text-primary)", marginBottom: "var(--space-md)" }}>
-              3. 確認
-            </h2>
-            <div style={{
-              background: "var(--bg-primary)", borderRadius: "var(--radius-lg)", padding: "var(--space-lg)",
-              border: "1px solid var(--border-default)", marginBottom: "var(--space-lg)",
-            }}>
-              <div style={{ marginBottom: "var(--space-sm)" }}>
-                <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>リポジトリ</span>
-                <p style={{ color: "var(--text-primary)", fontSize: "var(--font-lg)", margin: "2px 0 0" }}>
-                  {owner} / {repo}
-                </p>
-              </div>
-              <div>
-                <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>トークン</span>
-                <p style={{ color: "var(--text-primary)", fontSize: "var(--font-lg)", margin: "2px 0 0" }}>
-                  {token.substring(0, 8)}{"•".repeat(Math.max(0, token.length - 8))}
-                </p>
-              </div>
-            </div>
-            <p style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", marginBottom: "var(--space-lg)" }}>
-              接続後、ラベルの一括作成を行うことでLife Managerのラベル体系がセットアップされます。
-              設定画面からいつでも変更できます。
-            </p>
-            {status && (
-              <p style={{ fontSize: "var(--font-sm)", color: "var(--accent-red)", marginBottom: "var(--space-md)" }}>{status}</p>
-            )}
-            <div className="flex-row">
-              <button className="btn-sm" onClick={() => setStep(2)} style={{ flex: 1, padding: "10px" }}>戻る</button>
-              <button className="btn-primary" style={{ flex: 2, padding: "10px" }}
-                disabled={submitting} onClick={handleSubmit}>
-                {submitting ? "接続中..." : "接続してはじめる"}
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+          {step === 2 && (
+            <button type="button" className="btn-primary" disabled={finishing} onClick={finish}>
+              {finishing ? "準備しています…" : "はじめる"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

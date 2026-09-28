@@ -1586,6 +1586,470 @@ button:hover {
   white-space: pre-wrap;
 }
 
+/* --- 最初のセットアップ（GitHub でログイン → リポジトリを選ぶ → できあがり） --- */
+
+.setup-view {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 8vh var(--space-lg) var(--space-lg);
+  background: var(--bg-primary);
+}
+
+.setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-xl);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.setup-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 22px;
+}
+
+.setup-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.setup-steps {
+  display: flex;
+  gap: 6px;
+  margin: var(--space-sm) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-steps li {
+  flex: 1;
+  padding-top: var(--space-xs);
+  border-top: 3px solid var(--bg-tertiary);
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.setup-steps li.on {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.setup-steps li.done {
+  border-color: var(--accent-green);
+  color: var(--accent-green-hover);
+}
+
+.setup-alt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.setup-me {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-green-bg);
+  border-radius: var(--radius-md);
+  background: var(--accent-green-bg);
+  font-size: var(--font-md);
+}
+
+.setup-me img,
+.setup-repo img,
+.token-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.setup-repos {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.setup-repo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.setup-repo:last-child {
+  border-bottom: none;
+}
+
+.setup-repo:hover {
+  background: var(--bg-tertiary);
+}
+
+.setup-repo.on {
+  background: var(--accent-blue-bg);
+  outline: 1px solid var(--accent-blue);
+  outline-offset: -1px;
+}
+
+.setup-repo-name {
+  font-weight: 600;
+  font-size: var(--font-md);
+}
+
+.setup-repo-badge,
+.token-kind {
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.setup-repo-when {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.setup-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.setup-done {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-md);
+}
+
+.setup-done li {
+  padding: 2px 0;
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-sm);
+}
+
+/* GitHub でログイン（コードを出して、許可を待つ） */
+.gh-login {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.gh-login-button {
+  padding: 12px;
+  border: 1px solid var(--accent-green-hover);
+  border-radius: var(--radius-lg);
+  background: var(--accent-green);
+  color: var(--text-on-accent);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gh-login-button:hover:not(:disabled) {
+  background: var(--accent-green-hover);
+}
+
+.gh-login-lead,
+.gh-login-wait {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.gh-login-wait {
+  color: var(--text-muted);
+}
+
+.gh-login-code {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.gh-login-code b {
+  padding: 6px var(--space-lg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 4px;
+}
+
+.gh-login-error,
+.token-error {
+  margin: 0;
+  color: var(--accent-red);
+  font-size: var(--font-sm);
+  white-space: pre-wrap;
+}
+
+/* トークンを入れる（作成ページを開く → 貼る → すぐ確かめる） */
+.token-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.token-step-n {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  line-height: 20px;
+  text-align: center;
+}
+
+.token-step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0 26px;
+}
+
+.token-step-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.token-step-note code,
+.token-checks code {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+}
+
+.token-input {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.token-input .input-full {
+  flex: 1;
+  font-family: var(--font-mono);
+}
+
+.token-entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* 確かめた結果 */
+.token-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-sm);
+}
+
+.token-checks li {
+  padding: 2px 0;
+}
+
+.token-check--ok {
+  color: var(--accent-green-hover);
+}
+
+.token-check--warn {
+  color: var(--accent-yellow);
+}
+
+.token-check--ng {
+  color: var(--accent-red);
+}
+
+.token-checks b {
+  color: var(--text-primary);
+}
+
+.token-check-fix {
+  margin: 2px 0 0 16px;
+  color: var(--text-secondary);
+}
+
+.token-check-action {
+  margin: 4px 0 0 16px;
+}
+
+/* 設定 → 接続 の「GitHub トークン」 */
+.token-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.token-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.token-card-label {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.token-card-sub {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.token-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.token-status {
+  font-size: var(--font-sm);
+}
+
+.token-status--ok {
+  color: var(--accent-green-hover);
+}
+
+.token-status--warn {
+  color: var(--accent-yellow);
+}
+
+.token-status--ng {
+  color: var(--accent-red);
+}
+
+.token-status--wait {
+  color: var(--text-muted);
+}
+
+.token-signout {
+  color: var(--accent-red);
+}
+
+.token-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.token-projects {
+  margin-top: var(--space-md);
+}
+
+.token-projects-title {
+  margin-bottom: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.token-projects table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.token-projects th {
+  padding: var(--space-xs) 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-weight: 400;
+  text-align: left;
+}
+
+.token-projects td {
+  padding: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.token-projects-sub {
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.token-projects-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-xs);
+}
+
+.token-howto {
+  margin-left: 6px;
+}
+
+.token-dialog {
+  width: 600px;
+}
+
+.palette-overlay:has(> .token-dialog) {
+  padding-top: 8vh;
+  padding-bottom: var(--space-lg);
+}
+
+/* トークンの期限が近い・切れた・使えないときのお知らせ */
+.token-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-sm) var(--space-lg) 0;
+  padding: 6px var(--space-md);
+  border: 1px solid var(--accent-yellow-bg);
+  border-radius: var(--radius-md);
+  background: var(--accent-yellow-bg);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
 /* --- Issue テンプレート（作るフォームのいちばん上） --- */
 
 .issue-templates {

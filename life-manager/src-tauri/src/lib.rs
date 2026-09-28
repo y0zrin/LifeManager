@@ -5,6 +5,7 @@ mod journal;
 mod notify;
 mod offline;
 mod scheduler;
+mod tokens;
 
 use credential::CredentialEntry as Entry;
 use github::client::GitHubClient;
@@ -86,11 +87,9 @@ fn add_project(owner: String, repo: String, name: String, token: Option<String>)
         entry.set_password(&json).map_err(|e| e.to_string())?;
     }
 
-    // プロジェクト固有のトークンを保存
-    if let Some(t) = token {
-        let token_key = format!("project-token-{}/{}", owner, repo);
-        let token_entry = Entry::new("life-manager", &token_key).map_err(|e| e.to_string())?;
-        token_entry.set_password(&t).map_err(|e| e.to_string())?;
+    // プロジェクト専用のトークン（入れたときだけ）
+    if let Some(t) = token.filter(|t| !t.trim().is_empty()) {
+        tokens::set_project(&owner, &repo, &tokens::clean(&t)?)?;
     }
 
     let result = serde_json::to_string(&projects).map_err(|e| e.to_string())?;
@@ -114,10 +113,7 @@ fn remove_project(owner: String, repo: String) -> Result<String, String> {
     entry.set_password(&json).map_err(|e| e.to_string())?;
 
     // プロジェクトのトークンも削除
-    let token_key = format!("project-token-{}/{}", owner, repo);
-    if let Ok(token_entry) = Entry::new("life-manager", &token_key) {
-        let _ = token_entry.delete_credential();
-    }
+    tokens::clear_project(&owner, &repo);
 
     Ok(json)
 }
@@ -195,22 +191,9 @@ async fn switch_project(
     owner: String,
     repo: String,
 ) -> Result<String, String> {
-    // プロジェクト固有のトークンを試す → なければグローバルトークンにフォールバック
-    let token_key = format!("project-token-{}/{}", owner, repo);
-    let token = match Entry::new("life-manager", &token_key) {
-        Ok(entry) => match entry.get_password() {
-            Ok(t) => t,
-            Err(_) => {
-                // フォールバック: グローバルトークン
-                let global_entry = Entry::new("life-manager", "github-token").map_err(|e| e.to_string())?;
-                global_entry.get_password().map_err(|_| String::from("トークンが未設定です。設定画面でプロジェクトのトークンを設定してください。"))?
-            }
-        },
-        Err(_) => {
-            let global_entry = Entry::new("life-manager", "github-token").map_err(|e| e.to_string())?;
-            global_entry.get_password().map_err(|_| String::from("トークンが未設定です。設定画面でプロジェクトのトークンを設定してください。"))?
-        }
-    };
+    // プロジェクト専用のトークン → なければいつものトークン
+    let token = tokens::token_for(&owner, &repo)
+        .ok_or_else(|| String::from("トークンがありません。GitHub にログインするか、設定 → 接続 でトークンを入れてください。"))?;
 
     // GitHubClientを更新
     let mut guard = state.lock().await;
@@ -232,46 +215,38 @@ async fn set_project_token(
     repo: String,
     token: String,
 ) -> Result<String, String> {
-    let token_key = format!("project-token-{}/{}", owner, repo);
-    let entry = Entry::new("life-manager", &token_key).map_err(|e| e.to_string())?;
-    entry.set_password(&token).map_err(|e| e.to_string())?;
-
-    // 保存対象が現在アクティブなプロジェクトなら、メモリ上の GitHubClient も即座に差し替える
-    // （これを行わないと、アプリ再起動まで古いトークンで API を叩き続けてしまう）
-    let active_owner = Entry::new("life-manager", "github-owner")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_default();
-    let active_repo = Entry::new("life-manager", "github-repo")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_default();
-    if active_owner == owner && active_repo == repo {
-        let mut guard = state.lock().await;
-        *guard = Some(GitHubClient::new(token));
-    }
-
+    tokens::set_project(&owner, &repo, &tokens::clean(&token)?)?;
+    // 今開いているプロジェクトなら、使うトークンもすぐ差し替える
+    reload_active_client(&state).await;
     return Ok("プロジェクトのトークンを保存しました".to_string());
 }
 
 #[tauri::command]
 fn has_project_token(owner: String, repo: String) -> Result<bool, String> {
-    let token_key = format!("project-token-{}/{}", owner, repo);
-    match Entry::new("life-manager", &token_key) {
-        Ok(entry) => return Ok(entry.get_password().is_ok()),
-        Err(_) => return Ok(false),
-    }
+    Ok(tokens::project_token(&owner, &repo).is_some())
 }
 
+/// プロジェクト専用のトークンを外す（いつものトークンを使うようになる）
+#[tauri::command]
+async fn clear_project_token(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<String, String> {
+    tokens::clear_project(&owner, &repo);
+    reload_active_client(&state).await;
+    Ok("いつものトークンを使うようにしました".to_string())
+}
+
+/// いつものトークンを入れる（貼ったトークンの前後の空白は外す）
 #[tauri::command]
 async fn set_token(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     token: String,
 ) -> Result<String, String> {
-    let entry = Entry::new("life-manager", "github-token").map_err(|e| e.to_string())?;
-    entry.set_password(&token).map_err(|e| e.to_string())?;
-    let mut guard = state.lock().await;
-    *guard = Some(GitHubClient::new(token));
+    tokens::set_default(&tokens::clean(&token)?)?;
+    // 今のプロジェクトに専用のトークンがあれば、そちらを使い続ける
+    reload_active_client(&state).await;
     return Ok(String::from("トークンを設定しました"));
 }
 
@@ -279,44 +254,134 @@ async fn set_token(
 async fn load_token(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
 ) -> Result<String, String> {
-    // アクティブプロジェクトのトークンを優先的に解決する
-    let token = resolve_active_token()?;
+    // 前のセットアップが、いつものトークンを最初のプロジェクト専用にも入れていたのを外す
+    tokens::drop_duplicate_project_tokens(&project_list());
+    let token = tokens::active_token().ok_or_else(|| String::from("トークンがありません"))?;
     let mut guard = state.lock().await;
     *guard = Some(GitHubClient::new(token));
     return Ok(String::from("トークンをロードしました"));
 }
 
-/// アクティブプロジェクトのトークンを解決する
-/// 優先順位: プロジェクト固有トークン → グローバルトークン
-fn resolve_active_token() -> Result<String, String> {
-    // 保存済みの owner/repo を取得
-    let owner = Entry::new("life-manager", "github-owner")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_default();
-    let repo = Entry::new("life-manager", "github-repo")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_default();
+/// 登録しているプロジェクト（持ち主・名前）
+fn project_list() -> Vec<(String, String)> {
+    let json = Entry::new("life-manager", "projects").ok().and_then(|e| e.get_password().ok()).unwrap_or_default();
+    serde_json::from_str::<Vec<serde_json::Value>>(&json)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|p| Some((p["owner"].as_str()?.to_string(), p["repo"].as_str()?.to_string())))
+        .collect()
+}
 
-    // プロジェクト固有トークンを試す
-    if !owner.is_empty() && !repo.is_empty() {
-        let token_key = format!("project-token-{}/{}", owner, repo);
-        if let Ok(entry) = Entry::new("life-manager", &token_key) {
-            if let Ok(token) = entry.get_password() {
-                if !token.is_empty() {
-                    return Ok(token);
-                }
-            }
-        }
+/// 今開いているプロジェクトで使うトークンで、クライアントを作り直す（トークンがなければ外す）
+async fn reload_active_client(state: &tauri::State<'_, Mutex<Option<GitHubClient>>>) {
+    let mut guard = state.lock().await;
+    *guard = tokens::active_token().map(GitHubClient::new);
+}
+
+// --- GitHub でログイン（デバイスフロー）・トークンの確認 ---
+
+/// 「GitHub でログイン」に使う OAuth アプリの Client ID（秘密ではない）。空なら、ログインは使えない（トークンで入る）
+#[tauri::command]
+fn auth_client_id() -> String {
+    github::auth::CLIENT_ID.to_string()
+}
+
+/// ログインを始める（画面に出すコードをもらう）
+#[tauri::command]
+async fn auth_start() -> Result<github::auth::DeviceCode, String> {
+    github::auth::start().await
+}
+
+/// 許可されたかを確かめる。許可されたら、いつものトークンとしてしまい、今のプロジェクトで使う
+#[tauri::command]
+async fn auth_poll(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    device_code: String,
+) -> Result<github::auth::Poll, String> {
+    let (poll, token) = github::auth::poll(&device_code).await?;
+    if let Some(token) = token {
+        tokens::set_default(&token)?;
+        reload_active_client(&state).await;
     }
+    Ok(poll)
+}
 
-    // フォールバック: グローバルトークン
-    let global_entry = Entry::new("life-manager", "github-token")
-        .map_err(|e| e.to_string())?;
-    return global_entry
-        .get_password()
-        .map_err(|_| String::from("トークンがありません"));
+/// ログアウト（学校の PC などで使い終わったとき）。この PC から、いつものトークンもプロジェクト専用のトークンも消す
+/// （どれも、だれかの合鍵なので）。使うリポジトリの一覧は残すので、次にログインすれば続きから使える
+#[tauri::command]
+async fn sign_out(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
+    tokens::clear_default();
+    for (owner, repo) in project_list() {
+        tokens::clear_project(&owner, &repo);
+    }
+    let mut guard = state.lock().await;
+    *guard = None;
+    Ok("ログアウトしました".to_string())
+}
+
+/// トークンを確かめる。token を渡せばそれを、渡さなければ owner/repo のプロジェクトで使うトークン（なければいつもの）を確かめる
+#[tauri::command]
+async fn check_token(
+    token: Option<String>,
+    owner: Option<String>,
+    repo: Option<String>,
+    repos: Vec<github::token_check::RepoRef>,
+) -> Result<github::token_check::TokenReport, String> {
+    let token = match token {
+        Some(t) => tokens::clean(&t)?,
+        None => match (owner.as_deref(), repo.as_deref()) {
+            (Some(o), Some(r)) => tokens::token_for(o, r),
+            _ => tokens::default_token(),
+        }
+        .ok_or("トークンがありません")?,
+    };
+    github::token_check::check(&token, &repos).await
+}
+
+#[derive(serde::Serialize)]
+struct ProjectTokenUse {
+    owner: String,
+    repo: String,
+    /// project（専用）/ default（いつもの）/ none（どちらもない）
+    source: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct TokenOverview {
+    /// いつものトークンがあるか・その種類（トークンそのものは渡さない）
+    has_default: bool,
+    default_kind: Option<&'static str>,
+    projects: Vec<ProjectTokenUse>,
+}
+
+/// どのプロジェクトがどのトークンを使っているか（トークンそのものは渡さない）
+#[tauri::command]
+fn token_overview() -> TokenOverview {
+    let default = tokens::default_token();
+    TokenOverview {
+        has_default: default.is_some(),
+        default_kind: default.as_deref().map(tokens::kind_of),
+        projects: project_list()
+            .into_iter()
+            .map(|(owner, repo)| {
+                let source = if tokens::project_token(&owner, &repo).is_some() {
+                    "project"
+                } else if default.is_some() {
+                    "default"
+                } else {
+                    "none"
+                };
+                ProjectTokenUse { owner, repo, source }
+            })
+            .collect(),
+    }
+}
+
+/// ログインした人が使えるリポジトリ（最初のセットアップで選ぶため）
+#[tauri::command]
+async fn list_user_repos(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    client.list_user_repos().await
 }
 
 /// 今のトークンの GitHub クライアント。通信のあいだほかの操作を待たせないよう、複製してすぐにロックを離す
@@ -972,6 +1037,14 @@ pub fn run() {
             get_app_version,
             set_token,
             load_token,
+            auth_client_id,
+            auth_start,
+            auth_poll,
+            sign_out,
+            check_token,
+            token_overview,
+            clear_project_token,
+            list_user_repos,
             set_repo_config,
             load_repo_config,
             list_projects,

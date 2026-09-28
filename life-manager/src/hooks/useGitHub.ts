@@ -296,6 +296,16 @@ export function useGitHub() {
     setStatus("接続済み");
   }
 
+  /** ログアウト（この PC からトークンを消す）。最初のセットアップの画面に戻る */
+  async function signOut() {
+    await invoke("sign_out");
+    setConnected(false);
+    setCurrentUser("");
+    setIssues([]);
+    setClosedIssues([]);
+    setStatus("ログアウトしました");
+  }
+
   async function setToken(token: string) {
     try {
       await invoke("set_token", { token });
@@ -1019,7 +1029,7 @@ export function useGitHub() {
     // ジャーナル
     generateJournal, getJournal, saveJournalNotes,
     // 認証・設定
-    setToken, setupLabels, createLabel, updateLabel, deleteLabel,
+    setToken, signOut, setupLabels, createLabel, updateLabel, deleteLabel,
     // リポジトリ設定
     owner, repo, setRepoConfig,
     // 通知

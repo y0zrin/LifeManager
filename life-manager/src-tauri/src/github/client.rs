@@ -618,6 +618,32 @@ impl GitHubClient {
         self.get(&url).await
     }
 
+    // --- トークンの確認・ログインしたあとのリポジトリ選び ---
+
+    /// 状態・ヘッダ・本文をそのまま返す GET（トークンの確認で、期限のヘッダや 404・403 を見分けるため）。path は /user などの API のパス
+    pub async fn get_raw(&self, path: &str) -> Result<(u16, HeaderMap, String), String> {
+        let response = self
+            .http
+            .get(format!("{}{}", BASE_URL, path))
+            .headers(self.build_headers())
+            .send()
+            .await
+            .map_err(network_error)?;
+        let status = response.status().as_u16();
+        let headers = response.headers().clone();
+        let body = response.text().await.map_err(network_error)?;
+        Ok((status, headers, body))
+    }
+
+    /// 自分が使えるリポジトリ（持っている・招待された・組織の）を、更新の新しい順に
+    pub async fn list_user_repos(&self) -> Result<String, String> {
+        let url = format!(
+            "{}/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member",
+            BASE_URL
+        );
+        return self.get_all_pages(&url).await;
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {
@@ -752,7 +778,10 @@ impl GitHubClient {
     fn build_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         let auth = format!("Bearer {}", self.token);
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&auth).unwrap());
+        // トークンに使えない文字（全角など）が混じっていても落ちないように（そのときは認証なしで送り、401 になる）
+        if let Ok(value) = HeaderValue::from_str(&auth) {
+            headers.insert(AUTHORIZATION, value);
+        }
         headers.insert(USER_AGENT, HeaderValue::from_static("life-manager"));
         headers.insert(
             ACCEPT,

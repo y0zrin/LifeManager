@@ -1,5 +1,4 @@
 use chrono::{Datelike, Local, Timelike, Weekday};
-use crate::credential::CredentialEntry as Entry;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,6 +10,7 @@ use tokio::time;
 use crate::github::client::GitHubClient;
 use crate::notify::discord;
 use crate::offline::{self, store::Notice};
+use crate::tokens;
 
 /// 外部から設定リフレッシュを要求するためのハンドル
 static REFRESH_NOTIFY: std::sync::OnceLock<Arc<Notify>> = std::sync::OnceLock::new();
@@ -20,19 +20,6 @@ pub fn request_refresh() {
     if let Some(notify) = REFRESH_NOTIFY.get() {
         notify.notify_one();
     }
-}
-
-/// アクティブプロジェクトのowner/repoをキーチェーンから読み込む
-fn load_active_project() -> (String, String) {
-    let owner = Entry::new("life-manager", "github-owner")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_else(|| "y0zrin".to_string());
-    let repo = Entry::new("life-manager", "github-repo")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_else(|| "life".to_string());
-    (owner, repo)
 }
 
 // --- データ構造 ---
@@ -253,42 +240,22 @@ pub async fn start_scheduler(app: tauri::AppHandle) {
     let notify = Arc::new(Notify::new());
     let _ = REFRESH_NOTIFY.set(notify.clone());
 
-    // トークンが利用可能になるまで待機（プロジェクト固有トークン優先、グローバルにフォールバック）
-    let client = loop {
+    // プロジェクトとトークンが決まるまで待つ
+    while tokens::active_project().is_none() || tokens::active_token().is_none() {
         time::sleep(Duration::from_secs(3)).await;
+    }
 
-        let (owner, repo) = load_active_project();
-
-        // プロジェクト固有トークンを試行
-        let project_key = format!("project-token-{}/{}", owner, repo);
-        if let Ok(entry) = Entry::new("life-manager", &project_key) {
-            if let Ok(token) = entry.get_password() {
-                if !token.is_empty() {
-                    break GitHubClient::new(token);
-                }
-            }
-        }
-
-        // グローバルトークンにフォールバック
-        let entry = match Entry::new("life-manager", "github-token") {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-
-        match entry.get_password() {
-            Ok(token) => break GitHubClient::new(token),
-            Err(_) => continue,
-        }
-    };
-
-    run_scheduler_loop(client, app, notify).await;
+    run_scheduler_loop(app, notify).await;
 }
 
 // 日次ジャーナル自動生成の時刻（23:59）
 const JOURNAL_HOUR: u32 = 23;
 const JOURNAL_MINUTE: u32 = 59;
 
-async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh: Arc<Notify>) {
+async fn run_scheduler_loop(app: tauri::AppHandle, refresh: Arc<Notify>) {
+    // 使っているトークンと、そのクライアント（プロジェクトの切り替え・トークンの入れ替え・ログアウトに、毎回合わせる）
+    let mut current: Option<(String, GitHubClient)> = None;
+    let mut last_project: Option<(String, String)> = None;
     let mut interval = time::interval(Duration::from_secs(60));
     let mut cached_config: Option<RoutineConfig> = None;
     let mut cached_notif_config: Option<NotificationConfig> = None;
@@ -314,8 +281,18 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
         }
         last_check_minute = Some(current_minute);
 
-        // アクティブプロジェクトを取得
-        let (owner, repo) = load_active_project();
+        // アクティブプロジェクトと、そのプロジェクトで使うトークン（専用 → いつもの）。なければこの分は何もしない
+        let Some((owner, repo)) = tokens::active_project() else { continue };
+        let Some(token) = tokens::token_for(&owner, &repo) else { continue };
+        if current.as_ref().map(|(t, _)| t.as_str()) != Some(token.as_str()) {
+            current = Some((token.clone(), GitHubClient::new(token)));
+        }
+        let client = &current.as_ref().expect("直前に入れた").1;
+        // プロジェクトが変わったら、前のプロジェクトの設定を使わないよう読み直す
+        if last_project.as_ref() != Some(&(owner.clone(), repo.clone())) {
+            last_project = Some((owner.clone(), repo.clone()));
+            force_refresh = true;
+        }
 
         // 設定リフレッシュ（毎分 or 強制リフレッシュ時）。
         // つながらないときは最後に読んだ内容を使う（リマインダーや通知スケジュールの OS 通知は、オフラインでも出せる）

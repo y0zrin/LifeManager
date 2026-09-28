@@ -120,6 +120,35 @@ export function BranchesView(props: BranchesViewProps) {
     [entries, onSelect],
   );
 
+  // 名前の帯の上でホイールを回すと、隣のブランチへ（下・右に回すと次、上・左で前）。
+  // 1 目盛りで 1 本。トラックパッドの細かい動きはためてから動かし、勢いで何本も飛ばないよう少し間を空ける。
+  // Ctrl＋ホイールは、作業⇄ブランチ⇄全体図の切り替えに使うので、ここでは受け取らない
+  const stripRef = useRef<HTMLDivElement>(null);
+  const goRef = useRef(go);
+  goRef.current = go;
+  const indexRef = useRef(index);
+  indexRef.current = index;
+  const wheel = useRef({ sum: 0, at: 0 });
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      if (e.ctrlKey) return;
+      e.preventDefault();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const w = wheel.current;
+      // 行で動くマウス（deltaMode 1）は、1 行を 40 ピクセルとして数える
+      w.sum += e.deltaMode === 1 ? delta * 40 : delta;
+      const now = Date.now();
+      if (Math.abs(w.sum) < 40 || now - w.at < 180) return;
+      w.at = now;
+      goRef.current(indexRef.current + (w.sum > 0 ? 1 : -1));
+      w.sum = 0;
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [entries.length > 0]);
+
   // ← → で隣のブランチへ
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -146,7 +175,7 @@ export function BranchesView(props: BranchesViewProps) {
 
   return (
     <div className="bview">
-      <div className="bv-strip">
+      <div className="bv-strip" ref={stripRef}>
         <button type="button" className="bv-edge l" aria-label="前のブランチ" disabled={index === 0} onClick={() => go(index - 1)}>
           ‹
         </button>

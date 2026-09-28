@@ -39,7 +39,9 @@ release.bat          # リリースビルド（バージョンbump + ビルド +
 ```
 src/
 ├── App.tsx, App.css         # メインアプリ、グローバルCSS
-├── hooks/useGitHub.ts       # GitHub API操作の中央フック（907行、v0.6.0前に分割予定）
+├── hooks/useGitHub.ts       # GitHub API操作の中央フック（組み合わせと、全部を読む・プロジェクト切り替え・ログイン/ログアウトだけ）
+├── hooks/github/           # 分野ごとのフック: useSession（リポジトリ・ログイン・プロジェクト）/ useRepoMeta（ラベル・マイルストーン・コラボレーター）/
+│                           #   useRepoSettings（リポジトリに置く設定・Discord）/ useIssues（Issue 操作・コメント・親子・テンプレート・履歴・見積もり）/ useJournal / shared
 ├── lib/
 │   ├── types.ts             # 型定義（EventType含む）
 │   ├── ganttTypes.ts        # ガントチャート型定義（GanttBarColors含む）

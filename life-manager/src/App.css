@@ -1018,6 +1018,65 @@ button:hover {
 
 /* --- Gantt Tooltip --- */
 
+/* ガントは画面の高さ・幅いっぱいに広げる（切り替えの枠の中では flex: 1 が効かないため、高さを決める） */
+.content.gantt-screen {
+  max-width: none;
+  height: calc(100vh - var(--header-height) - var(--hbar-offset) - var(--bottom-nav-height));
+}
+
+/* 見積もりからの仮の日程（点線の帯） */
+.gantt-tentative-toggle {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.gantt-est {
+  flex-shrink: 0;
+  margin-left: 0;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.gantt-kari {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px dashed var(--text-muted);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.gantt-none {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.gantt-tentative-pop {
+  position: absolute;
+  z-index: 25;
+  width: 300px;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+}
+
+.gantt-tentative-note {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+.gantt-tentative-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
 .gantt-tooltip {
   position: absolute;
   z-index: 20;

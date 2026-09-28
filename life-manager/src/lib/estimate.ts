@@ -133,6 +133,33 @@ export function withEstimate(names: string[], value: number | null, unit: Estima
   return value === null ? kept : [...kept, estimateLabel(value, unit)];
 }
 
+// ポイントを日数に直す目安（ポイントの valueGuide と同じ: 1pt＝1 時間・2pt＝半日・3pt＝1 日・5pt＝2〜3 日・8pt＝1 週間）
+const PT_DAYS: [number, number][] = [
+  [0, 0],
+  [1, 1 / HOURS_PER_DAY],
+  [2, 0.5],
+  [3, 1],
+  [5, 2.5],
+  [8, 5],
+];
+
+/**
+ * 見積もりを日数に直す（ガントの仮の日程に使う。1 日＝8 時間）。
+ * ポイントは目安の表で直し、表の点のあいだは直線でつなぐ（8pt より上は最後の傾きでのばす）
+ */
+export function estimateDays(e: Estimate): number {
+  const hours = UNITS[e.unit].hours;
+  if (hours !== null) return (e.value * hours) / HOURS_PER_DAY;
+  for (let i = 1; i < PT_DAYS.length; i++) {
+    const [p1, d1] = PT_DAYS[i - 1];
+    const [p2, d2] = PT_DAYS[i];
+    if (e.value <= p2) return d1 + ((e.value - p1) * (d2 - d1)) / (p2 - p1);
+  }
+  const [pa, da] = PT_DAYS[PT_DAYS.length - 2];
+  const [pb, db] = PT_DAYS[PT_DAYS.length - 1];
+  return db + ((e.value - pb) * (db - da)) / (pb - pa);
+}
+
 export interface EstimateSum {
   /** 見積もりの合計（決めた単位に換算したもの） */
   total: number;

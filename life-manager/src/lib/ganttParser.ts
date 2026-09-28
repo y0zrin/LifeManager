@@ -1,5 +1,6 @@
 import type { GitHubIssue } from "./types";
 import type { GanttTask, ProgressMode } from "./ganttTypes";
+import { estimateOf, formatEstimate } from "./estimate";
 
 /** Issue bodyから <!-- gantt:YYYY-MM-DD/YYYY-MM-DD --> を抽出 */
 export function parseGanttDates(body: string | null): { start: string; end: string } | null {
@@ -117,6 +118,10 @@ export function issuesToGanttTasks(issues: GitHubIssue[]): GanttTask[] {
       dependencies: deps,
       progressMode: mode,
       progressValue: progress,
+      estimate: (() => {
+        const e = estimateOf(issue);
+        return e ? formatEstimate(e.value, e.unit) : null;
+      })(),
     };
   });
 }

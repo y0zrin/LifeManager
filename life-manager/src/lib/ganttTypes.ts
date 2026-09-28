@@ -12,6 +12,10 @@ export interface GanttTask {
   dependencies: number[];   // issue numbers
   progressMode: ProgressMode;
   progressValue: number;    // 0-100
+  /** 見積もり（「2日」「5pt」など。付いていなければ null） */
+  estimate: string | null;
+  /** 日程がないので、見積もりから仮に置いた日程か（lib/ganttSchedule.ts） */
+  tentative?: boolean;
 }
 
 export interface GanttViewConfig {
@@ -21,6 +25,8 @@ export interface GanttViewConfig {
   rowHeight: number;
   headerHeight: number;
   pixelsPerDay: number;
+  /** マイルストーンの期限（YYYY-MM-DD）。線を引き、仮の帯の超えた分を赤くする */
+  deadline?: string | null;
 }
 
 export interface GanttBarColors {

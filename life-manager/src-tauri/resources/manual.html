@@ -329,6 +329,68 @@
     cursor: pointer;
   }
   footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-soft); font-size: 13px; }
+
+  /* 印刷・PDF（scripts/manual-pdf.ps1）: A4、明るい色、目次は表紙のあと、下にページ番号 */
+  .print-only, .print-toc { display: none; }
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm;
+    @bottom-center {
+      content: counter(page) " / " counter(pages);
+      color: #59636e;
+      font-size: 9pt;
+    }
+  }
+  @media print {
+    :root, :root[data-theme] {
+      --bg: #ffffff;
+      --bg-soft: #f6f8fa;
+      --bg-code: #eff2f5;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-soft: #59636e;
+      --accent: #0969da;
+      --accent-soft: #ddf4ff;
+      --ok: #1a7f37;
+      --ok-soft: #dafbe1;
+      --warn: #9a6700;
+      --warn-soft: #fff8c5;
+      --danger: #cf222e;
+      --danger-soft: #ffebe9;
+      --lane-0: #0969da;
+      --lane-1: #1a7f37;
+      --lane-2: #8250df;
+      --faint: #8c959f;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html { scroll-behavior: auto; }
+    body { font-size: 10.5pt; line-height: 1.7; }
+    .layout { display: block; max-width: none; }
+    nav.toc, .theme-switch { display: none; }
+    main { padding: 0; }
+    .print-only { display: block; }
+
+    header.cover { margin: 70mm 0 0; padding-bottom: 12mm; break-after: page; }
+    header.cover h1 { font-size: 26pt; }
+    header.cover p { font-size: 11pt; }
+    .print-toc { display: block; break-after: page; font-size: 10.5pt; line-height: 1.6; }
+    .print-toc .toc-title { margin: 0 0 8px; font-size: 16pt; font-weight: 700; }
+    .print-toc ol { margin: 0; padding-left: 1em; list-style: none; }
+    .print-toc a { color: var(--text); text-decoration: none; }
+    .print-toc .toc-group { margin: 12px 0 4px; color: var(--text-soft); font-weight: 700; }
+
+    /* 章のまとまり（git・タスク・設定）は新しいページから */
+    #git-basics, #tasks, #settings { break-before: page; }
+    section { margin-bottom: 28px; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 12.5pt; }
+    h2, h3, h4, dt { break-after: avoid; }
+    tr, .box, figure, .cmd, ol.flow li, .legend, dl.terms dd, .qa dd { break-inside: avoid; }
+    table { font-size: 9.5pt; }
+    .table-wrap { overflow: visible; }
+    .cmd { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 9pt; }
+    footer { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -381,6 +443,7 @@
   <h1>Life Manager マニュアル</h1>
   <p>タスク管理と、git によるバージョン管理を、画面で見ながら行うためのアプリです。</p>
   <p>このマニュアルは、左のサイドバーから「作業」「ブランチ」「全体図」を使える版（0.9 以降）に合わせています。</p>
+  <p class="print-only" id="print-date"></p>
 </header>
 
 <!-- ============================================================ -->
@@ -1389,6 +1452,22 @@ labels: ["種別:バグ", "状態:未整理"]
       });
     }, { rootMargin: "0px 0px -70% 0px" });
     document.querySelectorAll("main section[id]").forEach(function (s) { observer.observe(s); });
+  })();
+
+  // 印刷・PDF 用: 表紙に日付を入れ、目次を表紙のあとに写す（画面では左の目次を使う）
+  (function () {
+    var d = new Date();
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var date = document.getElementById("print-date");
+    if (date) date.textContent = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " 時点の内容です（機能が増えると、内容が変わることがあります）。";
+    var nav = document.querySelector("nav.toc");
+    var cover = document.querySelector("header.cover");
+    if (!nav || !cover) return;
+    var copy = document.createElement("div");
+    copy.className = "print-toc";
+    copy.setAttribute("aria-hidden", "true");
+    copy.innerHTML = nav.innerHTML;
+    cover.insertAdjacentElement("afterend", copy);
   })();
 </script>
 </body>

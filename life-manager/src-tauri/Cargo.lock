@@ -2031,7 +2031,7 @@ dependencies = [
 
 [[package]]
 name = "life-manager"
-version = "0.9.0-4"
+version = "0.9.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",

@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 /// GitHub に登録した OAuth アプリ「Life Manager」の Client ID（秘密ではない）。空なら「GitHub でログイン」は使えない
-pub const CLIENT_ID: &str = "";
+pub const CLIENT_ID: &str = "Ov23liu0oRzKR4l5kDMZ";
 
 /// もらう権限: repo（非公開も含めて、入っているリポジトリの Issue・ファイルを読み書き）、read:org（入っている組織を知る）
 pub const SCOPES: &str = "repo read:org";

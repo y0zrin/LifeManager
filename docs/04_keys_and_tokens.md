@@ -7,17 +7,17 @@
 
 | もの | 秘密か | どこにあるか | 失くしたら・漏れたら |
 |---|---|---|---|
-| OAuth アプリ「Life Manager」の Client ID | 秘密ではない（アプリに入れて配る） | `life-manager/src-tauri/src/github/auth.rs` の `CLIENT_ID`。**今は空**なので「GitHub でログイン」は出ず、全員「トークンで入る」になる | GitHub の Developer settings でいつでも見られる |
+| OAuth アプリ「Life Manager」の Client ID | 秘密ではない（アプリに入れて配る） | `life-manager/src-tauri/src/github/auth.rs` の `CLIENT_ID`（`Ov23liu0oRzKR4l5kDMZ`。2026-09-29 に登録、0.9.0 から入れて配る） | GitHub の Developer settings でいつでも見られる |
 | OAuth アプリの Client secret | — | **作らない**。デバイスフロー（GitHub Desktop・GitHub CLI と同じやり方）では使わない | 作ってしまったら、GitHub の OAuth アプリの画面で消す |
 | 更新の署名の秘密鍵（minisign） | **秘密** | 開発 PC のユーザー環境変数 `TAURI_SIGNING_PRIVATE_KEY`（鍵の中身そのもの。パスワードは空） | 失くすと、入っているアプリに更新を届けられなくなる。漏れると、偽の更新を作られる → **控えを取る**（下） |
 | 更新の署名の公開鍵 | 秘密ではない | `life-manager/src-tauri/tauri.conf.json` の `plugins.updater.pubkey` | 変えない。変えた版は、古い版の自動更新で受け取れない（手で入れ直しになる） |
 | GitHub Releases へのアップロード | — | Web の画面で上げる（トークンは使わない） | — |
 
-## OAuth アプリの登録（一度だけ。まだしていない）
+## OAuth アプリの登録（一度だけ。2026-09-29 に済み）
 
 1. GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**
 2. Application name: `Life Manager`、Homepage URL: `https://github.com/y0zrin/LifeManager`、Authorization callback URL: 同じ URL（デバイスフローでは使わないが、入れる欄がある）
-3. **Register application** → 同じ画面の **Enable Device Flow** に印を付けて **Update application**
+3. **Enable Device Flow** に印を付ける。**Expire user access tokens の印は外す**（付けると鍵が 8 時間で切れる。取り直しには Client secret が要るので、このアプリはしない）。Allow wildcard matching も外したまま → **Register application**（登録の画面に Enable Device Flow が無いときは、登録したあとの画面で付けて **Update application**）
 4. **Client ID** を `auth.rs` の `CLIENT_ID` に入れて、ビルドして配る。**Generate a new client secret は押さない**
 5. 組織で使うときは、組織の持ち主が Life Manager を一度許可する（新しい組織は、外のアプリを使うのに許可がいる設定になっている）
 

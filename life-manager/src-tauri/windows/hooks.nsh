@@ -1,5 +1,6 @@
 ﻿; LifeManager のインストーラーに足す処理（tauri.conf.json の bundle > windows > nsis > installerHooks）。
-; インストールの最後に Git が入っているかを調べ、入っていなければ、入れるかどうかを聞く。
+; インストールの最後に、Windows にアイコンを読み直してもらう（ピン止めしたアイコンが古いまま残らないように）。
+; また、Git が入っているかを調べ、入っていなければ、入れるかどうかを聞く。
 ; 自動アップデート（/UPDATE）や、画面を出さないインストール（/P・/S）のときは聞かない
 ; （アプリを起動したときにも確かめて、そこからも入れられるため）。
 ; このファイルはインストーラーの本体より前に読み込まれるので、関数の中では本体の変数（$UpdateMode など）を使わない
@@ -42,7 +43,25 @@ Function LifeManagerInstallGit
   ExecShell "open" "https://git-scm.com/downloads/win"
 FunctionEnd
 
+; アイコンを変えた版に上書きすると、タスクバーにピン止めしたアイコンなどが、Windows の覚えている古い絵のまま残る。
+; Windows にアイコンを読み直してもらう（関連付けが変わった知らせと、アイコンのキャッシュの更新）
+Function LifeManagerRefreshIcons
+  Push $0
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  ; ie4uinit は 64 ビットの System32 にだけある（32 ビットのインストーラーからは Sysnative で見える）
+  ${If} ${FileExists} "$WINDIR\Sysnative\ie4uinit.exe"
+    nsExec::Exec '"$WINDIR\Sysnative\ie4uinit.exe" -show'
+    Pop $0
+  ${ElseIf} ${FileExists} "$SYSDIR\ie4uinit.exe"
+    nsExec::Exec '"$SYSDIR\ie4uinit.exe" -show'
+    Pop $0
+  ${EndIf}
+  Pop $0
+FunctionEnd
+
 !macro NSIS_HOOK_POSTINSTALL
+  ; 自動アップデートのときも、アイコンは読み直してもらう
+  Call LifeManagerRefreshIcons
   ${If} $UpdateMode <> 1
   ${AndIf} $PassiveMode <> 1
   ${AndIfNot} ${Silent}

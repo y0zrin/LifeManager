@@ -5,24 +5,27 @@ Tauri 2.0 (Rust + React/TypeScript) のGitHub Issues ベースタスク管理デ
 GitHub Issues/Milestones/Labels をバックエンドストレージとして利用。
 
 ## 現在のバージョンと次の作業
-- **現在**: v0.3.2 リリース済み
-- **次回**: v0.4.0 "Depth" — Issue関連機能の大幅強化
+- **公開済み**: v0.3.3（2026-04-22）
+- **公開の準備中**: v0.9.0 — 0.4〜0.6 の機能と、リポジトリ管理（作業・ブランチ・全体図）をまとめて出す。ブランチ `0.9.0` に保存してある（リリースノートは `docs/release-notes/0.9.0.md`）
+  - 残り: OAuth アプリの Client ID を `src-tauri/src/github/auth.rs` に入れる → ビルド → 本物のアプリで確認 → main にまとめてタグ 0.9.0 → Release に setup と latest.json（手順は `docs/04_keys_and_tokens.md`）
+- **次回**: v0.7 "Code" — プルリク（一覧・作成・マージ）、Issue → ブランチ → プルリクの流れ
 - **ロードマップ詳細**: メモリの `next_tasks.md` を参照
 
-### v0.4.0 計画
-1. サブイシュー（GitHub Native API GA。親子階層、ツリー表示）
-2. ラベル改善（AND/ORフィルタ）
-3. 一括操作（複数Issue選択→クローズ/ラベル/マイルストーン一括変更）
-4. Issue並び替え（優先度/更新日/作成日/期限）
-5. Issueテンプレート（種別ごとのbody定型文）
-6. 期限の第一級表示（カード/ダッシュボードに期限日常時表示、超過赤ハイライト）
-7. 関連Issue（「関連」「重複」リンク。依存とは別の意味的関連付け）
-8. アクティビティ履歴（GitHub Timeline APIで変更履歴をコメント風に表示）
+### ロードマップの進み（2026-09-29）
+| 版 | 中身 | 状態 |
+|---|---|---|
+| v0.4 "Depth" | サブイシュー、AND/OR の絞り込み、一括操作、並び替え、テンプレート、期限、関連、変更の履歴 | 完了（0.9.0 に入る） |
+| v0.5 "Intelligence" | 保存した見方、表、まとめる、見積もり、分析パネル | 完了（0.9.0 に入る） |
+| v0.6 "Agile" | useGitHub の分割、スプリント、バーンダウン、ベロシティ、サイクルタイム | 完了（0.9.0 に入る） |
+| v0.7 "Code" | プルリクの一覧・詳細・作成・マージ、Issue → ブランチ → プルリク | 未着手 |
+| v0.8 "Pipeline" | Actions、Dependabot・コードスキャン、プルリクのチェック（サイドバーは済み） | 未着手 |
+| v0.9 "Release" | リリース管理、アクティビティ、GitHub の通知（ブランチ管理は済み） | 一部 |
+| v1.0 | 画面側のテスト・E2E、状態管理、API キャッシュ、git ターミナル（Rust のテスト 72 件はある） | 未着手 |
 
 ## 技術スタック
 - **フロントエンド**: React 19 + TypeScript + Vite
 - **バックエンド**: Rust (Tauri 2.0)
-- **API**: GitHub REST API (Fine-grained PAT)
+- **API**: GitHub REST API（「GitHub でログイン」= OAuth デバイスフロー、または Fine-grained PAT）
 - **通知**: Discord Webhook + OS通知 (tauri-plugin-notification)
 - **自動更新**: tauri-plugin-updater (minisign署名)
 - **キー管理**: OS キーチェーン (keyring クレート)

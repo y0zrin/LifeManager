@@ -283,7 +283,8 @@ async fn run_scheduler_loop(app: tauri::AppHandle, refresh: Arc<Notify>) {
 
         // アクティブプロジェクトと、そのプロジェクトで使うトークン（専用 → いつもの）。なければこの分は何もしない
         let Some((owner, repo)) = tokens::active_project() else { continue };
-        let Some(token) = tokens::token_for(&owner, &repo) else { continue };
+        // ログインの鍵は 8 時間で切れるので、期限が近ければここで新しくする
+        let Some(token) = tokens::fresh_token_for(&owner, &repo).await else { continue };
         if current.as_ref().map(|(t, _)| t.as_str()) != Some(token.as_str()) {
             current = Some((token.clone(), GitHubClient::new(token)));
         }

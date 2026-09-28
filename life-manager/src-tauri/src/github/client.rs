@@ -19,17 +19,39 @@ pub fn is_network_error(message: &str) -> bool {
 pub struct GitHubClient {
     http: reqwest::Client,
     token: String,
+    /// いつものトークンを使う（「GitHub でログイン」の鍵は 8 時間ごとに新しくなるので、送るたびに今の鍵を取り出す）
+    follow_default: bool,
 }
 
 impl GitHubClient {
+    /// このトークンだけを使うクライアント（貼ったトークン・プロジェクト専用のトークン・確かめるとき）
     pub fn new(token: String) -> GitHubClient {
+        return GitHubClient::build(token, false);
+    }
+
+    /// いつものトークンを使うクライアント。ログインの鍵が新しくなっても、作り直さずに使い続けられる
+    pub fn following_default(token: String) -> GitHubClient {
+        return GitHubClient::build(token, true);
+    }
+
+    fn build(token: String, follow_default: bool) -> GitHubClient {
         // つながらないときに長く待たせないよう、時間を区切る
         let http = reqwest::Client::builder()
             .connect_timeout(std::time::Duration::from_secs(10))
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        return GitHubClient { http, token: token };
+        return GitHubClient { http, token, follow_default };
+    }
+
+    /// 送るときに使うトークン（ログインの鍵なら、期限が近ければ新しくしたもの）
+    async fn current_token(&self) -> String {
+        if self.follow_default {
+            if let Some(token) = crate::tokens::fresh_default().await {
+                return token;
+            }
+        }
+        return self.token.clone();
     }
 
     /// 1 つの Issue（送信待ちの変更を送る前に、今の GitHub の内容と比べるため）
@@ -524,7 +546,7 @@ impl GitHubClient {
             let response = self
                 .http
                 .get(&current_url)
-                .headers(self.build_headers())
+                .headers(self.build_headers().await)
                 .send()
                 .await
                 .map_err(network_error)?;
@@ -625,7 +647,7 @@ impl GitHubClient {
         let response = self
             .http
             .get(format!("{}{}", BASE_URL, path))
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .send()
             .await
             .map_err(network_error)?;
@@ -648,7 +670,7 @@ impl GitHubClient {
 
     /// 状態と本文をそのまま返す（招待の結果を、状態で見分けるため）。path は /repos/... などの API のパス
     async fn send_raw(&self, method: reqwest::Method, path: &str, payload: Option<&serde_json::Value>) -> Result<(u16, String), String> {
-        let mut request = self.http.request(method, format!("{}{}", BASE_URL, path)).headers(self.build_headers());
+        let mut request = self.http.request(method, format!("{}{}", BASE_URL, path)).headers(self.build_headers().await);
         if let Some(p) = payload {
             request = request.json(p);
         }
@@ -728,7 +750,7 @@ impl GitHubClient {
         let response = self
             .http
             .get(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .send()
             .await
             .map_err(network_error)?;
@@ -745,7 +767,7 @@ impl GitHubClient {
         let response = self
             .http
             .post(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .json(payload)
             .send()
             .await
@@ -767,7 +789,7 @@ impl GitHubClient {
         let response = self
             .http
             .patch(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .json(payload)
             .send()
             .await
@@ -785,7 +807,7 @@ impl GitHubClient {
         let response = self
             .http
             .patch(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .json(payload)
             .send()
             .await
@@ -803,7 +825,7 @@ impl GitHubClient {
         let response = self
             .http
             .delete(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .send()
             .await
             .map_err(network_error)?;
@@ -821,7 +843,7 @@ impl GitHubClient {
         let response = self
             .http
             .delete(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .json(payload)
             .send()
             .await
@@ -839,7 +861,7 @@ impl GitHubClient {
         let response = self
             .http
             .put(url)
-            .headers(self.build_headers())
+            .headers(self.build_headers().await)
             .json(payload)
             .send()
             .await
@@ -853,9 +875,9 @@ impl GitHubClient {
         return Ok(result);
     }
 
-    fn build_headers(&self) -> HeaderMap {
+    async fn build_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        let auth = format!("Bearer {}", self.token);
+        let auth = format!("Bearer {}", self.current_token().await);
         // トークンに使えない文字（全角など）が混じっていても落ちないように（そのときは認証なしで送り、401 になる）
         if let Ok(value) = HeaderValue::from_str(&auth) {
             headers.insert(AUTHORIZATION, value);

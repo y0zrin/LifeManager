@@ -8,7 +8,6 @@ interface TokenEntryProps {
   repos: RepoRef[];
   /** 作成ページの持ち主（組織のリポジトリなら組織）。空なら自分 */
   owner?: string;
-  clientId?: string;
   onSave: (token: string) => Promise<void>;
   saveLabel?: string;
   onCancel?: () => void;
@@ -18,7 +17,7 @@ interface TokenEntryProps {
  * トークンを入れる。「GitHub で作る」で、名前・期限・権限を入れた作成ページを開き、貼るとすぐ確かめる
  * （だれのトークンか・期限・リポジトリが見えるか）
  */
-export function TokenEntry({ repos, owner, clientId, onSave, saveLabel = "このトークンにする", onCancel }: TokenEntryProps) {
+export function TokenEntry({ repos, owner, onSave, saveLabel = "このトークンにする", onCancel }: TokenEntryProps) {
   const [token, setToken] = useState("");
   const [show, setShow] = useState(false);
   const [report, setReport] = useState<TokenReport | null>(null);
@@ -98,7 +97,7 @@ export function TokenEntry({ repos, owner, clientId, onSave, saveLabel = "この
               <i className="spinner" aria-hidden="true" /> 確かめています…
             </p>
           )}
-          {report && <TokenReportView report={report} clientId={clientId} />}
+          {report && <TokenReportView report={report} />}
           {error && <p className="token-error">{error}</p>}
         </div>
       </div>

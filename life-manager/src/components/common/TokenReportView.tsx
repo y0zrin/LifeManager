@@ -1,14 +1,14 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, TOKENS_PAGE, orgApprovalUrl, type TokenReport } from "../../lib/auth";
+import { expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, TOKENS_PAGE, type TokenReport } from "../../lib/auth";
 
 interface TokenReportViewProps {
   report: TokenReport;
-  /** 組織の許可をお願いするページに使う（空なら出さない） */
-  clientId?: string;
+  /** 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる。空なら出さない） */
+  installUrl?: string;
 }
 
 /** トークンを確かめた結果（だれのトークンか・期限・リポジトリごとに使えるか）。足りないときは直し方と、そのページへのボタン */
-export function TokenReportView({ report, clientId }: TokenReportViewProps) {
+export function TokenReportView({ report, installUrl }: TokenReportViewProps) {
   const expiry = expiryOf(report);
   return (
     <ul className="token-checks">
@@ -33,9 +33,9 @@ export function TokenReportView({ report, clientId }: TokenReportViewProps) {
               GitHub のトークンの画面を開く
             </button>
           )}
-          {r.problem === "org_restricted" && clientId && (
-            <button type="button" className="btn-sm token-check-action" onClick={() => openUrl(orgApprovalUrl(clientId))}>
-              組織に許可をお願いする（GitHub が開きます）
+          {r.problem === "not_installed" && installUrl && (
+            <button type="button" className="btn-sm token-check-action" onClick={() => openUrl(installUrl)}>
+              使うリポジトリを選ぶ・足す（GitHub が開きます）
             </button>
           )}
         </li>

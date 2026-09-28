@@ -19,7 +19,7 @@ pub struct RepoCheck {
     /// 書き込める（リポジトリでの役割）
     pub can_push: bool,
     pub private: bool,
-    /// 足りないもの（not_found / no_issues / org_restricted / sso / error）
+    /// 足りないもの（not_found / not_installed / no_issues / org_restricted / sso / error）
     pub problem: Option<String>,
     /// 画面に出す、直し方の文
     pub message: Option<String>,
@@ -32,7 +32,8 @@ pub struct TokenReport {
     pub avatar_url: String,
     /// oauth（GitHub でログイン）/ fine-grained / classic / app / unknown
     pub kind: String,
-    /// 期限（"2026-12-27 00:00:00 +0900" の形。期限のないトークンは None）
+    /// 期限（"2026-12-27 00:00:00 +0900" の形。期限のないトークンは None）。
+    /// 「GitHub でログイン」の鍵は 8 時間ごとに新しくなるので、この PC で使う期限を入れる
     pub expires_at: Option<String>,
     /// OAuth・Classic のトークンの権限（repo など）
     pub scopes: Option<Vec<String>>,
@@ -59,15 +60,26 @@ pub async fn check(token: &str, repos: &[RepoRef]) -> Result<TokenReport, String
     for r in repos {
         checks.push(check_repo(&client, &kind, r).await);
     }
+    let expires_at = if kind == "app" {
+        tokens::login_valid_until().and_then(format_time)
+    } else {
+        header("github-authentication-token-expiration")
+    };
     Ok(TokenReport {
         login: user["login"].as_str().unwrap_or("").to_string(),
         name: user["name"].as_str().map(String::from),
         avatar_url: user["avatar_url"].as_str().unwrap_or("").to_string(),
         kind,
-        expires_at: header("github-authentication-token-expiration"),
+        expires_at,
         scopes,
         repos: checks,
     })
+}
+
+/// UNIX 秒を、GitHub の期限の見出しと同じ形（"2026-12-27 00:00:00 +0900"）にする
+fn format_time(secs: i64) -> Option<String> {
+    use chrono::TimeZone;
+    chrono::Local.timestamp_opt(secs, 0).single().map(|t| t.format("%Y-%m-%d %H:%M:%S %z").to_string())
 }
 
 async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef) -> RepoCheck {
@@ -87,6 +99,16 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef) -> RepoCheck
     }
     if status == 403 && (body.contains("SAML") || body.contains("SSO")) {
         return fail(out, "sso", format!("組織 {} のシングルサインオン（SSO）で、このトークンを許可する必要があります", r.owner));
+    }
+    if status == 404 && kind == "app" {
+        return fail(
+            out,
+            "not_installed",
+            format!(
+                "{} には、まだ Life Manager が入っていません。自分のリポジトリなら「使うリポジトリを選ぶ・足す」で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください（名前の打ち間違いや、まだ招待を受けていないときも、こう見えます）",
+                full
+            ),
+        );
     }
     if status == 404 {
         let message = if kind == "fine-grained" {

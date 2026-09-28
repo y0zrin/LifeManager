@@ -502,7 +502,7 @@
   <h3>ステップ 1: GitHub のアカウント</h3>
   <p>「アカウントを持っている」と「持っていない」の 2 つが並びます。</p>
   <ol>
-    <li><b>持っている</b>: <span class="ui">GitHub でログイン</span> を押すと、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出て、<b>コピーされた状態で</b>ブラウザに GitHub が開きます。</li>
+    <li><b>持っている</b>: <span class="ui">この PC で使う期限</span>（30 日・90 日・半年）を選んで <span class="ui">GitHub でログイン</span> を押すと、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出て、<b>コピーされた状態で</b>ブラウザに GitHub が開きます。</li>
     <li>ブラウザで貼り付け（<kbd>Ctrl</kbd>+<kbd>V</kbd>）、<span class="ui">Continue</span> → <span class="ui">Authorize</span> を押します（GitHub にログインしていなければ、先にログインします）。</li>
     <li>アプリに戻ると「○○ としてログインしています」と出て、次に進みます。</li>
   </ol>
@@ -523,7 +523,8 @@
   </ol>
   <div class="box hint">
     <span class="label">ログインで許可すること</span>
-    <p>Life Manager が、あなたの代わりに、あなたが入っているリポジトリの Issue とファイル（設定・日誌）を読み書きできるようになります。パスワードはアプリに渡りません。やめたいときは、GitHub の Settings → Applications → Authorized OAuth Apps から取り消せます。</p>
+    <p>Life Manager が、あなたの代わりに、<b>Life Manager を入れたリポジトリ（持ち主が選んだもの）だけ</b>の Issue とファイル（設定・日誌）を読み書きできるようになります。パスワードはアプリに渡りません。</p>
+    <p>鍵は 8 時間ごとに自動で新しくなり、選んだ期限が来ると、もう一度ログインします（半年使わないと、GitHub 側でも切れます）。やめたいときは、GitHub の Settings → Applications → <b>Authorized GitHub Apps</b> から Life Manager を取り消せます。</p>
   </div>
 
   <h3>ステップ 2: チームに入る・選ぶ</h3>
@@ -532,10 +533,11 @@
     <li><b>届いている招待</b>: リポジトリへの招待が届いていると、上に出ます。<span class="ui">参加する</span> を押すと、メールを開かずに参加でき、そのリポジトリが選ばれます。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。</li>
     <li><b>チームで使う（まだ招待が来ていない）</b>: <span class="ui">名前をコピー</span> で自分の GitHub の名前をコピーして、リーダーに伝えます。招待が届くと、30 秒ほどで自動で出てきます。</li>
     <li><b>1 人で使う</b>: <span class="ui">自分用のリポジトリを作る</span> で、名前を決めて作れます（はじめは非公開）。</li>
+    <li><b>使うリポジトリを選ぶ・足す</b>: 持っているリポジトリを使うときは、<span class="ui">＋ 使うリポジトリを選ぶ・足す</span> を押します。GitHub が開くので、自分のアカウントを選び、<span class="ui">Only select repositories</span> で使うリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押し、アプリに戻って <span class="ui">読み直す</span> を押します。</li>
   </ul>
   <div class="box warn">
-    <span class="label">チームのリポジトリが出てこない・「組織の許可がまだです」と出る</span>
-    <p>組織（Organization）のリポジトリは、組織の管理者が一度だけ Life Manager を許可すると使えるようになります。<span class="ui">組織に許可をお願いする</span> を押すと GitHub が開くので、組織の横の <span class="ui">Request</span>（管理者なら <span class="ui">Grant</span>）を押します（「<a href="#team">チームで使う</a>」）。招待をまだ受けていない（メールの「Accept invitation」を押していない）ときも出てきません。</p>
+    <span class="label">チームのリポジトリが出てこない</span>
+    <p>チームのリポジトリは、持ち主（リーダー。組織のリポジトリなら組織の持ち主）が一度だけ Life Manager を入れて、そのリポジトリを選ぶと出てきます。リーダーに「Life Manager を入れて」と伝えてください（「<a href="#team">チームで使う</a>」）。招待をまだ受けていないときも出てきません。</p>
   </div>
 
   <h3>ステップ 3: できあがり</h3>
@@ -546,7 +548,7 @@
   </div>
 
   <h3>トークンで入る（学校で指定されたときなど）</h3>
-  <p>ログインの画面の下の <span class="ui">トークンで入る</span> から、自分で作ったトークン（Fine-grained token）でも使えます。組織のリポジトリでは、トークン 1 本ごとに組織の持ち主の承認がいることがあります（「<a href="#roles">だれが何をするか</a>」）。</p>
+  <p>ログインの画面の下の <span class="ui">トークンで入る</span> から、自分で作ったトークン（Fine-grained token）でも使えます。組織のリポジトリでは、トークン 1 本ごとに組織の持ち主の承認がいることがあります。届いた招待は、アプリの中では受けられません（メールから受けます。「<a href="#roles">だれが何をするか</a>」）。</p>
   <ol>
     <li><span class="ui">GitHub で作る</span> を押すと、名前・期限（90 日）・権限が入った状態で、GitHub のトークンの作成ページが開きます。</li>
     <li><span class="ui">Repository access</span> で <span class="ui">Only select repositories</span> を選び、使うリポジトリを選びます（ここだけは自分で選びます）。組織のリポジトリなら、Resource owner を組織にします。</li>
@@ -1351,10 +1353,11 @@ labels: ["種別:バグ", "状態:未整理"]
   <ul>
     <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
       <ul>
-        <li><span class="ui">GitHub でログインし直す</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます。<span class="ui">確かめる</span>: もう一度確かめます。</li>
+        <li><span class="ui">ログインし直す（期限を延ばす）</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます（ログインし直すと、この PC で使う期限も今日から数え直します）。<span class="ui">確かめる</span>: もう一度確かめます。</li>
+        <li><span class="ui">使うリポジトリを選び直す</span>（ログインしているとき）: GitHub が開き、Life Manager に使わせるリポジトリを足したり外したりできます。</li>
         <li>プロジェクトの行の <span class="ui">専用のトークンにする…</span>: そのプロジェクトだけ別のトークンを使います（別のアカウントのリポジトリなど）。<span class="ui">いつものに戻す</span> で外せます。使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。</li>
         <li>🔴 や 🟡 のときは <span class="ui">直し方</span> を押すと、何をすれば直るかと、そのページを開くボタンが出ます。</li>
-        <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。次に開くと、最初のセットアップの画面になります。</li>
+        <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。次に開くと、最初のセットアップの画面になり、GitHub での許可も取り消すときの案内が出ます。</li>
       </ul>
     </li>
     <li><b>リポジトリ設定</b>: 使うリポジトリ（オーナー名 / リポジトリ名）を変えます。</li>
@@ -1403,21 +1406,22 @@ labels: ["種別:バグ", "状態:未整理"]
       <td>① GitHub のアカウントを自分で作る（自分のメールで）<br>
         ② <span class="ui">GitHub でログイン</span>（自分のアカウントで）<br>
         ③ <span class="ui">名前をコピー</span> してリーダーに送り、届いた招待に <span class="ui">参加する</span><br>
-        ④ 「組織の許可がまだです」と出たら <span class="ui">組織に許可をお願いする</span><br>
+        ④ チームのリポジトリが出てこないときは、リーダーに「Life Manager を入れて」と伝える<br>
         ⑤ 共用の PC で使い終わったら <span class="ui">ログアウト</span></td>
       <td>トークンやパスワードを人に渡す・もらう・チャットに貼る</td>
     </tr>
     <tr>
       <td><b>リーダー</b><br>（リポジトリの管理者）</td>
       <td>① チームのリポジトリを作る（組織の中に作るのがおすすめ）<br>
-        ② 設定 → チーム で、届いた名前をまとめて貼って招待する<br>
-        ③ Discord に知らせるときは、Webhook の URL をチームの中だけで伝える</td>
+        ② そのリポジトリに Life Manager を入れる（一度だけ。組織のリポジトリなら、組織の持ち主が入れる）<br>
+        ③ 設定 → チーム で、届いた名前をまとめて貼って招待する<br>
+        ④ Discord に知らせるときは、Webhook の URL をチームの中だけで伝える</td>
       <td>メンバーのトークンを作って配る・預かる</td>
     </tr>
     <tr>
       <td><b>組織の持ち主</b><br>（先生など）</td>
       <td>① Organization を作り、チームのリポジトリとリーダーを決める<br>
-        ② Life Manager を、組織で一度だけ許可する（メンバーから届く「Request」に応える）<br>
+        ② Life Manager を組織に入れて、使うリポジトリを選ぶ（一度だけ）<br>
         ③ トークンで入る人がいるときは、その人のトークンを 1 本ずつ承認する</td>
       <td>全員分のトークンをまとめて作って配る</td>
     </tr>
@@ -1425,14 +1429,14 @@ labels: ["種別:バグ", "状態:未整理"]
   </div>
   <div class="box hint">
     <span class="label">「GitHub でログイン」をすすめる理由</span>
-    <p>ログインなら、組織の持ち主の許可は <b>Life Manager に一度だけ</b>で、期限もありません。トークン（Fine-grained token）で入ると、組織のはじめの設定では <b>トークン 1 本ごとに持ち主の承認</b>がいり、期限（アプリが開く作成ページでは 90 日）が来るたびに、作り直しと承認がまた必要です。ほかの人の個人のリポジトリは、Fine-grained token では選べません。</p>
+    <p>ログインなら、Life Manager が触れるのは <b>持ち主が選んだリポジトリだけ</b>で、鍵は 8 時間ごとに新しくなり、PC ごとの期限（30 日〜半年）で切れます。組織では、持ち主が <b>Life Manager を一度入れるだけ</b>です。トークン（Fine-grained token）で入ると、組織のはじめの設定では <b>トークン 1 本ごとに持ち主の承認</b>がいり、期限（アプリが開く作成ページでは 90 日）が来るたびに、作り直しと承認がまた必要です。ほかの人の個人のリポジトリは Fine-grained token では選べず、届いた招待もアプリの中では受けられません。</p>
   </div>
   <h3>しまってある場所と、やめ方</h3>
   <p>どれも、使っている PC の資格情報（Windows は資格情報マネージャー、Mac はキーチェーン。名前は <code>life-manager</code>）にしまわれ、ほかの PC には送られません。GitHub のパスワードは、アプリには入れません（GitHub の画面にだけ入れます）。</p>
   <div class="table-wrap">
   <table>
     <tr><th>もの</th><th>期限</th><th>やめ方・消し方</th></tr>
-    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>なし</td><td>設定 → 接続 の <span class="ui">ログアウト</span>。GitHub の Settings → Applications → Authorized OAuth Apps でも取り消せる</td></tr>
+    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>鍵は 8 時間ごとに自動で新しくなる。この PC では、選んだ期限（30 日・90 日・半年）まで</td><td>設定 → 接続 の <span class="ui">ログアウト</span>（この PC から消える）。GitHub での許可は、Settings → Applications → Authorized GitHub Apps → Life Manager → Revoke</td></tr>
     <tr><td>トークン（<span class="ui">トークンで入る</span>）</td><td>作るときに決める</td><td><span class="ui">ログアウト</span>。GitHub のトークンの画面で Delete</td></tr>
     <tr><td>プロジェクト専用のトークン</td><td>作るときに決める</td><td>設定 → 接続 の <span class="ui">いつものに戻す</span></td></tr>
     <tr><td>Discord の Webhook の URL</td><td>なし</td><td>設定 → 通知 で URL を消して <span class="ui">解除</span>。人に漏れたら、Discord でウェブフックを作り直す</td></tr>
@@ -1445,10 +1449,11 @@ labels: ["種別:バグ", "状態:未整理"]
   <h2>チームで使う（管理者向け）</h2>
   <div class="box warn">
     <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
-    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリ（または組織）に招待することだけです（「<a href="#roles">だれが何をするか</a>」）。</p>
+    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリに Life Manager を入れて、メンバーを招待することだけです（「<a href="#roles">だれが何をするか</a>」）。</p>
   </div>
   <h3>リーダー: メンバーを招待する</h3>
   <ol>
+    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。設定 → 接続 の <span class="ui">使うリポジトリを選び直す</span>（セットアップでは <span class="ui">＋ 使うリポジトリを選ぶ・足す</span>）で GitHub が開くので、リポジトリの持ち主のアカウントを選び、そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。入れていないリポジトリは、メンバーの一覧に出てきません。</li>
     <li>メンバーに、GitHub の名前を送ってもらいます（メンバーはセットアップの <span class="ui">名前をコピー</span> で送れます）。</li>
     <li>設定 → チーム の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
     <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
@@ -1458,7 +1463,7 @@ labels: ["種別:バグ", "状態:未整理"]
     <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
     <li>ログインしたら、<span class="ui">名前をコピー</span> で GitHub の名前をリーダーに送ります。</li>
     <li>招待が届くと、セットアップ（または 設定 → チーム）に出るので、<span class="ui">参加する</span> を押します。メールの「View invitation」→「Accept invitation」から参加しても同じです。</li>
-    <li>組織のリポジトリで「組織の許可がまだです」と出たら、<span class="ui">組織に許可をお願いする</span> を押し、管理者に許可してもらいます（最初の一度だけ）。</li>
+    <li>チームのリポジトリが出てこないときは、リーダー（組織なら組織の持ち主）に、そのリポジトリへ Life Manager を入れてもらいます（最初の一度だけ）。</li>
   </ol>
   <h3>Organization を使う（おすすめ）</h3>
   <p>2 人以上で続けて使うときは、GitHub の Organization（無料）がおすすめです。人ではなく Organization がリポジトリを持つので、人が抜けても残り、権限をチーム単位で管理できます。</p>
@@ -1466,9 +1471,9 @@ labels: ["種別:バグ", "状態:未整理"]
     <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
     <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
     <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
-    <li><b>Life Manager を許可します（一度だけ）。</b>新しい Organization は、外部のアプリが非公開のリポジトリを使うのに、管理者の許可がいる設定になっています。メンバーから届いたお願い（メール）から許可するか、Organization の Settings → Third-party Access → OAuth app policy で Life Manager を許可します。</li>
+    <li><b>Life Manager を組織に入れます（一度だけ）。</b>組織の持ち主が、アプリの <span class="ui">使うリポジトリを選び直す</span> で GitHub を開き、組織を選んで、使うリポジトリを選び <span class="ui">Install</span> します。メンバーはログインするだけで使えます。</li>
   </ol>
-  <p>個人のリポジトリで使うときは、設定 → チーム から招待します（GitHub の Settings → Collaborators → Add people でも同じです。組織の許可はいりません）。</p>
+  <p>個人のリポジトリで使うときは、持ち主が自分のアカウントに Life Manager を入れてリポジトリを選び、設定 → チーム から招待します（GitHub の Settings → Collaborators → Add people でも同じです）。</p>
   <h3>トークンで使うときの注意</h3>
   <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは <span class="ui">GitHub でログイン</span> を使うか、Organization に移します。トークンは、プロジェクト専用のトークン → いつものトークン の順に使われます。</p>
   <h3>git の作業をチームで行うときの流れ（例）</h3>
@@ -1501,11 +1506,11 @@ labels: ["種別:バグ", "状態:未整理"]
     <dt>データはどこに保存されますか？</dt>
     <dd>すべて GitHub のリポジトリ（Issue・マイルストーン・ラベル）に保存されます。ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。アプリを消しても、データは GitHub に残ります。作業フォルダの場所や表示の設定は、この PC だけに保存されます。</dd>
     <dt>画面の上に「トークンの期限が…」「トークンが使えません」と出ます</dt>
-    <dd>設定 → 接続 の「GitHub トークン」で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、期限はありません。</dd>
+    <dd>設定 → 接続 の「GitHub トークン」で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、この PC で使う期限（30 日・90 日・半年）が近づくと知らせが出ます。<span class="ui">ログインし直す（期限を延ばす）</span> を押すと、今日から数え直します。</dd>
     <dt>学校の PC で使い終わったら？</dt>
-    <dd>設定 → 接続 の <span class="ui">ログアウト</span> を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications から Life Manager を取り消します。</dd>
+    <dd>設定 → 接続 の <span class="ui">ログアウト</span> を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications → Authorized GitHub Apps から Life Manager を取り消します（ログアウトのあとの画面にも案内が出ます）。</dd>
     <dt>チームのリポジトリが一覧に出てきません</dt>
-    <dd>招待を受けているか（メールの「Accept invitation」）、組織が Life Manager を許可しているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
+    <dd>招待を受けているか（メールの「Accept invitation」）、リーダー（組織なら組織の持ち主）がそのリポジトリに Life Manager を入れているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
     <dt>複数のリポジトリを使えますか？</dt>
     <dd>使えます。設定 → 接続 の <span class="ui">プロジェクト管理</span> で登録し、サイドバーのプルダウンで切り替えます。作業フォルダも、リポジトリごとに決められます。</dd>
     <dt>ガントチャートに帯が出ません</dt>

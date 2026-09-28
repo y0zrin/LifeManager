@@ -4,7 +4,10 @@ import { GitHubLogin } from "../common/GitHubLogin";
 import { TokenEntry } from "../common/TokenEntry";
 import { TokenReportView } from "../common/TokenReportView";
 import { InvitesForMe } from "../common/InvitesForMe";
-import { authClientId, checkToken, listUserRepos, orgApprovalUrl, setDefaultToken, type TokenReport, type UserRepo } from "../../lib/auth";
+import {
+  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listUserRepos, setDefaultToken, SIGNED_OUT_STORE,
+  takeLoginNotice, type TokenReport, type UserRepo,
+} from "../../lib/auth";
 import { createMyRepo, SIGNUP_URL } from "../../lib/team";
 import { parseGitHub } from "../../lib/git";
 import { isEnter } from "../../lib/keys";
@@ -51,13 +54,34 @@ export function SetupView({ onDone }: SetupViewProps) {
   const [newName, setNewName] = useState("my-tasks");
   const [newPrivate, setNewPrivate] = useState(true);
   const [createBusy, setCreateBusy] = useState(false);
+  // 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる）
+  const [installUrl, setInstallUrl] = useState("");
+  // 最初に出す知らせ（この PC の期限が来た・ログアウトした）
+  const [notice, setNotice] = useState<{ kind: "expired" } | { kind: "signed-out"; login: boolean } | null>(null);
 
   useEffect(() => {
     authClientId()
       .then(setClientId)
       .catch(() => setClientId(""));
+    authInstallUrl().then(setInstallUrl).catch(() => {});
+    takeLoginNotice()
+      .then((expired) => {
+        if (expired) setNotice({ kind: "expired" });
+      })
+      .catch(() => {});
+    try {
+      const out = sessionStorage.getItem(SIGNED_OUT_STORE);
+      if (out) {
+        sessionStorage.removeItem(SIGNED_OUT_STORE);
+        setNotice({ kind: "signed-out", login: out === "app" || out === "oauth" });
+      }
+    } catch {
+      // 知らせを出せなくても、ログインはできる
+    }
   }, []);
   const canLogin = !!clientId;
+  const byLogin = me?.kind === "app";
+  const meExpiry = me && byLogin ? expiryOf(me) : null;
 
   // ログインできた・トークンを入れた → だれのトークンかを出す
   async function loggedIn() {
@@ -177,11 +201,32 @@ export function SetupView({ onDone }: SetupViewProps) {
           ))}
         </ol>
 
+        {step === 0 && notice && (
+          <div className="setup-notice">
+            {notice.kind === "expired" ? (
+              <>この PC で使う期限が来たので、ログインの鍵を消しました。もう一度ログインしてください。</>
+            ) : (
+              <>
+                ログアウトしました（この PC から鍵を消しました）。
+                {notice.login && (
+                  <>
+                    GitHub での Life Manager の許可も取り消すときは{" "}
+                    <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})}>
+                      GitHub の画面を開く
+                    </button>
+                    （Life Manager の Revoke を押します）。
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {step === 0 && (
           <>
             {(useToken || clientId === "") && (
               <>
-                <TokenEntry repos={[]} clientId={clientId ?? ""} saveLabel="このトークンで入る" onSave={async (t) => { await setDefaultToken(t); await loggedIn(); }}
+                <TokenEntry repos={[]} saveLabel="このトークンで入る" onSave={async (t) => { await setDefaultToken(t); await loggedIn(); }}
                   onCancel={canLogin ? () => setUseToken(false) : undefined} />
                 {clientId === "" && (
                   <p className="setup-alt">
@@ -219,8 +264,8 @@ export function SetupView({ onDone }: SetupViewProps) {
                   </div>
                 </div>
                 <p className="hint">
-                  <b>ログイン</b>すると、このアプリがあなたの代わりに GitHub の Issue やファイルを読み書きできるようになります。あとで
-                  GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがメンバーをリポジトリに招待し、メンバーはそれぞれ自分のアカウントでログインします。
+                  <b>ログイン</b>すると、このアプリが、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルを、あなたの代わりに読み書きできるようになります。
+                  GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。
                 </p>
                 <p className="setup-alt">
                   学校から「トークンを使って」と言われたとき：
@@ -262,6 +307,7 @@ export function SetupView({ onDone }: SetupViewProps) {
                 {me.avatar_url && <img src={me.avatar_url} alt="" />}
                 <span>
                   <b>{me.login}</b> としてログインしています
+                  {meExpiry && <span className="setup-me-expiry"> ・ 期限 {meExpiry.date}（あと {meExpiry.days} 日）</span>}
                 </span>
                 <button type="button" className="btn-sm" onClick={copyName} title="チームのリーダーに伝えて、リポジトリに招待してもらいます">
                   {nameCopied ? "✔ 名前をコピーしました" : "名前をコピー"}
@@ -278,6 +324,15 @@ export function SetupView({ onDone }: SetupViewProps) {
                   </li>
                   <li>
                     <b>1 人で使う</b>: 自分用のリポジトリを作ります（下の「自分用のリポジトリを作る」）。
+                    {byLogin && installUrl && (
+                      <>
+                        持っているリポジトリを使うときは、
+                        <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})}>
+                          Life Manager に使わせるリポジトリを選ぶ
+                        </button>
+                        （GitHub が開きます）。
+                      </>
+                    )}
                   </li>
                 </ul>
                 <p className="setup-note">
@@ -354,20 +409,30 @@ export function SetupView({ onDone }: SetupViewProps) {
               </p>
             )}
 
-            <p className="setup-note">
-              チームのリポジトリが出てこないときは、招待を受けていないか、組織がまだ Life Manager を許可していないかもしれません。
-              {canLogin && (
-                <button type="button" className="link-button" onClick={() => openUrl(orgApprovalUrl(clientId!))}>
-                  組織に許可をお願いする
-                </button>
-              )}
-            </p>
+            {byLogin && installUrl ? (
+              <>
+                <div className="setup-install">
+                  <button type="button" className="btn-sm" onClick={() => openUrl(installUrl).catch(() => {})}
+                    title="GitHub の画面で、Life Manager に使わせるリポジトリを選びます。選んだら「読み直す」を押します">
+                    ＋ 使うリポジトリを選ぶ・足す（GitHub が開きます）
+                  </button>
+                  <button type="button" className="link-button" onClick={() => loadRepos()}>
+                    読み直す
+                  </button>
+                </div>
+                <p className="setup-note setup-note--warn">
+                  招待されたチームのリポジトリが出ないときは、リーダーがそのリポジトリに Life Manager を入れていません。リーダーに「Life Manager を入れて」と伝えてください（招待への参加は、ここでもメールからでもできます）。
+                </p>
+              </>
+            ) : (
+              <p className="setup-note">チームのリポジトリが出てこないときは、まだ招待を受けていないかもしれません。</p>
+            )}
             {checking && (
               <p className="setup-note">
                 <i className="spinner" aria-hidden="true" /> 使えるか確かめています…
               </p>
             )}
-            {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={{ ...check, repos: check.repos }} clientId={clientId ?? ""} />}
+            {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={{ ...check, repos: check.repos }} installUrl={installUrl} />}
             {check && check.repos[0]?.ok && check.repos[0].message && <p className="setup-note">⚠ {check.repos[0].message}</p>}
           </>
         )}

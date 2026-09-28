@@ -2381,6 +2381,53 @@ button:hover {
   white-space: pre-wrap;
 }
 
+/* この PC で使う期限（ログインの前に選ぶ） */
+.gh-login-period {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.gh-login-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+/* 最初の画面の知らせ（期限が来た・ログアウトした） */
+.setup-notice {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-md);
+  background: var(--accent-yellow-bg);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.setup-me-expiry {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* 使うリポジトリを選ぶ・足す（GitHub で Life Manager を入れる） */
+.setup-install {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.setup-note--warn {
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 3px solid var(--accent-yellow);
+  background: var(--accent-yellow-bg);
+  color: var(--text-secondary);
+}
+
 /* トークンを入れる（作成ページを開く → 貼る → すぐ確かめる） */
 .token-entry {
   display: flex;

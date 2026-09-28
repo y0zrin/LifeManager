@@ -192,12 +192,12 @@ async fn switch_project(
     repo: String,
 ) -> Result<String, String> {
     // プロジェクト専用のトークン → なければいつものトークン
-    let token = tokens::token_for(&owner, &repo)
+    let client = client_for(&owner, &repo)
         .ok_or_else(|| String::from("トークンがありません。GitHub にログインするか、設定 → 接続 でトークンを入れてください。"))?;
 
     // GitHubClientを更新
     let mut guard = state.lock().await;
-    *guard = Some(GitHubClient::new(token));
+    *guard = Some(client);
 
     // アクティブプロジェクトとして保存
     let owner_entry = Entry::new("life-manager", "github-owner").map_err(|e| e.to_string())?;
@@ -256,9 +256,11 @@ async fn load_token(
 ) -> Result<String, String> {
     // 前のセットアップが、いつものトークンを最初のプロジェクト専用にも入れていたのを外す
     tokens::drop_duplicate_project_tokens(&project_list());
-    let token = tokens::active_token().ok_or_else(|| String::from("トークンがありません"))?;
+    // ログインの鍵は、期限が近ければここで新しくする（この PC で使う期限が過ぎていたら消えて、ログインし直しになる）
+    let _ = tokens::fresh_default().await;
+    let client = active_client().ok_or_else(|| String::from("トークンがありません"))?;
     let mut guard = state.lock().await;
-    *guard = Some(GitHubClient::new(token));
+    *guard = Some(client);
     return Ok(String::from("トークンをロードしました"));
 }
 
@@ -272,18 +274,46 @@ fn project_list() -> Vec<(String, String)> {
         .collect()
 }
 
+/// プロジェクトで使うクライアント（専用のトークン → いつもの）。いつものは、ログインの鍵が新しくなっても使い続けられる形で作る
+fn client_for(owner: &str, repo: &str) -> Option<GitHubClient> {
+    if let Some(token) = tokens::project_token(owner, repo) {
+        return Some(GitHubClient::new(token));
+    }
+    tokens::default_token().map(GitHubClient::following_default)
+}
+
+/// 今開いているプロジェクトで使うクライアント
+fn active_client() -> Option<GitHubClient> {
+    match tokens::active_project() {
+        Some((owner, repo)) => client_for(&owner, &repo),
+        None => tokens::default_token().map(GitHubClient::following_default),
+    }
+}
+
 /// 今開いているプロジェクトで使うトークンで、クライアントを作り直す（トークンがなければ外す）
 async fn reload_active_client(state: &tauri::State<'_, Mutex<Option<GitHubClient>>>) {
     let mut guard = state.lock().await;
-    *guard = tokens::active_token().map(GitHubClient::new);
+    *guard = active_client();
 }
 
 // --- GitHub でログイン（デバイスフロー）・トークンの確認 ---
 
-/// 「GitHub でログイン」に使う OAuth アプリの Client ID（秘密ではない）。空なら、ログインは使えない（トークンで入る）
+/// 「GitHub でログイン」に使う GitHub App の Client ID（秘密ではない）。空なら、ログインは使えない（トークンで入る）
 #[tauri::command]
 fn auth_client_id() -> String {
     github::auth::CLIENT_ID.to_string()
+}
+
+/// 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる）
+#[tauri::command]
+fn auth_install_url() -> String {
+    github::auth::install_url()
+}
+
+/// この PC で使う期限が来て、ログインの鍵を消したか（1 回だけ true を返す。最初の画面で知らせる）
+#[tauri::command]
+fn take_login_notice() -> bool {
+    tokens::take_expired_notice()
 }
 
 /// ログインを始める（画面に出すコードをもらう）
@@ -292,15 +322,17 @@ async fn auth_start() -> Result<github::auth::DeviceCode, String> {
     github::auth::start().await
 }
 
-/// 許可されたかを確かめる。許可されたら、いつものトークンとしてしまい、今のプロジェクトで使う
+/// 許可されたかを確かめる。許可されたら、いつものトークンとしてしまい、今のプロジェクトで使う。
+/// days は、この PC で使う日数（過ぎたらログインし直し）
 #[tauri::command]
 async fn auth_poll(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     device_code: String,
+    days: Option<u32>,
 ) -> Result<github::auth::Poll, String> {
-    let (poll, token) = github::auth::poll(&device_code).await?;
-    if let Some(token) = token {
-        tokens::set_default(&token)?;
+    let (poll, tokens) = github::auth::poll(&device_code).await?;
+    if let Some(tokens) = tokens {
+        tokens::save_login(&tokens, days)?;
         reload_active_client(&state).await;
     }
     Ok(poll)
@@ -329,11 +361,12 @@ async fn check_token(
 ) -> Result<github::token_check::TokenReport, String> {
     let token = match token {
         Some(t) => tokens::clean(&t)?,
+        // ログインの鍵なら、期限が近ければ新しくしてから確かめる
         None => match (owner.as_deref(), repo.as_deref()) {
-            (Some(o), Some(r)) => tokens::token_for(o, r),
-            _ => tokens::default_token(),
+            (Some(o), Some(r)) => tokens::fresh_token_for(o, r).await,
+            _ => tokens::fresh_default().await,
         }
-        .ok_or("トークンがありません")?,
+        .ok_or("トークンがありません（ログインの期限が来たときは、もう一度ログインしてください）")?,
     };
     github::token_check::check(&token, &repos).await
 }
@@ -397,6 +430,12 @@ fn token_permission_message(err: &str, what: &str) -> String {
             "今のトークン（自分で作ったトークン）では、{}ができません。「GitHub でログイン」で入り直すか、GitHub のトークンの画面でこのトークンに「Administration」の権限（Read and write）を足してください",
             what
         )
+    } else if err.contains("not accessible by integration") {
+        // GitHub でログインしたとき: そのリポジトリ（アカウント）に Life Manager が入っていない
+        format!(
+            "{}ができません。このリポジトリに Life Manager が入っていないか、入れたときに選んでいません。持ち主（リーダー）が GitHub で Life Manager を入れて、このリポジトリを選ぶと使えます",
+            what
+        )
     } else {
         err.to_string()
     }
@@ -437,6 +476,9 @@ async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, na
     client.create_user_repo(name, private).await.map_err(|e| {
         if e.contains("already exists") {
             format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
+        } else if e.contains("not accessible by integration") {
+            // GitHub でログインしたとき: 自分のアカウントに Life Manager が入っていない（入れたリポジトリにしか触れない）
+            "Life Manager が、あなたのアカウントにまだ入っていないため、ここでは作れません。GitHub の画面（github.com/new）で作ってから、「使うリポジトリを選ぶ・足す」で Life Manager に選んでください".to_string()
         } else if e.contains("not accessible by personal access token") {
             format!("{}（GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです）", token_permission_message(&e, "リポジトリを作ること"))
         } else {
@@ -1245,6 +1287,8 @@ pub fn run() {
             set_token,
             load_token,
             auth_client_id,
+            auth_install_url,
+            take_login_notice,
             auth_start,
             auth_poll,
             sign_out,

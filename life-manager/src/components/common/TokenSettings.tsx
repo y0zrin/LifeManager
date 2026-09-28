@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Project } from "../../lib/types";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   authClientId,
+  authInstallUrl,
   checkToken,
   clearProjectToken,
   expiryOf,
@@ -10,6 +12,7 @@ import {
   KIND_LABELS,
   setDefaultToken,
   setProjectToken,
+  SIGNED_OUT_STORE,
   tokenOverview,
   type TokenOverview,
   type TokenReport,
@@ -54,6 +57,7 @@ const ICON = { ok: "🟢", warn: "🟡", ng: "🔴", wait: "⚪" };
  */
 export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsProps) {
   const [clientId, setClientId] = useState("");
+  const [installUrl, setInstallUrl] = useState("");
   const [overview, setOverview] = useState<TokenOverview | null>(null);
   const [mine, setMine] = useState<Check>({ loading: true });
   const [checks, setChecks] = useState<Record<string, Check>>({});
@@ -65,6 +69,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
 
   useEffect(() => {
     authClientId().then(setClientId).catch(() => {});
+    authInstallUrl().then(setInstallUrl).catch(() => {});
   }, []);
 
   const projectKey = projects.map((p) => keyOf(p.owner, p.repo)).join(",");
@@ -117,6 +122,18 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
   const sourceOf = (owner: string, repo: string) => overview?.projects.find((p) => p.owner === owner && p.repo === repo)?.source ?? "none";
   const myStatus = statusOf(mine, -1);
   const expiry = mine.report ? expiryOf(mine.report) : null;
+  // 「GitHub でログイン」（選んだリポジトリだけ・鍵は 8 時間ごとに新しくなる）
+  const byLogin = mine.report?.kind === "app";
+
+  async function signOutNow() {
+    try {
+      // 最初の画面で、GitHub での許可の取り消し方を出すため
+      sessionStorage.setItem(SIGNED_OUT_STORE, mine.report?.kind ?? "token");
+    } catch {
+      // 出せなくても、ログアウトはできる
+    }
+    await onSignOut();
+  }
 
   return (
     <div className="form-card token-settings">
@@ -146,13 +163,20 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         {mine.report && (
           <div className="token-card-sub">
             {expiry ? `期限 ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）` : "期限なし"}
+            {byLogin && " ・ 鍵は 8 時間ごとに自動で新しくなります"}
             {checkedAt && ` ・ 確かめた日時 ${checkedAt.getMonth() + 1}/${checkedAt.getDate()} ${String(checkedAt.getHours()).padStart(2, "0")}:${String(checkedAt.getMinutes()).padStart(2, "0")}`}
           </div>
         )}
         <div className="token-card-actions">
+          {byLogin && installUrl && (
+            <button type="button" className="btn-sm" onClick={() => openUrl(installUrl).catch(() => {})}
+              title="GitHub の画面で、Life Manager に使わせるリポジトリを足す・外す">
+              使うリポジトリを選び直す
+            </button>
+          )}
           {clientId && (
             <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "login" })}>
-              GitHub でログインし直す
+              {byLogin ? "ログインし直す（期限を延ばす）" : "GitHub でログインし直す"}
             </button>
           )}
           <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "default" })}>
@@ -168,7 +192,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
           ) : (
             <span className="token-confirm">
               この PC から、あなたのトークンをすべて消します。
-              <button type="button" className="btn-sm token-signout" onClick={() => onSignOut()}>
+              <button type="button" className="btn-sm token-signout" onClick={signOutNow}>
                 ログアウトする
               </button>
               <button type="button" className="btn-sm" onClick={() => setConfirmOut(false)}>
@@ -217,7 +241,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
                         {open === key ? "閉じる" : "直し方"}
                       </button>
                     )}
-                    {open === key && check?.report && <TokenReportView report={check.report} clientId={clientId} />}
+                    {open === key && check?.report && <TokenReportView report={check.report} installUrl={installUrl} />}
                     <div className="token-projects-actions">
                       <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "project", owner: p.owner, repo: p.repo, name })}>
                         {source === "project" ? "入れ替える…" : "専用のトークンにする…"}
@@ -249,13 +273,12 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
               </h3>
               {dialog.kind === "login" ? (
                 <>
-                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなります（プロジェクト専用のトークンはそのまま）。</p>
+                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなり、この PC で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
                   <GitHubLogin label="GitHub でログイン" onDone={() => changed("GitHub にログインし直しました")} />
                 </>
               ) : dialog.kind === "default" ? (
                 <TokenEntry
                   repos={projects.filter((p) => sourceOf(p.owner, p.repo) !== "project").map((p) => ({ owner: p.owner, repo: p.repo }))}
-                  clientId={clientId}
                   onSave={async (t) => { await setDefaultToken(t); await changed("いつものトークンを入れ替えました"); }}
                   onCancel={() => setDialog(null)}
                 />
@@ -263,7 +286,6 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
                 <TokenEntry
                   repos={[{ owner: dialog.owner, repo: dialog.repo }]}
                   owner={dialog.owner}
-                  clientId={clientId}
                   saveLabel="このプロジェクト専用にする"
                   onSave={async (t) => { await setProjectToken(dialog.owner, dialog.repo, t); await changed(`${dialog.name} 専用のトークンにしました`); }}
                   onCancel={() => setDialog(null)}

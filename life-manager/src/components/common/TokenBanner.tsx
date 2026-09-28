@@ -22,7 +22,13 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
         if (!alive) return;
         const expiry = expiryOf(report);
         if (expiry && expiry.days < 0) setText(`${owner}/${repo} で使うトークンの期限が切れています（${report.login}）。`);
-        else if (expiry && expiry.days <= EXPIRY_WARN_DAYS) setText(`${owner}/${repo} で使うトークンは、あと ${expiry.days} 日で期限が切れます（${report.login}）。`);
+        else if (expiry && expiry.days <= EXPIRY_WARN_DAYS) {
+          setText(
+            report.kind === "app"
+              ? `この PC で使うログインの期限まで、あと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
+              : `${owner}/${repo} で使うトークンは、あと ${expiry.days} 日で期限が切れます（${report.login}）。`,
+          );
+        }
       })
       .catch((e) => {
         // つながらないだけのときは知らせない

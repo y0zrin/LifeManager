@@ -19,11 +19,48 @@ export type Poll =
   | { status: "denied" }
   | { status: "failed"; message: string };
 
-/** 「GitHub でログイン」に使う OAuth アプリの Client ID。空ならログインは使えない（トークンで入る） */
+/** 「GitHub でログイン」に使う GitHub App の Client ID。空ならログインは使えない（トークンで入る） */
 export const authClientId = () => invoke<string>("auth_client_id");
+/** 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる。入れてあれば、選び直す画面に進める） */
+export const authInstallUrl = () => invoke<string>("auth_install_url");
 export const authStart = () => invoke<DeviceCode>("auth_start");
-export const authPoll = (deviceCode: string) => invoke<Poll>("auth_poll", { deviceCode });
+/** days: この PC で使う日数（過ぎたら、鍵を消してログインし直してもらう） */
+export const authPoll = (deviceCode: string, days: number) => invoke<Poll>("auth_poll", { deviceCode, days });
 export const signOut = () => invoke<string>("sign_out");
+/** この PC で使う期限が来て、ログインの鍵を消したか（1 回だけ true） */
+export const takeLoginNotice = () => invoke<boolean>("take_login_notice");
+
+/** この PC で使う期限の選び方 */
+export const LOGIN_PERIODS = [
+  { days: 30, label: "30 日" },
+  { days: 90, label: "90 日" },
+  { days: 180, label: "半年" },
+] as const;
+const LOGIN_DAYS_STORE = "login-days";
+
+/** 前に選んだ期限（なければ 90 日） */
+export function loadLoginDays(): number {
+  try {
+    const v = Number(localStorage.getItem(LOGIN_DAYS_STORE));
+    return LOGIN_PERIODS.some((p) => p.days === v) ? v : 90;
+  } catch {
+    return 90;
+  }
+}
+
+export function storeLoginDays(days: number) {
+  try {
+    localStorage.setItem(LOGIN_DAYS_STORE, String(days));
+  } catch {
+    // 覚えられなくても、今回は選んだ期限で入る
+  }
+}
+
+/** GitHub で許可したアプリの一覧（Life Manager の許可を取り消すとき） */
+export const APP_AUTHORIZATIONS_PAGE = "https://github.com/settings/apps/authorizations";
+
+/** ログアウトしたことを、最初の画面に伝える（GitHub での許可の取り消し方を出すため） */
+export const SIGNED_OUT_STORE = "signed-out";
 
 // --- トークンの確認 ---
 
@@ -36,7 +73,7 @@ export interface RepoCheck extends RepoRef {
   ok: boolean;
   can_push: boolean;
   private: boolean;
-  problem: "not_found" | "no_issues" | "org_restricted" | "sso" | "error" | null;
+  problem: "not_found" | "not_installed" | "no_issues" | "org_restricted" | "sso" | "error" | null;
   message: string | null;
 }
 
@@ -45,7 +82,7 @@ export interface TokenReport {
   name: string | null;
   avatar_url: string;
   kind: "oauth" | "fine-grained" | "classic" | "app" | "unknown";
-  /** "2026-12-27 00:00:00 +0900" の形。期限のないトークンは null */
+  /** "2026-12-27 00:00:00 +0900" の形。期限のないトークンは null。「GitHub でログイン」は、この PC で使う期限 */
   expires_at: string | null;
   scopes: string[] | null;
   repos: RepoCheck[];
@@ -81,10 +118,10 @@ export const listUserRepos = async () => JSON.parse(await invoke<string>("list_u
 // --- 表示 ---
 
 export const KIND_LABELS: Record<TokenReport["kind"], string> = {
-  oauth: "GitHub でログイン",
+  oauth: "GitHub でログイン（すべてのリポジトリ）",
   "fine-grained": "Fine-grained トークン",
   classic: "Classic トークン",
-  app: "GitHub App",
+  app: "GitHub でログイン（選んだリポジトリだけ）",
   unknown: "トークン",
 };
 
@@ -120,9 +157,6 @@ export function tokenCreateUrl(owner?: string): string {
   if (owner) params.set("target_name", owner);
   return `https://github.com/settings/personal-access-tokens/new?${params.toString()}`;
 }
-
-/** 組織（Organization）に、Life Manager の利用の許可をお願いするページ（アプリの許可の画面） */
-export const orgApprovalUrl = (clientId: string) => `https://github.com/settings/connections/applications/${clientId}`;
 
 /** トークンの一覧の画面（Repository access を足すとき） */
 export const TOKENS_PAGE = "https://github.com/settings/personal-access-tokens";

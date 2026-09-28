@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { authPoll, authStart, type DeviceCode } from "../../lib/auth";
+import { authPoll, authStart, loadLoginDays, LOGIN_PERIODS, storeLoginDays, type DeviceCode } from "../../lib/auth";
 
 interface GitHubLoginProps {
   /** ログインできた（トークンはアプリの中にしまってある） */
@@ -15,9 +15,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * 「GitHub でログイン」（デバイスフロー）。コードをコピーしてからブラウザで GitHub を開くので、
- * 貼って「Continue」→「Authorize」を押すだけ。許可されるまで、GitHub に数秒ごとに確かめに行く
+ * 貼って「Continue」→「Authorize」を押すだけ。許可されるまで、GitHub に数秒ごとに確かめに行く。
+ * この PC で使う期限（30 日・90 日・半年）を選び、過ぎたらログインし直す
  */
 export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStart = false }: GitHubLoginProps) {
+  const [days, setDays] = useState(loadLoginDays);
   const [code, setCode] = useState<DeviceCode | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -52,7 +54,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
       while (alive.current && mine === attempt.current && Date.now() < deadline) {
         await sleep(interval * 1000);
         if (!alive.current || mine !== attempt.current) return;
-        const r = await authPoll(dc.device_code);
+        const r = await authPoll(dc.device_code, days);
         if (r.status === "pending") continue;
         if (r.status === "slow_down") {
           interval = Math.max(r.interval, interval + 5);
@@ -137,9 +139,21 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
 
   return (
     <div className="gh-login">
+      <label className="gh-login-period">
+        この PC で使う期限
+        <select className="select-sm" value={days} disabled={starting}
+          onChange={(e) => { const d = Number(e.target.value); setDays(d); storeLoginDays(d); }}>
+          {LOGIN_PERIODS.map((p) => (
+            <option key={p.days} value={p.days}>{p.label}</option>
+          ))}
+        </select>
+      </label>
       <button type="button" className="gh-login-button" disabled={starting} onClick={start}>
         {starting ? "GitHub に問い合わせています…" : label}
       </button>
+      <p className="gh-login-note">
+        アプリが触れるのは、Life Manager に選んだリポジトリだけです。鍵は 8 時間ごとに自動で新しくなり、期限が来たらログインし直します。
+      </p>
       {message && <p className="gh-login-error">{message}</p>}
     </div>
   );

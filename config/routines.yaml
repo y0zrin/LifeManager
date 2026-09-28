@@ -1,9 +1,1 @@
-routines:
-- name: てｓｔ
-  schedule:
-    frequency: daily
-    time: 15:50
-  issue:
-    title: てｓｔ
-    labels:
-    - 種別:ルーチン
+routines: []

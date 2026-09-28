@@ -1586,6 +1586,79 @@ button:hover {
   white-space: pre-wrap;
 }
 
+/* --- Issue テンプレート（作るフォームのいちばん上） --- */
+
+.issue-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.issue-templates-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.issue-templates-label {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.template-chip {
+  min-height: 0;
+  padding: 2px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.template-chip small {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.template-chip.on {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.issue-templates-none {
+  padding: var(--space-sm) 10px;
+  border: 1px solid var(--accent-yellow-bg);
+  border-radius: var(--radius-md);
+  background: var(--accent-yellow-bg);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.issue-templates-none b {
+  color: var(--accent-yellow);
+}
+
+.issue-templates-none .cmd-preview {
+  margin-top: 6px;
+}
+
+.issue-templates-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* テンプレートのラベルで、まだリポジトリにないもの */
+.label-chip--new {
+  border: 1px dashed var(--border-default);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
 /* --- Issue の詳細: 閉じ方・関連・コメントと変更の履歴 --- */
 
 /* 「クローズ ▾」（完了として／予定なしとして／重複として） */

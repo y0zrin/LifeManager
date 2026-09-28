@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, NotificationSchedule, Reminder, Routine, BoardConfig, Project, EventNotificationConfig, EventNotice, EventType, JournalResult, TimelineEvent } from "../lib/types";
 import { issueRef } from "../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../lib/subIssues";
+import type { IssueTemplate } from "../lib/issueTemplates";
 
 /** つながらないときの変更は送信待ちに並ぶ（結果に _pending が付く）。そのときに状態の表示に添える言葉 */
 const PENDING_NOTE = "（未送信。つながったら GitHub に送ります）";
@@ -739,6 +740,20 @@ export function useGitHub() {
     }
   }
 
+  // --- Issue テンプレート（.github/ISSUE_TEMPLATE） ---
+
+  async function listIssueTemplates(): Promise<IssueTemplate[]> {
+    return await invoke<IssueTemplate[]>("list_issue_templates", { owner, repo });
+  }
+
+  /** テンプレートをリポジトリに置く（1 つのコミット）。置いたあとの一覧を返す */
+  async function addIssueTemplates(templates: IssueTemplate[]): Promise<IssueTemplate[]> {
+    const names = templates.map((t) => t.name.replace(/^\S+\s/, "")).join("・");
+    const list = await invoke<IssueTemplate[]>("add_issue_templates", { owner, repo, templates, message: `Issue テンプレートを追加（${names}）` });
+    setStatus(`Issue テンプレートを置きました（${names}）`);
+    return list;
+  }
+
   // --- 変更の履歴（タイムライン）。つながっているときだけ ---
 
   async function listTimeline(issueNumber: number): Promise<TimelineEvent[]> {
@@ -1020,6 +1035,8 @@ export function useGitHub() {
     eventNotifConfig, saveEventNotifConfig, loadEventNotifConfig,
     // サブイシュー（親子）・変更の履歴
     listSubIssues, addSubIssue, createSubIssue, removeSubIssue, listTimeline,
+    // Issue テンプレート
+    listIssueTemplates, addIssueTemplates,
     // プロジェクト管理
     projects, loadProjects, addProject, removeProject, switchProject, setProjectToken,
     // 現在のユーザー

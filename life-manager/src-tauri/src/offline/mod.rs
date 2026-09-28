@@ -8,6 +8,7 @@ pub mod sync;
 
 use crate::github::client::{is_network_error, GitHubClient};
 use crate::github::recent;
+use crate::github::templates::{self, IssueTemplate};
 use crate::journal::generator;
 use serde::Serialize;
 use serde_json::Value;
@@ -246,6 +247,76 @@ pub async fn create_comment(
     let comment = store::with_store(app, owner, repo, |s| store::enqueue_comment(s, number, body, &user, notice))?;
     queued(app, client, owner, repo);
     Ok(comment.to_string())
+}
+
+// --- Issue テンプレート（.github/ISSUE_TEMPLATE） ---
+
+const TEMPLATES_KEY: &str = "issue-templates";
+
+/// 置いた直後のテンプレート（GitHub がしばらく古い一覧を返しても、消えたように見せないため）
+static RECENT_TEMPLATES: std::sync::Mutex<Vec<(String, std::time::Instant, IssueTemplate)>> = std::sync::Mutex::new(Vec::new());
+const RECENT_TEMPLATES_WINDOW: std::time::Duration = std::time::Duration::from_secs(180);
+
+/// GitHub から読んだ一覧に、置いた直後でまだ出てこないテンプレートを足す
+fn with_recent_templates(owner: &str, repo: &str, mut list: Vec<IssueTemplate>) -> Vec<IssueTemplate> {
+    let key = format!("{}/{}", owner, repo);
+    let mut recent = RECENT_TEMPLATES.lock().unwrap_or_else(|e| e.into_inner());
+    recent.retain(|(_, at, _)| at.elapsed() < RECENT_TEMPLATES_WINDOW);
+    for (k, _, t) in recent.iter() {
+        if *k == key && !list.iter().any(|x| x.file == t.file) {
+            list.push(t.clone());
+        }
+    }
+    list.sort_by(|a, b| a.file.cmp(&b.file));
+    list
+}
+
+/// リポジトリのテンプレート。つながらないときは、最後に読んだもの
+pub async fn list_issue_templates(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str) -> Result<Vec<IssueTemplate>, String> {
+    let result = templates::list(client, owner, repo).await;
+    note_result(app, &result);
+    match result {
+        Ok(list) => {
+            let list = with_recent_templates(owner, repo, list);
+            store::remember(app, owner, repo, TEMPLATES_KEY, &serde_json::to_string(&list).unwrap_or_default());
+            Ok(list)
+        }
+        Err(e) if is_network_error(&e) => store::read_store(app, owner, repo)
+            .reads
+            .get(TEMPLATES_KEY)
+            .and_then(|s| serde_json::from_str(s).ok())
+            .ok_or(e),
+        Err(e) => Err(e),
+    }
+}
+
+/// テンプレートを置く（1 つのコミット）。置いたものを手元の写しにも足す（直後は GitHub が古い一覧を返すことがあるため）
+pub async fn add_issue_templates(
+    app: &AppHandle,
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    added: Vec<IssueTemplate>,
+    message: &str,
+) -> Result<Vec<IssueTemplate>, String> {
+    let result = templates::add(client, owner, repo, &added, message).await;
+    note_result(app, &result);
+    result?;
+    {
+        let mut recent = RECENT_TEMPLATES.lock().unwrap_or_else(|e| e.into_inner());
+        let now = std::time::Instant::now();
+        recent.extend(added.iter().map(|t| (format!("{}/{}", owner, repo), now, t.clone())));
+    }
+    let mut list: Vec<IssueTemplate> = store::read_store(app, owner, repo)
+        .reads
+        .get(TEMPLATES_KEY)
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+    list.retain(|t| !added.iter().any(|a| a.file == t.file));
+    list.extend(added);
+    list.sort_by(|a, b| a.file.cmp(&b.file));
+    store::remember(app, owner, repo, TEMPLATES_KEY, &serde_json::to_string(&list).unwrap_or_default());
+    Ok(list)
 }
 
 // --- 変更の履歴（タイムライン）。つながっているときだけ ---

@@ -933,6 +933,21 @@ git push -u origin main</div>
   </table>
   </div>
   <p>「＋ タスク項目」で、チェックボックスつきの項目（<code>- [ ]</code>）を本文に入れられます。</p>
+  <h3>テンプレート</h3>
+  <p>フォームのいちばん上で <span class="ui">テンプレート</span> を選ぶと、題名の頭・本文・ラベルが入ります（あとから直せます）。本文に自分で書いた内容があるときは、本文は入れ替えません。</p>
+  <ul>
+    <li>テンプレートは GitHub と同じもので、リポジトリの <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルです。GitHub の「New issue」でも同じものが出ます。</li>
+    <li>まだテンプレートがないリポジトリでは、見本の 3 つ（🐞 バグ報告・✅ やること・🔍 調べもの）が使えます。<span class="ui">このリポジトリに置く</span> を押すと、3 つのファイルを 1 つのコミットにして GitHub のリポジトリに置きます（作業タブでプルすると、手元にも来ます）。</li>
+    <li>中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。先頭の <code>---</code> で囲んだところに、名前（<code>name</code>）・説明（<code>about</code>）・題名の頭（<code>title</code>）・ラベル（<code>labels</code>）を書きます。</li>
+  </ul>
+  <div class="cmd"><span class="c"># .github/ISSUE_TEMPLATE/bug.md の例</span>
+---
+name: "🐞 バグ報告"
+about: "動かない・おかしい"
+title: "[バグ] "
+labels: ["種別:バグ", "状態:未整理"]
+---
+## 何が起きたか</div>
   <h3>絞り込み</h3>
   <p>上のボタンで、種別・分野・状態・優先・担当者で絞り込めます。検索欄では、タイトル・本文・番号で探せます。</p>
   <ul>

@@ -591,6 +591,32 @@ async fn create_comment(
     return offline::create_comment(&app, &client, &owner, &repo, issue_number, body, notice).await;
 }
 
+/// Issue テンプレート（リポジトリの .github/ISSUE_TEMPLATE/*.md）。つながらないときは最後に読んだもの
+#[tauri::command]
+async fn list_issue_templates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<Vec<github::templates::IssueTemplate>, String> {
+    let client = current_client(&state).await?;
+    return offline::list_issue_templates(&app, &client, &owner, &repo).await;
+}
+
+/// Issue テンプレートをリポジトリに置く（1 つのコミット）。置いたあとの一覧を返す
+#[tauri::command]
+async fn add_issue_templates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+    templates: Vec<github::templates::IssueTemplate>,
+    message: String,
+) -> Result<Vec<github::templates::IssueTemplate>, String> {
+    let client = current_client(&state).await?;
+    return offline::add_issue_templates(&app, &client, &owner, &repo, templates, &message).await;
+}
+
 /// Issue の変更の履歴（タイムライン）。つながっているときだけ
 #[tauri::command]
 async fn list_issue_timeline(
@@ -974,6 +1000,8 @@ pub fn run() {
             list_comments,
             create_comment,
             list_issue_timeline,
+            list_issue_templates,
+            add_issue_templates,
             list_sub_issues,
             add_sub_issue,
             remove_sub_issue,

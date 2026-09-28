@@ -4,6 +4,8 @@ import { IssueCard } from "../common/IssueCard";
 import { LabelFilterButton } from "../common/LabelFilterButton";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
+import { TemplatePicker } from "../common/TemplatePicker";
+import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
 import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
@@ -74,6 +76,9 @@ interface DashboardViewProps {
   onStatusChange: (n: number, status: string) => Promise<void> | void;
   /** ラベル・マイルストーン・担当をまとめて変えるときに使う */
   onUpdateIssue: (n: number, updates: IssueUpdates) => Promise<void>;
+  /** Issue テンプレート（.github/ISSUE_TEMPLATE）を読む・置く */
+  onListTemplates: () => Promise<IssueTemplate[]>;
+  onAddTemplates: (templates: IssueTemplate[]) => Promise<IssueTemplate[]>;
   onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
   onCreateMemo: (text: string, theme: string) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -84,7 +89,7 @@ interface DashboardViewProps {
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
-  onClose, onReopen, onPromote, onStatusChange, onUpdateIssue,
+  onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
   onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, status,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
@@ -125,6 +130,51 @@ export function DashboardView({
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [bulkDone, setBulkDone] = useState<string | null>(null);
+  // Issue テンプレート（作るフォームを開いたときに読む。プロジェクトを切り替えたら読み直す）
+  const [templates, setTemplates] = useState<IssueTemplate[] | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [appliedTemplate, setAppliedTemplate] = useState<IssueTemplate | null>(null);
+  const [templateNote, setTemplateNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTemplates(null);
+    setTemplateError(null);
+  }, [index.owner, index.repo]);
+
+  useEffect(() => {
+    if (!showIssueForm || templates !== null) return;
+    let alive = true;
+    onListTemplates()
+      .then((list) => alive && setTemplates(list))
+      .catch((e) => {
+        if (!alive) return;
+        setTemplateError(String(e));
+        setTemplates([]);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showIssueForm, templates]);
+
+  /** テンプレートを当てる。題名・本文は、空か前のテンプレートのままのときだけ入れ替える（書いた内容は消さない） */
+  function applyTemplate(t: IssueTemplate | null) {
+    const prev = appliedTemplate;
+    const titleUntouched = !issueTitle.trim() || (prev !== null && issueTitle === prev.title);
+    const bodyUntouched = !issueBody.trim() || (prev !== null && issueBody === prev.body);
+    setTemplateNote(null);
+    if (titleUntouched) setIssueTitle(t?.title ?? "");
+    if (bodyUntouched) setIssueBody(t?.body ?? "");
+    else if (t) setTemplateNote("本文に書いた内容があるので、テンプレートの本文は入れませんでした（本文を消してから選ぶと入ります）");
+    setIssueSelectedLabels(t && t.labels.length > 0 ? t.labels : ["種別:イシュー", "状態:未整理"]);
+    setAppliedTemplate(t);
+  }
+
+  async function placeBuiltinTemplates() {
+    const list = await onAddTemplates(BUILTIN_TEMPLATES);
+    setTemplates(list);
+    setTemplateError(null);
+  }
 
   // 選んでいるあいだは、Esc で選ぶのをやめる
   useEffect(() => {
@@ -185,6 +235,8 @@ export function DashboardView({
     setIssueReminderDatetime("");
     setIssueGanttStart("");
     setIssueGanttEnd("");
+    setAppliedTemplate(null);
+    setTemplateNote(null);
     // バックグラウンドで作成
     const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
     if (reminderDt && reminderCh.length > 0 && issueNumber) {
@@ -351,6 +403,14 @@ export function DashboardView({
       {/* Issue作成フォーム */}
       {showIssueForm && (
         <div className="form-card">
+          <TemplatePicker
+            templates={templates}
+            selected={appliedTemplate?.file ?? null}
+            onSelect={applyTemplate}
+            onPlaceBuiltins={placeBuiltinTemplates}
+            error={templateError}
+          />
+          {templateNote && <p className="issue-templates-note">{templateNote}</p>}
           <div style={{ position: "relative" }}>
             <input value={issueTitle}
               onChange={(e) => { setIssueTitle(e.target.value); setShowSuggestions(true); }}
@@ -373,7 +433,9 @@ export function DashboardView({
             )}
           </div>
           <textarea ref={bodyRef} value={issueBody} onChange={(e) => setIssueBody(e.target.value)}
-            placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full" />
+            placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full"
+            // テンプレートの本文が見えるよう、選んだら高くする
+            style={appliedTemplate ? { height: "180px" } : undefined} />
           <button type="button" className="btn-sm" style={{ fontSize: "11px", marginBottom: "6px" }}
             onClick={() => {
               const ta = bodyRef.current;
@@ -391,6 +453,12 @@ export function DashboardView({
               });
             }}>+ タスク項目</button>
           <div className="label-selector">
+            {issueSelectedLabels.filter((name) => !labels.some((l) => l.name === name)).map((name) => (
+              <span key={name} className="label-chip active label-chip--new" title="まだリポジトリにないラベルです（作るときに GitHub が作ります）"
+                onClick={() => setIssueSelectedLabels(issueSelectedLabels.filter((n) => n !== name))}>
+                {name}
+              </span>
+            ))}
             {labels.map((l) => {
               const active = issueSelectedLabels.includes(l.name);
               return (
@@ -476,6 +544,10 @@ export function DashboardView({
             </div>
           </div>
           <button onClick={handleIssueCreate} className="btn-primary">作成</button>
+          <p className="hint">
+            <b>テンプレート</b>は、よく書く Issue の書き出しです。GitHub では <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルで、
+            先頭に名前・説明・ラベルなどを書きます。中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。
+          </p>
         </div>
       )}
 

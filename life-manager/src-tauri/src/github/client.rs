@@ -327,6 +327,59 @@ impl GitHubClient {
         return self.post(&url, &payload).await;
     }
 
+    // --- ファイル（Issue テンプレートなど） ---
+
+    /// フォルダの中のファイルの名前（フォルダがなければ空）
+    pub async fn list_directory(&self, owner: &str, repo: &str, path: &str) -> Result<Vec<String>, String> {
+        let url = format!("{}/repos/{}/{}/contents/{}", BASE_URL, owner, repo, path);
+        match self.get(&url).await {
+            Ok(resp) => {
+                let json: serde_json::Value = serde_json::from_str(&resp).map_err(|e| e.to_string())?;
+                Ok(json
+                    .as_array()
+                    .map(|xs| {
+                        xs.iter()
+                            .filter(|x| x["type"].as_str() == Some("file"))
+                            .filter_map(|x| x["name"].as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default())
+            }
+            Err(e) if e.starts_with("HTTP 404") => Ok(Vec::new()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// ファイルの中身（テキスト）
+    pub async fn read_text(&self, owner: &str, repo: &str, path: &str) -> Result<String, String> {
+        self.fetch_contents(owner, repo, path).await.map(|(content, _)| content)
+    }
+
+    /// いくつかのファイルを 1 つのコミットにして、既定のブランチに足す（Git Data API: ツリー → コミット → ブランチを進める）
+    pub async fn commit_files(&self, owner: &str, repo: &str, files: &[(String, String)], message: &str) -> Result<String, String> {
+        let parse = |s: String| serde_json::from_str::<serde_json::Value>(&s).map_err(|e| e.to_string());
+        let info = parse(self.get_repository(owner, repo).await?)?;
+        let branch = info["default_branch"].as_str().unwrap_or("main").to_string();
+        let base = format!("{}/repos/{}/{}/git", BASE_URL, owner, repo);
+        let head_ref = parse(self.get(&format!("{}/ref/heads/{}", base, branch)).await?)?;
+        let head = head_ref["object"]["sha"].as_str().ok_or("ブランチの先頭が分かりませんでした")?.to_string();
+        let head_commit = parse(self.get(&format!("{}/commits/{}", base, head)).await?)?;
+        let base_tree = head_commit["tree"]["sha"].as_str().ok_or("ブランチの中身が分かりませんでした")?.to_string();
+        let items: Vec<serde_json::Value> = files
+            .iter()
+            .map(|(path, content)| serde_json::json!({ "path": path, "mode": "100644", "type": "blob", "content": content }))
+            .collect();
+        let tree = parse(self.post(&format!("{}/trees", base), &serde_json::json!({ "base_tree": base_tree, "tree": items })).await?)?;
+        let tree_sha = tree["sha"].as_str().ok_or("ファイルの一覧を作れませんでした")?.to_string();
+        let commit = parse(
+            self.post(&format!("{}/commits", base), &serde_json::json!({ "message": message, "tree": tree_sha, "parents": [head] }))
+                .await?,
+        )?;
+        let sha = commit["sha"].as_str().ok_or("コミットを作れませんでした")?.to_string();
+        self.patch_json(&format!("{}/refs/heads/{}", base, branch), &serde_json::json!({ "sha": sha })).await?;
+        Ok(sha)
+    }
+
     // --- 変更の履歴（タイムライン） ---
 
     /// Issue に起きたこと（コメント・ラベル・担当・閉じた・ほかの Issue やコミットから触れられた など）を古い順に

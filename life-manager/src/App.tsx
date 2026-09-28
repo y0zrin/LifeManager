@@ -619,6 +619,8 @@ function App() {
               onPromote={gh.promoteIssue}
               onStatusChange={gh.changeIssueStatus}
               onUpdateIssue={gh.updateIssue}
+              onListTemplates={gh.listIssueTemplates}
+              onAddTemplates={gh.addIssueTemplates}
               onCreateIssue={gh.createIssue}
               onCreateMemo={gh.createMemo}
               onRefresh={gh.loadAll}

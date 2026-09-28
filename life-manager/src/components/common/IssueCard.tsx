@@ -2,6 +2,7 @@ import type { GitHubIssue } from "../../lib/types";
 import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
+import { DueChip } from "./DueChip";
 import { issueRef } from "../../lib/issueRef";
 
 export function IssueCard({
@@ -11,6 +12,10 @@ export function IssueCard({
   onPromote,
   onStatusChange,
   onSelect,
+  depth = 0,
+  picking = false,
+  picked = false,
+  onTogglePick,
 }: {
   issue: GitHubIssue;
   onClose: (n: number) => void;
@@ -18,6 +23,12 @@ export function IssueCard({
   onPromote: (n: number) => void;
   onStatusChange: (n: number, status: string) => void;
   onSelect?: (n: number) => void;
+  /** 親子でまとめたときの深さ（子は親の下に字下げし、「↑ 親」の印は出さない） */
+  depth?: number;
+  /** 「☑ 選ぶ」のあいだ（押すと選ぶ・外す。操作のボタンは隠す） */
+  picking?: boolean;
+  picked?: boolean;
+  onTogglePick?: (n: number) => void;
 }) {
   const isMemo = issue.labels.some((l) => l.name === "種別:メモ");
   const currentStatus = issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
@@ -26,18 +37,25 @@ export function IssueCard({
   const todoMatch = issue.body?.match(/- \[[ x]\]/g);
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
+  // 本文の抜き出し（ガントの日程などの見えない印 <!-- … --> は出さない）
+  const excerpt = (issue.body ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
 
   function handleCardClick(e: React.MouseEvent) {
-    if ((e.target as HTMLElement).closest("button, select, [data-todo-progress]")) return;
-    onSelect?.(issue.number);
+    if ((e.target as HTMLElement).closest("button, select, input, [data-todo-progress]")) return;
+    if (picking) onTogglePick?.(issue.number);
+    else onSelect?.(issue.number);
   }
 
   return (
-    <div className="issue-card" onClick={handleCardClick}
-      style={{ cursor: onSelect ? "pointer" : "default" }}>
-      <ParentMark issue={issue} />
+    <div className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}`} onClick={handleCardClick}
+      style={{ cursor: onSelect || picking ? "pointer" : "default", marginLeft: depth > 0 ? `${Math.min(depth, 3) * 28}px` : undefined }}>
+      {depth === 0 && <ParentMark issue={issue} />}
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
+          {picking && (
+            <input type="checkbox" className="issue-card-pick" checked={picked}
+              onChange={() => onTogglePick?.(issue.number)} aria-label={`${issueRef(issue.number)} を選ぶ`} />
+          )}
           <span className="issue-card-number">{issueRef(issue.number)}</span>
           {issue._pending && <PendingChip />}
           <strong>{issue.title}</strong>
@@ -47,13 +65,14 @@ export function IssueCard({
             </span>
           )}
           <SubIssueBadge issue={issue} />
+          <DueChip issue={issue} />
         </div>
         <span className="issue-card-date">{dateStr}</span>
       </div>
 
-      {issue.body && (
+      {excerpt && (
         <p className="issue-card-body">
-          {issue.body.length > 120 ? issue.body.substring(0, 120) + "..." : issue.body}
+          {excerpt.length > 120 ? excerpt.substring(0, 120) + "..." : excerpt}
         </p>
       )}
 
@@ -79,7 +98,7 @@ export function IssueCard({
         )}
       </div>
 
-      <div className="issue-card-actions">
+      {!picking && <div className="issue-card-actions">
         {issue.state === "open" ? (
           <button className="btn-sm" onClick={() => onClose(issue.number)}>完了</button>
         ) : (
@@ -102,7 +121,7 @@ export function IssueCard({
             <option value="状態:いつか">いつか</option>
           </select>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

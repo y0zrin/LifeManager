@@ -2,6 +2,7 @@ import type { GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
+import { DueChip } from "./DueChip";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -26,11 +27,6 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
 
-  // Milestone due date
-  const dueDate = issue.milestone?.due_on
-    ? new Date(issue.milestone.due_on)
-    : null;
-  const isOverdue = dueDate ? dueDate < new Date() : false;
 
   return (
     <div
@@ -68,11 +64,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
             🎯 {issue.milestone.title}
           </span>
         )}
-        {dueDate && (
-          <span className="ticket-meta-item" style={{ color: isOverdue ? "#f85149" : "#8b949e" }}>
-            📅 {dueDate.toLocaleDateString("ja-JP", { month: "short", day: "numeric" })}
-          </span>
-        )}
+        <DueChip issue={issue} />
         {todoTotal > 0 && (
           <span className="ticket-meta-item">
             ✅ {todoDone}/{todoTotal}

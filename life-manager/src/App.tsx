@@ -38,6 +38,7 @@ import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import type { GitCommit, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
+import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
 import { isEscape } from "./lib/keys";
 
@@ -152,7 +153,7 @@ function App() {
     }
   });
   const [showPalette, setShowPalette] = useState(false);
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<LabelFilters>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
   // オフラインのあいだの変更（送信待ち）。送信待ちが変わったら手元の写しで、送れたら GitHub から読み直す
   const offline = useOffline(gh.owner, gh.repo, gh.connected, {
@@ -612,6 +613,7 @@ function App() {
               onReopen={gh.reopenIssue}
               onPromote={gh.promoteIssue}
               onStatusChange={gh.changeIssueStatus}
+              onUpdateIssue={gh.updateIssue}
               onCreateIssue={gh.createIssue}
               onCreateMemo={gh.createMemo}
               onRefresh={gh.loadAll}
@@ -774,7 +776,7 @@ function App() {
               setFilters({});
             } else {
               const cat = label.split(":")[0] + ":";
-              setFilters((prev) => ({ ...prev, [cat]: label }));
+              setFilters((prev) => ({ ...prev, [cat]: { values: [label], mode: "any" } }));
             }
           }}
           setStatus={gh.setStatus}

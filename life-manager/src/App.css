@@ -1586,6 +1586,218 @@ button:hover {
   white-space: pre-wrap;
 }
 
+/* --- タスク一覧（絞り込み・並び・期限・まとめて変える） --- */
+
+/* ラベルの種類ごとの絞り込み（押すと複数選べる） */
+.label-filter {
+  position: relative;
+  display: inline-block;
+}
+
+.label-filter-button {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.label-filter-button--on {
+  border-color: var(--accent-blue);
+}
+
+.label-filter-button b {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.label-filter-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 240px;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+}
+
+.label-filter-title {
+  margin-bottom: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.label-filter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.label-filter-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.label-filter-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.label-filter-mode {
+  display: flex;
+  margin: var(--space-sm) 0 2px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.label-filter-mode button {
+  flex: 1;
+  padding: 3px 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.label-filter-mode button.on {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.label-filter-note {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.label-filter-clear {
+  margin-top: var(--space-xs);
+  font-size: var(--font-xs);
+}
+
+/* 並び・親子でまとめる・選ぶ */
+.task-list-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.task-list-tree {
+  font-size: var(--font-sm);
+}
+
+.task-list-picking {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.task-list-count {
+  margin: 0 0 0 auto;
+}
+
+/* 期限（📅 10/10（あと 12 日）・⚠ 9/25（3 日超過）） */
+.due-chip {
+  display: inline-block;
+  margin-left: var(--space-sm);
+  padding: 0 7px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 400;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ticket-meta .due-chip {
+  margin-left: 0;
+}
+
+.due-chip--soon {
+  border-color: var(--accent-yellow-bg);
+  color: var(--accent-yellow);
+}
+
+.due-chip--over {
+  border-color: var(--accent-red-bg);
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+/* 親子でまとめたときの子（親の下に字下げし、つなぎの線を引く） */
+.issue-card--child {
+  position: relative;
+}
+
+.issue-card--child::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: -8px;
+  bottom: 50%;
+  width: 12px;
+  border-left: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.issue-card--picked {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+}
+
+.issue-card-pick {
+  margin: 0 var(--space-sm) 0 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* 選んだ Issue をまとめて変える帯（画面の下に貼りつく） */
+.bulk-bar {
+  position: sticky;
+  bottom: var(--bottom-nav-height);
+  z-index: 15;
+  margin: var(--space-md) calc(-1 * var(--space-lg)) 0;
+  padding: var(--space-sm) var(--space-lg);
+  border-top: 1px solid var(--accent-blue);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+}
+
+.bulk-bar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.bulk-bar-count {
+  font-size: var(--font-sm);
+}
+
+.bulk-bar-count b {
+  color: var(--accent-blue);
+}
+
+.bulk-bar-note {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.bulk-bar-note--ok {
+  color: var(--accent-green-hover);
+}
+
 .ticket-footer {
   display: flex;
   justify-content: space-between;

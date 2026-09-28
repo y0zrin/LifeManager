@@ -1,9 +1,63 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useContext } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
+import { LabelFilterButton } from "../common/LabelFilterButton";
+import { BulkBar, type BulkAction } from "../common/BulkBar";
+import { IssueIndexContext } from "../common/SubIssueMarks";
 import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
-import { isEnter } from "../../lib/keys";
+import { isEnter, isEscape } from "../../lib/keys";
+import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
+import { groupByParent, matchesLabelFilters, sortIssues, SORT_LABELS, type LabelFilters, type SortKey } from "../../lib/taskList";
+
+/** 並び・親子でまとめるかは、次に開いたときも同じにする */
+const SORT_STORE = "task-list-sort";
+const TREE_STORE = "task-list-tree";
+
+function loadSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_STORE);
+    return v && v in SORT_LABELS ? (v as SortKey) : "new";
+  } catch {
+    return "new";
+  }
+}
+
+function loadTree(): boolean {
+  try {
+    return localStorage.getItem(TREE_STORE) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // 覚えられなくても、今の画面では使える
+  }
+}
+
+type IssueUpdates = { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null };
+
+/** まとめて変えたあとの知らせ */
+function bulkMessage(action: BulkAction, n: number): string {
+  switch (action.kind) {
+    case "close":
+      return `${n} 件を完了にしました`;
+    case "reopen":
+      return `${n} 件を再開しました`;
+    case "status":
+      return `${n} 件の状態を「${action.label.replace("状態:", "")}」にしました`;
+    case "label":
+      return `${n} 件にラベル「${action.label}」を付けました`;
+    case "milestone":
+      return action.number === null ? `${n} 件のマイルストーンを外しました` : `${n} 件のマイルストーンを「${action.title}」にしました`;
+    case "assignee":
+      return action.login === null ? `${n} 件の担当を外しました` : `${n} 件の担当を「${action.login}」にしました`;
+  }
+}
 
 interface DashboardViewProps {
   issues: GitHubIssue[];
@@ -12,12 +66,14 @@ interface DashboardViewProps {
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
   currentUser: string;
-  filters: Record<string, string>;
-  onFiltersChange: (filters: Record<string, string>) => void;
-  onClose: (n: number) => void;
-  onReopen: (n: number) => void;
+  filters: LabelFilters;
+  onFiltersChange: (filters: LabelFilters) => void;
+  onClose: (n: number) => Promise<void> | void;
+  onReopen: (n: number) => Promise<void> | void;
   onPromote: (n: number) => void;
-  onStatusChange: (n: number, status: string) => void;
+  onStatusChange: (n: number, status: string) => Promise<void> | void;
+  /** ラベル・マイルストーン・担当をまとめて変えるときに使う */
+  onUpdateIssue: (n: number, updates: IssueUpdates) => Promise<void>;
   onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
   onCreateMemo: (text: string, theme: string) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -28,9 +84,10 @@ interface DashboardViewProps {
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
-  onClose, onReopen, onPromote, onStatusChange,
+  onClose, onReopen, onPromote, onStatusChange, onUpdateIssue,
   onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, status,
 }: DashboardViewProps) {
+  const index = useContext(IssueIndexContext);
   const [memoText, setMemoText] = useState("");
   const [memoTheme, setMemoTheme] = useState("分野:私用");
   const [showIssueForm, setShowIssueForm] = useState(false);
@@ -61,6 +118,39 @@ export function DashboardView({
   }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
   const [stateFilter, setStateFilter] = useState<"open" | "closed" | "all">("open");
+  const [sortKey, setSortKey] = useState<SortKey>(loadSort);
+  const [tree, setTree] = useState(loadTree);
+  // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
+  const [bulkDone, setBulkDone] = useState<string | null>(null);
+
+  // 選んでいるあいだは、Esc で選ぶのをやめる
+  useEffect(() => {
+    if (!picking) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (isEscape(e) && !bulkBusy) quitPicking();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [picking, bulkBusy]);
+
+  function quitPicking() {
+    setPicking(false);
+    setPicked(new Set());
+    setBulkDone(null);
+  }
+
+  function togglePick(n: number) {
+    setBulkDone(null);
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
+  }
 
   async function handleMemoSubmit() {
     if (!memoText.trim()) return;
@@ -108,6 +198,7 @@ export function DashboardView({
   };
 
   const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : [...issues, ...closedIssues];
+  const allIssues = [...issues, ...closedIssues];
   const filteredIssues = baseIssues.filter((issue) => {
     // テキスト検索
     if (searchQuery.length >= 1) {
@@ -124,13 +215,67 @@ export function DashboardView({
     if (assigneeFilter) {
       if (!issue.assignees?.some((a) => a.login === assigneeFilter)) return false;
     }
-    // ラベルフィルタ
-    return Object.values(filters).every(
-      (f) => !f || issue.labels.some((l) => l.name === f)
-    );
+    // ラベルフィルタ（種類ごとに、どれか／すべて）
+    return matchesLabelFilters(issue, filters);
   });
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length + (assigneeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  // 並べ替え、親子でまとめる（同じリポジトリの親が一覧に出ているときだけ、その下に並べる）
+  const sorted = sortIssues(filteredIssues, sortKey);
+  const rows = tree
+    ? groupByParent(sorted, (issue) => {
+        const parent = parseIssueApiUrl(issue.parent_issue_url);
+        return parent && isSameRepo(parent, index.owner, index.repo) ? parent.number : null;
+      })
+    : sorted.map((issue) => ({ issue, depth: 0 }));
+
+  const activeFilterCount = Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+
+  const pickedIssues = allIssues.filter((i) => picked.has(i.number));
+
+  async function runBulk(action: BulkAction) {
+    const targets = pickedIssues.filter((i) =>
+      action.kind === "close" || action.kind === "status" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
+    );
+    if (targets.length === 0) return;
+    setBulkDone(null);
+    let done = 0;
+    let failed = 0;
+    for (const issue of targets) {
+      setBulkBusy(`${done + failed + 1} / ${targets.length} 件目…`);
+      try {
+        await applyBulk(action, issue);
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+    setBulkBusy(null);
+    setPicked(new Set());
+    setBulkDone(bulkMessage(action, done) + (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""));
+  }
+
+  async function applyBulk(action: BulkAction, issue: GitHubIssue) {
+    const names = issue.labels.map((l) => l.name);
+    switch (action.kind) {
+      case "close":
+        return onClose(issue.number);
+      case "reopen":
+        return onReopen(issue.number);
+      case "status":
+        return onStatusChange(issue.number, action.label);
+      case "label": {
+        if (names.includes(action.label)) return;
+        // 優先は 1 つだけ（付け替える）
+        const kept = action.label.startsWith("優先:") ? names.filter((n) => !n.startsWith("優先:")) : names;
+        return onUpdateIssue(issue.number, { labels: [...kept, action.label] });
+      }
+      case "milestone":
+        if ((issue.milestone?.number ?? null) === action.number) return;
+        return onUpdateIssue(issue.number, { milestone: action.number });
+      case "assignee":
+        return onUpdateIssue(issue.number, { assignees: action.login ? [action.login] : [] });
+    }
+  }
 
   return (
     <div className="content">
@@ -170,21 +315,14 @@ export function DashboardView({
           const catLabels = labels.filter((l) => l.name.startsWith(cat));
           if (catLabels.length === 0) return null;
           return (
-            <select
+            <LabelFilterButton
               key={cat}
-              value={filters[cat] || ""}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, [cat]: e.target.value })
-              }
-              className="select-sm"
-            >
-              <option value="">{categoryLabels[cat]}: 全て</option>
-              {catLabels.map((l) => (
-                <option key={l.name} value={l.name}>
-                  {l.name.replace(cat, "")}
-                </option>
-              ))}
-            </select>
+              name={categoryLabels[cat]}
+              prefix={cat}
+              labels={catLabels}
+              value={filters[cat]}
+              onChange={(value) => onFiltersChange({ ...filters, [cat]: value })}
+            />
           );
         })}
         <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="select-sm">
@@ -341,13 +479,34 @@ export function DashboardView({
         </div>
       )}
 
+      {/* 並び・親子でまとめる・選ぶ */}
+      <div className="task-list-options">
+        <select value={sortKey} className="select-sm" aria-label="並び"
+          onChange={(e) => { const v = e.target.value as SortKey; setSortKey(v); store(SORT_STORE, v); }}>
+          {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+            <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
+          ))}
+        </select>
+        <label className="chk task-list-tree">
+          <input type="checkbox" checked={tree}
+            onChange={(e) => { setTree(e.target.checked); store(TREE_STORE, e.target.checked ? "on" : "off"); }} />
+          親子でまとめる
+        </label>
+        <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
+          onClick={() => (picking ? quitPicking() : setPicking(true))}>
+          ☑ 選ぶ
+        </button>
+        <span className="issue-count task-list-count">{filteredIssues.length} 件</span>
+      </div>
+
       {/* Issue一覧 */}
-      <div className="issue-count">{filteredIssues.length} 件</div>
-      {filteredIssues.map((issue) => (
+      {rows.map(({ issue, depth }) => (
         <IssueCard key={issue.number} issue={issue}
           onClose={onClose} onReopen={onReopen}
           onPromote={onPromote} onStatusChange={onStatusChange}
-          onSelect={onSelectIssue} />
+          onSelect={onSelectIssue}
+          depth={depth}
+          picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick} />
       ))}
       {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
         <div className="error-message">
@@ -357,6 +516,23 @@ export function DashboardView({
       ) : filteredIssues.length === 0 ? (
         <p className="empty-message">イシューがありません</p>
       ) : null}
+
+      {picking && (
+        <BulkBar
+          count={pickedIssues.length}
+          hasOpen={pickedIssues.length === 0 || pickedIssues.some((i) => i.state === "open")}
+          hasClosed={pickedIssues.some((i) => i.state === "closed")}
+          labels={labels}
+          milestones={milestones}
+          collaborators={collaborators}
+          currentUser={currentUser}
+          busy={bulkBusy}
+          message={bulkDone}
+          onRun={runBulk}
+          onSelectAll={() => { setBulkDone(null); setPicked(new Set(rows.map((r) => r.issue.number))); }}
+          onQuit={quitPicking}
+        />
+      )}
     </div>
   );
 }

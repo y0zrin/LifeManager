@@ -185,8 +185,8 @@ export interface VelocityEntry {
   done: number;
   /** 閉じた Issue の数 */
   closedCount: number;
-  /** 並べる日（期限、なければ最後に閉じた日） */
-  date: string;
+  /** 並べる時（閉じたマイルストーンは閉じた時、ほかは期限、なければ最後に Issue を閉じた時。ISO の文字列） */
+  end: string;
 }
 
 /** マイルストーンごとの閉じた Issue（Issue に付いているマイルストーンから。一覧は開いているものしか読まないため） */
@@ -231,16 +231,17 @@ export function velocity(
     if (!finished.has(ms.number)) continue;
     if (mode === "estimate" && closed.every((i) => weightOf(i, mode, unit) === 0)) continue;
     const lastClosed = closed.reduce((max, i) => (i.closed_at && i.closed_at > max ? i.closed_at : max), "");
-    const date = ms.due_on ? ms.due_on.substring(0, 10) : lastClosed ? dateOfDay(dayOfIso(lastClosed)) : "";
+    // 期限より早く閉じたマイルストーンもあるので、閉じた時を先に見る（期限は後から決め直されることもある）
+    const end = ms.state === "closed" && ms.closed_at ? ms.closed_at : ms.due_on ?? lastClosed;
     entries.push({
       number: ms.number,
       title: ms.title,
       done: closed.reduce((sum, i) => sum + weightOf(i, mode, unit), 0),
       closedCount: closed.length,
-      date,
+      end,
     });
   }
-  return entries.sort((a, b) => a.date.localeCompare(b.date) || a.number - b.number).slice(-limit);
+  return entries.sort((a, b) => a.end.localeCompare(b.end) || a.number - b.number).slice(-limit);
 }
 
 /** 平均（なければ null） */

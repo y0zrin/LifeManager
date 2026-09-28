@@ -16,6 +16,8 @@ interface TeamPaceProps {
   repo: string;
   /** 終わったマイルストーンごとの終えた量（古い順） */
   entries: VelocityEntry[];
+  /** 終わったマイルストーンの数（見積もりが付いていないものも入れて） */
+  finishedCount: number;
   /** 閉じた Issue（サイクルタイムを数える） */
   closedIssues: GitHubIssue[];
   mode: PaceMode;
@@ -54,7 +56,7 @@ const fmtDays = (v: number) => `${formatNumber(Math.round(v * 10) / 10)} 日`;
  * マイルストーンの画面の上の「チームのペース」。終わったマイルストーンごとの終えた量（ベロシティ）と、
  * 手を付けて（「状態:進行中」にして）から閉じるまでの日数（サイクルタイム）
  */
-export function TeamPace({ owner, repo, entries, closedIssues, mode, onModeChange, onListTimeline, onSelectIssue }: TeamPaceProps) {
+export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mode, onModeChange, onListTimeline, onSelectIssue }: TeamPaceProps) {
   const unit = useEstimateUnit();
   const fmt = (v: number) => (mode === "count" ? `${formatNumber(v)} 件` : formatEstimate(Math.round(v * 10) / 10, unit));
 
@@ -126,7 +128,7 @@ export function TeamPace({ owner, repo, entries, closedIssues, mode, onModeChang
     <section className="pace" aria-label="チームのペース">
       <div className="pace-head">
         <b>🏃 チームのペース</b>
-        <span className="pace-scope">終わったマイルストーンから（最近 {entries.length} つ）</span>
+        <span className="pace-scope">終わったマイルストーンから{entries.length > 0 ? `（最近 ${entries.length} つ）` : ""}</span>
         <span className="pace-mode" role="group" aria-label="数え方">
           {(["estimate", "count"] as PaceMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => onModeChange(m)}>
@@ -138,7 +140,15 @@ export function TeamPace({ owner, repo, entries, closedIssues, mode, onModeChang
 
       {entries.length === 0 ? (
         <p className="pace-note">
-          終わったマイルストーンがまだありません。マイルストーンを閉じるか期限を過ぎると、ここに終えた量と日数が出ます。
+          {mode === "estimate" && finishedCount > 0 ? (
+            <>
+              終わったマイルストーン（{finishedCount} つ）の Issue には、見積もりが付いていません。
+              <button type="button" className="link-button" onClick={() => onModeChange("count")}>件数で数える</button>
+              と、終えた数とその平均が出ます。
+            </>
+          ) : (
+            "終わったマイルストーンがまだありません。マイルストーンを閉じるか期限を過ぎると、ここに終えた量と日数が出ます。"
+          )}
         </p>
       ) : (
         <div className="pace-grid">

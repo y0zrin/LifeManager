@@ -126,7 +126,7 @@ export function MilestoneView({ milestones, issues, closedIssues, owner, repo, o
       )}
 
       {(issues.length > 0 || closedIssues.length > 0) && (
-        <TeamPace owner={owner} repo={repo} entries={entries} closedIssues={closedIssues}
+        <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}
           mode={mode} onModeChange={changeMode} onListTimeline={onListTimeline} onSelectIssue={onSelectIssue} />
       )}
 

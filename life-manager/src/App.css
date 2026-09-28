@@ -7195,6 +7195,17 @@ button.lh:hover {
   font-size: 10px;
 }
 
+/* 図の中の文字は、線と重なっても読めるように、地の色でふちどる */
+.bd-deadline-text,
+.bd-proj-text,
+.bd-today-text,
+.bd-add-text {
+  paint-order: stroke;
+  stroke: var(--bg-primary);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
 .bd-legend {
   display: flex;
   flex-wrap: wrap;

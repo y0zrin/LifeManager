@@ -25,6 +25,8 @@ const LEFT = 40;
 const RIGHT = 750;
 const TOP = 20;
 const BOTTOM = 190;
+/** 右の端から room の内側にあるか（文字が切れないよう、線の左に書くとき） */
+const nearRight = (px: number, room: number) => px > RIGHT - room;
 
 /**
  * マイルストーン（スプリント）のバーンダウン。残り・経過・このペースで終わる日の 3 つの数字と、
@@ -108,7 +110,9 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
               <>
                 {maxDay > endDay && <rect x={x(endDay)} y={TOP} width={x(maxDay) - x(endDay)} height={BOTTOM - TOP} className="bd-over" />}
                 <line x1={x(endDay)} y1={TOP} x2={x(endDay)} y2={BOTTOM} className="bd-deadline" />
-                <text x={x(endDay) + 4} y={TOP + 12} className="bd-deadline-text">期限 {md(end!)}</text>
+                {/* 右の端に近いときは、線の左に書く（切れないように） */}
+                <text x={nearRight(x(endDay), 70) ? x(endDay) - 4 : x(endDay) + 4} y={TOP + 12} className="bd-deadline-text"
+                  textAnchor={nearRight(x(endDay), 70) ? "end" : "start"}>期限 {md(end!)}</text>
                 <line x1={x(startDay)} y1={y(b.initial)} x2={x(endDay)} y2={y(0)} className="bd-ideal" />
               </>
             )}
@@ -125,11 +129,14 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
             {dayOfTime(new Date()) === lastPoint && (
               <>
                 <line x1={x(lastPoint)} y1={TOP} x2={x(lastPoint)} y2={BOTTOM} className="bd-today" />
-                <text x={x(lastPoint) + 4} y={TOP + 26} className="bd-today-text">今日</text>
+                <text x={nearRight(x(lastPoint), 40) ? x(lastPoint) - 4 : x(lastPoint) + 4} y={TOP + 26} className="bd-today-text"
+                  textAnchor={nearRight(x(lastPoint), 40) ? "end" : "start"}>今日</text>
               </>
             )}
             {biggestAdd && (
-              <text x={x(dayOfDate(biggestAdd.date)) + 4} y={Math.max(TOP + 12, y(top) - 2)} className="bd-add-text">
+              <text x={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? x(dayOfDate(biggestAdd.date)) - 4 : x(dayOfDate(biggestAdd.date)) + 4}
+                y={Math.max(TOP + 12, y(top) - 2)} className="bd-add-text"
+                textAnchor={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? "end" : "start"}>
                 +{fmt(biggestAdd.amount)}（{biggestAdd.issues.slice(0, 2).map(issueRef).join("・")}{biggestAdd.issues.length > 2 ? " ほか" : ""} を足した）
               </text>
             )}

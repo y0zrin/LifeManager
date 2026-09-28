@@ -432,6 +432,7 @@
   <div class="toc-group">設定・チーム</div>
   <ol>
     <li><a href="#settings">設定</a></li>
+    <li><a href="#roles">だれが何をするか（アカウント・トークン・許可）</a></li>
     <li><a href="#team">チームで使う（管理者向け）</a></li>
     <li><a href="#faq">よくある質問・困ったとき</a></li>
   </ol>
@@ -545,7 +546,7 @@
   </div>
 
   <h3>トークンで入る（学校で指定されたときなど）</h3>
-  <p>ログインの画面の下の <span class="ui">トークンで入る</span> から、自分で作ったトークン（Fine-grained token）でも使えます。</p>
+  <p>ログインの画面の下の <span class="ui">トークンで入る</span> から、自分で作ったトークン（Fine-grained token）でも使えます。組織のリポジトリでは、トークン 1 本ごとに組織の持ち主の承認がいることがあります（「<a href="#roles">だれが何をするか</a>」）。</p>
   <ol>
     <li><span class="ui">GitHub で作る</span> を押すと、名前・期限（90 日）・権限が入った状態で、GitHub のトークンの作成ページが開きます。</li>
     <li><span class="ui">Repository access</span> で <span class="ui">Only select repositories</span> を選び、使うリポジトリを選びます（ここだけは自分で選びます）。組織のリポジトリなら、Resource owner を組織にします。</li>
@@ -1375,11 +1376,60 @@ labels: ["種別:バグ", "状態:未整理"]
 </section>
 
 <!-- ============================================================ -->
+<section id="roles">
+  <h2>だれが何をするか（アカウント・トークン・許可）</h2>
+  <p>GitHub のアカウント・ログイン・招待・組織の許可は、役によってすることが違います。自分の役の行だけ読めば足ります。1 人で使うときは、メンバーとリーダーの両方をします。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>役</th><th>すること</th><th>しないこと</th></tr>
+    <tr>
+      <td><b>メンバー</b><br>（生徒など）</td>
+      <td>① GitHub のアカウントを自分で作る（自分のメールで）<br>
+        ② <span class="ui">GitHub でログイン</span>（自分のアカウントで）<br>
+        ③ <span class="ui">名前をコピー</span> してリーダーに送り、届いた招待に <span class="ui">参加する</span><br>
+        ④ 「組織の許可がまだです」と出たら <span class="ui">組織に許可をお願いする</span><br>
+        ⑤ 共用の PC で使い終わったら <span class="ui">ログアウト</span></td>
+      <td>トークンやパスワードを人に渡す・もらう・チャットに貼る</td>
+    </tr>
+    <tr>
+      <td><b>リーダー</b><br>（リポジトリの管理者）</td>
+      <td>① チームのリポジトリを作る（組織の中に作るのがおすすめ）<br>
+        ② 設定 → チーム で、届いた名前をまとめて貼って招待する<br>
+        ③ Discord に知らせるときは、Webhook の URL をチームの中だけで伝える</td>
+      <td>メンバーのトークンを作って配る・預かる</td>
+    </tr>
+    <tr>
+      <td><b>組織の持ち主</b><br>（先生など）</td>
+      <td>① Organization を作り、チームのリポジトリとリーダーを決める<br>
+        ② Life Manager を、組織で一度だけ許可する（メンバーから届く「Request」に応える）<br>
+        ③ トークンで入る人がいるときは、その人のトークンを 1 本ずつ承認する</td>
+      <td>全員分のトークンをまとめて作って配る</td>
+    </tr>
+  </table>
+  </div>
+  <div class="box hint">
+    <span class="label">「GitHub でログイン」をすすめる理由</span>
+    <p>ログインなら、組織の持ち主の許可は <b>Life Manager に一度だけ</b>で、期限もありません。トークン（Fine-grained token）で入ると、組織のはじめの設定では <b>トークン 1 本ごとに持ち主の承認</b>がいり、期限（アプリが開く作成ページでは 90 日）が来るたびに、作り直しと承認がまた必要です。ほかの人の個人のリポジトリは、Fine-grained token では選べません。</p>
+  </div>
+  <h3>しまってある場所と、やめ方</h3>
+  <p>どれも、使っている PC の資格情報（Windows は資格情報マネージャー、Mac はキーチェーン。名前は <code>life-manager</code>）にしまわれ、ほかの PC には送られません。GitHub のパスワードは、アプリには入れません（GitHub の画面にだけ入れます）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>もの</th><th>期限</th><th>やめ方・消し方</th></tr>
+    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>なし</td><td>設定 → 接続 の <span class="ui">ログアウト</span>。GitHub の Settings → Applications → Authorized OAuth Apps でも取り消せる</td></tr>
+    <tr><td>トークン（<span class="ui">トークンで入る</span>）</td><td>作るときに決める</td><td><span class="ui">ログアウト</span>。GitHub のトークンの画面で Delete</td></tr>
+    <tr><td>プロジェクト専用のトークン</td><td>作るときに決める</td><td>設定 → 接続 の <span class="ui">いつものに戻す</span></td></tr>
+    <tr><td>Discord の Webhook の URL</td><td>なし</td><td>設定 → 通知 で URL を消して <span class="ui">解除</span>。人に漏れたら、Discord でウェブフックを作り直す</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
 <section id="team">
   <h2>チームで使う（管理者向け）</h2>
   <div class="box warn">
     <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
-    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリ（または組織）に招待することだけです。</p>
+    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリ（または組織）に招待することだけです（「<a href="#roles">だれが何をするか</a>」）。</p>
   </div>
   <h3>リーダー: メンバーを招待する</h3>
   <ol>

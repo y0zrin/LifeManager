@@ -67,10 +67,13 @@ import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib
 
 type NavItem = { key: ViewType; icon: string; label: string };
 
-// サイドバーの並び: 作業 → タスク系 → リポジトリ系。設定はいちばん下
+// サイドバーの並び: ホーム（オーバービュー・アクティビティ）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下
+const HOME_GROUP = "ホーム";
+const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー" };
+const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "アクティビティ" }];
 const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
 const TASK_ITEMS: NavItem[] = [
-  { key: "insights", icon: "📈", label: "オーバービュー" },
+  WORK_ITEM,
   { key: "dashboard", icon: "📋", label: "タスク" },
   { key: "kanban", icon: "📊", label: "ボード" },
   { key: "milestones", icon: "🎯", label: "マイルストーン" },
@@ -84,12 +87,11 @@ const REPO_ITEMS: NavItem[] = [
   { key: "pulls", icon: "🔃", label: "プルリク" },
   { key: "actions", icon: "▶️", label: "Actions" },
   { key: "releases", icon: "🏷️", label: "リリース" },
-  { key: "activity", icon: "📰", label: "アクティビティ" },
 ];
 const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
-const ALL_NAV_ITEMS: NavItem[] = [WORK_ITEM, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
-// スマホの下部ナビは従来どおり（新しい画面はスマホ版を詰めるときに足す）
-const MOBILE_NAV_ITEMS: NavItem[] = [...TASK_ITEMS, SETTINGS_ITEM];
+const ALL_NAV_ITEMS: NavItem[] = [...HOME_ITEMS, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
+// スマホの下部ナビは従来どおり（オーバービューとタスク系。作業などの新しい画面はスマホ版を詰めるときに足す）
+const MOBILE_NAV_ITEMS: NavItem[] = [INSIGHTS_ITEM, ...TASK_ITEMS.filter((item) => item !== WORK_ITEM), SETTINGS_ITEM];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 // たたむボタンの矢印（サイドバーのある端へ向ける）
@@ -844,7 +846,8 @@ function App() {
           {projectSelect}
         </div>
         <nav className="sidebar-nav">
-          {renderNavItem(WORK_ITEM)}
+          <div className="sidebar-group">{HOME_GROUP}</div>
+          {HOME_ITEMS.map(renderNavItem)}
           <div className="sidebar-group">タスク</div>
           {TASK_ITEMS.map(renderNavItem)}
           <div className="sidebar-group">リポジトリ</div>

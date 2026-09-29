@@ -1829,6 +1829,19 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   border: 1px solid var(--border-default);
 }
 
+/* 画像のない人（名前の頭文字の丸） */
+.avatar-letter {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* --- Issue Card Details --- */
 
 .issue-card-header {
@@ -2855,8 +2868,9 @@ button:hover {
 }
 
 .look-quest .bd-empty {
-  border-color: #9c7442;
-  color: #6b4a26;
+  border-color: #8e5a2c;
+  background: #f6e7c440;
+  color: #3b2412;
   font-family: var(--bd-mincho);
 }
 
@@ -2910,6 +2924,7 @@ button:hover {
   min-width: 0;
   overflow-x: auto;
   padding: 6px 2px;
+  scrollbar-width: thin;
 }
 
 .bd-desk-chip {
@@ -9789,6 +9804,13 @@ button.lh:hover {
 
 .update-result--error {
   color: var(--accent-red);
+}
+
+/* 設定の題（スマホだけ。PC は上のバーに出ている） */
+@media (min-width: 640px) {
+  .settings-title {
+    display: none;
+  }
 }
 
 /* ボード・ガントから開いたときに、その区切りまで動かして（上の帯に隠れないように）、少し光らせる */

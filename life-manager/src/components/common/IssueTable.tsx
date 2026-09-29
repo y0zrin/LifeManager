@@ -6,6 +6,7 @@ import { EstimateChip, EstimateSumText, useEstimateUnit } from "./EstimateChip";
 import { sumEstimates } from "../../lib/estimate";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
+import { Avatar } from "./Avatar";
 
 interface IssueTableProps {
   groups: TaskGroup[];
@@ -92,7 +93,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                   <td>
                     {assignee ? (
                       <span className="tt-who" title={issue.assignees?.map((a) => a.login).join("、")}>
-                        <img src={assignee.avatar_url} alt="" className="avatar-sm" />
+                        <Avatar login={assignee.login} url={assignee.avatar_url} alt="" className="avatar-sm" />
                         {assignee.login}
                         {more > 0 && <span className="tt-muted">＋{more}</span>}
                       </span>

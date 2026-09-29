@@ -9,6 +9,7 @@ import { DueChip } from "./DueChip";
 import { EstimateChip } from "./EstimateChip";
 import { issueRef } from "../../lib/issueRef";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
+import { Avatar } from "./Avatar";
 
 export function IssueCard({
   issue,
@@ -136,7 +137,7 @@ export function IssueCard({
         {issue.assignees && issue.assignees.length > 0 && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>
             {issue.assignees.map((a) => (
-              <img key={a.login} src={a.avatar_url} alt={a.login} title={a.login} className="avatar-md" />
+              <Avatar key={a.login} login={a.login} url={a.avatar_url} title={a.login} className="avatar-md" />
             ))}
           </span>
         )}

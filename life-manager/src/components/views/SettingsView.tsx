@@ -298,7 +298,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
   return (
     <div className="content">
-      <h2 style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>設定</h2>
+      <h2 className="settings-title" style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>設定</h2>
 
       {/* ペインタブ */}
       <div className="settings-pane-tabs">
@@ -796,6 +796,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </p>
       </div>
 
+      {/* 学習の補助（git の解説）・全体図は PC だけ（スマホは git の操作をしない） */}
+      {!isMobile && <>
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>学習の補助</h3>
         <label className="display-opt">
@@ -843,6 +845,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           </label>
         </div>
       </div>
+      </>}
 
       <div className="form-card" id="settings-gantt-colors">
         <div className="settings-section-header">
@@ -867,6 +870,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </p>
       </div>
 
+      {/* サイドバーは PC だけ（スマホは下のナビ） */}
+      {!isMobile && (
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>サイドバーの位置</h3>
         <div className="display-opts pos-opts">
@@ -889,6 +894,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           サイドバーの「たたむ」（Ctrl+B）で隠すと、その端にマウスを寄せたときだけ出てきます。
         </p>
       </div>
+      )}
 
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>メモのボタン（📝）</h3>

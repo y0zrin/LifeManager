@@ -5,6 +5,7 @@ import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 import { DueChip } from "./DueChip";
 import { EstimateChip } from "./EstimateChip";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
+import { Avatar } from "./Avatar";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -91,8 +92,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
         {issue.assignees && issue.assignees.length > 0 && (
           <div className="ticket-assignees">
             {issue.assignees.map((a) => (
-              <img key={a.login} src={a.avatar_url} alt={a.login} title={a.login}
-                className="ticket-avatar" />
+              <Avatar key={a.login} login={a.login} url={a.avatar_url} title={a.login} className="ticket-avatar" />
             ))}
           </div>
         )}

@@ -21,6 +21,7 @@ import {
   GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
   type GroupKey, type LabelFilters, type ListMode, type SortKey,
 } from "../../lib/taskList";
+import { Avatar } from "../common/Avatar";
 
 /** 並び・まとめ方・カード／表は、次に開いたときも同じにする */
 const SORT_STORE = "task-list-sort";
@@ -749,7 +750,7 @@ export function DashboardView({
                         else setIssueAssignees([...issueAssignees, c.login]);
                       }}
                     >
-                      <img src={c.avatar_url} alt={c.login} className="avatar-sm" />
+                      <Avatar login={c.login} url={c.avatar_url} className="avatar-sm" />
                       {c.login}
                     </span>
                   );

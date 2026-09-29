@@ -14,6 +14,7 @@ import { splitAppMarks, visibleBody, withAppMarks } from "../../lib/bodyMarks";
 import { isEnter, isEscape } from "../../lib/keys";
 import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
 import { EstimatePicker } from "./EstimateChip";
+import { Avatar } from "./Avatar";
 
 interface IssueDetailModalProps {
   /** 重ねずに、その場に出す（PC のタスクの右の欄）。Esc で閉じない */
@@ -344,7 +345,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                           transition: "all 0.15s",
                         }}
                       >
-                        <img src={c.avatar_url} alt={c.login} className="avatar-md" style={{ border: active ? "1px solid var(--text-on-accent)" : "1px solid var(--border-default)" }} />
+                        <Avatar login={c.login} url={c.avatar_url} className="avatar-md" style={{ border: active ? "1px solid var(--text-on-accent)" : "1px solid var(--border-default)" }} />
                         {c.login}
                       </span>
                     );
@@ -371,7 +372,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 {issue.assignees && issue.assignees.length > 0 ? (
                   issue.assignees.map((a) => (
                     <span key={a.login} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--text-primary)", padding: "2px 8px", background: "var(--accent-blue-bg)", borderRadius: "12px", border: "1px solid color-mix(in srgb, var(--accent-blue) 35%, transparent)" }}>
-                      <img src={a.avatar_url} alt={a.login} style={{ width: "18px", height: "18px", borderRadius: "50%", border: "1px solid var(--accent-blue)" }} />
+                      <Avatar login={a.login} url={a.avatar_url} style={{ width: "18px", height: "18px", borderRadius: "50%", border: "1px solid var(--accent-blue)" }} />
                       {a.login}
                     </span>
                   ))
@@ -525,7 +526,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
 
         {/* タスク進捗 */}
         {todoTotal > 0 && (
-          <div style={{ fontSize: "12px", color: "#888", marginBottom: "16px" }}>
+          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "16px" }}>
             タスク進捗: {todoDone}/{todoTotal}
             <div style={{ width: "100%", height: "6px", background: "var(--bg-tertiary)", borderRadius: "3px", marginTop: "4px" }}>
               <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "var(--accent-green)", borderRadius: "3px" }} />
@@ -731,9 +732,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           )}
 
           {issueReminders.map((r) => (
-            <div key={r.datetime} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#888", marginBottom: "4px" }}>
+            <div key={r.datetime} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px" }}>
               <span>{new Date(r.datetime).toLocaleString("ja-JP")}</span>
-              <span style={{ color: "#666" }}>[{r.channels.join(", ")}]</span>
+              <span style={{ color: "var(--text-muted)" }}>[{r.channels.join(", ")}]</span>
               <button className="btn-sm" style={{ fontSize: "10px", color: "var(--accent-red)", padding: "1px 4px" }}
                 onClick={() => onRemoveReminder(issue.number, r.datetime)}>
                 取消
@@ -759,7 +760,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         </h3>
 
         {loading ? (
-          <p style={{ color: "#666", fontSize: "12px" }}>読み込み中...</p>
+          <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>読み込み中...</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
             {comments.map((c) => (
@@ -769,7 +770,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     {c.user?.login ?? "unknown"}
                     {c._pending && <PendingChip />}
                   </span>
-                  <span style={{ fontSize: "11px", color: "#666" }}>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                     {new Date(c.created_at).toLocaleString("ja-JP")}
                   </span>
                 </div>

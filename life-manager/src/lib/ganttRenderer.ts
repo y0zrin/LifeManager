@@ -196,10 +196,14 @@ export class GanttRenderer {
         const date = addDays(startDate, i);
         const dow = dayOfWeekUTC(date);
         if (dow === 1 || i === visibleStartDay) { // Monday
-          const x = i * pixelsPerDay - scrollX + 2;
+          const label = formatDate(date);
           ctx.textAlign = "left";
+          // 左端の日付は、すぐあとの月曜の日付と重なるなら出さない
+          const toMonday = (8 - dow) % 7;
+          if (dow !== 1 && toMonday * pixelsPerDay < ctx.measureText(label).width + 8) continue;
+          const x = i * pixelsPerDay - scrollX + 2;
           ctx.fillStyle = this.colors.textMuted;
-          ctx.fillText(formatDate(date), x, headerHeight - 6);
+          ctx.fillText(label, x, headerHeight - 6);
         }
       }
     } else {
@@ -210,10 +214,17 @@ export class GanttRenderer {
         const month = parseInt(date.split("-")[1], 10);
         if (month !== lastMonth) {
           lastMonth = month;
-          const x = i * pixelsPerDay - scrollX + 4;
+          const label = `${date.split("-")[0]}/${month}`;
           ctx.textAlign = "left";
+          // 左端の月は、すぐあとの月の名前と重なるなら出さない
+          if (i === visibleStartDay) {
+            const [y, m, d] = date.split("-").map(Number);
+            const daysLeft = new Date(Date.UTC(y, m, 0)).getUTCDate() - d + 1;
+            if (d !== 1 && daysLeft * pixelsPerDay < ctx.measureText(label).width + 8) continue;
+          }
+          const x = i * pixelsPerDay - scrollX + 4;
           ctx.fillStyle = this.colors.textMuted;
-          ctx.fillText(`${date.split("-")[0]}/${month}`, x, headerHeight - 6);
+          ctx.fillText(label, x, headerHeight - 6);
         }
       }
     }

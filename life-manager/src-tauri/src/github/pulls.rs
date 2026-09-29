@@ -1,6 +1,7 @@
 //! プルリク（一覧・詳細・作る・マージ・レビュー）。GitHub の返す大きな JSON を、画面で使う小さな形にして返す。
 //! 失敗したときは、何ができなかったかと直し方を日本語で返す（権限が足りない・競合がある など）
-use super::client::{is_network_error, GitHubClient};
+use super::client::GitHubClient;
+use super::errors::{self, Permission};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
@@ -19,88 +20,37 @@ fn parse(text: &str) -> Result<Value, String> {
 
 // --- エラーの言いかえ ---
 
-/// "HTTP 422 Unprocessable Entity: {json}" から、GitHub の message（と errors の message）を取り出す
-fn github_message(err: &str) -> String {
-    let body = match err.split_once(": ") {
-        Some((head, body)) if head.starts_with("HTTP ") || head == "GraphQL" => body,
-        _ => err,
-    };
-    let Ok(v) = serde_json::from_str::<Value>(body) else {
-        return body.to_string();
-    };
-    let mut parts: Vec<String> = Vec::new();
-    if let Some(m) = v["message"].as_str() {
-        parts.push(m.to_string());
-    }
-    for e in v["errors"].as_array().into_iter().flatten() {
-        if let Some(m) = e["message"].as_str() {
-            parts.push(m.to_string());
-        } else if let (Some(field), Some(code)) = (e["field"].as_str(), e["code"].as_str()) {
-            parts.push(format!("{} {}", field, code));
-        }
-    }
-    if parts.is_empty() {
-        body.to_string()
-    } else {
-        parts.join(" / ")
-    }
-}
+/// プルリクでよく出るエラーと、その言いかえ
+const KNOWN: &[(&str, &str)] = &[
+    ("A pull request already exists", "このブランチからのプルリクは、もうあります（プルリクの一覧から開けます）"),
+    ("No commits between", "2 つのブランチに違いがありません。先に変更をコミットして、プッシュします"),
+    ("head invalid", "そのブランチが GitHub にありません。先にプッシュします"),
+    ("base invalid", "入れる先のブランチが GitHub にありません"),
+    ("Can not approve your own pull request", "自分のプルリクは承認できません（ほかの人に見てもらいます）"),
+    ("Can not request changes on your own pull request", "自分のプルリクには、修正を依頼できません"),
+    ("Review cannot be requested from pull request author", "プルリクを作った人には、レビューをお願いできません"),
+    ("not a collaborator", "レビューをお願いできるのは、このリポジトリのメンバーだけです"),
+    ("still a draft", "下書きのプルリクはマージできません。先に「レビューをお願いする」にします"),
+    ("Head branch was modified", "そのあいだにブランチに新しいコミットが入りました。読み直してから、もう一度マージします"),
+    ("Base branch was modified", "そのあいだに入れる先のブランチが変わりました。読み直してから、もう一度マージします"),
+    ("Merge commits are not allowed", "このリポジトリでは「マージコミット」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
+    ("Squash merges are not allowed", "このリポジトリでは「スカッシュ」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
+    ("Rebase merges are not allowed", "このリポジトリでは「リベース」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
+    ("approving review", "マージするには、ほかの人の承認が要ります（ブランチの保護ルール）"),
+    ("status check", "マージする前に、決められたチェックが通る必要があります（ブランチの保護ルール）"),
+    ("merge conflict", "競合（コンフリクト）があるため、GitHub の上では取り込めません。手元で取り込んで直し、プッシュします"),
+    ("not mergeable", "今はマージできません（競合がある・ブランチの保護ルールに合っていない など）"),
+    ("expected head sha", "そのあいだにブランチに新しいコミットが入りました。読み直してから、もう一度"),
+    ("Reference does not exist", "そのブランチはもうありません"),
+    ("Reference already exists", "同じ名前のブランチが、もうあります"),
+    ("Protected branch", "保護されたブランチなので、消せません"),
+];
+
+const PERMISSION: Permission = Permission { name: "Pull requests", access: "Read and write" };
 
 /// GitHub のエラーを、何をしようとしたか（what。「マージすること」など）を添えて、直し方のわかる日本語にする
 pub fn explain(err: &str, what: &str) -> String {
-    if is_network_error(err) {
-        return err.to_string();
-    }
-    let message = github_message(err);
-    let has = |s: &str| message.contains(s) || err.contains(s);
-    if has("not accessible by personal access token") {
-        return format!(
-            "今のトークン（自分で作ったトークン）では、{}ができません。GitHub のトークンの画面で、このトークンに「Pull requests」の権限（Read and write）を足すか、「GitHub でログイン」で入り直してください",
-            what
-        );
-    }
-    if has("not accessible by integration") {
-        return format!(
-            "{}ができません。GitHub の Life Manager に「Pull requests」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認する（またはこのリポジトリを選ぶ）と使えます",
-            what
-        );
-    }
-    let known: &[(&str, &str)] = &[
-        ("A pull request already exists", "このブランチからのプルリクは、もうあります（プルリクの一覧から開けます）"),
-        ("No commits between", "2 つのブランチに違いがありません。先に変更をコミットして、プッシュします"),
-        ("head invalid", "そのブランチが GitHub にありません。先にプッシュします"),
-        ("base invalid", "入れる先のブランチが GitHub にありません"),
-        ("Can not approve your own pull request", "自分のプルリクは承認できません（ほかの人に見てもらいます）"),
-        ("Can not request changes on your own pull request", "自分のプルリクには、修正を依頼できません"),
-        ("Review cannot be requested from pull request author", "プルリクを作った人には、レビューをお願いできません"),
-        ("not a collaborator", "レビューをお願いできるのは、このリポジトリのメンバーだけです"),
-        ("still a draft", "下書きのプルリクはマージできません。先に「レビューをお願いする」にします"),
-        ("Head branch was modified", "そのあいだにブランチに新しいコミットが入りました。読み直してから、もう一度マージします"),
-        ("Base branch was modified", "そのあいだに入れる先のブランチが変わりました。読み直してから、もう一度マージします"),
-        ("Merge commits are not allowed", "このリポジトリでは「マージコミット」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
-        ("Squash merges are not allowed", "このリポジトリでは「スカッシュ」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
-        ("Rebase merges are not allowed", "このリポジトリでは「リベース」でマージできません（リポジトリの設定）。ほかの仕方を選びます"),
-        ("approving review", "マージするには、ほかの人の承認が要ります（ブランチの保護ルール）"),
-        ("status check", "マージする前に、決められたチェックが通る必要があります（ブランチの保護ルール）"),
-        ("merge conflict", "競合（コンフリクト）があるため、GitHub の上では取り込めません。手元で取り込んで直し、プッシュします"),
-        ("not mergeable", "今はマージできません（競合がある・ブランチの保護ルールに合っていない など）"),
-        ("expected head sha", "そのあいだにブランチに新しいコミットが入りました。読み直してから、もう一度"),
-        ("Reference does not exist", "そのブランチはもうありません"),
-        ("Reference already exists", "同じ名前のブランチが、もうあります"),
-        ("Protected branch", "保護されたブランチなので、消せません"),
-    ];
-    for (needle, japanese) in known {
-        if has(needle) {
-            return japanese.to_string();
-        }
-    }
-    if err.starts_with("HTTP 404") {
-        return format!("{}ができません（見つかりません。消されたか、見る権限がありません）", what);
-    }
-    if err.starts_with("HTTP 403") {
-        return format!("{}ができません（権限がありません）: {}", what, message);
-    }
-    format!("{}ができませんでした: {}", what, message)
+    errors::explain(err, what, &PERMISSION, KNOWN)
 }
 
 // --- 画面で使う形 ---
@@ -681,8 +631,14 @@ pub async fn branch_pull(state: ClientState<'_>, owner: String, repo: String, br
     let mut out = summary(chosen);
     if chosen["state"] == "open" {
         let number = chosen["number"].as_u64().unwrap_or(0);
-        if let Ok(text) = client.list_pull_reviews(&owner, &repo, number).await {
+        let sha = chosen["head"]["sha"].as_str().unwrap_or("").to_string();
+        let (reviews, checks) = tokio::join!(client.list_pull_reviews(&owner, &repo, number), client.check_runs(&owner, &repo, &sha));
+        if let Ok(text) = reviews {
             out["verdicts"] = verdicts_of_reviews(&parse(&text)?);
+        }
+        // Checks の権限がなければ付けない
+        if let Ok(text) = checks {
+            out["checks"] = super::actions::check_summary(&parse(&text)?);
         }
     }
     Ok(Some(out))

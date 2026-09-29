@@ -155,6 +155,7 @@ interface Flow {
 /** プルリクのレビューの進み（流れの「マージ」の段の小さな字） */
 function reviewLabel(pr: PullSummary): string {
   if (pr.draft) return "下書き";
+  if (pr.checks && pr.checks.failure > 0) return "✖ チェック";
   const v = pr.verdicts;
   if (v && v.changes_requested.length > 0) return "修正の依頼";
   if (v && v.approved.length > 0) return `承認 ${v.approved.length}`;
@@ -390,6 +391,7 @@ function Workspace({
         <>
           プルリク <b>#{pr.number}</b> を出しました。レビューしてもらい、よければマージします（ひとりなら、差分を自分で確かめてマージしてかまいません）。
           直すときは、このブランチでコミット・プッシュすると、プルリクに足されます。
+          {pr.checks && pr.checks.failure > 0 && <span className="w-flow-warn">✖ チェック（Actions のテストなど）が {pr.checks.failure} つ失敗しています。プルリクの「チェック」か Actions で、どこで失敗したかを見られます。</span>}
         </>
       ) : null,
       8: direct ? (

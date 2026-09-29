@@ -15,6 +15,7 @@ import {
   type Verdicts,
 } from "../../lib/pulls";
 import { withTransition } from "../../lib/motion";
+import { commitsChecks, type CheckSummary } from "../../lib/actions";
 import { PullDetail } from "../pulls/PullDetail";
 import { CreatePullDialog } from "../pulls/CreatePullDialog";
 
@@ -45,16 +46,19 @@ interface PullsViewProps {
   onFixLocally?: (pull: Detail) => void;
   /** この PC で今いるブランチ（プルリクを作るときの、はじめの候補） */
   localBranch: string | null;
+  /** Actions のその実行を開く（チェックの「ログを見る」） */
+  onOpenRun: (runId: number, jobId?: number | null) => void;
 }
 
 /** プルリク: 左に一覧（開いている・マージ済み・閉じた）、右に詳細 */
 export function PullsView(props: PullsViewProps) {
-  const { owner, repo, currentUser, collaborators, issues, closedIssues, onOpenIssue, selected, onSelect, createRequest, onCreateRequestHandled, onMerged, onFixLocally, localBranch } = props;
+  const { owner, repo, currentUser, collaborators, issues, closedIssues, onOpenIssue, selected, onSelect, createRequest, onCreateRequestHandled, onMerged, onFixLocally, localBranch, onOpenRun } = props;
   const [pulls, setPulls] = useState<PullSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState<PullRepoInfo | null>(null);
   const [verdicts, setVerdicts] = useState<Record<string, Verdicts>>({});
+  const [checks, setChecks] = useState<Record<string, CheckSummary>>({});
   const [filter, setFilter] = useState<Filter>("open");
   const [query, setQuery] = useState("");
   const [create, setCreate] = useState<{ head: string | null; issue: number | null } | null>(null);
@@ -66,8 +70,12 @@ export function PullsView(props: PullsViewProps) {
       const list = await listPulls(owner, repo);
       setPulls(list);
       setError(null);
-      const open = list.filter((p) => p.state === "open").map((p) => p.number);
-      if (open.length > 0) pullVerdicts(owner, repo, open).then(setVerdicts).catch(() => {});
+      const open = list.filter((p) => p.state === "open");
+      if (open.length > 0) {
+        pullVerdicts(owner, repo, open.map((p) => p.number)).then(setVerdicts).catch(() => {});
+        // Checks の権限がなければ、チェックの印は出さない
+        commitsChecks(owner, repo, open.map((p) => p.head_sha)).then(setChecks).catch(() => {});
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -79,6 +87,7 @@ export function PullsView(props: PullsViewProps) {
     setPulls(null);
     setInfo(null);
     setVerdicts({});
+    setChecks({});
     load();
     pullRepoInfo(owner, repo).then(setInfo).catch(() => {});
   }, [owner, repo, load]);
@@ -135,7 +144,6 @@ export function PullsView(props: PullsViewProps) {
     <div className={`pulls pr-ui${selected !== null ? " has-selection" : ""}`}>
       <div className="pulls-list">
         <div className="pulls-top">
-          <h2>プルリク</h2>
           <span className="grow" />
           <button type="button" className="btn-primary" onClick={() => setCreate({ head: localBranch, issue: null })}>
             ＋ プルリクを作る
@@ -190,6 +198,7 @@ export function PullsView(props: PullsViewProps) {
             shown.map((p) => {
               const s = pullStatus(p);
               const v = verdicts[String(p.number)];
+              const ck = s === "open" || s === "draft" ? checks[p.head_sha] : undefined;
               const links = closingIssues(p.body);
               return (
                 <button
@@ -216,6 +225,9 @@ export function PullsView(props: PullsViewProps) {
                   <div className="pr-item-meta">
                     {v && v.approved.length > 0 && <span className="ok">✔ 承認 {v.approved.length}</span>}
                     {v && v.changes_requested.length > 0 && <span className="ng">✖ 修正の依頼 {v.changes_requested.length}</span>}
+                    {ck && ck.failure > 0 && <span className="ng">✖ チェック {ck.failure}</span>}
+                    {ck && ck.failure === 0 && ck.pending > 0 && <span className="t-wait">● チェック中</span>}
+                    {ck && ck.failure === 0 && ck.pending === 0 && ck.success > 0 && <span className="ok">✔ チェック</span>}
                     {s === "open" && v && v.approved.length === 0 && v.changes_requested.length === 0 && (
                       <span className="muted">{p.requested_reviewers.length > 0 ? `レビュー待ち（${p.requested_reviewers.map((r) => r.login).join("、")}）` : "レビューまだ"}</span>
                     )}
@@ -247,6 +259,7 @@ export function PullsView(props: PullsViewProps) {
             onChanged={load}
             onMerged={onMerged}
             onFixLocally={onFixLocally}
+            onOpenRun={onOpenRun}
           />
         ) : (
           <div className="pulls-intro">

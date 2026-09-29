@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { GitHubUser } from "../../lib/types";
 import { withTransition } from "../../lib/motion";
+import { commitChecks, duration, resultOf, runOfCheck, type CommitChecks } from "../../lib/actions";
 import {
   STATUS_LABELS,
   ago,
@@ -25,8 +26,15 @@ import { MergeBox } from "./MergeBox";
 import { PullConversation } from "./PullConversation";
 import { PullFiles, type LineCommentDraft } from "./PullFiles";
 
-type Tab = "conversation" | "files" | "commits";
-const TABS: Tab[] = ["conversation", "files", "commits"];
+type Tab = "conversation" | "files" | "commits" | "checks";
+const TABS: Tab[] = ["conversation", "files", "commits", "checks"];
+
+const STATUS_RESULT: Record<string, { status: string; conclusion: string | null }> = {
+  success: { status: "completed", conclusion: "success" },
+  failure: { status: "completed", conclusion: "failure" },
+  error: { status: "completed", conclusion: "failure" },
+  pending: { status: "in_progress", conclusion: null },
+};
 
 interface PullDetailProps {
   owner: string;
@@ -44,11 +52,13 @@ interface PullDetailProps {
   /** マージした（Issue を読み直す） */
   onMerged: () => void;
   onFixLocally?: (pull: Detail) => void;
+  /** Actions のその実行を開く（チェックの「ログを見る」） */
+  onOpenRun: (runId: number, jobId?: number | null) => void;
 }
 
 /** プルリクの詳細: 見出し・レビューをお願いする人・会話 / 変更されたファイル / コミット */
 export function PullDetail(props: PullDetailProps) {
-  const { owner, repo, number, currentUser, collaborators, info, issueTitle, onOpenIssue, onBack, onChanged, onMerged, onFixLocally } = props;
+  const { owner, repo, number, currentUser, collaborators, info, issueTitle, onOpenIssue, onBack, onChanged, onMerged, onFixLocally, onOpenRun } = props;
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<PullFile[] | null>(null);
@@ -62,6 +72,8 @@ export function PullDetail(props: PullDetailProps) {
   const [editError, setEditError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [reviewerError, setReviewerError] = useState<string | null>(null);
+  const [checks, setChecks] = useState<CommitChecks | null>(null);
+  const [checksError, setChecksError] = useState<string | null>(null);
   const polls = useRef(0);
   const current = useRef(number);
   current.current = number;
@@ -111,6 +123,29 @@ export function PullDetail(props: PullDetailProps) {
     const t = window.setTimeout(loadDetail, 2500);
     return () => window.clearTimeout(t);
   }, [detail, loadDetail]);
+
+  // チェック（ブランチの先頭のコミット）。動いているあいだは読み直す
+  const headSha = detail?.head_sha ?? "";
+  const loadChecks = useCallback(() => {
+    if (!headSha) return;
+    commitChecks(owner, repo, headSha)
+      .then((c) => {
+        setChecks(c);
+        setChecksError(null);
+      })
+      .catch((e) => setChecksError(String(e)));
+  }, [owner, repo, headSha]);
+  useEffect(() => {
+    setChecks(null);
+    setChecksError(null);
+    loadChecks();
+  }, [loadChecks]);
+  const checksPending = !!checks && (checks.checks.some((c) => c.status !== "completed") || checks.statuses.some((s) => s.state === "pending"));
+  useEffect(() => {
+    if (!checksPending) return;
+    const t = window.setInterval(loadChecks, 15000);
+    return () => window.clearInterval(t);
+  }, [checksPending, loadChecks]);
 
   const reload = useCallback(() => {
     loadDetail();
@@ -193,6 +228,16 @@ export function PullDetail(props: PullDetailProps) {
   const candidates = collaborators.filter((c) => c.login !== author && !waiting.includes(c.login));
   const added = files?.reduce((n, f) => n + f.additions, 0) ?? detail.additions;
   const deleted = files?.reduce((n, f) => n + f.deletions, 0) ?? detail.deletions;
+  const failedChecks = checks
+    ? checks.checks.filter((c) => c.status === "completed" && ["failure", "timed_out", "action_required", "startup_failure"].includes(c.conclusion ?? "")).length +
+      checks.statuses.filter((s) => s.state === "failure" || s.state === "error").length
+    : 0;
+  // チェックの「ログを見る」: GitHub Actions なら Actions の画面で、そうでなければ GitHub の画面で
+  const openCheck = (url: string | null | undefined, fallback: string | null | undefined) => {
+    const target = runOfCheck(url);
+    if (target) onOpenRun(target.runId, target.jobId);
+    else if (url || fallback) openUrl((url || fallback)!).catch(() => {});
+  };
 
   return (
     <div className="pr-detail">
@@ -303,6 +348,18 @@ export function PullDetail(props: PullDetailProps) {
           コミット <b>{commits?.length ?? detail.commits}</b>
           {tab === "commits" && <span className="tab-active-bar" />}
         </button>
+        <button type="button" role="tab" aria-selected={tab === "checks"} className={`pr-tab${tab === "checks" ? " on" : ""}`} onClick={() => changeTab("checks")}>
+          チェック{" "}
+          {checks &&
+            (failedChecks > 0 ? (
+              <b className="ng">✖ {failedChecks}</b>
+            ) : checksPending ? (
+              <b className="t-wait">●</b>
+            ) : checks.checks.length + checks.statuses.length > 0 ? (
+              <b className="ok">✔</b>
+            ) : null)}
+          {tab === "checks" && <span className="tab-active-bar" />}
+        </button>
       </div>
 
       <div className="pr-tab-body">
@@ -329,6 +386,8 @@ export function PullDetail(props: PullDetailProps) {
                 onChanged={reload}
                 onMerged={onMerged}
                 onFixLocally={onFixLocally && detail.same_repo ? () => onFixLocally(detail) : undefined}
+                checks={checks}
+                onOpenCheck={openCheck}
               />
             }
           />
@@ -343,6 +402,64 @@ export function PullDetail(props: PullDetailProps) {
             focus={focus}
           />
         )}
+        {tab === "checks" &&
+          (checksError ? (
+            <p className="git-dialog-error">{checksError}</p>
+          ) : !checks ? (
+            <p className="muted">チェックを読み込んでいます…</p>
+          ) : checks.checks.length + checks.statuses.length === 0 ? (
+            <div className="pulls-empty">
+              <p>このコミットには、チェックがありません。</p>
+              <p className="hint">
+                Actions のワークフロー（<code>.github/workflows/*.yml</code>）に <code>pull_request</code> と書いておくと、プルリクのたびにテストなどが動いて、ここに結果が出ます。
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="hint">
+                ブランチの先頭のコミット <code>{detail.head_sha.slice(0, 7)}</code> のチェックです。失敗したものは「ログを見る」で、どこで失敗したかが見られます。
+              </p>
+              <div className="pr-checks">
+                {checks.checks.map((c) => {
+                  const r = resultOf(c);
+                  return (
+                    <div key={c.id} className={`pr-check t-${r.tone}`}>
+                      <span className={`ac-icon t-${r.tone}`} title={r.label}>
+                        {r.icon}
+                      </span>
+                      <span className="pr-check-name">
+                        <b>{c.name}</b> <span className="muted">{c.app ?? ""}</span>
+                        {c.title && <span className="pr-check-title">{c.title}</span>}
+                      </span>
+                      <span className="muted">{duration(c.started_at, c.completed_at)}</span>
+                      <button type="button" className="btn-sm" onClick={() => openCheck(c.details_url, c.html_url)}>
+                        {runOfCheck(c.details_url) ? "ログを見る →" : "開く ↗"}
+                      </button>
+                    </div>
+                  );
+                })}
+                {checks.statuses.map((s) => {
+                  const r = resultOf(STATUS_RESULT[s.state] ?? { status: "completed", conclusion: null });
+                  return (
+                    <div key={s.context} className={`pr-check t-${r.tone}`}>
+                      <span className={`ac-icon t-${r.tone}`} title={r.label}>
+                        {r.icon}
+                      </span>
+                      <span className="pr-check-name">
+                        <b>{s.context}</b>
+                        {s.description && <span className="pr-check-title">{s.description}</span>}
+                      </span>
+                      {s.target_url && (
+                        <button type="button" className="btn-sm" onClick={() => openUrl(s.target_url!).catch(() => {})}>
+                          開く ↗
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ))}
         {tab === "commits" &&
           (commitsError ? (
             <p className="git-dialog-error">{commitsError}</p>

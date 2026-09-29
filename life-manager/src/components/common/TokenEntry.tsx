@@ -68,7 +68,7 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
             GitHub で作る（ブラウザが開きます）
           </button>
           <p className="token-step-note">
-            名前・期限（90 日）・権限（<code>Issues</code>・<code>Pull requests</code>・<code>Contents</code> の読み書き）は入った状態で開きます。自分で選ぶのは
+            名前・期限（90 日）・権限（<code>Issues</code>・<code>Pull requests</code>・<code>Contents</code>・<code>Actions</code> の読み書きなど）は入った状態で開きます。自分で選ぶのは
             <b>「Repository access → Only select repositories」</b>で、使うリポジトリを選ぶことだけ。最後に「Generate token」を押し、出てきたトークン（
             <code>github_pat_…</code>）をコピーします。
           </p>

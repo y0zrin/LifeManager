@@ -413,6 +413,7 @@
     <li><a href="#branches">ブランチ画面</a></li>
     <li><a href="#overview">全体図</a></li>
     <li><a href="#pulls">プルリク</a></li>
+    <li><a href="#actions">Actions</a></li>
     <li><a href="#menus">操作メニューの一覧</a></li>
     <li><a href="#conflict">競合（コンフリクト）したとき</a></li>
     <li><a href="#glossary">git のことば</a></li>
@@ -572,6 +573,8 @@
     <tr><th>Permission</th><th>Access</th><th>使いみち</th></tr>
     <tr><td>Issues</td><td>Read and write</td><td>Issue やコメントの作成・編集・完了</td></tr>
     <tr><td>Pull requests</td><td>Read and write</td><td>プルリクの一覧・作成・レビュー・マージ</td></tr>
+    <tr><td>Actions</td><td>Read and write</td><td>Actions の実行・ログ、もう一度実行・止める・手で実行</td></tr>
+    <tr><td>Commit statuses・Dependabot alerts・Code scanning alerts</td><td>Read-only</td><td>プルリクのチェック（外の CI）、セキュリティのお知らせ</td></tr>
     <tr><td>Contents</td><td>Read and write</td><td>ルーチン・通知・ボードの設定、日誌、Issue テンプレートの保存</td></tr>
     <tr><td>Metadata</td><td>Read（自動で付きます）</td><td>リポジトリの情報を読む</td></tr>
   </table>
@@ -597,13 +600,14 @@
     <tr><td>🔄 ルーチン</td><td>毎日・毎週・毎月、自動で Issue を作る設定</td></tr>
     <tr><td>📅 日誌</td><td>日ごとの活動の記録</td></tr>
     <tr><td>📐 ガント</td><td>マイルストーンの中の Issue を、日程の帯で見る</td></tr>
-    <tr><td rowspan="3">リポジトリ</td><td>🌿 ブランチ</td><td>ブランチごとのコミットの履歴</td></tr>
+    <tr><td rowspan="4">リポジトリ</td><td>🌿 ブランチ</td><td>ブランチごとのコミットの履歴</td></tr>
     <tr><td>🗺️ 全体図</td><td>ブランチがどこから分かれ、いつ合流したかの図</td></tr>
     <tr><td>🔃 プルリク</td><td>プルリクの一覧・会話・変更されたファイル・レビュー・マージ（「<a href="#pulls">プルリク</a>」）</td></tr>
+    <tr><td>▶️ Actions</td><td>テストやビルドの失敗・セキュリティのお知らせを、直す順に積んで見る（「<a href="#actions">Actions</a>」）</td></tr>
     <tr><td></td><td>⚙️ 設定</td><td>接続・ラベル・通知・表示などの設定</td></tr>
   </table>
   </div>
-  <p>「Actions」「リリース」は、これから追加する予定の画面です。</p>
+  <p>「リリース」は、これから追加する予定の画面です。</p>
   <h3>画面の動き</h3>
   <p>画面は、動いた向きに合わせて動きます（設定 → 表示 の「画面の動き」で少なめにもできます）。画面ごとに色があり、サイドバーの印と上の題の線がその色になります（タスクは青、ボードは緑、マイルストーンは紫 など）。</p>
   <div class="table-wrap">
@@ -960,6 +964,7 @@ git push -u origin main</div>
     <tr><td>会話</td><td>説明・変更されたファイルの要約・コメント・レビュー（行に付いたコメントも）・コミットを足した・マージした などの出来事が、時間の順に出ます。いちばん下に、書く欄とマージの箱があります。</td></tr>
     <tr><td>変更されたファイル</td><td><b>どのファイルを、どう変えたか</b>。左にファイルの一覧（追加・変更・削除・名前、<code>+12 −3</code>）、右にファイルごとの差分が行番号つきで出ます。<span class="ui">1 列</span>（消した行は赤・足した行は緑）と <span class="ui">左右に並べる</span>（左が変える前・右が変えたあと）を切り替えられます。見終わったファイルに <span class="ui">見た</span> の印を付けると、たたんでおけます（そのファイルの差分が変わると外れます）。</td></tr>
     <tr><td>コミット</td><td>このプルリクに入るコミット（古い順）。押すと、そのコミットで変えたファイルと差分が開きます。</td></tr>
+    <tr><td>チェック</td><td>ブランチの先頭のコミットのチェック（Actions のテスト・ビルド、外の CI）。失敗したものは <span class="ui">ログを見る →</span> で、Actions のそのジョブのログが開きます（「<a href="#actions">Actions</a>」）。</td></tr>
   </table>
   </div>
 
@@ -1007,6 +1012,49 @@ git push -u origin main</div>
 
   <h3>作業タブの流れとのつながり</h3>
   <p>作業タブの流れは <b>Issue → ブランチ → 変更 → コミット → プッシュ → プルリク → マージ → 完了</b> です。ブランチをプッシュすると <span class="ui">プルリクを作る…</span>、プルリクを出すと <span class="ui">#12 を開く（レビュー・マージ）</span>、マージされると <span class="ui">完了</span> と <span class="ui">main に戻って最新にする</span>（<code>git switch main</code> → <code>git pull</code>）が出ます。既定のブランチ（<code>main</code>）で直接コミットしたときは、プルリク・マージの段はとばします。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="actions">
+  <h2>Actions</h2>
+  <p>Actions は、プッシュやプルリクのたびに、GitHub がテストやビルドを自動で動かすしくみです（<code>.github/workflows/*.yml</code> に書きます）。サイドバーの <span class="ui">▶️ Actions</span> では、<b>直さなければいけないものを、直す順に積んで</b>見せます。サイドバーの赤い数は、🔴 すぐ直す と 🟠 早めに の数です。</p>
+  <div class="box hint">
+    <span class="label">はじめに 1 回（持ち主・リーダー）</span>
+    <p>「GitHub でログイン」で使うときは、GitHub の Life Manager に「Actions」（Read and write）・「Checks」「Commit statuses」（Read-only）・「Dependabot alerts」「Code scanning alerts」（Read-only）の権限がいります。持ち主が、GitHub の Installed GitHub Apps → Life Manager App で権限の更新を承認します。</p>
+  </div>
+
+  <h3>解決する順の山</h3>
+  <p>1 枚のカードは、<b>ワークフロー × ブランチの最後の結果</b>です（取り消した・とばした実行は見ません）。上ほど急ぎで、いちばん上の帯で、色ごとの件数がひと目でわかります。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>色</th><th>入るもの</th><th>そうする理由</th></tr>
+    <tr><td>🔴 すぐ直す</td><td>既定のブランチ（<code>main</code>）・保護されたブランチの失敗、セキュリティ「重大」</td><td>みんなが使うブランチ。壊れていると全員の作業とリリースに響く</td></tr>
+    <tr><td>🟠 早めに</td><td>開いているプルリクのブランチの失敗、セキュリティ「高」</td><td>マージが止まり、レビューする人を待たせている</td></tr>
+    <tr><td>🟡 手が空いたら</td><td>プルリクのないブランチの失敗、セキュリティ「中・低」</td><td>まだ作業中で、その人の手元の問題</td></tr>
+    <tr><td>● 待つだけ</td><td>実行中・順番待ち</td><td>終わると、山のどこかに入るか消える</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>同じ失敗が続くと、カードを重ねて <b>×3 続けて</b> のように出します。同じ色の中は、長く直っていないもの（失敗し始めたのが古いもの）ほど上です。</li>
+    <li>直してプッシュすると自動でもう一度動き、成功すると山から消えます。直前まで失敗していたものは、24 時間「✔ 直りました」と出ます。最後の結果が成功のものは <span class="ui">✔ 問題なし</span> にまとめます（押すと一覧）。</li>
+    <li>消したブランチ・30 日以上動いていないブランチ・フォークから来た実行は、山に入れません。</li>
+    <li>セキュリティのお知らせ（Dependabot: 古くて危ないライブラリ、コードスキャン: 危ない書き方）も同じ山に入ります。使っていないときは、有効にする場所を案内します。</li>
+  </ul>
+
+  <h3>カードの中身</h3>
+  <p>カードを押すと、右に中身が出ます（広い窓では、はじめからいちばん上のカード）。</p>
+  <ul>
+    <li><b>何をすればよいか</b>: ログの赤い行を見る → この PC で同じコマンド（<code>npm test</code> など、失敗した手順から読みます）を動かす → 直してコミット・プッシュ、の順に書いてあります。</li>
+    <li><b>ジョブとステップ</b>: 失敗したジョブを開き、失敗したステップのログを、<b>エラーのまわりだけ</b>出します（赤い行が手がかり）。<span class="ui">ログをすべて見る</span> で全部。</li>
+    <li><span class="ui">↻ 失敗したものをもう一度</span>・<span class="ui">↻ すべてもう一度</span>・<span class="ui">■ 止める</span>（動いているとき）・<span class="ui">GitHub で開く</span>。ネットの不調など、たまたまの失敗はもう一度で直ることがあります。</li>
+    <li>セキュリティのカードは、ライブラリ・書いてあるファイル・危ない版・直った版と、直し方（Dependabot のプルリクがあればそれ、なければ上げるコマンドの例）が出ます。</li>
+  </ul>
+
+  <h3>すべての実行・ワークフロー・手で実行</h3>
+  <p><span class="ui">すべての実行</span> で、新しい順の一覧（ワークフロー・ブランチ・結果で絞れます）。<span class="ui">ワークフロー</span> で、ワークフローのファイルと、既定のブランチの最後の結果。ファイルに <code>workflow_dispatch</code> と書いてあるワークフローは、<span class="ui">▶ 手で実行</span> で、ブランチと入力（ファイルに書いた inputs）を決めて動かせます。</p>
+
+  <h3>プルリクのチェック</h3>
+  <p>プルリクの一覧に <span class="ui">✔ チェック</span>・<span class="ui">✖ チェック 1</span>・<span class="ui">● チェック中</span>、詳細に <span class="ui">チェック</span> のタブが出ます。マージの箱には「⚠ 失敗したチェックがあります」と出て、<span class="ui">ログを見る →</span> で Actions のそのカードとジョブが開きます（外の CI の結果は、その CI の画面が開きます）。作業タブの流れの「マージ」の段にも ✖ チェック と出ます。</p>
 </section>
 
 <!-- ============================================================ -->

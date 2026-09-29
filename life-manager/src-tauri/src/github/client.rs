@@ -952,6 +952,90 @@ impl GitHubClient {
         return Ok(json["data"].clone());
     }
 
+    // --- Actions・チェック・セキュリティ ---
+
+    /// ワークフローの実行（新しい順に 100 件）
+    pub async fn list_runs(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/runs?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    pub async fn list_workflows(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/workflows?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// 1 つの実行のジョブとステップ（もう一度動かしたときは、最後の分だけ）
+    pub async fn list_run_jobs(&self, owner: &str, repo: &str, run_id: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/runs/{}/jobs?per_page=100&filter=latest", BASE_URL, owner, repo, run_id);
+        return self.get(&url).await;
+    }
+
+    /// ジョブのログ（ただの文字。GitHub は別の場所へ案内するので、そこから読む）
+    pub async fn job_log(&self, owner: &str, repo: &str, job_id: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/jobs/{}/logs", BASE_URL, owner, repo, job_id);
+        return self.get(&url).await;
+    }
+
+    /// もう一度動かす（failed_only なら失敗したジョブだけ）
+    pub async fn rerun_run(&self, owner: &str, repo: &str, run_id: u64, failed_only: bool) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/actions/runs/{}/{}",
+            BASE_URL,
+            owner,
+            repo,
+            run_id,
+            if failed_only { "rerun-failed-jobs" } else { "rerun" }
+        );
+        return self.post(&url, &serde_json::json!({})).await;
+    }
+
+    pub async fn cancel_run(&self, owner: &str, repo: &str, run_id: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/runs/{}/cancel", BASE_URL, owner, repo, run_id);
+        return self.post(&url, &serde_json::json!({})).await;
+    }
+
+    /// 手で実行（workflow_dispatch）。git_ref はブランチの名前
+    pub async fn dispatch_workflow(&self, owner: &str, repo: &str, workflow_id: u64, git_ref: &str, inputs: &serde_json::Value) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/workflows/{}/dispatches", BASE_URL, owner, repo, workflow_id);
+        return self.post(&url, &serde_json::json!({ "ref": git_ref, "inputs": inputs })).await;
+    }
+
+    /// 保護ルールのあるブランチ
+    pub async fn list_protected_branches(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/branches?protected=true&per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls?state=open&per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// Dependabot のお知らせ（開いているもの）
+    pub async fn dependabot_alerts(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/dependabot/alerts?state=open&per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// コードスキャンのお知らせ（開いているもの）
+    pub async fn code_scanning_alerts(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/code-scanning/alerts?state=open&per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// コミットのチェック（Actions などが付ける結果）
+    pub async fn check_runs(&self, owner: &str, repo: &str, sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/commits/{}/check-runs?per_page=100", BASE_URL, owner, repo, sha);
+        return self.get(&url).await;
+    }
+
+    /// コミットの状態（外の CI などが付ける結果）
+    pub async fn commit_status(&self, owner: &str, repo: &str, sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/commits/{}/status", BASE_URL, owner, repo, sha);
+        return self.get(&url).await;
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {

@@ -14,6 +14,7 @@ import {
   type PullDetail,
   type PullRepoInfo,
 } from "../../lib/pulls";
+import type { CommitChecks } from "../../lib/actions";
 
 const METHOD_KEY = "pull-merge-method";
 
@@ -31,6 +32,9 @@ interface MergeBoxProps {
   onMerged?: () => void;
   /** 競合を、この PC の作業フォルダで直す（作業フォルダがあるときだけ） */
   onFixLocally?: () => void;
+  /** ブランチの先頭のコミットのチェック（読めないときは null） */
+  checks: CommitChecks | null;
+  onOpenCheck: (url: string | null | undefined, fallback: string | null | undefined) => void;
 }
 
 function loadMethod(): MergeMethod {
@@ -43,7 +47,7 @@ function loadMethod(): MergeMethod {
 }
 
 /** マージの箱（会話のいちばん下）。マージできるか・レビューの判断・マージの仕方・閉じる。マージしたあとは、ブランチの片づけ */
-export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChanged, onMerged, onFixLocally }: MergeBoxProps) {
+export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChanged, onMerged, onFixLocally, checks, onOpenCheck }: MergeBoxProps) {
   const [method, setMethodState] = useState<MergeMethod>(loadMethod);
   const [deleteBranch, setDeleteBranch] = useState(true);
   const [confirming, setConfirming] = useState<"merge" | "close" | null>(null);
@@ -218,6 +222,14 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
   }
 
   const blocked = pull.draft || checking || conflict;
+  const FAILED = ["failure", "timed_out", "action_required", "startup_failure"];
+  const failedChecks = checks
+    ? [
+        ...checks.checks.filter((c) => c.status === "completed" && FAILED.includes(c.conclusion ?? "")).map((c) => ({ name: c.name, url: c.details_url, fallback: c.html_url })),
+        ...checks.statuses.filter((s) => s.state === "failure" || s.state === "error").map((s) => ({ name: s.context, url: s.target_url, fallback: s.target_url })),
+      ]
+    : [];
+  const pendingChecks = checks ? checks.checks.filter((c) => c.status !== "completed").length + checks.statuses.filter((s) => s.state === "pending").length : 0;
   const help = methodHelp(chosen, pull.head, pull.base);
 
   return (
@@ -240,6 +252,23 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           <div className="muted">{status.text}</div>
         </div>
       </div>
+      {failedChecks.length > 0 && (
+        <div className="mb-checks">
+          <b className="ng">⚠ 失敗したチェックがあります</b>
+          {failedChecks.slice(0, 4).map((c) => (
+            <span key={c.name} className="mb-check-item">
+              ✖ {c.name}
+              <button type="button" className="btn-sm" onClick={() => onOpenCheck(c.url, c.fallback)}>
+                ログを見る →
+              </button>
+            </span>
+          ))}
+          <span className="muted">
+            {state === "blocked" ? "保護ルールで、チェックの成功が決まっています。直すまでマージできません。" : "マージはできますが、先に直すと安心です。"}
+          </span>
+        </div>
+      )}
+      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）。終わってからマージすると安心です。</p>}
       {conflict && onFixLocally && (
         <div className="mb-row">
           <span>この PC の作業フォルダで取り込むと、作業タブの「競合を直す」で直せます。</span>

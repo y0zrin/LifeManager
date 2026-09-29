@@ -25,6 +25,8 @@ import { WorkView, EMPTY_DRAFT, type CommitDraft } from "./components/views/Work
 import { BranchesView } from "./components/views/BranchesView";
 import { OverviewView } from "./components/views/OverviewView";
 import { PullsView } from "./components/views/PullsView";
+import { ActionsView } from "./components/views/ActionsView";
+import { useActions } from "./hooks/useActions";
 import type { PullDetail } from "./lib/pulls";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
@@ -76,10 +78,10 @@ const REPO_ITEMS: NavItem[] = [
   { key: "branches", icon: "🌿", label: "ブランチ" },
   { key: "overview", icon: "🗺️", label: "全体図" },
   { key: "pulls", icon: "🔃", label: "プルリク" },
+  { key: "actions", icon: "▶️", label: "Actions" },
 ];
 // これから作る画面（サイドバーに「予定」として見せておく）
 const PLANNED_REPO_ITEMS = [
-  { icon: "▶️", label: "Actions" },
   { icon: "🏷️", label: "リリース" },
 ];
 const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
@@ -535,6 +537,14 @@ function App() {
     setPullCreate({ head, issue });
     setView("pulls");
   }, [setView]);
+  // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
+  const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions");
+  const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);
+  const clearActionsFocus = useCallback(() => setActionsFocus(null), []);
+  const openRun = useCallback((runId: number, jobId?: number | null) => {
+    setActionsFocus({ runId, jobId });
+    setView("actions");
+  }, [setView]);
   // プルリクの競合を、この PC の作業フォルダで直す: 最新を取ってきて、そのブランチで入れる先を取り込む → 作業タブの「競合を直す」へ
   const fixPullLocally = useCallback(async (p: PullDetail) => {
     const st = git.status;
@@ -562,6 +572,7 @@ function App() {
     setFocusCommit(null);
     setPullSelected(null);
     setPullCreate(null);
+    setActionsFocus(null);
   }, [gh.owner, gh.repo]);
 
   // 全体図の点をクリック: そのコミットを積み重ねてきたブランチのページで、そのコミットへ寄る
@@ -671,6 +682,8 @@ function App() {
     // 作業には、作業中の変更があるファイルの数を出す（競合しているあいだは ⚠ を出す）
     const count = item.key === "work" ? git.status?.files.length ?? 0 : 0;
     const conflicted = item.key === "work" && !!git.status?.conflicted;
+    // Actions には、すぐ直す・早めに直すものの数
+    const urgent = item.key === "actions" ? actions.urgent : 0;
     return (
       <button
         key={item.key}
@@ -680,13 +693,22 @@ function App() {
           setView(item.key);
           setSidebarPeek(false);
         }}
-        title={conflicted ? `${item.label}（競合しています）` : count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
+        title={
+          conflicted
+            ? `${item.label}（競合しています）`
+            : count > 0
+              ? `${item.label}（作業中の変更 ${count}）`
+              : urgent > 0
+                ? `${item.label}（すぐ・早めに直すもの ${urgent}）`
+                : item.label
+        }
       >
         {/* 選んでいる画面の印（画面を切り替えると、次の画面の印まですべって移る） */}
         {view === item.key && <span className="sidebar-active-bg" aria-hidden="true" />}
         <span className="sidebar-icon">{item.icon}</span>
         <span className="sidebar-label">{item.label}</span>
         {conflicted ? <span className="sidebar-conflict">⚠ 競合</span> : count > 0 && <span className="sidebar-count">{count}</span>}
+        {urgent > 0 && <span className="sidebar-alert">{urgent}</span>}
       </button>
     );
   }
@@ -973,6 +995,19 @@ function App() {
               onMerged={gh.loadAll}
               onFixLocally={folder && git.status ? fixPullLocally : undefined}
               localBranch={git.status?.branch ?? null}
+              onOpenRun={openRun}
+            />
+          )}
+
+          {/* Actions */}
+          {view === "actions" && gh.connected && (
+            <ActionsView
+              owner={gh.owner}
+              repo={gh.repo}
+              actions={actions}
+              onOpenPull={openPull}
+              focus={actionsFocus}
+              onFocusHandled={clearActionsFocus}
             />
           )}
 

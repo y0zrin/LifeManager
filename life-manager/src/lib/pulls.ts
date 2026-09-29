@@ -38,6 +38,8 @@ export interface PullSummary {
   html_url: string;
   /** 作業の流れで読んだとき（開いているものだけ） */
   verdicts?: Verdicts;
+  /** 作業の流れで読んだとき: チェックのまとめ（Checks の権限がなければ無い） */
+  checks?: { success: number; failure: number; pending: number };
 }
 
 /** 行に付けたコメント */

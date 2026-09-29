@@ -571,13 +571,7 @@ impl GitHubClient {
                 break;
             }
 
-            let response = self
-                .http
-                .get(&current_url)
-                .headers(self.build_headers().await)
-                .send()
-                .await
-                .map_err(network_error)?;
+            let response = self.send(self.http.get(&current_url)).await?;
 
             // Linkヘッダーから次ページURLを抽出
             let link_header = response
@@ -672,13 +666,7 @@ impl GitHubClient {
 
     /// 状態・ヘッダ・本文をそのまま返す GET（トークンの確認で、期限のヘッダや 404・403 を見分けるため）。path は /user などの API のパス
     pub async fn get_raw(&self, path: &str) -> Result<(u16, HeaderMap, String), String> {
-        let response = self
-            .http
-            .get(format!("{}{}", BASE_URL, path))
-            .headers(self.build_headers().await)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.get(format!("{}{}", BASE_URL, path))).await?;
         let status = response.status().as_u16();
         let headers = response.headers().clone();
         let body = response.text().await.map_err(network_error)?;
@@ -734,11 +722,11 @@ impl GitHubClient {
 
     /// 状態と本文をそのまま返す（招待の結果を、状態で見分けるため）。path は /repos/... などの API のパス
     async fn send_raw(&self, method: reqwest::Method, path: &str, payload: Option<&serde_json::Value>) -> Result<(u16, String), String> {
-        let mut request = self.http.request(method, format!("{}{}", BASE_URL, path)).headers(self.build_headers().await);
+        let mut request = self.http.request(method, format!("{}{}", BASE_URL, path));
         if let Some(p) = payload {
             request = request.json(p);
         }
-        let response = request.send().await.map_err(network_error)?;
+        let response = self.send(request).await?;
         let status = response.status().as_u16();
         let body = response.text().await.map_err(network_error)?;
         Ok((status, body))
@@ -1128,11 +1116,11 @@ impl GitHubClient {
             .timeout(std::time::Duration::from_secs(600))
             .build()
             .map_err(|e| e.to_string())?;
-        let mut headers = self.build_headers().await;
+        let mut request = http.post(&url).body(bytes);
         if let Ok(value) = HeaderValue::from_str(content_type) {
-            headers.insert(reqwest::header::CONTENT_TYPE, value);
+            request = request.header(reqwest::header::CONTENT_TYPE, value);
         }
-        let response = http.post(&url).headers(headers).body(bytes).send().await.map_err(network_error)?;
+        let response = self.send(request).await?;
         let status = response.status();
         let body = response.text().await.map_err(network_error)?;
         if !status.is_success() {
@@ -1162,13 +1150,7 @@ impl GitHubClient {
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {
-        let response = self
-            .http
-            .get(url)
-            .headers(self.build_headers().await)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.get(url)).await?;
 
         let status = response.status();
         let body = response.text().await.map_err(network_error)?;
@@ -1179,14 +1161,7 @@ impl GitHubClient {
     }
 
     async fn post(&self, url: &str, payload: &serde_json::Value) -> Result<String, String> {
-        let response = self
-            .http
-            .post(url)
-            .headers(self.build_headers().await)
-            .json(payload)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.post(url).json(payload)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1201,14 +1176,7 @@ impl GitHubClient {
         url: &str,
         payload: &serde_json::Map<String, serde_json::Value>,
     ) -> Result<String, String> {
-        let response = self
-            .http
-            .patch(url)
-            .headers(self.build_headers().await)
-            .json(payload)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.patch(url).json(payload)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1219,14 +1187,7 @@ impl GitHubClient {
     }
 
     async fn patch_json(&self, url: &str, payload: &serde_json::Value) -> Result<String, String> {
-        let response = self
-            .http
-            .patch(url)
-            .headers(self.build_headers().await)
-            .json(payload)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.patch(url).json(payload)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1237,13 +1198,7 @@ impl GitHubClient {
     }
 
     async fn delete(&self, url: &str) -> Result<String, String> {
-        let response = self
-            .http
-            .delete(url)
-            .headers(self.build_headers().await)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.delete(url)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1255,14 +1210,7 @@ impl GitHubClient {
 
     /// 送る中身のある DELETE（サブイシューを外すときなど）
     async fn delete_json(&self, url: &str, payload: &serde_json::Value) -> Result<String, String> {
-        let response = self
-            .http
-            .delete(url)
-            .headers(self.build_headers().await)
-            .json(payload)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.delete(url).json(payload)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1273,14 +1221,7 @@ impl GitHubClient {
     }
 
     async fn put(&self, url: &str, payload: &serde_json::Value) -> Result<String, String> {
-        let response = self
-            .http
-            .put(url)
-            .headers(self.build_headers().await)
-            .json(payload)
-            .send()
-            .await
-            .map_err(network_error)?;
+        let response = self.send(self.http.put(url).json(payload)).await?;
 
         let status = response.status();
         let result = response.text().await.map_err(network_error)?;
@@ -1290,9 +1231,25 @@ impl GitHubClient {
         return Ok(result);
     }
 
-    async fn build_headers(&self) -> HeaderMap {
+    /// 送る。ログインの鍵が GitHub に断られた（401）ときは、鍵を新しくして 1 回だけ送り直す
+    /// （鍵は期限の前でも、アプリの権限が変わった・取り消された、などで使えなくなることがある）
+    async fn send(&self, request: reqwest::RequestBuilder) -> Result<reqwest::Response, String> {
+        let token = self.current_token().await;
+        let again = if self.follow_default { request.try_clone() } else { None };
+        let response = request.headers(Self::headers_for(&token)).send().await.map_err(network_error)?;
+        if response.status() != reqwest::StatusCode::UNAUTHORIZED {
+            return Ok(response);
+        }
+        let Some(again) = again else { return Ok(response) };
+        match crate::tokens::recover_rejected(&token).await {
+            Some(fresh) => again.headers(Self::headers_for(&fresh)).send().await.map_err(network_error),
+            None => Ok(response),
+        }
+    }
+
+    fn headers_for(token: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        let auth = format!("Bearer {}", self.current_token().await);
+        let auth = format!("Bearer {}", token);
         // トークンに使えない文字（全角など）が混じっていても落ちないように（そのときは認証なしで送り、401 になる）
         if let Ok(value) = HeaderValue::from_str(&auth) {
             headers.insert(AUTHORIZATION, value);

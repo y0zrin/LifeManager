@@ -176,6 +176,54 @@ export interface TokenOverview {
 }
 
 export const tokenOverview = () => invoke<TokenOverview>("token_overview");
+
+/** 最後にログインの鍵を新しくしようとした記録（鍵そのものは来ない） */
+export interface RefreshNote {
+  /** UNIX 秒 */
+  at: number;
+  /** due: 期限が近い / rejected: GitHub に断られた（期限の前に使えなくなった） */
+  why: "due" | "rejected";
+  /** rejected: 更新の鍵も使えない / network: GitHub に届かなかった / no_refresh・no_record: 新しくするための記録がない */
+  result: "ok" | "rejected" | "network" | "no_refresh" | "no_record";
+  message: string | null;
+}
+
+/** ログインの鍵のようす（期限・前に新しくした結果） */
+export interface LoginStatus {
+  /** 「GitHub でログイン」の鍵（トークンを貼ったときは false） */
+  login: boolean;
+  /** 今の鍵が切れる時（UNIX 秒） */
+  expires_at: number | null;
+  can_refresh: boolean;
+  refresh_expires_at: number | null;
+  valid_until: number | null;
+  last_refresh: RefreshNote | null;
+}
+
+export const loginStatus = () => invoke<LoginStatus>("login_status");
+
+const clock = (secs: number) => {
+  const d = new Date(secs * 1000);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+/** 設定 → トークン に出す、ログインの鍵のひとこと（ログインの鍵でなければ null） */
+export function keyNoteOf(status: LoginStatus | null): { tone: "ok" | "warn"; text: string; detail?: string } | null {
+  if (!status || (!status.login && !status.last_refresh)) return null;
+  const last = status.last_refresh;
+  if (last && last.result !== "ok") {
+    const when = clock(last.at);
+    const detail = last.message ?? undefined;
+    if (last.result === "network") return { tone: "warn", text: `鍵を新しくできませんでした（${when}・GitHub に届きませんでした）。つながったら、自動でもう一度試します`, detail };
+    if (last.result === "rejected") return { tone: "warn", text: `鍵を新しくできませんでした（${when}・期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください`, detail };
+    return { tone: "warn", text: `鍵を新しくするための記録がありません（${when}）。もう一度ログインしてください`, detail };
+  }
+  if (!status.login || !status.expires_at) return null;
+  return {
+    tone: "ok",
+    text: `今の鍵は ${clock(status.expires_at)} まで（その前に自動で新しくなります${last ? `・前に新しくした ${clock(last.at)}${last.why === "rejected" ? "（GitHub に断られたため）" : ""}` : ""}）`,
+  };
+}
 export const setDefaultToken = (token: string) => invoke<string>("set_token", { token });
 export const setProjectToken = (owner: string, repo: string, token: string) => invoke<string>("set_project_token", { owner, repo, token });
 export const clearProjectToken = (owner: string, repo: string) => invoke<string>("clear_project_token", { owner, repo });

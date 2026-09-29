@@ -9,12 +9,15 @@ import {
   clearProjectToken,
   expiryOf,
   EXPIRY_WARN_DAYS,
+  keyNoteOf,
   KIND_LABELS,
+  loginStatus,
   setDefaultToken,
   setProjectToken,
   SIGNED_OUT_STORE,
   tokenOverview,
   type Installation,
+  type LoginStatus,
   type TokenOverview,
   type TokenReport,
 } from "../../lib/auth";
@@ -69,6 +72,8 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
   const [confirmOut, setConfirmOut] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [checkedAt, setCheckedAt] = useState<Date | null>(null);
+  // ログインの鍵のようす（確かめるときに鍵を新しくすることがあるので、確かめたあとに読む）
+  const [keyStatus, setKeyStatus] = useState<LoginStatus | null>(null);
 
   useEffect(() => {
     authClientId().then(setClientId).catch(() => {});
@@ -83,9 +88,11 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
     if (ov?.has_default) {
       checkToken({ repos: [] })
         .then((report) => setMine({ loading: false, report }))
-        .catch((e) => setMine({ loading: false, error: String(e) }));
+        .catch((e) => setMine({ loading: false, error: String(e) }))
+        .finally(() => loginStatus().then(setKeyStatus).catch(() => {}));
     } else {
       setMine({ loading: false });
+      loginStatus().then(setKeyStatus).catch(() => {});
     }
     // プロジェクトごとに、そのプロジェクトで使うトークンで確かめる（順に）
     setChecks({});
@@ -127,6 +134,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
   const expiry = mine.report ? expiryOf(mine.report) : null;
   // 「GitHub でログイン」（選んだリポジトリだけ・鍵は 8 時間ごとに新しくなる）
   const byLogin = mine.report?.kind === "app";
+  const keyNote = keyNoteOf(keyStatus);
 
   // Life Manager App を入れてある先（初回は「使用するリポジトリを選ぶ」、あれば「リポジトリを追加する」）
   const loadInstallations = useCallback(async () => {
@@ -178,8 +186,13 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         {mine.report && (
           <div className="token-card-sub">
             {expiry ? `期限 ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）` : "期限なし"}
-            {byLogin && " ・ 鍵は 8 時間ごとに自動で新しくなります"}
             {checkedAt && ` ・ 確かめた日時 ${checkedAt.getMonth() + 1}/${checkedAt.getDate()} ${String(checkedAt.getHours()).padStart(2, "0")}:${String(checkedAt.getMinutes()).padStart(2, "0")}`}
+          </div>
+        )}
+        {keyNote && (
+          <div className={`token-card-sub${keyNote.tone === "warn" ? " token-card-sub--warn" : ""}`} title={keyNote.detail}>
+            {keyNote.tone === "warn" ? "⚠ " : "🔑 "}
+            {keyNote.text}
           </div>
         )}
         {byLogin && installUrl && mine.report && (

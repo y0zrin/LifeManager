@@ -11,6 +11,8 @@ const DEFAULT_KEY: &str = "github-token";
 const LOGIN_KEY: &str = "github-login";
 /// この PC で使う期限が来て、鍵を消した（次の最初の画面で知らせる）
 const EXPIRED_NOTICE_KEY: &str = "login-expired";
+/// 最後に鍵を新しくしようとした記録（鍵そのものは入れない）
+const REFRESH_NOTE_KEY: &str = "login-refresh-note";
 
 fn project_key(owner: &str, repo: &str) -> String {
     format!("project-token-{}/{}", owner, repo)
@@ -61,6 +63,7 @@ pub fn set_default(token: &str) -> Result<(), String> {
 pub fn clear_default() {
     delete(DEFAULT_KEY);
     delete(LOGIN_KEY);
+    delete(REFRESH_NOTE_KEY);
 }
 
 pub fn set_project(owner: &str, repo: &str, token: &str) -> Result<(), String> {
@@ -168,6 +171,7 @@ fn save_record(tokens: &auth::Tokens, record: &LoginRecord) -> Result<(), String
 pub fn save_login(tokens: &auth::Tokens, days: Option<u32>) -> Result<(), String> {
     let now = now();
     delete(EXPIRED_NOTICE_KEY);
+    delete(REFRESH_NOTE_KEY);
     save_record(tokens, &record_of(tokens, now, days.map(|d| now + d as i64 * 86400)))
 }
 
@@ -201,21 +205,145 @@ pub async fn fresh_default() -> Option<String> {
             expire_login();
             None
         }
-        Freshness::Refresh => {
-            let refresh_token = record.refresh_token.clone()?;
-            match auth::refresh(&refresh_token).await {
-                Ok(tokens) => {
-                    let _ = save_record(&tokens, &record_of(&tokens, now(), record.valid_until));
-                    Some(tokens.access_token)
-                }
-                Err(auth::RefreshError::Rejected(_)) => {
-                    expire_login();
-                    None
-                }
-                // 通信できないときは今の鍵のまま（まだ切れていなければ使える。オフラインなら送信待ちになる）
-                Err(auth::RefreshError::Network(_)) => default_token(),
+        Freshness::Refresh => match refresh_now(&record, "due").await {
+            Refreshed::New(token) => Some(token),
+            Refreshed::Rejected => None,
+            // 通信できないときは今の鍵のまま（まだ切れていなければ使える。オフラインなら送信待ちになる）
+            Refreshed::Network | Refreshed::Missing => default_token(),
+        },
+    }
+}
+
+/// ログインの鍵が GitHub に断られた（401）とき。鍵は期限の前でも、アプリの権限が変わった・取り消された、などで使えなくなることがある。
+/// ほかで新しくしていればそれを、まだなら更新の鍵で新しくして返す（送り直す鍵）。新しくできなければ None
+/// （更新の鍵も断られたら、ログインの鍵を消す＝ログインし直し）
+pub async fn recover_rejected(used: &str) -> Option<String> {
+    let _guard = REFRESHING.lock().await;
+    let current = default_token()?;
+    if current != used {
+        return Some(current);
+    }
+    let Some(record) = login_record() else {
+        // ログインの鍵なのに記録がない（新しくできない）。わけを残す（何度も書かない）
+        if kind_of(used) == "app" && last_refresh().is_none_or(|n| n.result != "no_record") {
+            note_refresh("rejected", "no_record", None);
+        }
+        return None;
+    };
+    // 新しくしたばかりの鍵も断られたなら、何度も新しくしない
+    if last_refresh().is_some_and(|n| n.result == "ok" && now() - n.at < 60) {
+        return None;
+    }
+    match refresh_now(&record, "rejected").await {
+        Refreshed::New(token) => Some(token),
+        _ => None,
+    }
+}
+
+enum Refreshed {
+    New(String),
+    /// 更新の鍵も断られた（ログインの鍵を消した）
+    Rejected,
+    /// GitHub に届かなかった
+    Network,
+    /// 更新の鍵がない
+    Missing,
+}
+
+/// 更新の鍵で新しくして、しまう（REFRESHING を持っているときに呼ぶ）。why は、なぜ新しくするか（due: 期限が近い / rejected: 断られた）
+async fn refresh_now(record: &LoginRecord, why: &str) -> Refreshed {
+    let Some(refresh_token) = record.refresh_token.clone() else {
+        note_refresh(why, "no_refresh", None);
+        return Refreshed::Missing;
+    };
+    match auth::refresh(&refresh_token).await {
+        Ok(tokens) => {
+            let saved = save_record(&tokens, &record_of(&tokens, now(), record.valid_until));
+            note_refresh(why, "ok", saved.err().map(|e| format!("新しい鍵をしまえませんでした: {}", e)));
+            Refreshed::New(tokens.access_token)
+        }
+        Err(auth::RefreshError::Rejected(message)) => {
+            expire_login();
+            note_refresh(why, "rejected", Some(message));
+            Refreshed::Rejected
+        }
+        Err(auth::RefreshError::Network(message)) => {
+            note_refresh(why, "network", Some(message));
+            Refreshed::Network
+        }
+    }
+}
+
+/// 鍵を新しくしようとした記録（鍵そのものは入れない。うまくいかないときに、設定の画面でわけを出す）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RefreshNote {
+    /// 時（UNIX 秒）
+    pub at: i64,
+    /// なぜ新しくしたか: due（期限が近い）/ rejected（GitHub に断られた）
+    pub why: String,
+    /// ok / rejected（更新の鍵も使えない。ログインし直し）/ network（届かなかった）/ no_refresh（更新の鍵がない）/ no_record（ログインの記録がない）
+    pub result: String,
+    pub message: Option<String>,
+}
+
+fn note_refresh(why: &str, result: &str, message: Option<String>) {
+    let note = RefreshNote { at: now(), why: why.into(), result: result.into(), message: message.map(|m| without_tokens(&m)) };
+    if let Ok(json) = serde_json::to_string(&note) {
+        let _ = write(REFRESH_NOTE_KEY, &json);
+    }
+}
+
+/// 最後に鍵を新しくしようとした記録
+pub fn last_refresh() -> Option<RefreshNote> {
+    serde_json::from_str(&read(REFRESH_NOTE_KEY)?).ok()
+}
+
+/// 記録に残す文から、トークンらしいもの（ghu_… など）を外し、長ければ切る
+fn without_tokens(text: &str) -> String {
+    const PREFIXES: [&str; 6] = ["github_pat_", "ghp_", "gho_", "ghu_", "ghs_", "ghr_"];
+    let mut out = String::new();
+    let mut rest = text;
+    'scan: while let Some(ch) = rest.chars().next() {
+        for p in PREFIXES {
+            if rest.starts_with(p) {
+                let len = rest[p.len()..].find(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).map_or(rest.len(), |i| p.len() + i);
+                out.push_str("<鍵>");
+                rest = &rest[len..];
+                continue 'scan;
             }
         }
+        out.push(ch);
+        rest = &rest[ch.len_utf8()..];
+    }
+    out.chars().take(300).collect()
+}
+
+/// ログインの鍵のようす（鍵そのものは入れない。設定の画面に出す）
+#[derive(Debug, Clone, Serialize)]
+pub struct LoginStatus {
+    /// ログインの記録がある（「GitHub でログイン」の鍵。トークンを貼ったときは false）
+    pub login: bool,
+    /// 今の鍵が切れる時（UNIX 秒）
+    pub expires_at: Option<i64>,
+    /// 更新の鍵がある
+    pub can_refresh: bool,
+    /// 更新の鍵が切れる時
+    pub refresh_expires_at: Option<i64>,
+    /// この PC で使う期限
+    pub valid_until: Option<i64>,
+    /// 最後に新しくしようとした記録
+    pub last_refresh: Option<RefreshNote>,
+}
+
+pub fn login_status() -> LoginStatus {
+    let record = login_record();
+    LoginStatus {
+        login: record.is_some(),
+        expires_at: record.as_ref().and_then(|r| r.expires_at),
+        can_refresh: record.as_ref().is_some_and(|r| r.refresh_token.is_some()),
+        refresh_expires_at: record.as_ref().and_then(|r| r.refresh_expires_at),
+        valid_until: record.as_ref().and_then(|r| r.valid_until),
+        last_refresh: last_refresh(),
     }
 }
 
@@ -464,6 +592,14 @@ mod tests {
         assert_eq!(kind_of("ghp_x"), "classic");
         assert_eq!(kind_of("ghu_x"), "app");
         assert_eq!(kind_of("xyz"), "unknown");
+    }
+
+    #[test]
+    fn keeps_tokens_out_of_the_refresh_note() {
+        assert_eq!(without_tokens("bad ghu_abc123XYZ and ghr_def_456."), "bad <鍵> and <鍵>.");
+        assert_eq!(without_tokens("token=github_pat_11AB_cd&x"), "token=<鍵>&x");
+        assert_eq!(without_tokens("通信できませんでした: timeout"), "通信できませんでした: timeout");
+        assert_eq!(without_tokens(&"あ".repeat(400)).chars().count(), 300);
     }
 
     #[test]

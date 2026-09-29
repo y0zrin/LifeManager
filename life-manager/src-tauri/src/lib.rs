@@ -440,16 +440,35 @@ async fn check_token(
     repo: Option<String>,
     repos: Vec<github::token_check::RepoRef>,
 ) -> Result<github::token_check::TokenReport, String> {
-    let token = match token {
-        Some(t) => tokens::clean(&t)?,
-        // ログインの鍵なら、期限が近ければ新しくしてから確かめる
-        None => match (owner.as_deref(), repo.as_deref()) {
-            (Some(o), Some(r)) => tokens::fresh_token_for(o, r).await,
-            _ => tokens::fresh_default().await,
-        }
-        .ok_or("トークンがありません（ログインの期限が来たときは、もう一度ログインしてください）")?,
+    const NO_TOKEN: &str = "トークンがありません（ログインの期限が来たときは、もう一度ログインしてください）";
+    let project = match (owner.as_deref(), repo.as_deref(), &token) {
+        (Some(o), Some(r), None) => tokens::project_token(o, r),
+        _ => None,
     };
-    github::token_check::check(&token, &repos).await
+    // いつものトークン（ログインの鍵なら、期限が近ければ新しくしてから確かめる）を使うか
+    let by_default = token.is_none() && project.is_none();
+    let token = match (token, project) {
+        (Some(t), _) => tokens::clean(&t)?,
+        (None, Some(t)) => t,
+        (None, None) => tokens::fresh_default().await.ok_or(NO_TOKEN)?,
+    };
+    let report = github::token_check::check(&token, &repos).await;
+    // ログインの鍵が期限の前に断られたら、新しくしてもう一度確かめる
+    if by_default && report.as_ref().is_err_and(|e| e == github::token_check::INVALID) {
+        if let Some(fresh) = tokens::recover_rejected(&token).await {
+            return github::token_check::check(&fresh, &repos).await;
+        }
+        if tokens::default_token().is_none() {
+            return Err("ログインの鍵が使えなくなりました（期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください".into());
+        }
+    }
+    report
+}
+
+/// ログインの鍵のようす（期限・前に新しくした結果。鍵そのものは渡さない）
+#[tauri::command]
+fn login_status() -> tokens::LoginStatus {
+    tokens::login_status()
 }
 
 #[derive(serde::Serialize)]
@@ -1423,6 +1442,7 @@ pub fn run() {
             forget_account,
             check_token,
             token_overview,
+            login_status,
             clear_project_token,
             list_user_repos,
             list_my_invitations,

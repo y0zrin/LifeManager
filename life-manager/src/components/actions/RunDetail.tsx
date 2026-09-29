@@ -73,8 +73,10 @@ export function RunDetail(props: RunDetailProps) {
     [owner, repo],
   );
 
+  // もう一度動かして止めた実行は、前の回（失敗など）のジョブとログを出す
+  const attempt = run.previous_attempt ?? null;
   const loadJobs = useCallback(() => {
-    runJobs(owner, repo, run.id)
+    runJobs(owner, repo, run.id, attempt)
       .then((j) => {
         setJobs(j);
         setJobsError(null);
@@ -89,7 +91,7 @@ export function RunDetail(props: RunDetailProps) {
         }
       })
       .catch((e) => setJobsError(String(e)));
-  }, [owner, repo, run.id, focusJob, loadLog]);
+  }, [owner, repo, run.id, attempt, focusJob, loadLog]);
 
   useEffect(() => {
     setJobs(null);
@@ -242,7 +244,12 @@ export function RunDetail(props: RunDetailProps) {
         {run.actor?.login ?? ""}
         {run.started_at && `・${duration(run.started_at, run.status === "completed" ? run.updated_at : null)}`}
         {`・${ago(run.created_at)}`}
-        {run.run_attempt > 1 && <span className="muted">（{run.run_attempt} 回目）</span>}
+        {run.run_attempt > 1 &&
+          (attempt ? (
+            <span className="muted">（もう一度動かした {run.run_attempt} 回目は止めました。下は {attempt} 回目の結果です）</span>
+          ) : (
+            <span className="muted">（{run.run_attempt} 回目）</span>
+          ))}
         {card?.pull && (
           <>
             {" "}

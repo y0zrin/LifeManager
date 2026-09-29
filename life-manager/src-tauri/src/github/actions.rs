@@ -320,6 +320,8 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         client.actions_permissions(&owner, &repo),
     );
     let runs = parse(&runs.map_err(|e| explain(&e, "Actions の実行を読むこと"))?)?;
+    let mut runs: Vec<Value> = runs["workflow_runs"].as_array().map(|a| a.iter().map(|r| compact_run(r, &full_name)).collect()).unwrap_or_default();
+    fill_previous_results(&client, &owner, &repo, &mut runs).await;
     // ワークフローがないとき（はじめる準備を促す）。読めなければ null
     let workflow_count = workflows.ok().and_then(|t| parse(&t).ok()).and_then(|v| v["total_count"].as_u64());
     // Actions を使うか（管理者でなければ読めないので null）
@@ -350,10 +352,45 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         "branches": branches,
         "protected": protected,
         "pulls": pulls,
-        "runs": runs["workflow_runs"].as_array().map(|a| a.iter().map(|r| compact_run(r, &full_name)).collect::<Vec<_>>()).unwrap_or_default(),
+        "runs": runs,
         "dependabot": security_state(dependabot, compact_dependabot, &DEPENDABOT, "Dependabot のお知らせを読むこと"),
         "code_scanning": security_state(code_scanning, compact_code_scanning, &CODE_SCANNING, "コードスキャンのお知らせを読むこと"),
     }))
+}
+
+/// もう一度動かして止めた実行（取り消し・2 回目以降）は、前の回の結果を previous_conclusion・previous_attempt に入れる。
+/// GitHub は実行の結果を最後の回で返すが、取り消しでは直っていないので、山は前の回の結果のままにする。
+/// 調べるのは、ワークフロー × ブランチごとの最新の実行だけ（多くても 5 件）
+async fn fill_previous_results(client: &GitHubClient, owner: &str, repo: &str, runs: &mut [Value]) {
+    let mut seen = std::collections::HashSet::new();
+    let targets: Vec<usize> = runs
+        .iter()
+        .enumerate()
+        // GitHub は新しい順に返すので、はじめて出てきたものが最新
+        .filter(|(_, r)| seen.insert(format!("{}|{}", r["workflow_id"], r["branch"])))
+        .filter(|(_, r)| cancelled_rerun(r))
+        .map(|(i, _)| i)
+        .take(5)
+        .collect();
+    for i in targets {
+        let id = runs[i]["id"].as_u64().unwrap_or(0);
+        let mut attempt = runs[i]["run_attempt"].as_u64().unwrap_or(1);
+        while attempt > 1 {
+            attempt -= 1;
+            let Ok(text) = client.get_run_attempt(owner, repo, id, attempt).await else { break };
+            let Ok(v) = parse(&text) else { break };
+            if let Some(c) = v["conclusion"].as_str().filter(|c| *c != "cancelled") {
+                runs[i]["previous_conclusion"] = json!(c);
+                runs[i]["previous_attempt"] = json!(attempt);
+                break;
+            }
+        }
+    }
+}
+
+/// もう一度動かして、止めた実行か
+fn cancelled_rerun(r: &Value) -> bool {
+    r["status"] == "completed" && r["conclusion"] == "cancelled" && r["run_attempt"].as_u64().unwrap_or(1) > 1
 }
 
 /// このアカウント（owner）に入れてある Life Manager の権限（足りない権限を、承認の画面へ促すため）。
@@ -448,9 +485,14 @@ pub async fn actions_workflows(state: ClientState<'_>, owner: String, repo: Stri
 }
 
 #[tauri::command]
-pub async fn run_jobs(state: ClientState<'_>, owner: String, repo: String, run_id: u64) -> Result<Vec<Value>, String> {
+pub async fn run_jobs(state: ClientState<'_>, owner: String, repo: String, run_id: u64, attempt: Option<u64>) -> Result<Vec<Value>, String> {
     let client = client_of(&state).await?;
-    let jobs = parse(&client.list_run_jobs(&owner, &repo, run_id).await.map_err(|e| explain(&e, "ジョブを読むこと"))?)?;
+    // attempt を渡すと、その回のジョブ（もう一度動かして止めたときの、前の回の失敗など）
+    let text = match attempt {
+        Some(n) => client.list_run_attempt_jobs(&owner, &repo, run_id, n).await,
+        None => client.list_run_jobs(&owner, &repo, run_id).await,
+    };
+    let jobs = parse(&text.map_err(|e| explain(&e, "ジョブを読むこと"))?)?;
     Ok(jobs["jobs"].as_array().map(|a| a.iter().map(compact_job).collect()).unwrap_or_default())
 }
 
@@ -559,6 +601,15 @@ mod tests {
         assert_eq!(dispatch_inputs("on: [push, pull_request]\n"), None);
         assert_eq!(dispatch_inputs("on: push\n"), None);
         assert_eq!(dispatch_inputs("これは YAML ではない: [\n"), None);
+    }
+
+    #[test]
+    fn tells_a_cancelled_rerun() {
+        assert!(cancelled_rerun(&json!({ "status": "completed", "conclusion": "cancelled", "run_attempt": 2 })));
+        // 1 回目の取り消し・動いている・失敗は違う
+        assert!(!cancelled_rerun(&json!({ "status": "completed", "conclusion": "cancelled", "run_attempt": 1 })));
+        assert!(!cancelled_rerun(&json!({ "status": "in_progress", "conclusion": null, "run_attempt": 2 })));
+        assert!(!cancelled_rerun(&json!({ "status": "completed", "conclusion": "failure", "run_attempt": 2 })));
     }
 
     #[test]

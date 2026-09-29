@@ -25,6 +25,9 @@ export interface Run {
   conclusion: string | null;
   run_number: number;
   run_attempt: number;
+  /** もう一度動かして止めた実行（取り消し・2 回目以降）の、前の回の結果と、その回（山は前の回の結果のままにする） */
+  previous_conclusion?: string | null;
+  previous_attempt?: number | null;
   actor: Actor | null;
   created_at: string;
   updated_at: string;
@@ -224,7 +227,9 @@ export const isPermissionError = (message: string | null | undefined) => !!messa
 
 export const actionsOverview = (owner: string, repo: string) => invoke<ActionsOverview>("actions_overview", { owner, repo });
 export const actionsWorkflows = (owner: string, repo: string) => invoke<Workflow[]>("actions_workflows", { owner, repo });
-export const runJobs = (owner: string, repo: string, runId: number) => invoke<Job[]>("run_jobs", { owner, repo, runId });
+/** attempt を渡すと、その回のジョブ（もう一度動かして止めたときの、前の回の失敗など） */
+export const runJobs = (owner: string, repo: string, runId: number, attempt?: number | null) =>
+  invoke<Job[]>("run_jobs", { owner, repo, runId, attempt: attempt ?? null });
 export const jobLog = (owner: string, repo: string, jobId: number) => invoke<{ lines: string[]; truncated: boolean }>("job_log", { owner, repo, jobId });
 export const rerunRun = (owner: string, repo: string, runId: number, failedOnly: boolean) => invoke<void>("rerun_run", { owner, repo, runId, failedOnly });
 export const cancelRun = (owner: string, repo: string, runId: number) => invoke<void>("cancel_run", { owner, repo, runId });
@@ -378,7 +383,11 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
   const fixed: Stack["fixed"] = [];
   const fine: Run[] = [];
 
-  const runs = ov.runs.filter((r) => !r.fork && r.branch).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  // もう一度動かして止めた実行は、前の回の結果のまま（取り消しでは直っていない）
+  const runs = ov.runs
+    .filter((r) => !r.fork && r.branch)
+    .map((r) => (r.conclusion === "cancelled" && r.previous_conclusion ? { ...r, conclusion: r.previous_conclusion } : r))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   const groups = new Map<string, Run[]>();
   for (const r of runs) {
     const key = `${r.workflow_id}|${r.branch}`;

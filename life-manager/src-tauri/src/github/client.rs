@@ -982,6 +982,18 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    /// 実行の、ある回（もう一度動かして止めたとき、前の回の結果を見るため）
+    pub async fn get_run_attempt(&self, owner: &str, repo: &str, run_id: u64, attempt: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/runs/{}/attempts/{}", BASE_URL, owner, repo, run_id, attempt);
+        return self.get(&url).await;
+    }
+
+    /// 実行の、ある回のジョブとステップ
+    pub async fn list_run_attempt_jobs(&self, owner: &str, repo: &str, run_id: u64, attempt: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/runs/{}/attempts/{}/jobs?per_page=100", BASE_URL, owner, repo, run_id, attempt);
+        return self.get(&url).await;
+    }
+
     /// ジョブのログ（ただの文字。GitHub は別の場所へ案内するので、そこから読む）
     pub async fn job_log(&self, owner: &str, repo: &str, job_id: u64) -> Result<String, String> {
         let url = format!("{}/repos/{}/{}/actions/jobs/{}/logs", BASE_URL, owner, repo, job_id);

@@ -2,7 +2,7 @@ import { Fragment, useState, useRef, useEffect, useMemo, useContext, useCallback
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
-import { LabelFilterButton } from "../common/LabelFilterButton";
+import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
 import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
@@ -476,8 +476,24 @@ export function DashboardView({
     changeMode(v.mode);
   }
 
-  const activeFilterCount =
-    Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (milestoneFilter !== null ? 1 : 0) + (searchQuery ? 1 : 0);
+  // 「フィルタ」にまとめた絞り込み（種別・分野・状態・優先・見積のラベル、担当者、マイルストーン、表示）
+  const filterProps: TaskFilterProps = {
+    categories: categories
+      .map((cat) => ({ prefix: cat, name: categoryLabels[cat], labels: labels.filter((l) => l.name.startsWith(cat)) }))
+      .filter((c) => c.labels.length > 0),
+    filters,
+    onFiltersChange,
+    assignee: assigneeFilter,
+    onAssigneeChange: setAssigneeFilter,
+    currentUser,
+    collaborators,
+    milestone: milestoneFilter,
+    onMilestoneChange: setMilestoneFilter,
+    milestones,
+    milestoneTitle,
+    state: stateFilter,
+    onStateChange: setStateFilter,
+  };
 
 
   const pickedIssues = allIssues.filter((i) => picked.has(i.number));
@@ -589,52 +605,7 @@ export function DashboardView({
             <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
           )}
         </div>
-        {categories.map((cat) => {
-          const catLabels = labels.filter((l) => l.name.startsWith(cat));
-          if (catLabels.length === 0) return null;
-          return (
-            <LabelFilterButton
-              key={cat}
-              name={categoryLabels[cat]}
-              prefix={cat}
-              labels={catLabels}
-              value={filters[cat]}
-              onChange={(value) => onFiltersChange({ ...filters, [cat]: value })}
-            />
-          );
-        })}
-        <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="select-sm">
-          <option value="">担当者: 全員</option>
-          {currentUser && <option value={currentUser}>自分 ({currentUser})</option>}
-          {collaborators.filter((c) => c.login !== currentUser).map((c) => (
-            <option key={c.login} value={c.login}>{c.login}</option>
-          ))}
-        </select>
-        <select value={milestoneFilter ?? ""} className="select-sm" aria-label="マイルストーン"
-          onChange={(e) => setMilestoneFilter(e.target.value === "" ? null : e.target.value === "none" ? "none" : Number(e.target.value))}>
-          <option value="">マイルストーン: 全て</option>
-          {milestones.map((m) => (
-            <option key={m.number} value={m.number}>🎯 {m.title}</option>
-          ))}
-          {typeof milestoneFilter === "number" && !milestones.some((m) => m.number === milestoneFilter) && (
-            <option value={milestoneFilter}>🎯 {milestoneTitle(milestoneFilter) ?? `#${milestoneFilter}`}（閉じた）</option>
-          )}
-          <option value="none">マイルストーンなし</option>
-        </select>
-        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as StateFilter)} className="select-sm">
-          <option value="open">オープンのみ</option>
-          <option value="closed">クローズのみ</option>
-          <option value="all">両方</option>
-        </select>
-        {activeFilterCount > 0 && (
-          <button onClick={() => { onFiltersChange({}); setAssigneeFilter(""); setMilestoneFilter(null); setSearchQuery(""); }} className="btn-sm" style={{ color: "var(--accent-red)" }}>
-            リセット
-          </button>
-        )}
-      </div>
-
-      {/* カード／表・まとめる・並び・選ぶ・保存した見方・件数・更新・作る */}
-      <div className="task-list-options">
+        <TaskFilterButton {...filterProps} />
         <span className="list-mode" role="group" aria-label="見せ方">
           {(["card", "table"] as ListMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
@@ -666,6 +637,8 @@ export function DashboardView({
           {showIssueForm ? "×" : "+ イシュー作成"}
         </button>
       </div>
+      {/* かけている絞り込み（× で外す） */}
+      <TaskFilterChips {...filterProps} />
 
       {/* Issue作成フォーム */}
       {showIssueForm && (

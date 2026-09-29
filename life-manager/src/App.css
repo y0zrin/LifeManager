@@ -2228,6 +2228,7 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 60px auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -3476,6 +3477,8 @@ button:hover {
   padding-top: 20vh;
   z-index: 100;
   overflow-y: auto;
+  /* 指でなぞっても、後ろの画面へは伝えない（ホイールは useOverlayScrollGuard で止める） */
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 

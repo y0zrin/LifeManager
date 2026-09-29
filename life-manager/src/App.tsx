@@ -9,6 +9,7 @@ import { useLocalFolders } from "./hooks/useLocalFolders";
 import { useGit } from "./hooks/useGit";
 import { useGitActions } from "./hooks/useGitActions";
 import { useDisplaySettings } from "./hooks/useDisplaySettings";
+import { useOverlayScrollGuard } from "./hooks/useOverlayScrollGuard";
 import { useHistory } from "./hooks/useHistory";
 import { useOffline } from "./hooks/useOffline";
 import { isMobile } from "./lib/platform";
@@ -110,6 +111,8 @@ function App() {
   const gh = useGitHub();
   const localFolders = useLocalFolders();
   const display = useDisplaySettings();
+  // 重ねて出す詳細・ダイアログの上のホイールで、後ろの画面を動かさない
+  useOverlayScrollGuard();
   const [view, setViewState] = useState<ViewType>("dashboard");
   // 画面を切り替える。動いた向きで動きの種類を変える: 作業 ⇄ ブランチ ⇄ 全体図 は奥行き（寄る・引く）、
   // ほかはサイドバーの並びの前後で、縦のサイドバーなら上下・横の帯（上・下に置いたとき、スマホの下のナビ）なら左右

@@ -294,12 +294,17 @@ fn compact_event(e: &Value) -> Value {
                 .as_array()
                 .map(|a| a.iter().rev().take(3).map(|c| json!({ "sha": c["sha"], "message": c["message"].as_str().unwrap_or("").lines().next().unwrap_or("") })).collect::<Vec<_>>())
                 .unwrap_or_default());
+            // 今の GitHub は、プッシュにコミットを入れない（before と head だけ）。あとで比べて足す
+            out["before"] = p["before"].clone();
+            out["head"] = p["head"].clone();
         }
         "PullRequestEvent" | "PullRequestReviewEvent" | "PullRequestReviewCommentEvent" => {
             let pr = &p["pull_request"];
-            out["number"] = pr["number"].clone();
+            out["number"] = if pr["number"].is_null() { p["number"].clone() } else { pr["number"].clone() };
+            // 今の GitHub は、題名を入れない（あとで番号から足す）
             out["title"] = pr["title"].clone();
-            out["merged"] = json!(pr["merged"].as_bool().unwrap_or(false) || !pr["merged_at"].is_null());
+            // マージは、前は action: closed と merged、今は action: merged で来る
+            out["merged"] = json!(pr["merged"].as_bool().unwrap_or(false) || !pr["merged_at"].is_null() || p["action"] == "merged");
             out["review_state"] = p["review"]["state"].clone();
             out["body"] = first_chars(&p["comment"]["body"], 120);
         }
@@ -356,10 +361,114 @@ pub async fn activity_feed(state: ClientState<'_>, owner: String, repo: String) 
             })
             .unwrap_or_default()
     });
+    let mut events: Vec<Value> = events.as_array().map(|a| a.iter().map(compact_event).collect()).unwrap_or_default();
+    let open = pulls.as_deref().unwrap_or(&[]);
+    let untitled = untitled_pulls(&owner, &repo, &events, open);
+    tokio::join!(fill_push_commits(&client, &owner, &repo, &mut events), fetch_pull_titles(&client, &owner, &repo, untitled));
+    apply_pull_titles(&owner, &repo, &mut events, open);
     Ok(json!({
-        "events": events.as_array().map(|a| a.iter().map(compact_event).collect::<Vec<_>>()).unwrap_or_default(),
+        "events": events,
         "pulls": pulls,
     }))
+}
+
+/// 比べたプッシュのコミット（owner/repo@before...head → { size, commits }）と、プルリクの題名（owner/repo#番号）。
+/// どちらもあとから変わらない（題名はまれに変わる）ので、アプリを開いているあいだ覚えておき、読み直すたびに GitHub に聞かない
+static PUSH_COMMITS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, Value>>> = std::sync::LazyLock::new(Default::default);
+static PULL_TITLES: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, Value>>> = std::sync::LazyLock::new(Default::default);
+/// いちどに GitHub に聞くのは、これだけまで（残りは、次に読み直したとき）
+const FILL_LIMIT: usize = 10;
+
+/// 比べる前と後（コミットの入っていないプッシュだけ。新しいブランチの最初のプッシュは、前が 0 だけなので比べられない）
+fn push_range(e: &Value) -> Option<(String, String)> {
+    if e["type"] != "PushEvent" || e["commits"].as_array().is_some_and(|c| !c.is_empty()) {
+        return None;
+    }
+    let before = e["before"].as_str().filter(|s| !s.is_empty() && !s.chars().all(|c| c == '0'))?;
+    let head = e["head"].as_str().filter(|s| !s.is_empty())?;
+    Some((before.to_string(), head.to_string()))
+}
+
+/// 比べた結果を、プッシュの形（コミットの数と、新しい順に 3 つまで）にする
+fn pushed_commits(compare: &Value) -> Value {
+    let commits = compare["commits"]
+        .as_array()
+        .map(|a| a.iter().rev().take(3).map(|c| json!({ "sha": c["sha"], "message": c["commit"]["message"].as_str().unwrap_or("").lines().next().unwrap_or("") })).collect::<Vec<_>>())
+        .unwrap_or_default();
+    json!({ "size": compare["total_commits"], "commits": commits })
+}
+
+/// プッシュのコミットを足す（覚えていないものは、新しいプッシュから FILL_LIMIT 件まで GitHub に聞く）
+async fn fill_push_commits(client: &GitHubClient, owner: &str, repo: &str, events: &mut [Value]) {
+    let key_of = |before: &str, head: &str| format!("{}/{}@{}...{}", owner, repo, before, head);
+    let mut asked = tokio::task::JoinSet::new();
+    for e in events.iter() {
+        let Some((before, head)) = push_range(e) else { continue };
+        let key = key_of(&before, &head);
+        if asked.len() >= FILL_LIMIT || PUSH_COMMITS.lock().map(|m| m.contains_key(&key)).unwrap_or(true) {
+            continue;
+        }
+        let (client, owner, repo) = (client.clone(), owner.to_string(), repo.to_string());
+        asked.spawn(async move { (key, client.compare(&owner, &repo, &before, &head).await) });
+    }
+    while let Some(Ok((key, result))) = asked.join_next().await {
+        if let (Some(v), Ok(mut m)) = (result.ok().and_then(|t| parse(&t).ok()), PUSH_COMMITS.lock()) {
+            m.insert(key, pushed_commits(&v));
+        }
+    }
+    for e in events.iter_mut() {
+        let Some((before, head)) = push_range(e) else { continue };
+        if let Some(hit) = PUSH_COMMITS.lock().ok().and_then(|m| m.get(&key_of(&before, &head)).cloned()) {
+            e["size"] = hit["size"].clone();
+            e["commits"] = hit["commits"].clone();
+        }
+    }
+}
+
+/// 題名のないプルリクの番号（開いているプルリク・覚えている題名にないもの）
+fn untitled_pulls(owner: &str, repo: &str, events: &[Value], open: &[Value]) -> Vec<u64> {
+    let mut numbers = Vec::new();
+    for e in events {
+        if !e["type"].as_str().unwrap_or("").starts_with("PullRequest") || !e["title"].is_null() {
+            continue;
+        }
+        let Some(n) = e["number"].as_u64() else { continue };
+        let known = open.iter().any(|p| p["number"].as_u64() == Some(n))
+            || PULL_TITLES.lock().map(|m| m.contains_key(&format!("{}/{}#{}", owner, repo, n))).unwrap_or(true);
+        if !known && !numbers.contains(&n) {
+            numbers.push(n);
+        }
+    }
+    numbers
+}
+
+/// プルリクの題名を GitHub に聞いて覚える（FILL_LIMIT 件まで）
+async fn fetch_pull_titles(client: &GitHubClient, owner: &str, repo: &str, numbers: Vec<u64>) {
+    let mut asked = tokio::task::JoinSet::new();
+    for n in numbers.into_iter().take(FILL_LIMIT) {
+        let (client, owner, repo) = (client.clone(), owner.to_string(), repo.to_string());
+        asked.spawn(async move { (n, client.get_pull(&owner, &repo, n).await) });
+    }
+    while let Some(Ok((n, result))) = asked.join_next().await {
+        if let (Some(v), Ok(mut m)) = (result.ok().and_then(|t| parse(&t).ok()), PULL_TITLES.lock()) {
+            m.insert(format!("{}/{}#{}", owner, repo, n), v["title"].clone());
+        }
+    }
+}
+
+/// 題名を足す（開いているプルリク → 覚えている題名）
+fn apply_pull_titles(owner: &str, repo: &str, events: &mut [Value], open: &[Value]) {
+    for e in events.iter_mut() {
+        if !e["type"].as_str().unwrap_or("").starts_with("PullRequest") || !e["title"].is_null() {
+            continue;
+        }
+        let Some(n) = e["number"].as_u64() else { continue };
+        if let Some(p) = open.iter().find(|p| p["number"].as_u64() == Some(n)) {
+            e["title"] = p["title"].clone();
+        } else if let Some(t) = PULL_TITLES.lock().ok().and_then(|m| m.get(&format!("{}/{}#{}", owner, repo, n)).cloned()) {
+            e["title"] = t;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -408,6 +517,30 @@ mod tests {
         assert_eq!(m["action"], "closed");
         assert_eq!(m["merged"], true);
         assert_eq!(m["number"], 70);
+
+        // 今の GitHub の形: マージは action: merged、題名なし（番号は payload にも）。プッシュは before と head だけ
+        let merged_now = json!({ "id": "4", "type": "PullRequestEvent", "actor": { "login": "y0zrin" }, "created_at": "t",
+            "payload": { "action": "merged", "number": 2, "pull_request": { "id": 1, "number": 2, "url": "u", "base": {}, "head": {} } } });
+        let m = compact_event(&merged_now);
+        assert_eq!(m["merged"], true);
+        assert_eq!(m["number"], 2);
+        assert!(m["title"].is_null());
+        let push_now = json!({ "id": "5", "type": "PushEvent", "actor": { "login": "y0zrin" }, "created_at": "t",
+            "payload": { "ref": "refs/heads/main", "before": "b93239c", "head": "83b7a60", "push_id": 1, "repository_id": 1 } });
+        let p = compact_event(&push_now);
+        assert!(p["size"].is_null());
+        assert_eq!(push_range(&p), Some(("b93239c".to_string(), "83b7a60".to_string())));
+        // 新しいブランチの最初のプッシュは比べない
+        let first = json!({ "type": "PushEvent", "commits": [], "before": "0000000000000000000000000000000000000000", "head": "83b7a60" });
+        assert_eq!(push_range(&first), None);
+        let compared = json!({ "total_commits": 4, "commits": [
+            { "sha": "a", "commit": { "message": "一" } }, { "sha": "b", "commit": { "message": "二" } },
+            { "sha": "c", "commit": { "message": "三\n\n本文" } }, { "sha": "d", "commit": { "message": "四" } }
+        ] });
+        let pc = pushed_commits(&compared);
+        assert_eq!(pc["size"], 4);
+        assert_eq!(pc["commits"][0]["message"], "四");
+        assert_eq!(pc["commits"][1]["message"], "三");
 
         let comment = json!({ "id": "3", "type": "IssueCommentEvent", "actor": { "login": "y0zrin2" }, "created_at": "t",
             "payload": { "action": "created", "issue": { "number": 45, "title": "t", "pull_request": null }, "comment": { "body": "@y0zrin 見てください" } } });

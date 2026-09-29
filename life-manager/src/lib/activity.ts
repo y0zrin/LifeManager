@@ -82,12 +82,17 @@ const ref = (e: ActivityEvent, pull = !!e.pull): Part => ({ kind: pull ? "pull" 
 /** 起きたこと 1 つを、日本語の文にする（出さないものは null） */
 export function describe(e: ActivityEvent): Described | null {
   switch (e.type) {
-    case "PushEvent":
-      return { icon: "⬆", parts: [`が ${e.ref} に ${e.size ?? e.commits?.length ?? 0} コミットをプッシュ`], commits: e.commits ?? [] };
+    case "PushEvent": {
+      // 今の GitHub はコミットの数を入れないので、比べて足せなかったときは数を出さない
+      const count = e.size ?? (e.commits?.length || null);
+      return { icon: "⬆", parts: [count ? `が ${e.ref} に ${count} コミットをプッシュ` : `が ${e.ref} にプッシュしました`], commits: e.commits ?? [] };
+    }
     case "PullRequestEvent": {
       const r = ref(e, true);
       if (e.action === "opened") return { icon: "🔃", parts: ["がプルリク ", r, " を作りました"] };
-      if (e.action === "closed") return e.merged ? { icon: "🟣", parts: ["が ", r, " をマージしました"] } : { icon: "🔴", parts: ["がプルリク ", r, " を閉じました"] };
+      // マージは、前は closed と merged、今の GitHub は merged で来る
+      if (e.action === "merged" || (e.action === "closed" && e.merged)) return { icon: "🟣", parts: ["が ", r, " をマージしました"] };
+      if (e.action === "closed") return { icon: "🔴", parts: ["がプルリク ", r, " を閉じました"] };
       if (e.action === "reopened") return { icon: "🟢", parts: ["がプルリク ", r, " を開き直しました"] };
       if (e.action === "ready_for_review") return { icon: "📣", parts: ["が ", r, " をレビューをお願いできる状態にしました"] };
       return null;

@@ -315,6 +315,8 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         "default_branch": info["default_branch"],
         "can_push": info["permissions"]["push"].as_bool().unwrap_or(false),
         "can_admin": info["permissions"]["admin"].as_bool().unwrap_or(false),
+        // User（個人）/ Organization（組織）。Actions を動かせる「持ち主」の見分けに使う
+        "owner_type": info["owner"]["type"],
         "private": info["private"].as_bool().unwrap_or(true),
         "language": info["language"],
         "workflow_count": workflow_count,

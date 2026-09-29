@@ -7,9 +7,11 @@ import {
   STALE_DAYS,
   actionsWorkflows,
   FREE_MINUTES,
+  canManageActions,
   enableDependabot,
   isPermissionError,
   monthMinutes,
+  saveActionsChoice,
   setActionsEnabled,
   duration,
   eventLabel,
@@ -82,7 +84,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const hiddenKey = `actions-setup-hidden:${owner}/${repo}`;
   const [hidden, setHidden] = useState<string[]>(() => loadHidden(hiddenKey));
   const [setupBusy, setSetupBusy] = useState(false);
-  const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmToggle, setConfirmToggle] = useState<"on" | "off" | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   useEffect(() => setHidden(loadHidden(hiddenKey)), [hiddenKey]);
   function hide(item: string) {
@@ -169,6 +171,17 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   );
   const dispatchable = (workflows ?? []).filter((w) => w.dispatch !== null && w.state === "active");
   const canPush = overview?.can_push ?? false;
+  // 非公開のリポジトリで Actions を動かす（もう一度・手で実行）・オンオフは、持ち主だけ（持ち主の無料の時間を使うため）
+  const canManage = overview ? canManageActions(overview, owner, currentUser) : false;
+  const privateRepo = overview?.private ?? false;
+  const actionsOff = overview?.actions_enabled === false;
+  const canRun = (privateRepo ? canManage : canPush) && !actionsOff;
+  const ownerLabel = overview?.owner_type === "Organization" ? `${owner} の管理者` : owner;
+  const runNote = actionsOff
+    ? "Actions がオフです（上の「▶ 使う…」でオンにします）"
+    : privateRepo && !canManage
+      ? `非公開のリポジトリで Actions を動かせるのは、持ち主（${ownerLabel}）だけです（持ち主の無料の時間を使うため）`
+      : null;
 
   const cardOrder = cards.map((c) => `card:${c.key}`);
   const runOrder = shownRuns.map((r) => `run:${r.id}`);
@@ -299,7 +312,8 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
     setSetupError(null);
     try {
       await setActionsEnabled(owner, repo, enabled);
-      setConfirmStop(false);
+      if (enabled) saveActionsChoice(owner, repo, "consented");
+      setConfirmToggle(null);
       setNotice(enabled ? "▶ このリポジトリで Actions を使うようにしました" : "⏸ このリポジトリの Actions を止めました。プッシュしても、ワークフローは動きません");
       reload();
     } catch (e) {
@@ -317,7 +331,17 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
       <div className={`ac-cost${stopped ? " stopped" : ""}`}>
         {stopped ? (
           <span className="ac-setup-text">
-            ⏸ <b>このリポジトリでは、Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
+            {overview.private ? (
+              <>
+                ⏸ <b>非公開のリポジトリなので、Actions はオフ（既定）です。</b>プッシュやプルリクをしても、テストなどは動きません（{ownerLabel} の無料の時間を使わない）。
+                {actions.autoOff && " このリポジトリはまだ Actions を使っていなかったので、Life Manager がオフにしました。"}
+                {!canManage && ` オンにできるのは、持ち主（${ownerLabel}）だけです。`}
+              </>
+            ) : (
+              <>
+                ⏸ <b>このリポジトリでは、Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
+              </>
+            )}
           </span>
         ) : (
           <span className="ac-setup-text">
@@ -330,25 +354,36 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
               使った時間を見る ↗
             </button>
           )}
-          {overview.can_admin && stopped && (
-            <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={() => toggleActions(true)}>
-              ▶ 使う
+          {canManage && stopped && !confirmToggle && (
+            <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={() => (overview.private ? setConfirmToggle("on") : toggleActions(true))}>
+              ▶ 使う{overview.private ? "…" : ""}
             </button>
           )}
-          {overview.can_admin && !stopped && overview.actions_enabled !== null && !confirmStop && (
-            <button type="button" className="btn-sm" onClick={() => setConfirmStop(true)}>
+          {canManage && !stopped && overview.actions_enabled !== null && !confirmToggle && (
+            <button type="button" className="btn-sm" onClick={() => setConfirmToggle("off")}>
               ⏸ Actions を止める…
             </button>
           )}
         </span>
-        {confirmStop && (
+        {confirmToggle === "off" && (
           <span className="ac-cost-confirm">
             このリポジトリで Actions を止めます。プッシュやプルリクで、テストなどが動かなくなります（あとで「使う」に戻せます）。
-            <button type="button" className="btn-sm" onClick={() => setConfirmStop(false)}>
+            <button type="button" className="btn-sm" onClick={() => setConfirmToggle(null)}>
               やめる
             </button>
             <button type="button" className="btn-sm danger" disabled={setupBusy} onClick={() => toggleActions(false)}>
               止める
+            </button>
+          </span>
+        )}
+        {confirmToggle === "on" && (
+          <span className="ac-cost-confirm">
+            オンにすると、プッシュやプルリクのたびにワークフローが動き、{ownerLabel} の Actions の無料の時間（月 {FREE_MINUTES.toLocaleString()} 分）を使います。支払いの設定があると、使い切ったあと請求されることがあります。オンにしますか？
+            <button type="button" className="btn-sm" onClick={() => setConfirmToggle(null)}>
+              やめる
+            </button>
+            <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={() => toggleActions(true)}>
+              無料の時間を使って、オンにする
             </button>
           </span>
         )}
@@ -365,12 +400,15 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           repo={repo}
           run={card.run}
           card={card}
-          canPush={canPush}
+          canRun={canRun}
+          canCancel={canPush}
+          runNote={runNote}
           defaultBranch={overview?.default_branch ?? "main"}
           focusJob={focusJob}
           onChanged={reload}
           onOpenPull={onOpenPull}
-          privateRepo={overview?.private ?? false}
+          privateRepo={privateRepo}
+          ownerLabel={ownerLabel}
         />
       );
     }
@@ -382,12 +420,15 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           owner={owner}
           repo={repo}
           run={pickedRun}
-          canPush={canPush}
+          canRun={canRun}
+          canCancel={canPush}
+          runNote={runNote}
           defaultBranch={overview?.default_branch ?? "main"}
           focusJob={focusJob}
           onChanged={reload}
           onOpenPull={onOpenPull}
-          privateRepo={overview?.private ?? false}
+          privateRepo={privateRepo}
+          ownerLabel={ownerLabel}
         />
       );
     }
@@ -439,9 +480,9 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           ))}
         </div>
         <span className="grow" />
-        {canPush && (
+        {(privateRepo ? canManage : canPush) && (
           <span className="pr-picker">
-            <button type="button" className="btn-sm" onClick={() => setMenu((v) => !v)} aria-expanded={menu}>
+            <button type="button" className="btn-sm" onClick={() => setMenu((v) => !v)} aria-expanded={menu} disabled={actionsOff} title={runNote ?? undefined}>
               ▶ 手で実行 ▾
             </button>
             {menu && (
@@ -655,7 +696,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                             {w.dispatch !== null && <span>手で動かせる</span>}
                           </span>
                         </span>
-                        {canPush && w.dispatch !== null && w.state === "active" && (
+                        {canRun && w.dispatch !== null && w.state === "active" && (
                           <button type="button" className="btn-sm" onClick={() => setDispatching(w)}>
                             ▶ 手で実行
                           </button>
@@ -687,6 +728,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           defaultBranch={overview.default_branch}
           language={overview.language}
           folder={folder}
+          actionsOff={privateRepo && actionsOff}
           onClose={() => setStarter(false)}
           onPlaced={(file) => {
             setStarter(false);
@@ -703,6 +745,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           branches={overview.branches ?? []}
           defaultBranch={overview.default_branch}
           privateRepo={overview.private}
+          ownerLabel={ownerLabel}
           onClose={() => setDispatching(null)}
           onDone={() => {
             setNotice(`▶ ${dispatching.name} を動かしました。少しすると「すべての実行」に出ます`);

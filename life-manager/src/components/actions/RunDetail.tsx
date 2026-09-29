@@ -24,14 +24,21 @@ interface RunDetailProps {
   run: Run;
   /** 解決する順の山から開いたとき（急ぎ具合・続けて失敗した回数） */
   card?: StackCard | null;
-  canPush: boolean;
+  /** もう一度動かせるか（非公開のリポジトリは持ち主だけ。Actions がオフなら false） */
+  canRun: boolean;
+  /** 動いている実行を止められるか（書き込める人。時間の節約なので） */
+  canCancel: boolean;
+  /** もう一度動かせないわけ（Actions がオフ・持ち主ではない） */
+  runNote?: string | null;
   defaultBranch: string;
   /** このジョブを開いておく（プルリクのチェックから来たとき） */
   focusJob?: number | null;
   onChanged: () => void;
   onOpenPull: (n: number) => void;
-  /** 非公開のリポジトリ（もう一度動かすと、無料の時間を使う） */
+  /** 非公開のリポジトリ（もう一度動かすと、無料の時間を使う。毎回確かめる） */
   privateRepo?: boolean;
+  /** 無料の時間を使うアカウント（持ち主・組織の管理者） */
+  ownerLabel?: string;
 }
 
 type LogState = { lines: string[]; truncated: boolean } | { error: string } | "loading";
@@ -44,8 +51,9 @@ function commandOf(step: string): string | null {
 
 /** 実行の中身: 何をすればよいか → ジョブ → ステップ → 失敗したステップのログ（エラーの行を赤く） */
 export function RunDetail(props: RunDetailProps) {
-  const { owner, repo, run, card, canPush, defaultBranch, focusJob, onChanged, onOpenPull, privateRepo } = props;
-  const cost = privateRepo ? "非公開のリポジトリなので、Actions の無料の時間を使います" : undefined;
+  const { owner, repo, run, card, canRun, canCancel, runNote, defaultBranch, focusJob, onChanged, onOpenPull, privateRepo, ownerLabel } = props;
+  // 非公開のリポジトリでもう一度動かすときは、毎回確かめる
+  const [confirmRerun, setConfirmRerun] = useState<"failed" | "all" | null>(null);
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -109,6 +117,15 @@ export function RunDetail(props: RunDetailProps) {
       if (!logs[job.id] && job.status === "completed") loadLog(job.id);
     }
     setOpen(next);
+  }
+
+  function rerun(failedOnly: boolean) {
+    setConfirmRerun(null);
+    return act(
+      "もう一度動かしています…",
+      () => rerunRun(owner, repo, run.id, failedOnly),
+      failedOnly ? "失敗したジョブを、もう一度動かしました。少しすると動き始めます" : "すべてのジョブを、もう一度動かしました。少しすると動き始めます",
+    );
   }
 
   async function act(label: string, task: () => Promise<void>, done: string) {
@@ -189,17 +206,17 @@ export function RunDetail(props: RunDetailProps) {
           {run.name} <span className="muted">#{run.run_number}</span>
         </h2>
         <span className="grow" />
-        {canPush && failed && (
-          <button type="button" className="btn-sm" title={cost} disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, true), "失敗したジョブを、もう一度動かしました。少しすると動き始めます")}>
-            ↻ 失敗したものをもう一度
+        {canRun && failed && (
+          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => (privateRepo ? setConfirmRerun("failed") : rerun(true))}>
+            ↻ 失敗したものをもう一度{privateRepo ? "…" : ""}
           </button>
         )}
-        {canPush && run.status === "completed" && (
-          <button type="button" className="btn-sm" title={cost} disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, false), "すべてのジョブを、もう一度動かしました。少しすると動き始めます")}>
-            ↻ すべてもう一度
+        {canRun && run.status === "completed" && (
+          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => (privateRepo ? setConfirmRerun("all") : rerun(false))}>
+            ↻ すべてもう一度{privateRepo ? "…" : ""}
           </button>
         )}
-        {canPush && active && (
+        {canCancel && active && (
           <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => act("止めています…", () => cancelRun(owner, repo, run.id), "止めました")}>
             ■ 止める
           </button>
@@ -208,6 +225,18 @@ export function RunDetail(props: RunDetailProps) {
           GitHub で開く ↗
         </button>
       </div>
+      {confirmRerun && (
+        <div className="ac-cost-confirm ac-rerun-confirm">
+          非公開のリポジトリなので、{ownerLabel ?? owner} の Actions の無料の時間を使います。{confirmRerun === "failed" ? "失敗したジョブを" : "すべてのジョブを"}もう一度動かしますか？
+          <button type="button" className="btn-sm" onClick={() => setConfirmRerun(null)}>
+            やめる
+          </button>
+          <button type="button" className="btn-sm primary" disabled={busy !== null} onClick={() => rerun(confirmRerun === "failed")}>
+            無料の時間を使って、動かす
+          </button>
+        </div>
+      )}
+      {!canRun && runNote && (failed || run.status === "completed") && <p className="muted">↻ {runNote}</p>}
       <div className="ac-meta">
         <code className="pr-branch">{run.branch}</code> への{eventLabel(run.event)}（<code>{run.sha.slice(0, 7)}</code> {run.commit_message || run.title}）で動きました。
         {run.actor?.login ?? ""}

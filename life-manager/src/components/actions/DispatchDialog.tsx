@@ -9,14 +9,16 @@ interface DispatchDialogProps {
   workflow: Workflow;
   branches: string[];
   defaultBranch: string;
-  /** 非公開のリポジトリ（無料の時間を使うことを知らせる） */
+  /** 非公開のリポジトリ（無料の時間を使う。確かめるチェックを入れないと動かせない） */
   privateRepo?: boolean;
+  /** 無料の時間を使うアカウント */
+  ownerLabel?: string;
   onDone: () => void;
   onClose: () => void;
 }
 
 /** 手で実行（workflow_dispatch）: ブランチと、ワークフローに書いてある入力を決めて動かす */
-export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch, privateRepo, onDone, onClose }: DispatchDialogProps) {
+export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch, privateRepo, ownerLabel, onDone, onClose }: DispatchDialogProps) {
   const inputs = workflow.dispatch ?? [];
   const [ref, setRef] = useState(defaultBranch);
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -24,6 +26,7 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -95,13 +98,20 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
             )}
           </label>
         ))}
-        {privateRepo && <p className="muted">非公開のリポジトリなので、Actions の無料の時間（月 2,000 分・アカウントごと）を使います。</p>}
+        {privateRepo && (
+          <label className="ac-dispatch-check ac-dispatch-agree">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+            <span>
+              非公開のリポジトリなので、{ownerLabel ?? owner} の Actions の無料の時間（月 2,000 分）を使うことを確かめました
+            </span>
+          </label>
+        )}
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm" disabled={busy} onClick={onClose}>
             やめる
           </button>
-          <button type="button" className="btn-primary" disabled={busy || missing.length > 0} onClick={submit} title={missing.length > 0 ? `入れてください: ${missing.map((m) => m.name).join("、")}` : undefined}>
+          <button type="button" className="btn-primary" disabled={busy || missing.length > 0 || (!!privateRepo && !agreed)} onClick={submit} title={missing.length > 0 ? `入れてください: ${missing.map((m) => m.name).join("、")}` : undefined}>
             {busy ? "動かしています…" : "実行する"}
           </button>
         </div>

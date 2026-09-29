@@ -109,6 +109,8 @@ export interface ActionsOverview {
   can_push: boolean;
   /** 管理者か（Dependabot を有効にできる） */
   can_admin: boolean;
+  /** 持ち主の種類: User（個人）/ Organization（組織） */
+  owner_type: string | null;
   private: boolean;
   /** GitHub が見た、いちばん多い言語（ワークフローのひな形を選ぶ） */
   language: string | null;
@@ -232,6 +234,45 @@ export const commitChecks = (owner: string, repo: string, sha: string) => invoke
 export const installationPermissions = (owner: string) => invoke<InstallationInfo>("installation_permissions", { owner });
 export const enableDependabot = (owner: string, repo: string) => invoke<void>("enable_dependabot", { owner, repo });
 export const setActionsEnabled = (owner: string, repo: string, enabled: boolean) => invoke<void>("set_actions_enabled", { owner, repo, enabled });
+
+/**
+ * Actions のオン・オフと、非公開のリポジトリで動かす（もう一度・手で実行）のは「持ち主」だけ（持ち主の無料の時間を使うため）。
+ * 個人のリポジトリは持ち主のアカウント本人、組織のリポジトリは管理者（組織の持ち主かどうかは App の権限では確かめられないので）
+ */
+export function canManageActions(ov: Pick<ActionsOverview, "owner_type" | "can_admin">, owner: string, me: string): boolean {
+  if (ov.owner_type === "Organization") return ov.can_admin;
+  return !!me && owner.toLowerCase() === me.toLowerCase();
+}
+
+/** 非公開のリポジトリで Actions を「既定でオフ」にしたか・持ち主が確かめて使うことにしたか（リポジトリごとに、この PC に覚える） */
+export type ActionsChoice = "auto-off" | "consented";
+
+const choiceKey = (owner: string, repo: string) => `actions-default:${owner}/${repo}`;
+
+export function loadActionsChoice(owner: string, repo: string): ActionsChoice | null {
+  try {
+    const v = localStorage.getItem(choiceKey(owner, repo));
+    return v === "auto-off" || v === "consented" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveActionsChoice(owner: string, repo: string, choice: ActionsChoice) {
+  try {
+    localStorage.setItem(choiceKey(owner, repo), choice);
+  } catch {
+    // 覚えられなくても、GitHub の設定は変わっている
+  }
+}
+
+/**
+ * 既定でオフにするか: 非公開・持ち主・今オン・まだワークフローも実行もない（まだ使っていない）・この PC でまだ決めていない。
+ * もう使っているリポジトリ（ワークフローや実行がある）は、チームの設定なので変えない
+ */
+export function shouldDefaultOff(ov: ActionsOverview, owner: string, me: string, choice: ActionsChoice | null): boolean {
+  return ov.private && ov.actions_enabled === true && ov.workflow_count === 0 && ov.runs.length === 0 && choice === null && canManageActions(ov, owner, me);
+}
 
 /** 非公開のリポジトリで、GitHub Free のアカウントに毎月ついてくる Actions の無料の時間（分） */
 export const FREE_MINUTES = 2000;

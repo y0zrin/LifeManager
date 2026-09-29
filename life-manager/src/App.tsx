@@ -539,7 +539,7 @@ function App() {
     setView("pulls");
   }, [setView]);
   // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
-  const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions");
+  const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions", gh.currentUser);
   // アクティビティ: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
   const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", gh.issues, actions.stack);
   const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);

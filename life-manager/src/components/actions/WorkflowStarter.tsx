@@ -13,12 +13,14 @@ interface WorkflowStarterProps {
   language: string | null;
   /** この PC の作業フォルダ（あれば、そこに置いて作業タブでコミット・プッシュ） */
   folder: string | null;
+  /** 非公開のリポジトリで Actions がオフ（置いても動かない） */
+  actionsOff?: boolean;
   onPlaced: (file: string) => void;
   onClose: () => void;
 }
 
 /** はじめる準備: テストを動かすワークフローのひな形を選んで置く（この PC の作業フォルダ、なければ GitHub の画面） */
-export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, onPlaced, onClose }: WorkflowStarterProps) {
+export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, actionsOff, onPlaced, onClose }: WorkflowStarterProps) {
   const [files, setFiles] = useState<string[] | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [dir, setDir] = useState(".");
@@ -115,6 +117,11 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
               </div>
             )}
           </>
+        )}
+        {actionsOff && (
+          <p className="ac-setup-warning">
+            このリポジトリは非公開で、Actions はオフ（既定）です。置いてプッシュしても動きません。使うときは、持ち主が Actions の画面の「▶ 使う…」でオンにします。
+          </p>
         )}
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">

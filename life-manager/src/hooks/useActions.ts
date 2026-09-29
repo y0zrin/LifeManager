@@ -1,23 +1,39 @@
 // Actions の山（解決する順）のもとを読む。サイドバーの印（🔴・🟠 の数）のため、Actions の画面を開いていなくても 5 分ごとに読む。
 // 画面を開いているあいだは、動いている実行があれば 15 秒ごと（なければ 1 分ごと）
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { actionsOverview, buildStack, isActive, type ActionsOverview } from "../lib/actions";
+import { actionsOverview, buildStack, isActive, loadActionsChoice, saveActionsChoice, setActionsEnabled, shouldDefaultOff, type ActionsOverview } from "../lib/actions";
 
-export function useActions(owner: string, repo: string, enabled: boolean, viewing: boolean) {
+export function useActions(owner: string, repo: string, enabled: boolean, viewing: boolean, me: string) {
   const [overview, setOverview] = useState<ActionsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadedAt, setLoadedAt] = useState(0);
   const target = useRef(`${owner}/${repo}`);
   target.current = `${owner}/${repo}`;
+  // 既定でオフにしたリポジトリ（この起動のあいだに。画面で知らせる）
+  const [autoOff, setAutoOff] = useState(false);
+  const tried = useRef(new Set<string>());
 
   const load = useCallback(async () => {
     if (!owner || !repo) return;
     const key = `${owner}/${repo}`;
     setLoading(true);
     try {
-      const ov = await actionsOverview(owner, repo);
+      let ov = await actionsOverview(owner, repo);
       if (target.current !== key) return;
+      // 非公開のリポジトリは、Actions を既定でオフにする（持ち主のアプリが、まだ使っていないリポジトリに 1 回だけ）
+      if (!tried.current.has(key) && shouldDefaultOff(ov, owner, me, loadActionsChoice(owner, repo))) {
+        tried.current.add(key);
+        try {
+          await setActionsEnabled(owner, repo, false);
+          saveActionsChoice(owner, repo, "auto-off");
+          setAutoOff(true);
+          ov = await actionsOverview(owner, repo);
+          if (target.current !== key) return;
+        } catch {
+          // 変えられなければ（権限など）、そのまま。画面では「オンです」と出る
+        }
+      }
       setOverview(ov);
       setError(null);
       setLoadedAt(Date.now());
@@ -26,11 +42,12 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
     } finally {
       if (target.current === key) setLoading(false);
     }
-  }, [owner, repo]);
+  }, [owner, repo, me]);
 
   useEffect(() => {
     setOverview(null);
     setError(null);
+    setAutoOff(false);
     if (enabled) load();
   }, [enabled, load]);
 
@@ -51,7 +68,7 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
   const stack = useMemo(() => (overview ? buildStack(overview, loadedAt || Date.now()) : null), [overview, loadedAt]);
   const urgent = stack ? stack.counts[1] + stack.counts[2] : 0;
 
-  return { overview, stack, error, loading, reload: load, urgent };
+  return { overview, stack, error, loading, reload: load, urgent, autoOff };
 }
 
 export type ActionsState = ReturnType<typeof useActions>;

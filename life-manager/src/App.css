@@ -11638,6 +11638,14 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 }
 .ac-cost.stopped { border-color: var(--accent-yellow); background: var(--accent-yellow-bg); }
 .ac-cost b { color: var(--text-primary); }
+.ac-rerun-confirm {
+  padding: 8px 12px;
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-lg);
+  background: var(--accent-yellow-bg);
+  font-size: var(--font-sm);
+}
+.ac-dispatch > label.ac-dispatch-agree { color: var(--accent-yellow); }
 .ac-cost-confirm {
   display: flex;
   flex-wrap: wrap;

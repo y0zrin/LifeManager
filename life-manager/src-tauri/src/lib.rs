@@ -613,6 +613,20 @@ async fn cancel_invitation(state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     client.cancel_repo_invitation(&owner, &repo, id).await.map_err(|e| token_permission_message(&e, "招待を取り消すこと"))
 }
 
+/// メンバーを外す（管理者だけ。組織のリポジトリでは、組織のメンバーとしての権限は残る）
+#[tauri::command]
+async fn remove_member(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, owner: String, repo: String, username: String) -> Result<(), String> {
+    let client = current_client(&state).await?;
+    let username = username.trim().trim_start_matches('@');
+    client.remove_collaborator(&owner, &repo, username).await.map_err(|e| {
+        if e.starts_with("HTTP 403") && !e.contains("not accessible by") {
+            "メンバーを外せるのは、このリポジトリの管理者だけです".to_string()
+        } else {
+            token_permission_message(&e, "メンバーを外すこと")
+        }
+    })
+}
+
 /// 今のトークンの GitHub クライアント。通信のあいだほかの操作を待たせないよう、複製してすぐにロックを離す
 async fn current_client(state: &tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<GitHubClient, String> {
     let guard = state.lock().await;
@@ -1330,6 +1344,7 @@ pub fn run() {
             team_overview,
             invite_member,
             cancel_invitation,
+            remove_member,
             set_repo_config,
             load_repo_config,
             list_projects,

@@ -2446,6 +2446,44 @@ button:hover {
   white-space: nowrap;
 }
 
+/* メンバーを外す（その行の下で確かめる） */
+.team-row:has(.team-confirm) {
+  flex-wrap: wrap;
+}
+
+.team-remove {
+  border-color: var(--accent-red-bg);
+  color: var(--accent-red);
+}
+
+.team-remove:hover:not(:disabled) {
+  border-color: var(--accent-red);
+  background: var(--accent-red-bg);
+}
+
+.team-confirm {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-xs) 0 2px 28px;
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 3px solid var(--accent-red);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--accent-red-bg);
+}
+
+.team-confirm-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.team-removed {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-sm);
+}
+
 /* GitHub でログイン（コードを出して、許可を待つ） */
 .gh-login {
   display: flex;

@@ -82,6 +82,8 @@ export interface InviteOutcome {
 export const inviteMember = (owner: string, repo: string, username: string, permission: string | null) =>
   invoke<InviteOutcome>("invite_member", { owner, repo, username, permission });
 export const cancelInvitation = (owner: string, repo: string, id: number) => invoke<void>("cancel_invitation", { owner, repo, id });
+/** メンバーを外す（管理者だけ。組織のリポジトリでは、組織のメンバーとしての権限は残る） */
+export const removeMember = (owner: string, repo: string, username: string) => invoke<void>("remove_member", { owner, repo, username });
 
 /** 権限の名前（GitHub の名前 → 画面の名前） */
 export const ROLE_LABELS: Record<string, string> = {

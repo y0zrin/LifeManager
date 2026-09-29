@@ -780,6 +780,12 @@ impl GitHubClient {
         Ok(())
     }
 
+    /// メンバーを外す（リポジトリの直接のメンバーから。組織のリポジトリでは、組織のメンバーとしての権限は残る）
+    pub async fn remove_collaborator(&self, owner: &str, repo: &str, username: &str) -> Result<(), String> {
+        self.delete(&format!("{}/repos/{}/{}/collaborators/{}", BASE_URL, owner, repo, urlencoding::encode(username))).await?;
+        Ok(())
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {

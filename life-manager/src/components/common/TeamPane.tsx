@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  cancelInvitation, daysLeft, INVITATION_DAYS, INVITE_PERMISSIONS, inviteMember, parseNames, ROLE_LABELS, teamOverview,
+  cancelInvitation, daysLeft, INVITATION_DAYS, INVITE_PERMISSIONS, inviteMember, parseNames, removeMember, ROLE_LABELS, teamOverview,
   type InviteOutcome, type RepoInvitation, type TeamOverview,
 } from "../../lib/team";
 import { InvitesForMe } from "./InvitesForMe";
@@ -39,7 +39,7 @@ function resultText({ name, outcome }: Result): { mark: string; tone: string; te
 
 /**
  * 設定 → チーム。自分宛ての招待（参加する）、今のリポジトリへの招待（管理者だけ。名前をまとめて貼って送る）、
- * 送った招待（取り消す・送り直す）、メンバーの一覧。メンバーを外すのは GitHub の画面で（間違えて外さないように）
+ * 送った招待（取り消す・送り直す）、メンバーの一覧（管理者は、その行で確かめてから外せる）
  */
 export function TeamPane({ owner, repo, login }: TeamPaneProps) {
   const [overview, setOverview] = useState<TeamOverview | null>(null);
@@ -50,6 +50,11 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
   const [results, setResults] = useState<Result[]>([]);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  // メンバーを外す: 確かめている人・外しているところ・外した結果（組織のメンバーとしてまだ使えるか）
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removed, setRemoved] = useState<{ login: string; still: boolean } | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!owner || !repo) return;
@@ -64,6 +69,9 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
   useEffect(() => {
     setOverview(null);
     setResults([]);
+    setRemoving(null);
+    setRemoved(null);
+    setRemoveError(null);
     load();
   }, [load]);
 
@@ -135,6 +143,26 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
       setError(String(e));
     } finally {
       setBusyId(null);
+    }
+  }
+
+  /** メンバーを外す（確かめたあと）。組織のリポジトリでは、組織のメンバーとしてまだ使える人は一覧に残る */
+  async function remove(name: string) {
+    setRemoveBusy(true);
+    setRemoveError(null);
+    try {
+      await removeMember(owner, repo, name);
+      const next = await teamOverview(owner, repo);
+      const same = (m: { login: string }) => m.login.toLowerCase() === name.toLowerCase();
+      const still = next.organization && next.members.some(same);
+      // 個人のリポジトリは、GitHub の一覧に残っていても（反映が遅れても）外したものとして出す
+      setOverview(still ? next : { ...next, members: next.members.filter((m) => !same(m)) });
+      setRemoved({ login: name, still });
+      setRemoving(null);
+    } catch (e) {
+      setRemoveError(String(e));
+    } finally {
+      setRemoveBusy(false);
     }
   }
 
@@ -271,17 +299,52 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                   メンバー <small>このリポジトリを使える人</small>
                 </h3>
                 {overview.members_error && <p className="token-error">{overview.members_error}</p>}
-                {overview.members.map((m) => (
-                  <div key={m.login} className="team-row">
-                    {m.avatar_url && <img src={m.avatar_url} alt="" />}
-                    <span className="team-row-main">
-                      {m.login}
-                      {m.login === login && <small>（あなた）</small>}
-                    </span>
-                    {m.role_name && <span className="team-role">{ROLE_LABELS[m.role_name] ?? m.role_name}</span>}
-                  </div>
-                ))}
-                <p className="team-note">外すのは GitHub の画面（リポジトリの Settings → Collaborators）で行います。間違えて外さないよう、このアプリからは外しません。</p>
+                {overview.members.map((m) => {
+                  // 外せるのは管理者だけ。持ち主と自分は外さない
+                  const canRemove = overview.admin && m.login.toLowerCase() !== login.toLowerCase() && m.login.toLowerCase() !== owner.toLowerCase();
+                  return (
+                    <div key={m.login} className="team-row">
+                      {m.avatar_url && <img src={m.avatar_url} alt="" />}
+                      <span className="team-row-main">
+                        {m.login}
+                        {m.login === login && <small>（あなた）</small>}
+                      </span>
+                      {m.role_name && <span className="team-role">{ROLE_LABELS[m.role_name] ?? m.role_name}</span>}
+                      {canRemove && removing !== m.login && (
+                        <button type="button" className="btn-sm team-remove" disabled={removeBusy}
+                          onClick={() => { setRemoving(m.login); setRemoved(null); setRemoveError(null); }}>
+                          外す
+                        </button>
+                      )}
+                      {removing === m.login && (
+                        <div className="team-confirm">
+                          <b>{m.login} を {owner}/{repo} から外しますか？</b>
+                          <span className="team-note">このリポジトリを使えなくなります（非公開なら見ることもできません）。もう一度招待すれば戻せます。</span>
+                          <span className="team-confirm-actions">
+                            <button type="button" className="btn-danger" disabled={removeBusy} onClick={() => remove(m.login)}>
+                              {removeBusy ? "外しています…" : "外す"}
+                            </button>
+                            <button type="button" className="btn-sm" disabled={removeBusy} onClick={() => setRemoving(null)}>やめる</button>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {removed && (
+                  <p className={`team-removed ${removed.still ? "team-result--warn" : "team-result--ok"}`}>
+                    {removed.still
+                      ? `― ${removed.login} を外しましたが、組織のメンバーとしてまだ使えます（組織の画面の People・Teams で外します）`
+                      : `✔ ${removed.login} を外しました`}
+                  </p>
+                )}
+                {removeError && <p className="token-error">{removeError}</p>}
+                <p className="team-note">
+                  {overview.admin
+                    ? "外した人は、このリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。"
+                    : "メンバーを外せるのは、このリポジトリの管理者です。"}
+                </p>
+                {overview.admin && <div className="team-cmd">GitHub に送る内容: DELETE /repos/{owner}/{repo}/collaborators/名前</div>}
               </div>
             )}
           </div>

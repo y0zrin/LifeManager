@@ -1,23 +1,62 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, GitHubUser } from "../../lib/types";
-import { TicketCard } from "../common/TicketCard";
+import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
+import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
 import { PendingChip } from "../common/PendingChip";
-import { issueRef } from "../../lib/issueRef";
-import { DEFAULT_COLUMNS } from "../../lib/board";
-import { sumEstimates } from "../../lib/estimate";
+import { DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
+import { daysUntil, dueOf } from "../../lib/due";
 import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
+import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
+import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
+import type { MilestoneFilter } from "../../lib/savedViews";
+import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
 
 interface KanbanViewProps {
+  owner: string;
+  repo: string;
   issues: GitHubIssue[];
   labels: GitHubLabel[];
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
   boardConfig: BoardConfig | null;
   currentUser: string;
+  /** 作業タブで取り組んでいる Issue（「✏️ 作業中」の印） */
+  workingIssue: number | null;
   onStatusChange: (n: number, status: string) => void;
-  onAssignToMe: (n: number) => void;
   onSelectIssue: (n: number) => void;
+  onOpenPull: (n: number) => void;
   onSaveBoardConfig: (config: BoardConfig) => Promise<void>;
+}
+
+/** ボードの見た目 */
+type Look = "quest" | "white" | "chalk";
+const LOOKS: { key: Look; label: string }[] = [
+  { key: "quest", label: "クエスト" },
+  { key: "white", label: "ホワイトボード" },
+  { key: "chalk", label: "黒板" },
+];
+const GENRES: { key: BoardGenre; label: string; icon: string; about: string }[] = [
+  { key: "triage", label: "未整理", icon: "📥", about: "整理して、やることを決める" },
+  { key: "doing", label: "着手済み", icon: "🔥", about: "やっていることを追う" },
+];
+const LOOK_KEY = "board-look";
+const GENRE_KEY = "board-genre";
+const MINE_KEY = "board-mine-only";
+
+function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return (allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function savePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // 覚えられなくても、今は選んだとおりに出す
+  }
 }
 
 function useIsMobile(breakpoint = 640) {
@@ -32,490 +71,492 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-function getPriorityColor(issue: GitHubIssue): string {
-  const p = issue.labels.find((l) => l.name.startsWith("優先:"));
-  return p?.name === "優先:高" ? "#f85149"
-    : p?.name === "優先:中" ? "#d29922"
-    : p?.name === "優先:低" ? "#3fb950"
-    : "transparent";
+/** 空の区画に出す、どうすれば入るか */
+const EMPTY_HINTS: Record<string, string> = {
+  "状態:進行中": "作業タブで始めると、ここに入ります",
+  "状態:チェック待ち": "プルリクを作ると、ここに入ります",
+};
+
+/** 付箋の色（ホワイトボード・黒板）: 種別で分ける */
+function noteColor(issue: GitHubIssue): string {
+  const kind = issue.labels.find((l) => l.name.startsWith("種別:"))?.name;
+  if (kind === "種別:バグ") return "pink";
+  if (kind === "種別:メモ") return "blue";
+  if (kind === "種別:ルーチン") return "green";
+  return "yellow";
 }
 
-export function KanbanView({ issues, labels, milestones, collaborators, boardConfig, currentUser, onStatusChange, onAssignToMe, onSelectIssue, onSaveBoardConfig }: KanbanViewProps) {
+/** 見積もりから、難しさの星（クエストボード）。日に直して 1〜5 */
+function starsOf(issue: GitHubIssue): string {
+  const e = estimateOf(issue);
+  if (!e) return "";
+  const d = estimateDays(e);
+  const n = d <= 0.25 ? 1 : d <= 1 ? 2 : d <= 3 ? 3 : d <= 5 ? 4 : 5;
+  return "★".repeat(n);
+}
+
+/** つないだプルリクと、その進み（付箋の「🔃 #2 レビュー待ち」） */
+interface PullMark {
+  number: number;
+  state: string;
+}
+
+interface NoteProps {
+  issue: GitHubIssue;
+  look: Look;
+  me: string;
+  working: boolean;
+  pull: PullMark | null;
+  onOpenPull: (n: number) => void;
+}
+
+/** 付箋（クエストボードでは依頼書） */
+function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
+  const est = estimateOf(issue);
+  const due = issue.state === "open" ? dueOf(issue) : null;
+  const days = due ? daysUntil(due.date) : null;
+  const [, m, d] = due ? due.date.split("-").map(Number) : [0, 0, 0];
+  const overdue = days !== null && days < 0;
+  const names = (issue.assignees ?? []).map((a) => a.login);
+  const mine = !!me && names.includes(me);
+  const others = names.filter((n) => n !== me);
+  const quest = look === "quest";
+  // 番号で決まる、少しの傾き（毎回同じ）
+  const tilt = (((issue.number * 37) % 7) - 3) * 0.4;
+  const fields = issue.labels.filter((l) => l.name.startsWith("分野:")).map((l) => l.name.replace("分野:", ""));
+
+  return (
+    <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
+      {overdue && <span className="bd-late">期限切れ</span>}
+      <div className="bd-nt">
+        <span className="bd-no">#{issue.number}</span>
+        {issue.title}
+        {issue._pending && <PendingChip />}
+      </div>
+      <div className="bd-line">
+        {quest && est && <span className="bd-stars">{starsOf(issue)}</span>}
+        {est && <span>{quest ? `報酬 ${formatEstimate(est.value, est.unit)}` : formatEstimate(est.value, est.unit)}</span>}
+        {due && (
+          <span className={overdue ? "bd-over" : ""}>
+            {quest ? `期限 ${m}/${d}` : overdue ? `${m}/${d} 期限切れ！` : `${m}/${d} まで`}
+          </span>
+        )}
+        {fields.length > 0 && <span>{fields.join("・")}</span>}
+      </div>
+      <div className="bd-foot">
+        {mine ? (
+          quest ? (
+            <span className="bd-hanko">受注</span>
+          ) : (
+            <span className="bd-magnet">{me.slice(0, 1).toUpperCase()}</span>
+          )
+        ) : others.length > 0 && !quest ? (
+          <span className="bd-magnet other">{others[0].slice(0, 1).toUpperCase()}</span>
+        ) : null}
+        <span className={mine ? "bd-mine" : "bd-who"}>
+          {mine ? (others.length > 0 ? `自分・${others.join("・")}` : "自分") : others.length > 0 ? others.join("・") : quest ? "受注者 募集中" : "担当なし"}
+        </span>
+        {working && <span className="bd-flag work">✏️ 作業中</span>}
+        {pull && (
+          <button
+            type="button"
+            className="bd-flag pr"
+            title={`プルリク #${pull.number} を開く`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPull(pull.number);
+            }}
+          >
+            🔃 #{pull.number} {pull.state}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, onSaveBoardConfig }: KanbanViewProps) {
   const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
 
-  // Filters
-  const [filterAssignee, setFilterAssignee] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
-  const [filterMilestone, setFilterMilestone] = useState("");
-  const [filterField, setFilterField] = useState("");
+  // 見た目・ジャンル・自分の担当だけ（この PC に覚えておく）
+  const [look, setLookState] = useState<Look>(() => loadPref(LOOK_KEY, ["quest", "white", "chalk"] as const, "chalk"));
+  const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing"] as const, "doing"));
+  const [mineOnly, setMineOnlyState] = useState(() => loadPref(MINE_KEY, ["1", "0"] as const, "0") === "1");
+  const setLook = (v: Look) => { setLookState(v); savePref(LOOK_KEY, v); };
+  const setGenre = (v: BoardGenre) => { setGenreState(v); savePref(GENRE_KEY, v); };
+  const setMineOnly = (v: boolean) => { setMineOnlyState(v); savePref(MINE_KEY, v ? "1" : "0"); };
 
-  // Column settings modal
-  const [showColumnSettings, setShowColumnSettings] = useState(false);
-  const [editColumns, setEditColumns] = useState<BoardColumn[]>(baseColumns);
-  const [newColKey, setNewColKey] = useState("");
-  const [newColTitle, setNewColTitle] = useState("");
-  const [newColEmoji, setNewColEmoji] = useState("");
+  // 検索・フィルタ（タスク一覧と同じ部品。状態はボードの区画なので、ラベルの絞り込みからは外す）
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<LabelFilters>({});
+  const [assignee, setAssignee] = useState("");
+  const [milestone, setMilestone] = useState<MilestoneFilter | null>(null);
+  const categoryNames: Record<string, string> = { "種別:": "種別", "分野:": "分野", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
+  const filterProps: TaskFilterProps = {
+    categories: Object.keys(categoryNames)
+      .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => l.name.startsWith(prefix)) }))
+      .filter((c) => c.labels.length > 0),
+    filters,
+    onFiltersChange: setFilters,
+    assignee,
+    onAssigneeChange: setAssignee,
+    currentUser,
+    collaborators,
+    milestone,
+    onMilestoneChange: setMilestone,
+    milestones,
+    milestoneTitle: (n) => milestones.find((x) => x.number === n)?.title,
+    state: "open",
+    onStateChange: () => {},
+    showState: false,
+  };
 
-  // Mouse-based D&D state (desktop only)
-  const [draggingIssue, setDraggingIssue] = useState<number | null>(null);
-  const [draggingStatus, setDraggingStatus] = useState<string>("");
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  // つないだプルリク（説明の Closes #N・issue-N のブランチ）。読めなければ印を出さない
+  const [pullOf, setPullOf] = useState<Map<number, PullMark>>(new Map());
+  useEffect(() => {
+    if (!owner || !repo) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const open = (await listPulls(owner, repo)).filter((p) => p.state === "open");
+        const verdicts = open.length > 0 ? await pullVerdicts(owner, repo, open.map((p) => p.number)).catch(() => ({})) : {};
+        const map = new Map<number, PullMark>();
+        for (const p of open) {
+          const v = (verdicts as Record<string, { approved: string[]; changes_requested: string[] }>)[String(p.number)];
+          const state = p.draft ? "下書き" : v?.changes_requested.length ? "修正の依頼" : v?.approved.length ? "承認済み" : "レビュー待ち";
+          const branchIssue = issueOfBranch(p.head);
+          for (const n of [...closingIssues(p.body ?? ""), ...(branchIssue !== null ? [branchIssue] : [])]) {
+            if (!map.has(n)) map.set(n, { number: p.number, state });
+          }
+        }
+        if (alive) setPullOf(map);
+      } catch {
+        // プルリクの権限がないときなど
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 120000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [owner, repo]);
+
+  // 絞り込み
+  const q = query.trim().toLowerCase().replace(/^#/, "");
+  const shown = issues.filter((i) => {
+    if (q && !(String(i.number).startsWith(q) || i.title.toLowerCase().includes(q))) return false;
+    if (mineOnly && !i.assignees?.some((a) => a.login === currentUser)) return false;
+    if (assignee && !i.assignees?.some((a) => a.login === assignee)) return false;
+    if (milestone === "none" ? i.milestone : milestone !== null && i.milestone?.number !== milestone) return false;
+    return matchesLabelFilters(i, filters);
+  });
+  const issuesOf = (col: BoardColumn) =>
+    col.key === "none" ? shown.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:"))) : shown.filter((i) => i.labels.some((l) => l.name === col.key));
+  const columnsOf = (g: BoardGenre) => baseColumns.filter((c) => genreOf(c) === g);
+  const countOf = (g: BoardGenre) => columnsOf(g).reduce((n, c) => n + issuesOf(c).length, 0);
+  // ジャンルのタブに落としたときの行き先（着手済み → 進行中、未整理 → 未着手。なければ最初の区画）
+  const landingOf = (g: BoardGenre) => {
+    const cols = columnsOf(g);
+    const prefer = g === "doing" ? "状態:進行中" : "状態:未着手";
+    return (cols.find((c) => c.key === prefer) ?? cols[0])?.key ?? null;
+  };
+
+  // --- ドラッグ（PC。マウスで付箋を区画・タブへ） ---
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [dragFrom, setDragFrom] = useState("");
+  const [over, setOver] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [dropTarget, setDropTarget] = useState<{ x: number; y: number } | null>(null);
   const isDraggingRef = useRef(false);
-  const mouseDownRef = useRef<{ x: number; y: number; issueNumber: number; status: string } | null>(null);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
-  const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const downRef = useRef<{ x: number; y: number; issue: number; status: string } | null>(null);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const targets = useRef<Map<string, HTMLElement>>(new Map());
+  const target = (key: string) => (el: HTMLElement | null) => {
+    if (el) targets.current.set(key, el);
+    else targets.current.delete(key);
+  };
 
-  // Mobile: selected issue for status change
-  const [mobileSelectedIssue, setMobileSelectedIssue] = useState<number | null>(null);
-  // Mobile: active column tab
-  const [activeColumnIndex, setActiveColumnIndex] = useState(0);
+  const statusOf = (issue: GitHubIssue) => issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
 
-  // Apply filters
-  let filteredIssues = issues;
-  if (filterAssignee) {
-    filteredIssues = filteredIssues.filter((i) =>
-      i.assignees?.some((a) => a.login === filterAssignee)
-    );
-  }
-  if (filterPriority) {
-    filteredIssues = filteredIssues.filter((i) =>
-      i.labels.some((l) => l.name === filterPriority)
-    );
-  }
-  if (filterMilestone) {
-    filteredIssues = filteredIssues.filter((i) =>
-      i.milestone?.title === filterMilestone
-    );
-  }
-  if (filterField) {
-    filteredIssues = filteredIssues.filter((i) =>
-      i.labels.some((l) => l.name === filterField)
-    );
-  }
-
-  const hasFilters = filterAssignee || filterPriority || filterMilestone || filterField;
-
-  // Desktop: separate my desk from status columns
-  const myDeskIssues = currentUser
-    ? filteredIssues.filter((i) => i.assignees?.some((a) => a.login === currentUser))
-    : [];
-
-  const statusColumnData = baseColumns.map((col) => ({
-    ...col,
-    issues: col.key === "none"
-      ? filteredIssues.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:")))
-      : filteredIssues.filter((i) => i.labels.some((l) => l.name === col.key)),
-  }));
-
-  // Mobile: include @me as first tab
-  const mobileColumns = currentUser
-    ? [{ key: "@me", title: "自分のタスク", emoji: "👤" }, ...baseColumns]
-    : baseColumns;
-
-  const mobileColumnData = mobileColumns.map((col) => ({
-    ...col,
-    issues: col.key === "@me"
-      ? filteredIssues.filter((i) => i.assignees?.some((a) => a.login === currentUser))
-      : col.key === "none"
-        ? filteredIssues.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:")))
-        : filteredIssues.filter((i) => i.labels.some((l) => l.name === col.key)),
-  }));
-
-  // Mouse-based D&D handlers (desktop)
-  const handleMouseDown = useCallback((e: React.MouseEvent, issueNumber: number, currentStatus: string) => {
+  const onNoteMouseDown = useCallback((e: React.MouseEvent, issue: number, status: string) => {
     if (e.button !== 0) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    mouseDownRef.current = { x: e.clientX, y: e.clientY, issueNumber, status: currentStatus };
-    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    downRef.current = { x: e.clientX, y: e.clientY, issue, status };
+    offsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
   useEffect(() => {
-    function handleMouseMove(e: MouseEvent) {
-      if (!mouseDownRef.current) return;
-      const dx = e.clientX - mouseDownRef.current.x;
-      const dy = e.clientY - mouseDownRef.current.y;
-      // 5px以上動いたらドラッグ開始
-      if (!isDraggingRef.current && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+    function onMove(e: MouseEvent) {
+      if (!downRef.current) return;
+      if (!isDraggingRef.current && (Math.abs(e.clientX - downRef.current.x) > 5 || Math.abs(e.clientY - downRef.current.y) > 5)) {
         isDraggingRef.current = true;
-        setDraggingIssue(mouseDownRef.current.issueNumber);
-        setDraggingStatus(mouseDownRef.current.status);
-        setMousePos({ x: e.clientX, y: e.clientY });
+        setDragging(downRef.current.issue);
+        setDragFrom(downRef.current.status);
       }
-      if (isDraggingRef.current) {
-        setMousePos({ x: e.clientX, y: e.clientY });
-        // マウス位置からどのカラム/トレイの上にいるか判定
-        let found: string | null = null;
-        columnRefs.current.forEach((el, key) => {
-          const rect = el.getBoundingClientRect();
-          if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-            found = key;
-          }
-        });
-        setDragOverColumn(found);
-      }
+      if (!isDraggingRef.current) return;
+      setMousePos({ x: e.clientX, y: e.clientY });
+      let found: string | null = null;
+      targets.current.forEach((el, key) => {
+        const r = el.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) found = key;
+      });
+      setOver(found);
     }
-
-    function handleMouseUp() {
-      if (isDraggingRef.current && draggingIssue !== null && dragOverColumn !== null) {
-        const issueNum = draggingIssue;
-        const targetCol = dragOverColumn;
-        const srcStatus = draggingStatus || "";
-
-        // ドロップアニメーション: ターゲット位置を計算
-        const targetEl = columnRefs.current.get(targetCol);
-        if (targetEl) {
-          const rect = targetEl.getBoundingClientRect();
-          setDropTarget({ x: rect.left + 10, y: rect.top + 40 });
-
-          setTimeout(() => {
-            if (targetCol === "@me") {
-              onAssignToMe(issueNum);
-            } else {
-              const targetStatus = targetCol === "none" ? "" : targetCol;
-              if (srcStatus !== targetStatus) {
-                onStatusChange(issueNum, targetStatus);
-              }
-            }
-            setDropTarget(null);
-            setDraggingIssue(null);
-            setDragOverColumn(null);
-            setDraggingStatus("");
-            mouseDownRef.current = null;
-            setTimeout(() => { isDraggingRef.current = false; }, 100);
-          }, 300);
-          return;
-        }
+    function onUp() {
+      if (isDraggingRef.current && dragging !== null && over !== null) {
+        const dest = over.startsWith("@genre:") ? landingOf(over.slice(7) as BoardGenre) : over;
+        const status = dest === "none" || dest === null ? "" : dest;
+        if (dest !== null && status !== dragFrom) onStatusChange(dragging, status);
+        // タブに落としたら、そのボードを開く
+        if (over.startsWith("@genre:")) setGenre(over.slice(7) as BoardGenre);
       }
-      mouseDownRef.current = null;
-      setDraggingIssue(null);
-      setDragOverColumn(null);
-      setDraggingStatus("");
-      // クリック判定用に少し遅延してフラグをリセット
-      setTimeout(() => { isDraggingRef.current = false; }, 100);
+      downRef.current = null;
+      setDragging(null);
+      setOver(null);
+      setDragFrom("");
+      window.setTimeout(() => {
+        isDraggingRef.current = false;
+      }, 100);
     }
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
     };
-  }, [draggingIssue, draggingStatus, dragOverColumn, onStatusChange, onAssignToMe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragging, dragFrom, over, onStatusChange]);
 
-  // Mobile: handle status change via action sheet
-  function handleMobileStatusChange(issueNumber: number, targetColumnKey: string) {
-    if (targetColumnKey === "@me") {
-      onAssignToMe(issueNumber);
-    } else {
-      const targetStatus = targetColumnKey === "none" ? "" : targetColumnKey;
-      onStatusChange(issueNumber, targetStatus);
-    }
-    setMobileSelectedIssue(null);
-  }
+  // --- スマホ: 「移動」で区画を選ぶ ---
+  const [moving, setMoving] = useState<number | null>(null);
 
-  // Column settings handlers（@meカラムは自動生成なので設定対象外）
-  function handleOpenColumnSettings() {
-    setEditColumns([...baseColumns]);
-    setShowColumnSettings(true);
-  }
-
-  function handleMoveColumn(index: number, direction: -1 | 1) {
-    const newCols = [...editColumns];
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= newCols.length) return;
-    [newCols[index], newCols[targetIndex]] = [newCols[targetIndex], newCols[index]];
-    setEditColumns(newCols);
-  }
-
-  function handleRemoveColumn(index: number) {
-    setEditColumns(editColumns.filter((_, i) => i !== index));
-  }
-
-  function handleAddColumn() {
-    if (!newColKey.trim() || !newColTitle.trim()) return;
-    setEditColumns([...editColumns, { key: newColKey.trim(), title: newColTitle.trim(), emoji: newColEmoji || "📋" }]);
-    setNewColKey("");
-    setNewColTitle("");
-    setNewColEmoji("");
-  }
-
-  async function handleSaveColumns() {
-    await onSaveBoardConfig({ columns: editColumns });
-    setShowColumnSettings(false);
-  }
-
-  const fieldLabels = labels.filter((l) => l.name.startsWith("分野:"));
-  const priorityLabels = labels.filter((l) => l.name.startsWith("優先:"));
+  // --- 区画の設定（どの状態を、どちらのボードに置くか） ---
+  const [showSettings, setShowSettings] = useState(false);
+  const [editColumns, setEditColumns] = useState<BoardColumn[]>(baseColumns);
+  const [newKey, setNewKey] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newEmoji, setNewEmoji] = useState("");
   const statusLabels = labels.filter((l) => l.name.startsWith("状態:"));
 
-  function getIssueStatus(issue: GitHubIssue): string {
-    return issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
+  function openSettings() {
+    setEditColumns(baseColumns.map((c) => ({ ...c, genre: genreOf(c) })));
+    setShowSettings(true);
+  }
+  function moveColumn(index: number, dir: -1 | 1) {
+    const next = [...editColumns];
+    const to = index + dir;
+    if (to < 0 || to >= next.length) return;
+    [next[index], next[to]] = [next[to], next[index]];
+    setEditColumns(next);
+  }
+  function addColumn() {
+    if (!newKey.trim() || !newTitle.trim()) return;
+    setEditColumns([...editColumns, { key: newKey.trim(), title: newTitle.trim(), emoji: newEmoji || "📋", genre: "doing" }]);
+    setNewKey("");
+    setNewTitle("");
+    setNewEmoji("");
+  }
+  async function saveColumns() {
+    await onSaveBoardConfig({ columns: editColumns });
+    setShowSettings(false);
   }
 
-  // ドラッグ中のIssueオブジェクト（フロートカード用）
-  const draggedIssue = draggingIssue !== null
-    ? issues.find((i) => i.number === draggingIssue) || null
-    : null;
+  const draggedIssue = dragging !== null ? issues.find((i) => i.number === dragging) ?? null : null;
+  const cols = columnsOf(genre);
+
+  const note = (issue: GitHubIssue) => (
+    <BoardNote issue={issue} look={look} me={currentUser} working={issue.number === workingIssue} pull={pullOf.get(issue.number) ?? null} onOpenPull={onOpenPull} />
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - var(--header-height))" }}>
-      {/* Filter toolbar */}
-      <div className="board-toolbar">
-        <div className="flex-row flex-wrap" style={{ flex: 1 }}>
-          <select className="select-sm" value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
-            <option value="">担当者</option>
-            {collaborators.map((c) => (
-              <option key={c.login} value={c.login}>{c.login}</option>
-            ))}
-          </select>
-          <select className="select-sm" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
-            <option value="">優先度</option>
-            {priorityLabels.map((l) => (
-              <option key={l.name} value={l.name}>{l.name.split(":")[1]}</option>
-            ))}
-          </select>
-          <select className="select-sm" value={filterField} onChange={(e) => setFilterField(e.target.value)}>
-            <option value="">分野</option>
-            {fieldLabels.map((l) => (
-              <option key={l.name} value={l.name}>{l.name.split(":")[1]}</option>
-            ))}
-          </select>
-          <select className="select-sm" value={filterMilestone} onChange={(e) => setFilterMilestone(e.target.value)}>
-            <option value="">マイルストーン</option>
-            {milestones.map((m) => (
-              <option key={m.number} value={m.title}>{m.title}</option>
-            ))}
-          </select>
-          {hasFilters && (
-            <button className="btn-sm" onClick={() => { setFilterAssignee(""); setFilterPriority(""); setFilterMilestone(""); setFilterField(""); }}
-              style={{ color: "var(--accent-red)" }}>
-              × リセット
+    <div className="bd-view">
+      <div className="bd-toolbar">
+        <div className="search-bar bd-search">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Issue を検索..." className="search-input" />
+          {query && (
+            <button className="search-clear" onClick={() => setQuery("")}>
+              ×
             </button>
           )}
         </div>
-        <button className="btn-sm" onClick={handleOpenColumnSettings}>
-          ⚙ カラム設定
+        <TaskFilterButton {...filterProps} />
+        <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+          👤 自分の担当だけ{mineOnly ? " ✓" : ""}
+        </button>
+        <span className="grow" />
+        <span className="bd-looks" role="group" aria-label="ボードの見た目">
+          {LOOKS.map((l) => (
+            <button key={l.key} type="button" className={look === l.key ? "on" : ""} aria-pressed={look === l.key} onClick={() => setLook(l.key)}>
+              {l.label}
+            </button>
+          ))}
+        </span>
+        <button className="btn-sm" onClick={openSettings}>
+          ⚙ 区画の設定
         </button>
       </div>
+      <TaskFilterChips {...filterProps} />
 
-      {/* Column settings modal */}
-      {showColumnSettings && (
-        <div className="palette-overlay" onClick={() => setShowColumnSettings(false)}>
-          <div className="modal-content" style={{ maxWidth: "420px" }}
-            onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: "var(--font-lg)", marginBottom: "var(--space-md)", color: "var(--text-primary)" }}>カラム設定</h3>
+      <div className="bd-tabs" role="tablist" aria-label="ボード">
+        {GENRES.map((g) => (
+          <button
+            key={g.key}
+            ref={target(`@genre:${g.key}`)}
+            type="button"
+            role="tab"
+            aria-selected={genre === g.key}
+            className={`bd-tab${genre === g.key ? " on" : ""}${over === `@genre:${g.key}` && genre !== g.key ? " over" : ""}`}
+            onClick={() => setGenre(g.key)}
+          >
+            {g.icon} {g.label}
+            <span className="bd-tab-n">{countOf(g.key)}</span>
+            <small>{dragging !== null && genre !== g.key ? "ここに落とすと移せます" : g.about}</small>
+          </button>
+        ))}
+      </div>
 
-            {editColumns.map((col, index) => (
-              <div key={index} className="flex-row" style={{ marginBottom: "6px", padding: "6px 8px", background: "var(--bg-primary)", borderRadius: "var(--radius-md)" }}>
-                <span style={{ fontSize: "16px", width: "24px", textAlign: "center" }}>{col.emoji}</span>
-                <span style={{ flex: 1, fontSize: "var(--font-md)", color: "var(--text-primary)" }}>{col.title}</span>
-                <span style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)" }}>{col.key}</span>
-                <button className="btn-sm" onClick={() => handleMoveColumn(index, -1)} disabled={index === 0} style={{ padding: "2px 6px", fontSize: "var(--font-xs)" }}>↑</button>
-                <button className="btn-sm" onClick={() => handleMoveColumn(index, 1)} disabled={index === editColumns.length - 1} style={{ padding: "2px 6px", fontSize: "var(--font-xs)" }}>↓</button>
-                <button className="btn-sm" onClick={() => handleRemoveColumn(index)} style={{ padding: "2px 6px", fontSize: "var(--font-xs)", color: "var(--accent-red)" }}>×</button>
-              </div>
-            ))}
-
-            {/* Add column form */}
-            <div style={{ marginTop: "var(--space-md)", padding: "10px", background: "var(--bg-primary)", borderRadius: "var(--radius-md)" }}>
-              <p style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", marginBottom: "6px" }}>カラムを追加</p>
-              <div className="flex-row" style={{ marginBottom: "6px" }}>
-                <select className="select-sm" value={newColKey} onChange={(e) => {
-                  setNewColKey(e.target.value);
-                  if (e.target.value && !newColTitle) {
-                    const label = e.target.value === "none" ? "未分類" : e.target.value.split(":")[1] || "";
-                    setNewColTitle(label);
-                  }
-                }} style={{ flex: 1 }}>
-                  <option value="">ラベルキーを選択...</option>
-                  <option value="none">未分類 (ラベルなし)</option>
-                  {statusLabels.map((l) => (
-                    <option key={l.name} value={l.name}>{l.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="emoji-picker" style={{ display: "flex", flexWrap: "wrap", gap: "2px", marginBottom: "6px" }}>
-                {["📋","📥","🔥","👀","🧪","✅","💭","⏳","🚀","🐛","💡","📌","🎯","⚡","🔒","📦","🏷️","🗂️","📐","🛠️"].map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    className={`btn-sm${newColEmoji === em ? " emoji-selected" : ""}`}
-                    onClick={() => setNewColEmoji(newColEmoji === em ? "" : em)}
-                    style={{ padding: "2px 4px", fontSize: "16px", minWidth: "28px", minHeight: "28px", background: newColEmoji === em ? "var(--accent-blue)" : undefined }}
+      <div className={`bd-wall look-${look}`}>
+        {cols.length === 0 && <p className="bd-none">このボードに置く区画がありません（⚙ 区画の設定 で選べます）</p>}
+        {cols.map((col) => {
+          const list = issuesOf(col);
+          return (
+            <section key={col.key} ref={target(col.key)} className={`bd-board${over === col.key ? " over" : ""}`}>
+              <header className="bd-head">
+                <span className="bd-title">
+                  {col.emoji} {col.title}
+                </span>
+                <span className="bd-count">{list.length}</span>
+                <EstimateSumText sum={sumEstimates(list, unit)} showMissing={false} />
+              </header>
+              <div className="bd-notes">
+                {list.map((issue) => (
+                  <div
+                    key={issue.number}
+                    className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
+                    onMouseDown={isMobile ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+                    onClick={() => {
+                      if (!isDraggingRef.current) onSelectIssue(issue.number);
+                    }}
                   >
-                    {em}
-                  </button>
+                    {note(issue)}
+                    {isMobile && (
+                      <button
+                        type="button"
+                        className="btn-sm bd-move"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMoving(moving === issue.number ? null : issue.number);
+                        }}
+                      >
+                        移動
+                      </button>
+                    )}
+                    {isMobile && moving === issue.number && (
+                      <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
+                        {baseColumns
+                          .filter((c) => c.key !== (statusOf(issue) || "none"))
+                          .map((c) => (
+                            <button
+                              key={c.key}
+                              className="kanban-status-option"
+                              onClick={() => {
+                                onStatusChange(issue.number, c.key === "none" ? "" : c.key);
+                                setMoving(null);
+                              }}
+                            >
+                              {c.emoji} {c.title}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
-              <div className="flex-row">
-                <span style={{ fontSize: "20px", width: "32px", textAlign: "center", flexShrink: 0 }}>{newColEmoji || "📋"}</span>
-                <input value={newColTitle} onChange={(e) => setNewColTitle(e.target.value)} placeholder="表示名" className="input-full" style={{ flex: 1 }} />
-                <button className="btn-primary" onClick={handleAddColumn} disabled={!newColKey || !newColTitle} style={{ fontSize: "var(--font-sm)" }}>追加</button>
-              </div>
-            </div>
+              {list.length === 0 && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
+            </section>
+          );
+        })}
+      </div>
 
-            <div className="flex-row" style={{ marginTop: "var(--space-md)", justifyContent: "flex-end" }}>
-              <button className="btn-sm" onClick={() => setShowColumnSettings(false)}>キャンセル</button>
-              <button className="btn-primary" onClick={handleSaveColumns}>保存</button>
-            </div>
-          </div>
+      {/* ドラッグ中の付箋（マウスについてくる） */}
+      {draggedIssue && isDraggingRef.current && (
+        <div className={`bd-float look-${look}`} style={{ left: mousePos.x - offsetRef.current.x, top: mousePos.y - offsetRef.current.y }}>
+          {note(draggedIssue)}
         </div>
       )}
 
-      {/* Mobile: tab-based column view */}
-      {isMobile ? (
-        <>
-          {/* Column tabs */}
-          <div className="kanban-tabs">
-            {mobileColumnData.map((col, idx) => (
-              <button
-                key={col.key}
-                className={`kanban-tab ${idx === activeColumnIndex ? "active" : ""}`}
-                onClick={() => setActiveColumnIndex(idx)}
-              >
-                {col.emoji} {col.title}
-                <span className="kanban-tab-count">{col.issues.length}</span>
+      {/* 区画の設定 */}
+      {showSettings && (
+        <div className="palette-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal-content bd-settings" onClick={(e) => e.stopPropagation()}>
+            <h3>区画の設定</h3>
+            <p className="bd-settings-note">状態ごとの区画を、どちらのボード（未整理・着手済み）に置くかと、並びを決めます。</p>
+            {editColumns.map((col, index) => (
+              <div key={col.key} className="bd-settings-row">
+                <span className="bd-settings-emoji">{col.emoji}</span>
+                <span className="bd-settings-title">{col.title}</span>
+                <select
+                  className="select-sm"
+                  value={genreOf(col)}
+                  aria-label={`${col.title} を置くボード`}
+                  onChange={(e) => setEditColumns(editColumns.map((c, i) => (i === index ? { ...c, genre: e.target.value as BoardGenre } : c)))}
+                >
+                  {GENRES.map((g) => (
+                    <option key={g.key} value={g.key}>
+                      {g.label}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn-sm" onClick={() => moveColumn(index, -1)} disabled={index === 0}>
+                  ↑
+                </button>
+                <button className="btn-sm" onClick={() => moveColumn(index, 1)} disabled={index === editColumns.length - 1}>
+                  ↓
+                </button>
+                <button className="btn-sm bd-settings-remove" onClick={() => setEditColumns(editColumns.filter((_, i) => i !== index))}>
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="bd-settings-add">
+              <p>区画を足す</p>
+              <div className="bd-settings-row">
+                <select
+                  className="select-sm"
+                  value={newKey}
+                  onChange={(e) => {
+                    setNewKey(e.target.value);
+                    if (e.target.value && !newTitle) setNewTitle(e.target.value === "none" ? "未分類" : e.target.value.split(":")[1] || "");
+                  }}
+                >
+                  <option value="">状態のラベルを選ぶ…</option>
+                  <option value="none">未分類（状態のラベルなし）</option>
+                  {statusLabels.map((l) => (
+                    <option key={l.name} value={l.name}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <input value={newEmoji} onChange={(e) => setNewEmoji(e.target.value)} placeholder="絵文字" className="input-full bd-settings-emoji-input" />
+                <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="表示名" className="input-full" />
+                <button className="btn-primary" onClick={addColumn} disabled={!newKey || !newTitle}>
+                  足す
+                </button>
+              </div>
+            </div>
+            <div className="bd-settings-actions">
+              <button className="btn-sm" onClick={() => setShowSettings(false)}>
+                やめる
               </button>
-            ))}
-          </div>
-
-          {/* Active column content */}
-          <div className="kanban-mobile-body">
-            {mobileColumnData[activeColumnIndex]?.issues.map((issue) => (
-              <div key={issue.number} className="kanban-mobile-card">
-                <div onClick={() => onSelectIssue(issue.number)}>
-                  <TicketCard issue={issue} onSelect={() => {}} />
-                </div>
-                <div className="kanban-mobile-actions">
-                  <button
-                    className="btn-sm"
-                    onClick={() => setMobileSelectedIssue(
-                      mobileSelectedIssue === issue.number ? null : issue.number
-                    )}
-                    style={{ fontSize: "var(--font-xs)" }}
-                  >
-                    移動
-                  </button>
-                </div>
-                {/* Status change action sheet */}
-                {mobileSelectedIssue === issue.number && (
-                  <div className="kanban-status-sheet">
-                    {mobileColumns.filter((c) => c.key !== (getIssueStatus(issue) || "none")).map((col) => (
-                      <button
-                        key={col.key}
-                        className="kanban-status-option"
-                        onClick={() => handleMobileStatusChange(issue.number, col.key)}
-                      >
-                        {col.emoji} {col.title}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {mobileColumnData[activeColumnIndex]?.issues.length === 0 && (
-              <p style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)", textAlign: "center", padding: "20px 0" }}>
-                チケットなし
-              </p>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Desktop: マイデスクトレイ */}
-          {currentUser && (
-            <div
-              className={`mydesk-tray${dragOverColumn === "@me" ? " mydesk-tray-dragover" : ""}`}
-              ref={(el) => { if (el) columnRefs.current.set("@me", el); }}
-            >
-              <div className="mydesk-header">
-                <span>👤 自分のタスク</span>
-                <span className="mydesk-count">{myDeskIssues.length}</span>
-              </div>
-              {myDeskIssues.length > 0 ? (
-                <div className="mydesk-cards">
-                  {myDeskIssues.map((issue) => (
-                    <div
-                      key={issue.number}
-                      onMouseDown={(e) => handleMouseDown(e, issue.number, getIssueStatus(issue))}
-                      className={draggingIssue === issue.number ? "kanban-card-dragging" : ""}
-                      style={{ cursor: draggingIssue ? "grabbing" : "grab", userSelect: "none" }}
-                    >
-                      <div
-                        className="mydesk-card"
-                        onClick={() => { if (!isDraggingRef.current) onSelectIssue(issue.number); }}
-                        style={{ borderLeft: `3px solid ${getPriorityColor(issue)}` }}
-                      >
-                        <span className="mydesk-card-number">{issueRef(issue.number)}</span>
-                        <span className="mydesk-card-title">{issue.title}</span>
-                        {issue._pending && <PendingChip />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mydesk-empty">
-                  {draggingIssue !== null ? "ここにドロップして引き取る" : "担当タスクなし"}
-                </p>
-              )}
+              <button className="btn-primary" onClick={saveColumns}>
+                保存
+              </button>
             </div>
-          )}
-
-          {/* Desktop: D&D column board */}
-          <div className="kanban" style={{ flex: 1, minHeight: 0, height: "auto" }}>
-            {statusColumnData.map((col) => (
-              <div
-                key={col.key}
-                ref={(el) => { if (el) columnRefs.current.set(col.key, el); }}
-                className={`kanban-column${dragOverColumn === col.key ? " kanban-column-dragover" : ""}`}
-              >
-                <h3 className="kanban-header">
-                  <span>{col.emoji} {col.title}</span>
-                  <span style={{ color: "var(--text-faint)", fontWeight: "normal", fontSize: "var(--font-sm)", marginLeft: "6px" }}>
-                    {col.issues.length}
-                  </span>
-                  <EstimateSumText sum={sumEstimates(col.issues, unit)} showMissing={false} />
-                </h3>
-                <div className="kanban-body">
-                  {col.issues.map((issue) => (
-                    <div
-                      key={issue.number}
-                      onMouseDown={(e) => handleMouseDown(e, issue.number, getIssueStatus(issue))}
-                      className={draggingIssue === issue.number ? "kanban-card-dragging" : ""}
-                      style={{ cursor: draggingIssue ? "grabbing" : "grab", userSelect: "none" }}
-                    >
-                      <TicketCard issue={issue} onSelect={(n) => {
-                        if (!isDraggingRef.current) onSelectIssue(n);
-                      }} />
-                    </div>
-                  ))}
-                  {col.issues.length === 0 && (
-                    <p style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)", textAlign: "center", padding: "20px 0" }}>
-                      チケットなし
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
-
-          {/* フロートカード（ドラッグ中にマウスに追従する浮遊カード） */}
-          {draggedIssue && isDraggingRef.current && (
-            <div
-              className={`kanban-float-card${dropTarget ? " kanban-float-dropping" : ""}`}
-              style={{
-                left: dropTarget ? dropTarget.x : mousePos.x - dragOffsetRef.current.x,
-                top: dropTarget ? dropTarget.y : mousePos.y - dragOffsetRef.current.y,
-              }}
-            >
-              <TicketCard issue={draggedIssue} onSelect={() => {}} />
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   );

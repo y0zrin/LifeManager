@@ -21,7 +21,7 @@ import { SettingsView, type SettingsPane } from "./components/views/SettingsView
 import { RoutinesView } from "./components/views/RoutinesView";
 import { TimelineView } from "./components/views/TimelineView";
 import { GanttView } from "./components/views/GanttView";
-import { WorkView, EMPTY_DRAFT, type CommitDraft } from "./components/views/WorkView";
+import { WorkView, EMPTY_DRAFT, loadWorkIssue, type CommitDraft } from "./components/views/WorkView";
 import { BranchesView } from "./components/views/BranchesView";
 import { OverviewView } from "./components/views/OverviewView";
 import { PullsView } from "./components/views/PullsView";
@@ -1097,6 +1097,10 @@ function App() {
           {/* ボード */}
           {view === "kanban" && gh.connected && (
             <KanbanView
+              owner={gh.owner}
+              repo={gh.repo}
+              workingIssue={loadWorkIssue(gh.owner, gh.repo)}
+              onOpenPull={openPull}
               issues={gh.issues}
               labels={gh.customLabels}
               milestones={gh.milestones}
@@ -1104,7 +1108,6 @@ function App() {
               boardConfig={gh.boardConfig}
               currentUser={gh.currentUser}
               onStatusChange={gh.changeIssueStatus}
-              onAssignToMe={gh.assignToMe}
               onSelectIssue={setSelectedIssue}
               onSaveBoardConfig={gh.saveBoardConfig}
             />

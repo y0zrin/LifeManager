@@ -25,6 +25,8 @@ export interface TaskFilterProps {
   milestoneTitle: (n: number) => string | null | undefined;
   state: StateFilter;
   onStateChange: (s: StateFilter) => void;
+  /** 「表示」（オープンのみ・クローズのみ・両方）を出すか（ボードはオープンだけなので出さない） */
+  showState?: boolean;
 }
 
 const STATE_LABELS: Record<StateFilter, string> = { open: "オープンのみ", closed: "クローズのみ", all: "両方" };
@@ -46,7 +48,7 @@ function clearAll(p: TaskFilterProps) {
 
 /** 「フィルタ」: 押すと、種別・分野・状態・優先・見積・担当者・マイルストーン・表示の一覧が開く。押すとすぐに一覧に反映する */
 export function TaskFilterButton(props: TaskFilterProps) {
-  const { categories, filters, onFiltersChange, assignee, onAssigneeChange, currentUser, collaborators, milestone, onMilestoneChange, milestones, milestoneTitle, state, onStateChange } = props;
+  const { categories, filters, onFiltersChange, assignee, onAssigneeChange, currentUser, collaborators, milestone, onMilestoneChange, milestones, milestoneTitle, state, onStateChange, showState = true } = props;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   useDismiss(ref, open, () => setOpen(false));
@@ -132,6 +134,7 @@ export function TaskFilterButton(props: TaskFilterProps) {
                 <option value="none">マイルストーンなし</option>
               </select>
             </div>
+            {showState && (
             <div className="task-filter-group">
               <div className="task-filter-name">表示</div>
               {(Object.keys(STATE_LABELS) as StateFilter[]).map((s) => (
@@ -140,6 +143,7 @@ export function TaskFilterButton(props: TaskFilterProps) {
                 </button>
               ))}
             </div>
+            )}
           </div>
           <div className="task-filter-foot">
             {count > 0 && (

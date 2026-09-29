@@ -231,10 +231,15 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   issue_updated: "Issue編集",
 };
 
+/** ボードのジャンル: 未整理（整理して、やることを決める）・着手済み（やっていることを追う） */
+export type BoardGenre = "triage" | "doing";
+
 export interface BoardColumn {
   key: string;       // label name like "状態:進行中" or "none" for uncategorized
   title: string;     // display name like "進行中"
   emoji: string;     // emoji like "🔥"
+  /** 置くボード（なければ、状態の名前から決める） */
+  genre?: BoardGenre;
 }
 
 export interface BoardConfig {

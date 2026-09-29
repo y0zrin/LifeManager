@@ -2111,232 +2111,568 @@ button:hover {
   padding: 40px;
 }
 
-/* --- Kanban --- */
+/* --- ボード: ジャンルごとのボード（未整理・着手済み）。区画ごとに別の板。見た目はクエスト・ホワイトボード・黒板 --- */
 
-.kanban {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  overflow-x: auto;
-  height: calc(100vh - var(--header-height) - var(--hbar-offset));
-}
-
-.kanban-column {
-  min-width: 260px;
-  flex: 1;
+.bd-view {
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  transition: border-color 0.15s, background 0.15s;
+  height: calc(100vh - var(--header-height));
+  --bd-hand: "UD Digi Kyokasho N-R", "UD デジタル 教科書体 N-R", "UD Digi Kyokasho NK-R", var(--font-family);
+  --bd-mincho: "Yu Mincho", "游明朝", "YuMincho", serif;
 }
 
-.kanban-header {
-  padding: var(--space-sm) var(--space-md);
-  font-size: var(--font-md);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-
-.kanban-body {
-  padding: var(--space-sm);
-  overflow-y: auto;
-  flex: 1;
-}
-
-/* --- カンバン: ドラッグ&ドロップ --- */
-
-/* ドラッグオーバー時のカラムハイライト */
-.kanban-column-dragover {
-  border-color: #1f6feb;
-  background: #1f6feb15;
-  box-shadow: inset 0 0 0 2px #1f6feb44;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-}
-
-/* ドラッグ中の元カード（剥がされた跡） */
-.kanban-card-dragging {
-  opacity: 0.15;
-  transform: scale(0.97);
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.kanban-card-dragging .ticket-card,
-.kanban-card-dragging .mydesk-card {
-  border: 2px dashed var(--border-default) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-/* フロートカード（ドラッグ中のマウス追従） */
-.kanban-float-card {
-  position: fixed;
-  z-index: 10000;
-  pointer-events: none;
-  width: 260px;
-  transform: rotate(2.5deg);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.2);
-  opacity: 0.92;
-  will-change: left, top, transform;
-}
-
-/* ドロップアニメーション（ターゲットカラムに吸い込まれる） */
-.kanban-float-dropping {
-  transition: left 0.25s ease-out, top 0.25s ease-out, transform 0.25s ease-out, opacity 0.25s ease-out;
-  transform: rotate(0deg) scale(0.9);
-  opacity: 0.5;
-}
-
-/* --- マイデスクトレイ --- */
-
-.mydesk-tray {
-  padding: var(--space-md) var(--space-md);
-  background: var(--bg-secondary);
-  border-bottom: 2px solid var(--border-subtle);
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.mydesk-tray-dragover {
-  background: #1f6feb15;
-  border-bottom-color: #1f6feb;
-  box-shadow: inset 0 -3px 12px #1f6feb22;
-}
-
-.mydesk-header {
+.bd-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-xs);
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md) 0;
 }
 
-.mydesk-count {
+.bd-search {
+  flex: 0 1 220px;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.bd-view .task-filter-chips {
+  margin: 6px var(--space-md) 0;
+}
+
+.bd-mine-toggle {
+  min-height: 0;
+  padding: 3px 12px;
+  border-radius: 14px;
   font-size: var(--font-sm);
-  font-weight: normal;
-  color: var(--text-faint);
 }
 
-.mydesk-cards {
+.bd-mine-toggle.on {
+  border-color: var(--view-work);
+  background: color-mix(in srgb, var(--view-work) 16%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.bd-looks {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.bd-looks button {
+  min-height: 0;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.bd-looks button + button {
+  border-left: 1px solid var(--border-default);
+}
+
+.bd-looks button.on {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* ジャンルのタブ（付箋を落とすと、そのボードへ移せる） */
+.bd-tabs {
   display: flex;
-  gap: var(--space-sm);
-  overflow-x: auto;
-  padding: var(--space-xs) 0;
-  scrollbar-width: thin;
+  gap: 4px;
+  padding: var(--space-sm) var(--space-md) 0;
+  border-bottom: 1px solid var(--border-default);
 }
 
-.mydesk-card {
-  flex-shrink: 0;
+.bd-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 0;
+  padding: 5px 14px 6px;
+  border: 1px solid var(--border-default);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.bd-tab.on {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: inset 0 3px 0 var(--view-kanban);
+}
+
+.bd-tab.over {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+  color: var(--text-primary);
+}
+
+.bd-tab small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 400;
+}
+
+.bd-tab-n {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  font-size: var(--font-xs);
+}
+
+/* 板を掛ける壁（2 枚ずつ並べる。板の幅が決まってから高さが決まるよう、グリッドではなく折り返す flex で） */
+.bd-wall {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: stretch;
+  gap: 18px;
+  padding: 18px;
+}
+
+.bd-wall > .bd-board {
+  flex: 1 1 calc(50% - 9px);
+  min-width: 0;
+}
+
+/* 区画が奇数のときは、最後の板を横いっぱいに */
+.bd-wall > .bd-board:last-child:nth-child(odd) {
+  flex-basis: 100%;
+}
+
+.bd-none {
+  color: var(--text-muted);
+}
+
+.bd-board {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 210px;
+  padding: 12px 16px 18px;
+}
+
+.bd-head {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-primary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.bd-notes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.bd-slot {
+  position: relative;
   cursor: grab;
   user-select: none;
-  min-width: 160px;
-  max-width: 260px;
-  min-height: 48px;
-  transition: box-shadow 0.15s, transform 0.15s;
 }
 
-.mydesk-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  transform: translateY(-1px);
+.bd-slot.dragging {
+  opacity: 0.35;
 }
 
-.mydesk-card-number {
-  font-size: var(--font-xs);
-  color: var(--text-faint);
-  flex-shrink: 0;
-}
-
-.mydesk-card-title {
+.bd-empty {
+  max-width: 300px;
+  padding: 14px;
+  border: 2px dashed;
+  border-radius: 6px;
   font-size: var(--font-sm);
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mydesk-empty {
-  font-size: var(--font-sm);
-  color: var(--text-faint);
-  padding: var(--space-xs) 0;
   text-align: center;
 }
 
-/* ドラッグ可能なカードのカーソル変更 */
-.kanban-body > [draggable="true"] {
-  cursor: grab;
+.bd-float {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  transform: rotate(3deg) scale(1.03);
 }
 
-.kanban-body > [draggable="true"]:active {
-  cursor: grabbing;
-}
-
-/* --- カンバン: モバイルタブ --- */
-
-.kanban-tabs {
-  display: flex;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0 var(--space-xs);
-}
-
-.kanban-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.kanban-tab {
-  flex-shrink: 0;
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-  min-height: auto;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.kanban-tab.active {
-  color: var(--accent-blue);
-  border-bottom-color: var(--accent-blue);
-}
-
-.kanban-tab-count {
-  margin-left: var(--space-xs);
-  color: var(--text-faint);
+.bd-move {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-height: 0;
+  padding: 0 6px;
   font-size: var(--font-xs);
 }
 
-.kanban-mobile-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-sm);
-  -webkit-overflow-scrolling: touch;
-}
-
-.kanban-mobile-card {
+/* 付箋・依頼書（どの見た目でも同じところ） */
+.bd-note {
   position: relative;
-  margin-bottom: var(--space-sm);
+  width: 184px;
+  min-height: 92px;
+  padding: 14px 10px 8px;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform var(--dur-fast, 0.12s) var(--ease-standard, ease);
 }
 
-.kanban-mobile-actions {
+.bd-slot:hover .bd-note {
+  transform: rotate(0deg) translateY(-2px);
+}
+
+.bd-float .bd-note {
+  box-shadow: 0 16px 28px #000a;
+}
+
+.bd-nt {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.bd-no {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.bd-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.bd-over {
+  font-weight: 700;
+}
+
+.bd-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.bd-mine {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bd-who {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-magnet {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffb07a, #e8590c 70%);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px #0006;
+}
+
+.bd-magnet.other {
+  background: radial-gradient(circle at 35% 30%, #9ad0ff, #1971c2 70%);
+}
+
+.bd-flag {
+  min-height: 0;
+  margin-left: auto;
+  padding: 1px 7px;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px #0005;
+}
+
+.bd-flag + .bd-flag {
+  margin-left: 0;
+}
+
+.bd-flag.work {
+  background: #e8590c;
+}
+
+.bd-flag.pr {
+  background: #8250df;
+  cursor: pointer;
+}
+
+.bd-late {
   position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
+  right: 8px;
+  bottom: 30px;
+  padding: 0 5px;
+  border: 2px solid #c62828;
+  border-radius: 3px;
+  background: #ffffff40;
+  color: #c62828;
+  font-size: 10.5px;
+  font-weight: 800;
+  transform: rotate(14deg);
+}
+
+.bd-hanko {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #c62828;
+  border-radius: 50%;
+  color: #c62828;
+  font-size: 10px;
+  font-weight: 800;
+  transform: rotate(-12deg);
+}
+
+.bd-stars {
+  color: #b8860b;
+  letter-spacing: 1px;
+}
+
+/* 付箋（ホワイトボード・黒板）: 種別で色を分け、上にテープ */
+.look-white .bd-note,
+.look-chalk .bd-note {
+  color: #262626;
+  font-family: var(--bd-hand);
+  box-shadow: 0 5px 8px #0005, 0 1px 1px #0002;
+}
+
+.look-white .bd-note::before,
+.look-chalk .bd-note::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 44px;
+  height: 14px;
+  margin-left: -22px;
+  border: 1px solid #0000000d;
+  background: #f5f0dcaa;
+  transform: rotate(-3deg);
+}
+
+.bd-yellow {
+  background: linear-gradient(180deg, #fff59d, #fff176);
+}
+
+.bd-pink {
+  background: linear-gradient(180deg, #ffcdd2, #ffb3c1);
+}
+
+.bd-blue {
+  background: linear-gradient(180deg, #bbdefb, #a5d2fa);
+}
+
+.bd-green {
+  background: linear-gradient(180deg, #c8e6c9, #b5e0b7);
+}
+
+.look-white .bd-mine,
+.look-chalk .bd-mine {
+  color: #c2410c;
+}
+
+.look-white .bd-over,
+.look-chalk .bd-over {
+  color: #d6336c;
+}
+
+.look-white .bd-who,
+.look-chalk .bd-who,
+.look-white .bd-line,
+.look-chalk .bd-line {
+  color: #444;
+}
+
+/* ホワイトボード（会議の） */
+.bd-wall.look-white {
+  background: #1c2128;
+}
+
+.look-white .bd-board {
+  border: 8px solid #b9c0c8;
+  border-bottom-width: 12px;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #fbfcfd 0%, #eef1f4 55%, #f7f9fa 100%);
+  box-shadow: inset 0 0 30px #9aa4ae44, 0 4px 10px #0008;
+}
+
+.look-white .bd-title {
+  border-bottom: 2px solid #1b3a8c;
+  color: #1b3a8c;
+  font-family: var(--bd-hand);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.look-white .bd-count,
+.look-white .est-sum {
+  color: #3b5bdb;
+  font-family: var(--bd-hand);
+}
+
+.look-white .bd-empty {
+  border-color: #9fb0d0;
+  color: #7a8aa8;
+  font-family: var(--bd-hand);
+}
+
+.look-white .bd-board.over {
+  box-shadow: 0 0 0 3px var(--accent-blue), inset 0 0 30px #9aa4ae44;
+}
+
+/* 黒板（ホワイトボードの暗い版） */
+.bd-wall.look-chalk {
+  background: #241b12;
+}
+
+.look-chalk .bd-board {
+  border: 10px solid #6b4a2b;
+  border-bottom-width: 14px;
+  border-radius: 4px;
+  background: radial-gradient(ellipse at 30% 20%, #2f4a3a 0%, #243a2e 45%, #1c2e24 100%);
+  box-shadow: inset 0 0 40px #00000080, 0 4px 10px #0008;
+}
+
+.look-chalk .bd-title {
+  color: #f4f1e8;
+  font-family: var(--bd-hand);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 0 1px #fff8, 0 0 6px #ffffff22;
+}
+
+.look-chalk .bd-count,
+.look-chalk .est-sum {
+  color: #f7d774;
+  font-family: var(--bd-hand);
+}
+
+.look-chalk .bd-empty {
+  border-color: #ffffff30;
+  color: #cfd8cc99;
+  font-family: var(--bd-hand);
+}
+
+.look-chalk .bd-board.over {
+  box-shadow: 0 0 0 3px #f7d774, inset 0 0 40px #00000080;
+}
+
+/* クエストボード（木とコルクの板に、依頼書をピンで留める） */
+.bd-wall.look-quest {
+  background: repeating-linear-gradient(90deg, #5a3a1e 0 2px, transparent 2px 120px), linear-gradient(180deg, #6b4423, #54331a);
+}
+
+.look-quest .bd-board {
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 20% 30%, #b98a55 0 1px, transparent 2px) 0 0 / 14px 14px,
+    radial-gradient(circle at 70% 60%, #a87a47 0 1px, transparent 2px) 0 0 / 18px 18px,
+    #c69a62;
+  box-shadow: inset 0 0 0 6px #4a2d15, inset 0 0 22px #00000070, 0 4px 10px #0008;
+}
+
+.look-quest .bd-title {
+  padding: 2px 12px;
+  border: 1px solid #8e5a2c;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #7a4b24, #5d3717);
+  box-shadow: 0 2px 0 #3a2210, 0 3px 6px #0006;
+  color: #fbe8c8;
+  font-family: var(--bd-mincho);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.look-quest .bd-count,
+.look-quest .est-sum {
+  color: #3b2412;
+  font-weight: 700;
+}
+
+.look-quest .bd-note {
+  border-radius: 2px;
+  background: linear-gradient(135deg, #f6e7c4 0%, #efdcae 55%, #e3c98f 100%);
+  box-shadow: 0 3px 8px #0006, inset 0 0 18px #b8904d55;
+  color: #3b2412;
+  font-family: var(--bd-mincho);
+  padding-top: 17px;
+}
+
+.look-quest .bd-note::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8a80, #b71c1c 70%);
+  box-shadow: 0 1px 2px #0008;
+}
+
+.look-quest .bd-foot {
+  padding-top: 4px;
+  border-top: 1px dashed #b8935a;
+  color: #5b3d1f;
+}
+
+.look-quest .bd-line {
+  color: #5b3d1f;
+}
+
+.look-quest .bd-over {
+  color: #c62828;
+}
+
+.look-quest .bd-empty {
+  border-color: #9c7442;
+  color: #6b4a26;
+  font-family: var(--bd-mincho);
+}
+
+.look-quest .bd-board.over {
+  box-shadow: 0 0 0 3px #ffd54f, inset 0 0 0 6px #4a2d15;
+}
+
+@media (max-width: 900px) {
+  .bd-wall > .bd-board {
+    flex-basis: 100%;
+  }
+
+  /* タブの説明は、狭いときは出さない */
+  .bd-tab small {
+    display: none;
+  }
 }
 
 .kanban-status-sheet {
@@ -2421,19 +2757,6 @@ button:hover {
   color: var(--text-secondary);
   outline: none;
   font-family: var(--font-family);
-}
-
-/* --- Board Toolbar --- */
-
-.board-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-sm) var(--space-md);
-  gap: var(--space-sm);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-subtle);
-  flex-wrap: wrap;
 }
 
 /* --- Ticket Card --- */
@@ -9011,17 +9334,6 @@ button.lh:hover {
     padding-bottom: calc(var(--space-sm) + var(--bottom-nav-height));
   }
 
-  .kanban {
-    flex-direction: column;
-    height: auto;
-    padding: var(--space-sm);
-    padding-bottom: calc(var(--space-sm) + var(--bottom-nav-height));
-  }
-
-  .kanban-column {
-    min-width: 100%;
-  }
-
   .palette {
     width: 100%;
     max-width: 100%;
@@ -9052,13 +9364,6 @@ button.lh:hover {
 
   .error-message {
     padding: 20px var(--space-md);
-  }
-}
-
-/* Tablet: 640px - 1023px */
-@media (min-width: 640px) and (max-width: 1023px) {
-  .kanban-column {
-    min-width: 220px;
   }
 }
 

@@ -99,6 +99,11 @@ function loadIssueChoice(owner: string, repo: string): IssueChoice {
   }
 }
 
+/** 作業タブで取り組んでいる Issue（ボードの「✏️ 作業中」の印に使う） */
+export function loadWorkIssue(owner: string, repo: string): number | null {
+  return loadIssueChoice(owner, repo);
+}
+
 function saveIssueChoice(owner: string, repo: string, choice: IssueChoice) {
   try {
     if (choice === null) localStorage.removeItem(issueKey(owner, repo));

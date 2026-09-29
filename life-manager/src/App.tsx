@@ -538,6 +538,13 @@ function App() {
     setPullCreate({ head, issue });
     setView("pulls");
   }, [setView]);
+  // 作業を始める（作業タブの ① で選んだとき）: 自分が担当でなければ自分を担当にし、状態を「進行中」にする（ボードと合わせる）
+  const startWork = async (n: number) => {
+    const issue = gh.issues.find((i) => i.number === n);
+    if (!issue) return;
+    if (gh.currentUser && !issue.assignees?.some((a) => a.login === gh.currentUser)) await gh.assignToMe(n);
+    if (!issue.labels.some((l) => l.name === "状態:進行中")) await gh.changeIssueStatus(n, "状態:進行中");
+  };
   // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
   const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions", gh.currentUser);
   // アクティビティ: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
@@ -902,7 +909,8 @@ function App() {
               actions={gitActions}
               issues={workIssues}
               onOpenIssue={setSelectedIssue}
-              onStartIssue={(n) => gh.changeIssueStatus(n, "状態:進行中")}
+              currentUser={gh.currentUser}
+              onStartIssue={startWork}
               onCloseIssue={gh.closeIssue}
               closedIssues={gh.closedIssues}
               onCreatePull={createPull}
@@ -993,6 +1001,7 @@ function App() {
               createRequest={pullCreate}
               onCreateRequestHandled={clearPullCreate}
               onMerged={gh.loadAll}
+              onPullCreatedForIssue={(n) => gh.changeIssueStatus(n, "状態:チェック待ち")}
               onFixLocally={folder && git.status ? fixPullLocally : undefined}
               localBranch={git.status?.branch ?? null}
               onOpenRun={openRun}

@@ -7100,9 +7100,16 @@ button:hover {
   font-weight: 600;
 }
 
-.w-issue-none {
-  margin-top: var(--space-sm);
-  font-size: var(--font-sm);
+/* 担当（自分・担当: ◯◯・担当なし）。自分でない Issue は「自分に割り当てて始める」 */
+.w-issue-who {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.w-issue-who.mine {
+  color: var(--accent-green-hover);
+  font-weight: 600;
 }
 
 .w-banner {

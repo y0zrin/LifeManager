@@ -29,7 +29,8 @@ interface CreatePullDialogProps {
   existing: PullSummary[] | null;
   initialHead?: string | null;
   initialIssue?: number | null;
-  onCreated: (pull: PullSummary, warning: string | null) => void;
+  /** 作った（issue はつないだ Issue。ボードの状態を「チェック待ち」にする） */
+  onCreated: (pull: PullSummary, warning: string | null, issue: number | null) => void;
   onOpenExisting?: (n: number) => void;
   onClose: () => void;
 }
@@ -152,7 +153,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
       const text = issue !== null && !closingIssues(body).includes(issue) ? `Closes #${issue}\n\n${body}` : body;
       const r = await createPull(owner, repo, { title, head, base, body: text, draft, reviewers });
       sparkleNew(button);
-      onCreated(r.pull, r.reviewers_error);
+      onCreated(r.pull, r.reviewers_error, issue);
     } catch (e) {
       setError(String(e));
       setBusy(false);

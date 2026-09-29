@@ -43,6 +43,8 @@ interface PullsViewProps {
   onCreateRequestHandled: () => void;
   /** マージした（Closes で閉じた Issue を読み直す） */
   onMerged: () => void;
+  /** プルリクを作った（つないだ Issue を「チェック待ち」にする） */
+  onPullCreatedForIssue?: (issue: number) => void;
   /** 競合を、この PC の作業フォルダで直す（作業フォルダがあるときだけ） */
   onFixLocally?: (pull: Detail) => void;
   /** この PC で今いるブランチ（プルリクを作るときの、はじめの候補） */
@@ -53,7 +55,7 @@ interface PullsViewProps {
 
 /** プルリク: 左に一覧（開いている・マージ済み・閉じた）、右に詳細 */
 export function PullsView(props: PullsViewProps) {
-  const { owner, repo, currentUser, collaborators, issues, closedIssues, onOpenIssue, selected, onSelect, createRequest, onCreateRequestHandled, onMerged, onFixLocally, localBranch, onOpenRun } = props;
+  const { owner, repo, currentUser, collaborators, issues, closedIssues, onOpenIssue, selected, onSelect, createRequest, onCreateRequestHandled, onMerged, onPullCreatedForIssue, onFixLocally, localBranch, onOpenRun } = props;
   const [pulls, setPulls] = useState<PullSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -301,8 +303,9 @@ export function PullsView(props: PullsViewProps) {
             setCreate(null);
             onSelect(n);
           }}
-          onCreated={(p, warning) => {
+          onCreated={(p, warning, issue) => {
             setCreate(null);
+            if (issue !== null) onPullCreatedForIssue?.(issue);
             setNotice(warning ? `#${p.number} を作りました。${warning}` : null);
             setFilter("open");
             load();

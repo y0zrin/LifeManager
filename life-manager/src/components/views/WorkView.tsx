@@ -41,7 +41,10 @@ interface WorkViewProps {
   actions: GitActions;
   /** 未完了の Issue */
   issues: GitHubIssue[];
+  /** 自分（GitHub のアカウント名）。担当の見分けに使う */
+  currentUser: string;
   onOpenIssue: (n: number) => void;
+  /** 作業を始める: 自分が担当でなければ自分を担当にし、状態を「進行中」にする（ボードと合わせる） */
   onStartIssue: (n: number) => Promise<void>;
   onCloseIssue: (n: number) => Promise<void>;
   /** 閉じた Issue（マージで閉じた Issue を、完了の段で見せる） */
@@ -64,8 +67,8 @@ interface WorkViewProps {
 type Side = "staged" | "unstaged";
 type MenuPos = { x: number; y: number };
 type Selected = { path: string; side: Side };
-/** 取り組み中の Issue。"none" は「Issue なしで作業する」を選んだとき、null はまだ選んでいないとき */
-type IssueChoice = number | "none" | null;
+/** 取り組み中の Issue（null はまだ選んでいないとき）。コミットは必ず Issue につなげるので「Issue なし」はない */
+type IssueChoice = number | null;
 
 const STEP_NAMES = ["Issue を選ぶ", "ブランチ", "変更", "コミット", "プッシュ", "プルリク", "マージ", "完了"];
 /** 上の 1 行の段に出す短い名前 */
@@ -89,7 +92,6 @@ function issueKey(owner: string, repo: string) {
 function loadIssueChoice(owner: string, repo: string): IssueChoice {
   try {
     const v = localStorage.getItem(issueKey(owner, repo));
-    if (v === "none") return "none";
     const n = Number(v);
     return v && Number.isInteger(n) ? n : null;
   } catch {
@@ -258,6 +260,7 @@ function Workspace({
   git: g,
   actions,
   issues,
+  currentUser,
   onOpenIssue,
   onStartIssue,
   onCloseIssue,
@@ -393,7 +396,7 @@ function Workspace({
 
     const labels = [
       "",
-      issue ? `#${issue.number}` : closedIssue ? `#${closedIssue.number}` : choice === "none" ? "なし" : "未選択",
+      issue ? `#${issue.number}` : closedIssue ? `#${closedIssue.number}` : "未選択",
       st.branch || `切り離し ${st.head}`,
       changeCount ? `${changeCount} ファイル` : "なし",
       changeCount ? `ステージ ${staged.length}` : committedHere ? "済み" : "—",
@@ -609,12 +612,14 @@ function Workspace({
           issue={issue}
           closedIssue={closedIssue}
           choice={choice}
-          onChoose={(c) => {
-            setChoice(c);
+          currentUser={currentUser}
+          onChoose={(n) => {
+            setChoice(n);
             setViewStep(null);
+            // 自分を担当にして「進行中」に（ボードの自分のタスク・進行中に出る）
+            void onStartIssue(n);
           }}
           onOpenIssue={onOpenIssue}
-          onStartIssue={onStartIssue}
           note={flow.step === 1 && onBranch && pr?.merged ? flow.hint : null}
           extra={flow.step === 1 ? flow.secondary ?? null : null}
           busy={g.busy !== null}
@@ -665,6 +670,7 @@ function Workspace({
           <CommitForm
             status={st}
             issue={issue}
+            onPickIssue={() => setViewStep(1)}
             stagedCount={staged.length}
             hasConflicts={conflicts.length > 0}
             draft={draft}
@@ -738,30 +744,35 @@ interface IssueStepProps {
   /** 選んでいた Issue が閉じられたとき（プルリクのマージで閉じたなど） */
   closedIssue: GitHubIssue | null;
   choice: IssueChoice;
-  onChoose: (choice: IssueChoice) => void;
+  currentUser: string;
+  /** 選ぶ = 始める（自分を担当にして「進行中」に） */
+  onChoose: (n: number) => void;
   onOpenIssue: (n: number) => void;
-  onStartIssue: (n: number) => Promise<void>;
   /** マージ済みのブランチにいるとき（先に既定のブランチに戻る）の知らせと、そのボタン */
   note: ReactNode;
   extra: StepButton | null;
   busy: boolean;
 }
 
-function IssueStep({ issues, issue, closedIssue, choice, onChoose, onOpenIssue, onStartIssue, note, extra, busy }: IssueStepProps) {
+function IssueStep({ issues, issue, closedIssue, choice, currentUser, onChoose, onOpenIssue, note, extra, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase().replace(/^#/, "");
   const inProgress = (i: GitHubIssue) => i.labels.some((l) => l.name === IN_PROGRESS);
-  // 進行中を先に、あとは新しい順
+  const mine = (i: GitHubIssue) => !!currentUser && !!i.assignees?.some((a) => a.login === currentUser);
+  // 自分の担当を先に、その中は進行中を先に、あとは新しい順
   const list = [...issues]
-    .sort((a, b) => Number(inProgress(b)) - Number(inProgress(a)) || b.number - a.number)
+    .sort((a, b) => Number(mine(b)) - Number(mine(a)) || Number(inProgress(b)) - Number(inProgress(a)) || b.number - a.number)
     .filter((i) => !q || String(i.number).startsWith(q) || i.title.toLowerCase().includes(q));
   const missing = typeof choice === "number" && !issue && !closedIssue;
   const now = issue ?? closedIssue;
+  const others = (i: GitHubIssue) => (i.assignees ?? []).map((a) => a.login).filter((l) => l !== currentUser);
 
   return (
     <div className="w-issue-step">
       <h4 className="w-step-title">何をしますか？</h4>
-      <p className="hint">取り組む Issue を選びます。選ぶと、次の段の画面に進みます。タスク管理と git の作業が、ここでつながります。</p>
+      <p className="hint">
+        取り組む Issue を選びます。自分の担当でない Issue は、自分を担当にしてから始めます。始めると状態が「進行中」になり（ボードにも出ます）、次の段の画面に進みます。
+      </p>
       {note && (
         <div className="w-step-note">
           <span>{note}</span>
@@ -783,11 +794,6 @@ function IssueStep({ issues, issue, closedIssue, choice, onChoose, onOpenIssue, 
               <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
                 Issue を開く
               </button>
-              {!inProgress(issue) && (
-                <button type="button" className="btn-sm" onClick={() => onStartIssue(issue.number)}>
-                  進行中にする
-                </button>
-              )}
             </span>
           )}
         </div>
@@ -803,20 +809,22 @@ function IssueStep({ issues, issue, closedIssue, choice, onChoose, onOpenIssue, 
         }}
       />
       <div className="w-issue-list">
-        {list.map((i) => (
-          <button key={i.number} type="button" className={`w-issue-row${i.number === choice ? " on" : ""}`} title={issueMeta(i)} onClick={() => onChoose(i.number)}>
-            <span className="wi-num">#{i.number}</span>
-            <span className="wi-t">{i.title}</span>
-            {inProgress(i) && <span className="w-issue-chip">進行中</span>}
-            {i.milestone && <span className="wi-m">🎯 {i.milestone.title}</span>}
-            <span className="w-issue-go">{i.number === choice ? "選んでいます" : "これにする"}</span>
-          </button>
-        ))}
+        {list.map((i) => {
+          const chosen = i.number === choice;
+          const who = others(i);
+          return (
+            <button key={i.number} type="button" className={`w-issue-row${chosen ? " on" : ""}`} title={issueMeta(i)} onClick={() => onChoose(i.number)}>
+              <span className="wi-num">#{i.number}</span>
+              <span className="wi-t">{i.title}</span>
+              {inProgress(i) && <span className="w-issue-chip">進行中</span>}
+              <span className={`w-issue-who${mine(i) ? " mine" : ""}`}>{mine(i) ? "自分" : who.length > 0 ? `担当: ${who.join("・")}` : "担当なし"}</span>
+              {i.milestone && <span className="wi-m">🎯 {i.milestone.title}</span>}
+              <span className="w-issue-go">{chosen ? "選んでいます" : mine(i) ? "始める" : "自分に割り当てて始める"}</span>
+            </button>
+          );
+        })}
         {list.length === 0 && <div className="bsw-empty">{issues.length === 0 ? "未完了の Issue はありません" : "一致する Issue はありません"}</div>}
       </div>
-      <button type="button" className={`link-button w-issue-none${choice === "none" ? " on" : ""}`} onClick={() => onChoose("none")}>
-        {choice === "none" ? "✓ Issue なしで作業しています" : "Issue なしで進める（ちょっとした直し）"}
-      </button>
     </div>
   );
 }
@@ -964,6 +972,8 @@ function StashPane({ stashes, actions, busy }: { stashes: GitStash[]; actions: G
 interface CommitFormProps {
   status: GitStatus;
   issue: GitHubIssue | null;
+  /** ① Issue を選ぶ画面へ */
+  onPickIssue: () => void;
   stagedCount: number;
   hasConflicts: boolean;
   draft: CommitDraft;
@@ -977,6 +987,7 @@ interface CommitFormProps {
 function CommitForm({
   status: st,
   issue,
+  onPickIssue,
   stagedCount,
   hasConflicts,
   draft,
@@ -1002,7 +1013,9 @@ function CommitForm({
   // マージの途中で競合を直し終えたら、変更がなくてもコミットでマージを終える（競合を「今のブランチの方」で直すと、変更は 0 になる）
   const concludingMerge = st.operation === "merge" && !hasConflicts;
   const nothingToCommit = stagedCount === 0 && !draft.amend && !draft.allowEmpty && !concludingMerge;
-  const blocked = busy || nothingToCommit || hasConflicts || (draft.amend && !st.head);
+  // コミットは必ず Issue につなげる（マージを終えるコミット・直前のコミットの修正は別）
+  const needsIssue = !issue && !concludingMerge && !draft.amend;
+  const blocked = busy || nothingToCommit || hasConflicts || needsIssue || (draft.amend && !st.head);
 
   return (
     <div className="dr-form">
@@ -1062,7 +1075,15 @@ function CommitForm({
         <span>実行するコマンド</span>
         <code>{preview}</code>
       </div>
-      {nothingToCommit && !hasConflicts && (
+      {needsIssue && (
+        <p className="w-form-note">
+          コミットは Issue につなげます。先に取り組む Issue を選びます。{" "}
+          <button type="button" className="link-button" onClick={onPickIssue}>
+            ① Issue を選ぶ
+          </button>
+        </p>
+      )}
+      {nothingToCommit && !hasConflicts && !needsIssue && (
         <p className="w-form-note">コミットするファイルにチェックを入れてください（または「空コミット」にします）</p>
       )}
       {hasConflicts && <p className="w-form-note">競合しているファイルを直して、ステージしてからコミットします</p>}

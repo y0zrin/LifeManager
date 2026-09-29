@@ -10,8 +10,7 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
   const [loadedAt, setLoadedAt] = useState(0);
   const target = useRef(`${owner}/${repo}`);
   target.current = `${owner}/${repo}`;
-  // 既定でオフにしたリポジトリ（この起動のあいだに。画面で知らせる）
-  const [autoOff, setAutoOff] = useState(false);
+  // 既定でオフにしようとしたリポジトリ（この起動のあいだに 1 回だけ）
   const tried = useRef(new Set<string>());
 
   const load = useCallback(async () => {
@@ -27,7 +26,6 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
         try {
           await setActionsEnabled(owner, repo, false);
           saveActionsChoice(owner, repo, "auto-off");
-          setAutoOff(true);
           ov = await actionsOverview(owner, repo);
           if (target.current !== key) return;
         } catch {
@@ -47,7 +45,6 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
   useEffect(() => {
     setOverview(null);
     setError(null);
-    setAutoOff(false);
     if (enabled) load();
   }, [enabled, load]);
 
@@ -67,6 +64,8 @@ export function useActions(owner: string, repo: string, enabled: boolean, viewin
   // 「直りました」「◯ 分前」を、読み直したときの時刻で決める
   const stack = useMemo(() => (overview ? buildStack(overview, loadedAt || Date.now()) : null), [overview, loadedAt]);
   const urgent = stack ? stack.counts[1] + stack.counts[2] : 0;
+  // Life Manager が既定でオフにしたままか（この PC の記録から。読み直しても知らせが消えないように）
+  const autoOff = overview?.actions_enabled === false && loadActionsChoice(owner, repo) === "auto-off";
 
   return { overview, stack, error, loading, reload: load, urgent, autoOff };
 }

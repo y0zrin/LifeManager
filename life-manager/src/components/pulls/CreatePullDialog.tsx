@@ -4,6 +4,7 @@ import type { GitHubIssue, GitHubUser } from "../../lib/types";
 import { sparkleNew } from "../../lib/celebrate";
 import { isEscape } from "../../lib/keys";
 import {
+  closingIssues,
   compareBranches,
   createPull,
   firstLine,
@@ -147,7 +148,9 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
     setBusy(true);
     setError(null);
     try {
-      const r = await createPull(owner, repo, { title, head, base, body, draft, reviewers });
+      // つなげる Issue を選んだのに、本文から「Closes #N」を消していたら足す（欄の「マージすると閉じます」のとおりにする）
+      const text = issue !== null && !closingIssues(body).includes(issue) ? `Closes #${issue}\n\n${body}` : body;
+      const r = await createPull(owner, repo, { title, head, base, body: text, draft, reviewers });
       sparkleNew(button);
       onCreated(r.pull, r.reviewers_error);
     } catch (e) {

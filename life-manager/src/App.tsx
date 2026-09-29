@@ -42,6 +42,7 @@ import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import { isSetupPending, markSetupPending } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
+import { AccountMenu } from "./components/common/AccountMenu";
 import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
@@ -97,6 +98,8 @@ function App() {
   const [view, setView] = useState<ViewType>("dashboard");
   // 設定を開いたときに出すペイン（セットアップのあとの「メンバーを招待する」だけ。設定を離れたら元に戻す）
   const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
+  // 設定を、決めた区分で開き直す（設定を開いたまま、アカウントのメニューから「ログインと接続」を選んだときも）
+  const [settingsNonce, setSettingsNonce] = useState(0);
   useEffect(() => {
     if (view !== "settings") setSettingsPane(null);
   }, [view]);
@@ -321,6 +324,13 @@ function App() {
     setView(inviteNext ? "settings" : "dashboard");
   }
 
+  // アカウントのメニューの「ログインと接続」: 設定 → 接続 を開く
+  function openConnection() {
+    setSettingsPane("connection");
+    setSettingsNonce((n) => n + 1);
+    setView("settings");
+  }
+
   async function handleSwitchProject(projOwner: string, projRepo: string) {
     await gh.switchProject(projOwner, projRepo);
   }
@@ -538,6 +548,8 @@ function App() {
             <span className="sidebar-label">{sidebarCollapsed ? "固定する" : "たたむ"}</span>
           </button>
         </div>
+        {/* 一番下: ログインしているアカウント（押すとメニュー） */}
+        <AccountMenu login={gh.currentUser} onOpenConnection={openConnection} onSignOut={gh.signOut} />
       </aside>
 
       <div className="app-main">
@@ -767,6 +779,7 @@ function App() {
           {/* 設定 */}
           {view === "settings" && (
             <SettingsView
+              key={settingsNonce}
               labels={gh.customLabels}
               owner={gh.owner}
               repo={gh.repo}

@@ -1065,6 +1065,88 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    // --- リリース・アクティビティ ---
+
+    pub async fn list_releases(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/releases?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// 「最新」のリリース（なければ 404）
+    pub async fn latest_release(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/releases/latest", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    pub async fn create_release(&self, owner: &str, repo: &str, payload: &serde_json::Value) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/releases", BASE_URL, owner, repo);
+        return self.post(&url, payload).await;
+    }
+
+    pub async fn update_release(&self, owner: &str, repo: &str, id: u64, payload: &serde_json::Value) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/releases/{}", BASE_URL, owner, repo, id);
+        return self.patch_json(&url, payload).await;
+    }
+
+    /// GitHub が作るリリースノート（前のタグからのプルリクと、手伝った人）
+    pub async fn generate_release_notes(&self, owner: &str, repo: &str, payload: &serde_json::Value) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/releases/generate-notes", BASE_URL, owner, repo);
+        return self.post(&url, payload).await;
+    }
+
+    /// リリースにファイルを添える（大きいファイルもあるので、時間を長めにとる）
+    pub async fn upload_release_asset(
+        &self,
+        owner: &str,
+        repo: &str,
+        release_id: u64,
+        name: &str,
+        content_type: &str,
+        bytes: Vec<u8>,
+    ) -> Result<String, String> {
+        let url = format!(
+            "https://uploads.github.com/repos/{}/{}/releases/{}/assets?name={}",
+            owner,
+            repo,
+            release_id,
+            urlencoding::encode(name)
+        );
+        let http = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(600))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let mut headers = self.build_headers().await;
+        if let Ok(value) = HeaderValue::from_str(content_type) {
+            headers.insert(reqwest::header::CONTENT_TYPE, value);
+        }
+        let response = http.post(&url).headers(headers).body(bytes).send().await.map_err(network_error)?;
+        let status = response.status();
+        let body = response.text().await.map_err(network_error)?;
+        if !status.is_success() {
+            return Err(format!("HTTP {}: {}", status, body));
+        }
+        return Ok(body);
+    }
+
+    /// 閉じたものも含めたマイルストーン（期日の新しい順）
+    pub async fn list_all_milestones(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/milestones?state=all&sort=due_on&direction=desc&per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// マイルストーンの閉じた Issue（プルリクも混ざる）
+    pub async fn list_milestone_closed_issues(&self, owner: &str, repo: &str, milestone: u32) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/issues?milestone={}&state=closed&per_page=100", BASE_URL, owner, repo, milestone);
+        return self.get_all_pages(&url).await;
+    }
+
+    /// リポジトリで起きたこと（新しい順に 100 件。GitHub は 90 日分まで）
+    pub async fn list_repo_events(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/events?per_page=100", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {

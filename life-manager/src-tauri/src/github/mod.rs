@@ -5,5 +5,6 @@ pub mod errors;
 pub mod history;
 pub mod pulls;
 pub mod recent;
+pub mod releases;
 pub mod templates;
 pub mod token_check;

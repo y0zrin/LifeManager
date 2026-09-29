@@ -27,6 +27,9 @@ import { OverviewView } from "./components/views/OverviewView";
 import { PullsView } from "./components/views/PullsView";
 import { ActionsView } from "./components/views/ActionsView";
 import { useActions } from "./hooks/useActions";
+import { ReleasesView } from "./components/views/ReleasesView";
+import { ActivityView } from "./components/views/ActivityView";
+import { useActivity } from "./hooks/useActivity";
 import type { PullDetail } from "./lib/pulls";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
@@ -79,10 +82,8 @@ const REPO_ITEMS: NavItem[] = [
   { key: "overview", icon: "🗺️", label: "全体図" },
   { key: "pulls", icon: "🔃", label: "プルリク" },
   { key: "actions", icon: "▶️", label: "Actions" },
-];
-// これから作る画面（サイドバーに「予定」として見せておく）
-const PLANNED_REPO_ITEMS = [
-  { icon: "🏷️", label: "リリース" },
+  { key: "releases", icon: "🏷️", label: "リリース" },
+  { key: "activity", icon: "📰", label: "アクティビティ" },
 ];
 const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
 const ALL_NAV_ITEMS: NavItem[] = [WORK_ITEM, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
@@ -539,6 +540,8 @@ function App() {
   }, [setView]);
   // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
   const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions");
+  // アクティビティ: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
+  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", gh.issues, actions.stack);
   const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);
   const clearActionsFocus = useCallback(() => setActionsFocus(null), []);
   const openRun = useCallback((runId: number, jobId?: number | null) => {
@@ -682,8 +685,9 @@ function App() {
     // 作業には、作業中の変更があるファイルの数を出す（競合しているあいだは ⚠ を出す）
     const count = item.key === "work" ? git.status?.files.length ?? 0 : 0;
     const conflicted = item.key === "work" && !!git.status?.conflicted;
-    // Actions には、すぐ直す・早めに直すものの数
+    // Actions には、すぐ直す・早めに直すものの数。アクティビティには、あなたがすることの数
     const urgent = item.key === "actions" ? actions.urgent : 0;
+    const todo = item.key === "activity" ? activity.todos.length : 0;
     return (
       <button
         key={item.key}
@@ -700,7 +704,9 @@ function App() {
               ? `${item.label}（作業中の変更 ${count}）`
               : urgent > 0
                 ? `${item.label}（すぐ・早めに直すもの ${urgent}）`
-                : item.label
+                : todo > 0
+                  ? `${item.label}（あなたがすること ${todo}）`
+                  : item.label
         }
       >
         {/* 選んでいる画面の印（画面を切り替えると、次の画面の印まですべって移る） */}
@@ -709,6 +715,7 @@ function App() {
         <span className="sidebar-label">{item.label}</span>
         {conflicted ? <span className="sidebar-conflict">⚠ 競合</span> : count > 0 && <span className="sidebar-count">{count}</span>}
         {urgent > 0 && <span className="sidebar-alert">{urgent}</span>}
+        {todo > 0 && <span className="sidebar-todo">{todo}</span>}
       </button>
     );
   }
@@ -818,13 +825,6 @@ function App() {
           {TASK_ITEMS.map(renderNavItem)}
           <div className="sidebar-group">リポジトリ</div>
           {REPO_ITEMS.map(renderNavItem)}
-          {PLANNED_REPO_ITEMS.map((item) => (
-            <span key={item.label} className="sidebar-item planned" title={`${item.label}（これから追加します）`}>
-              <span className="sidebar-icon">{item.icon}</span>
-              <span className="sidebar-label">{item.label}</span>
-              <span className="sidebar-plan">予定</span>
-            </span>
-          ))}
         </nav>
         <div className="sidebar-bottom">
           {renderNavItem(SETTINGS_ITEM)}
@@ -1016,6 +1016,23 @@ function App() {
                 setView("work");
               }}
             />
+          )}
+
+          {/* リリース */}
+          {view === "releases" && gh.connected && (
+            <ReleasesView
+              owner={gh.owner}
+              repo={gh.repo}
+              currentUser={gh.currentUser}
+              issueTitle={(n) => issueIndex.find(n)?.title ?? null}
+              onOpenIssue={openIssue}
+              onMilestonesChanged={gh.loadAll}
+            />
+          )}
+
+          {/* アクティビティ（あなたがすること・チームの動き） */}
+          {view === "activity" && gh.connected && (
+            <ActivityView owner={gh.owner} repo={gh.repo} activity={activity} onOpenIssue={openIssue} onOpenPull={openPull} onOpenRun={(runId) => openRun(runId)} />
           )}
 
           {/* オーバービュー（いまの状況・チームのペース） */}

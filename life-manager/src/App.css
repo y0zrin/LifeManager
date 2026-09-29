@@ -116,6 +116,8 @@
   --view-overview: #a5d6ff;
   --view-pulls: #a371f7;
   --view-actions: #ffa657;
+  --view-releases: #76e3ea;
+  --view-activity: #ff9bce;
   --view-settings: #d29922;
 
   /* Actions の急ぎ具合（🔴 すぐ直す は --accent-red、● 待つだけ は --accent-blue） */
@@ -11679,3 +11681,245 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 .pr-ui textarea:focus {
   border-color: var(--accent-blue);
 }
+
+/* ==========================================================================
+   リリース・アクティビティ
+   ========================================================================== */
+
+.app-shell[data-view="releases"] { --view-accent: var(--view-releases); }
+.app-shell[data-view="activity"] { --view-accent: var(--view-activity); }
+
+/* サイドバー: あなたがすることの数 */
+.sidebar-todo {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--accent-blue-strong);
+  color: var(--text-on-accent);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 17px;
+}
+
+/* リリースの印（最新・試用版・下書き） */
+.rl-chip {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.rl-chip.latest { background: var(--accent-green); color: var(--text-on-accent); }
+.rl-chip.pre { background: var(--accent-yellow-bg); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+.rl-chip.draft { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border-default); }
+
+.rl-notes {
+  padding: 8px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+.rl-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+.rl-assets-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+}
+.rl-asset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+}
+
+/* リリースを作る */
+.rl-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-sources label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+.rl-sources label.on {
+  border-color: var(--view-accent);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.rl-sources input { margin: 0; }
+.rl-generate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.rl-generate label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; }
+.rl-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.rl-files .git-dialog-label { width: 100%; }
+.rl-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+.rl-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+.rl-flags label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* かんたんな Markdown（リリースノート） */
+.md { color: var(--text-secondary); font-size: var(--font-md); line-height: 1.7; }
+.md-h { margin: 10px 0 4px; color: var(--text-primary); font-weight: 700; }
+.md-h1, .md-h2 { font-size: var(--font-lg); }
+.md-h3, .md-h4 { font-size: var(--font-md); color: var(--view-accent); }
+.md-h:first-child { margin-top: 2px; }
+.md-list { margin: 2px 0 6px; padding-left: 1.4em; }
+.md-p { margin: 4px 0; }
+.md code {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* --- アクティビティ --- */
+.activity {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: var(--space-lg) var(--space-xl) 48px;
+}
+.av-me {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-lg);
+  padding: 10px 14px;
+  border: 1px solid var(--view-accent);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+.av-me-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--view-accent);
+  font-size: var(--font-lg);
+}
+.av-todo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-md);
+}
+.av-todo:nth-child(2) { border-top: none; }
+.av-todo.t-ng .av-icon { color: var(--accent-red); }
+.av-todo.t-warn .av-icon { color: var(--accent-yellow); }
+.av-todo.t-ok .av-icon { color: var(--accent-green-hover); }
+.av-icon { flex: none; width: 22px; text-align: center; }
+.av-todo-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 0;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  text-align: left;
+}
+.av-todo-main:hover { background: var(--bg-tertiary); }
+.av-ref { color: var(--accent-blue); }
+.av-detail { color: var(--text-muted); font-size: var(--font-sm); overflow-wrap: anywhere; }
+.av-when { flex: none; font-size: var(--font-xs); white-space: nowrap; }
+.av-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--font-xs); }
+.av-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-sm);
+}
+.av-day { margin-bottom: var(--space-md); }
+.av-day-label {
+  margin: 8px 0 4px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+.av-ev {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: 6px;
+  padding: 4px 0 4px 12px;
+  border-left: 2px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+.av-ev b { color: var(--text-primary); }
+.av-ev.k-push { border-left-color: var(--accent-blue); }
+.av-ev.k-pull { border-left-color: var(--view-pulls); }
+.av-ev.k-issue { border-left-color: var(--accent-green-hover); }
+.av-ev.k-release { border-left-color: var(--view-releases); }
+.av-ev-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.av-commits { display: flex; flex-direction: column; }
+.av-commit {
+  align-self: flex-start;
+  min-height: 0;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: left;
+}
+.av-commit:hover { background: var(--bg-tertiary); }

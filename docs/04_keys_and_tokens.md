@@ -7,7 +7,7 @@
 
 | もの | 秘密か | どこにあるか | 失くしたら・漏れたら |
 |---|---|---|---|
-| GitHub App「Life Manager」の Client ID と URL の名前 | 秘密ではない（アプリに入れて配る） | `life-manager/src-tauri/src/github/auth.rs` の `CLIENT_ID`（`Iv23…`）と `APP_SLUG`（`https://github.com/apps/<これ>`） | GitHub の Developer settings → GitHub Apps でいつでも見られる |
+| GitHub App「Life Manager App」の Client ID と URL の名前 | 秘密ではない（アプリに入れて配る） | `life-manager/src-tauri/src/github/auth.rs` の `CLIENT_ID`（`Iv23lilmumXASbk6CNV2`）と `APP_SLUG`（`life-manager-app`。公開ページ `https://github.com/apps/life-manager-app`）。2026-09-29 に登録 | GitHub の Developer settings → GitHub Apps でいつでも見られる |
 | GitHub App の Client secret・Private key | — | **作らない**。デバイスフローでもらった鍵は、Client secret なしで新しくできる（GitHub の決まり）。Private key はサーバーから App として動くときのもので、このアプリは使わない | 作ってしまったら、GitHub App の画面で消す |
 | 前に登録した OAuth アプリ「Life Manager」（`Ov23liu0oRzKR4l5kDMZ`） | — | **使わなくなった**（0.9.0 の途中で GitHub App に替えた。全部のリポジトリに届く・期限なしのため） | GitHub の Developer settings → OAuth Apps で消してよい |
 | 更新の署名の秘密鍵（minisign） | **秘密** | 開発 PC のユーザー環境変数 `TAURI_SIGNING_PRIVATE_KEY`（鍵の中身そのもの。パスワードは空） | 失くすと、入っているアプリに更新を届けられなくなる。漏れると、偽の更新を作られる → **控えを取る**（下） |
@@ -19,7 +19,7 @@
 「GitHub でログイン」は GitHub App で行う。アプリが触れるのは、持ち主が Life Manager を入れて選んだリポジトリだけ。鍵は 8 時間で切れ、アプリが更新の鍵（半年）で新しくする。この PC で使う期限（30 日・90 日・半年）は利用者が選ぶ。
 
 1. GitHub → Settings → Developer settings → **GitHub Apps** → **New GitHub App**
-2. GitHub App name: `Life Manager`（GitHub 全体で重ならない名前。使われていたら別の名前）、Homepage URL: `https://github.com/y0zrin/LifeManager`
+2. GitHub App name: `Life Manager App`（GitHub 全体で重ならない名前が要る。`Life Manager` はほかの人の非公開の GitHub App が使っていた）、Homepage URL: `https://github.com/y0zrin/LifeManager`
 3. Identifying and authorizing users: Callback URL は同じ URL、**Expire user authorization tokens に印（付けたまま）**、Request user authorization (OAuth) during installation は印なし、**Enable Device Flow に印**
 4. Post installation は空、**Webhook の Active の印を外す**
 5. Repository permissions（ほかは No access）
@@ -55,6 +55,6 @@ Administration の権限は、リポジトリの設定を変える・消すこ�
 - ログインのトークン・自分で作ったトークンは、その人の PC の資格情報（service `life-manager`、キー `github-token`、プロジェクト専用は `project-token-持ち主/名前`）にしまう。平文でファイルに置かない
 - ログインの鍵の期限・更新の鍵・この PC で使う期限は、キー `github-login`（JSON）。期限が近いと、送る前に新しくする（`tokens::fresh_default`）。この PC の期限が過ぎたら鍵を消し、次の起動で最初の画面に「期限が来た」と出す
 - Discord の Webhook の URL も同じところ（キー `project-discord-持ち主/名前`）
-- ログアウトで、その PC のトークンは全部消える。GitHub での許可は残るので、取り消すときは GitHub の Settings → Applications → Authorized GitHub Apps → Life Manager → Revoke（ログアウトのあとの画面に案内が出る）。アプリからは取り消せない（Client secret が要るため）
+- ログアウトで、その PC のトークンは全部消える。GitHub での許可は残るので、取り消すときは GitHub の Settings → Applications → Authorized GitHub Apps → Life Manager App → Revoke（ログアウトのあとの画面に案内が出る）。アプリからは取り消せない（Client secret が要るため）
 - リーダーや先生が、ほかの人のトークンを作って配る使い方はしない（マニュアルの「チームで使う」で止めている）。組織の Fine-grained token は、はじめの設定では 1 本ごとに持ち主の承認がいるので、ログインをすすめる
 - Fine-grained のトークンでは、届いた招待を受ける操作（`PATCH /user/repository_invitations/{id}`）が GitHub の決まりで使えない。ログインなら使える（Life Manager が入ったリポジトリへの招待）

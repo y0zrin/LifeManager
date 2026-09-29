@@ -5,11 +5,11 @@
 //! デバイスフローでもらった鍵は client secret なしで新しくできる（GitHub の決まり）ので、アプリに秘密を入れなくてよい
 use serde::{Deserialize, Serialize};
 
-/// GitHub に登録した GitHub App「Life Manager」の Client ID（秘密ではない）。空なら「GitHub でログイン」は使えない
-pub const CLIENT_ID: &str = "";
+/// GitHub に登録した GitHub App「Life Manager App」の Client ID（秘密ではない）。空なら「GitHub でログイン」は使えない
+pub const CLIENT_ID: &str = "Iv23lilmumXASbk6CNV2";
 
 /// GitHub App の URL の名前（https://github.com/apps/<これ>）。使うリポジトリを選ぶ画面を開くのに使う
-pub const APP_SLUG: &str = "";
+pub const APP_SLUG: &str = "life-manager-app";
 
 /// ログインに使えるか（Client ID が入っているか）
 pub fn available() -> bool {

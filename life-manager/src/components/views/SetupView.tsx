@@ -214,7 +214,7 @@ export function SetupView({ onDone }: SetupViewProps) {
                     <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})}>
                       GitHub の画面を開く
                     </button>
-                    （Life Manager の Revoke を押します）。
+                    （Life Manager App の Revoke を押します）。
                   </>
                 )}
               </>

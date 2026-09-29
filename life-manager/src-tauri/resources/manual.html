@@ -524,7 +524,7 @@
   <div class="box hint">
     <span class="label">ログインで許可すること</span>
     <p>Life Manager が、あなたの代わりに、<b>Life Manager を入れたリポジトリ（持ち主が選んだもの）だけ</b>の Issue とファイル（設定・日誌）を読み書きできるようになります。パスワードはアプリに渡りません。</p>
-    <p>鍵は 8 時間ごとに自動で新しくなり、選んだ期限が来ると、もう一度ログインします（半年使わないと、GitHub 側でも切れます）。やめたいときは、GitHub の Settings → Applications → <b>Authorized GitHub Apps</b> から Life Manager を取り消せます。</p>
+    <p>鍵は 8 時間ごとに自動で新しくなり、選んだ期限が来ると、もう一度ログインします（半年使わないと、GitHub 側でも切れます）。やめたいときは、GitHub の Settings → Applications → <b>Authorized GitHub Apps</b> から <b>Life Manager App</b> を取り消せます（GitHub の画面では、この名前で出ます）。</p>
   </div>
 
   <h3>ステップ 2: チームに入る・選ぶ</h3>
@@ -1436,7 +1436,7 @@ labels: ["種別:バグ", "状態:未整理"]
   <div class="table-wrap">
   <table>
     <tr><th>もの</th><th>期限</th><th>やめ方・消し方</th></tr>
-    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>鍵は 8 時間ごとに自動で新しくなる。この PC では、選んだ期限（30 日・90 日・半年）まで</td><td>設定 → 接続 の <span class="ui">ログアウト</span>（この PC から消える）。GitHub での許可は、Settings → Applications → Authorized GitHub Apps → Life Manager → Revoke</td></tr>
+    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>鍵は 8 時間ごとに自動で新しくなる。この PC では、選んだ期限（30 日・90 日・半年）まで</td><td>設定 → 接続 の <span class="ui">ログアウト</span>（この PC から消える）。GitHub での許可は、Settings → Applications → Authorized GitHub Apps → Life Manager App → Revoke</td></tr>
     <tr><td>トークン（<span class="ui">トークンで入る</span>）</td><td>作るときに決める</td><td><span class="ui">ログアウト</span>。GitHub のトークンの画面で Delete</td></tr>
     <tr><td>プロジェクト専用のトークン</td><td>作るときに決める</td><td>設定 → 接続 の <span class="ui">いつものに戻す</span></td></tr>
     <tr><td>Discord の Webhook の URL</td><td>なし</td><td>設定 → 通知 で URL を消して <span class="ui">解除</span>。人に漏れたら、Discord でウェブフックを作り直す</td></tr>
@@ -1453,7 +1453,7 @@ labels: ["種別:バグ", "状態:未整理"]
   </div>
   <h3>リーダー: メンバーを招待する</h3>
   <ol>
-    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。設定 → 接続 の <span class="ui">使うリポジトリを選び直す</span>（セットアップでは <span class="ui">＋ 使うリポジトリを選ぶ・足す</span>）で GitHub が開くので、リポジトリの持ち主のアカウントを選び、そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。入れていないリポジトリは、メンバーの一覧に出てきません。</li>
+    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。設定 → 接続 の <span class="ui">使うリポジトリを選び直す</span>（セットアップでは <span class="ui">＋ 使うリポジトリを選ぶ・足す</span>）で GitHub が開くので（画面の名前は「Life Manager App」）、リポジトリの持ち主のアカウントを選び、そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。入れていないリポジトリは、メンバーの一覧に出てきません。</li>
     <li>メンバーに、GitHub の名前を送ってもらいます（メンバーはセットアップの <span class="ui">名前をコピー</span> で送れます）。</li>
     <li>設定 → チーム の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
     <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
@@ -1508,7 +1508,7 @@ labels: ["種別:バグ", "状態:未整理"]
     <dt>画面の上に「トークンの期限が…」「トークンが使えません」と出ます</dt>
     <dd>設定 → 接続 の「GitHub トークン」で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、この PC で使う期限（30 日・90 日・半年）が近づくと知らせが出ます。<span class="ui">ログインし直す（期限を延ばす）</span> を押すと、今日から数え直します。</dd>
     <dt>学校の PC で使い終わったら？</dt>
-    <dd>設定 → 接続 の <span class="ui">ログアウト</span> を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications → Authorized GitHub Apps から Life Manager を取り消します（ログアウトのあとの画面にも案内が出ます）。</dd>
+    <dd>設定 → 接続 の <span class="ui">ログアウト</span> を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications → Authorized GitHub Apps から Life Manager App を取り消します（ログアウトのあとの画面にも案内が出ます）。</dd>
     <dt>チームのリポジトリが一覧に出てきません</dt>
     <dd>招待を受けているか（メールの「Accept invitation」）、リーダー（組織なら組織の持ち主）がそのリポジトリに Life Manager を入れているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
     <dt>複数のリポジトリを使えますか？</dt>

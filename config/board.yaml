@@ -1,10 +1,13 @@
 columns:
 - emoji: 📋
-  key: 状態:未着手
-  title: 未着手
+  genre: triage
+  key: 状態:未整理
+  title: 未整理
 - emoji: 🔥
+  genre: doing
   key: 状態:進行中
   title: 進行中
 - emoji: 🐛
+  genre: doing
   key: 状態:動作チェック
   title: 動作チェック

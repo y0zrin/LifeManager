@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, useMemo, useContext } from "react";
+import { Fragment, useState, useRef, useEffect, useMemo, useContext, type ReactNode } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
@@ -115,12 +115,36 @@ interface DashboardViewProps {
   /** 見積もりのラベルがなければ作る（色をそろえるため） */
   onEnsureEstimateLabel: (value: number) => Promise<void>;
   status?: string;
+  /** 左に一覧・右に詳細に分けられる（PC で、窓が広いとき）。分けるのはカードのときだけ */
+  splitCapable?: boolean;
+  /** 左右に分けているか（分けているあいだは、選んだタスクを右に出す） */
+  onSplitChange?: (active: boolean) => void;
+  /** 右に出しているタスク */
+  selectedIssue?: number | null;
+  /** 右の欄に出すもの（選んだタスクの詳細） */
+  detail?: ReactNode;
+}
+
+/** 左の一覧の幅（%）。ドラッグで変えて、覚える */
+const SPLIT_STORE = "task-split-left";
+const SPLIT_MIN = 26;
+const SPLIT_MAX = 66;
+const clampSplit = (v: number) => Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, v));
+
+function loadSplit(): number {
+  try {
+    const v = Number(localStorage.getItem(SPLIT_STORE));
+    return v ? clampSplit(v) : 40;
+  } catch {
+    return 40;
+  }
 }
 
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
   onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
+  splitCapable = false, onSplitChange, selectedIssue = null, detail,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const unit = useEstimateUnit();
@@ -326,6 +350,66 @@ export function DashboardView({
   });
   const rows = groups.flatMap((g) => g.rows);
 
+  // PC・カードのとき: 左に一覧、右に選んだタスクの詳細（表のときは、今まで通り全幅の表と、重ねて出す詳細）
+  const splitActive = splitCapable && mode === "card";
+  useEffect(() => {
+    onSplitChange?.(splitActive);
+  }, [splitActive, onSplitChange]);
+
+  // ↑↓ で上下のタスクへ（文字を打つ欄にいるときは使わない）
+  useEffect(() => {
+    if (!splitActive || picking) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true'], .palette-overlay")) return;
+      const order = rows.map((r) => r.issue.number);
+      if (order.length === 0) return;
+      const at = selectedIssue === null ? -1 : order.indexOf(selectedIssue);
+      const next = e.key === "ArrowDown" ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at === -1 ? 0 : at - 1)];
+      e.preventDefault();
+      if (next !== selectedIssue) onSelectIssue(next);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [splitActive, picking, rows, selectedIssue, onSelectIssue]);
+
+  // 選んだタスクが一覧の見えるところにあるように
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!splitActive || selectedIssue === null) return;
+    listRef.current?.querySelector(`[data-issue="${selectedIssue}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [splitActive, selectedIssue]);
+
+  // 左右の境目をドラッグして、左の一覧の幅を変える
+  const [splitLeft, setSplitLeft] = useState(loadSplit);
+  const [dragging, setDragging] = useState(false);
+  const splitRef = useRef<HTMLDivElement>(null);
+  function startDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    const box = splitRef.current?.getBoundingClientRect();
+    if (!box) return;
+    let last = splitLeft;
+    setDragging(true);
+    const move = (ev: MouseEvent) => {
+      last = clampSplit(((ev.clientX - box.left) / box.width) * 100);
+      setSplitLeft(last);
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      setDragging(false);
+      try {
+        localStorage.setItem(SPLIT_STORE, String(Math.round(last)));
+      } catch {
+        // 覚えられなくても、今の幅は使える
+      }
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   // 今の見方（保存した見方と比べる・保存する形）。担当が自分なら「自分」として持つ
   const currentView: ViewSettings = {
     filters,
@@ -421,8 +505,46 @@ export function DashboardView({
     }
   }
 
+  // 一覧（表か、まとまりごとのカード）と、ないときの知らせ
+  const list = (
+    <>
+      {mode === "table" && rows.length > 0 ? (
+        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} />
+      ) : (
+        groups.map((g) => (
+          <Fragment key={g.title || "all"}>
+            {g.title && (
+              <div className="task-group-head">
+                {g.title}
+                <span>{g.rows.length} 件</span>
+                <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
+              </div>
+            )}
+            {g.rows.map(({ issue, depth }) => (
+              <IssueCard key={issue.number} issue={issue}
+                onClose={onClose} onReopen={onReopen}
+                onPromote={onPromote} onStatusChange={onStatusChange}
+                onSelect={onSelectIssue}
+                depth={depth}
+                picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick}
+                selected={splitActive && selectedIssue === issue.number} />
+            ))}
+          </Fragment>
+        ))
+      )}
+      {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
+        <div className="error-message">
+          <p className="error-message__title">⚠️ {status}</p>
+          <p className="error-message__detail">設定画面でリポジトリやトークンを確認してください。</p>
+        </div>
+      ) : filteredIssues.length === 0 ? (
+        <p className="empty-message">イシューがありません</p>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="content">
+    <div className={`content${splitActive ? " task-split-page" : ""}`}>
       {/* メモ投入 */}
       <div className="memo-bar">
         <input
@@ -693,38 +815,20 @@ export function DashboardView({
         </span>
       </div>
 
-      {/* Issue一覧（表か、まとまりごとのカード） */}
-      {mode === "table" && rows.length > 0 ? (
-        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} />
-      ) : (
-        groups.map((g) => (
-          <Fragment key={g.title || "all"}>
-            {g.title && (
-              <div className="task-group-head">
-                {g.title}
-                <span>{g.rows.length} 件</span>
-                <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
-              </div>
-            )}
-            {g.rows.map(({ issue, depth }) => (
-              <IssueCard key={issue.number} issue={issue}
-                onClose={onClose} onReopen={onReopen}
-                onPromote={onPromote} onStatusChange={onStatusChange}
-                onSelect={onSelectIssue}
-                depth={depth}
-                picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick} />
-            ))}
-          </Fragment>
-        ))
-      )}
-      {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
-        <div className="error-message">
-          <p className="error-message__title">⚠️ {status}</p>
-          <p className="error-message__detail">設定画面でリポジトリやトークンを確認してください。</p>
+      {/* Issue一覧。PC・カードのときは、左に一覧・右に選んだタスクの詳細 */}
+      {splitActive ? (
+        <div className={`task-split${dragging ? " task-split--dragging" : ""}`} ref={splitRef}>
+          <div className="task-split-list" ref={listRef} style={{ width: `${splitLeft}%` }}>
+            {list}
+          </div>
+          <div className="task-split-grip" role="separator" aria-orientation="vertical" title="ドラッグで幅を変える" onMouseDown={startDrag} />
+          <div className="task-split-detail">
+            {detail ?? <p className="task-split-empty">タスクを選ぶと、ここに詳細が出ます（↑↓ で上下のタスクへ）</p>}
+          </div>
         </div>
-      ) : filteredIssues.length === 0 ? (
-        <p className="empty-message">イシューがありません</p>
-      ) : null}
+      ) : (
+        list
+      )}
 
       {picking && (
         <BulkBar

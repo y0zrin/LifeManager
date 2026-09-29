@@ -15,6 +15,8 @@ import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
 import { EstimatePicker } from "./EstimateChip";
 
 interface IssueDetailModalProps {
+  /** 重ねずに、その場に出す（PC のタスクの右の欄）。Esc で閉じない */
+  inline?: boolean;
   issue: GitHubIssue;
   onClose: () => void;
   listComments: (issueNumber: number) => Promise<GitHubComment[]>;
@@ -43,7 +45,7 @@ interface IssueDetailModalProps {
   onSetEstimate?: (issueNumber: number, value: number | null) => Promise<void>;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate }: IssueDetailModalProps) {
+export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate }: IssueDetailModalProps) {
   const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -176,23 +178,25 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
     setEditingAssignees(false);
   }
 
-  // ESCキーで閉じる
+  // ESCキーで閉じる（重ねて出すときだけ。右の欄に出すときは閉じない）
   useEffect(() => {
+    if (inline) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (isEscape(e)) onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   const todoMatch = issue.body?.match(/- \[[ x]\]/g);
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
 
-  return (
-    <div className="palette-overlay" onClick={onClose}>
-      <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
-      <div onClick={(e) => e.stopPropagation()} className="modal-content">
+  const body = (
+      <div onClick={(e) => e.stopPropagation()} className={inline ? "modal-content issue-detail-inline" : "modal-content"}>
+        {inline && (
+          <button type="button" onClick={onClose} className="issue-detail-close" title="閉じる">×</button>
+        )}
         {/* ヘッダー */}
         <div style={{ marginBottom: "12px" }}>
           <div style={{ flex: 1 }}>
@@ -792,6 +796,11 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
           コメント追加
         </button>
       </div>
+  );
+  return inline ? body : (
+    <div className="palette-overlay" onClick={onClose}>
+      <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
+      {body}
     </div>
   );
 }

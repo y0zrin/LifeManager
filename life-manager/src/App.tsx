@@ -41,6 +41,7 @@ import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import { InsightsView } from "./components/views/InsightsView";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { isSetupPending, markSetupPending } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
@@ -225,6 +226,33 @@ function App() {
     setOpenedFallback(fallback ?? null);
     setSelectedIssue(n);
   }, []);
+
+  // タスク（PC で窓が広く、カードのとき）: 左に一覧、右に選んだタスクの詳細。選んだタスクは、リポジトリごとに覚える
+  const wideEnough = useMediaQuery("(min-width: 1100px)");
+  const [taskSplit, setTaskSplit] = useState(false);
+  const taskSelectedKey = `task-selected:${gh.owner}/${gh.repo}`;
+  const [taskSelected, setTaskSelected] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(taskSelectedKey);
+      setTaskSelected(saved ? Number(saved) : null);
+    } catch {
+      setTaskSelected(null);
+    }
+  }, [taskSelectedKey]);
+  const selectTask = useCallback((n: number | null) => {
+    setTaskSelected(n);
+    try {
+      if (n === null) localStorage.removeItem(taskSelectedKey);
+      else localStorage.setItem(taskSelectedKey, String(n));
+    } catch {
+      // 覚えられなくても、今は右に出せる
+    }
+  }, [taskSelectedKey]);
+  const openTask = useCallback((n: number, fallback?: GitHubIssue) => {
+    setOpenedFallback(fallback ?? null);
+    selectTask(n);
+  }, [selectTask]);
   const subIssueApi = { list: gh.listSubIssues, create: gh.createSubIssue, add: gh.addSubIssue, remove: gh.removeSubIssue };
   // Issue の変更の履歴から開いたコミット（手元にまだないこともあるので、GitHub から読む）
   const [timelineCommit, setTimelineCommit] = useState<GitCommit | null>(null);
@@ -503,6 +531,42 @@ function App() {
     return <SetupView onDone={handleSetupDone} resume={resumeSetup} />;
   }
 
+  // Issue の詳細。重ねて出す（ほかの画面・スマホ）か、タスクの右の欄に出す（inline）
+  function renderIssueDetail(n: number | null, inline: boolean, onClose: () => void, onOpen: (n: number, fallback?: GitHubIssue) => void) {
+    if (n === null) return null;
+    const issueObj = gh.issues.find((i) => i.number === n)
+      || gh.closedIssues.find((i) => i.number === n)
+      || (openedFallback?.number === n ? openedFallback : undefined);
+    if (!issueObj) return null;
+    return (
+      <IssueDetailModal
+        // 親・子へ移ったら、書きかけの状態を持ち越さないよう作り直す
+        key={issueObj.number}
+        inline={inline}
+        issue={issueObj}
+        onClose={onClose}
+        listComments={gh.listComments}
+        createComment={gh.createComment}
+        availableLabels={gh.customLabels}
+        milestones={gh.milestones}
+        collaborators={gh.collaborators}
+        updateIssue={gh.updateIssue}
+        onCloseIssue={gh.closeIssue}
+        onReopenIssue={gh.reopenIssue}
+        onToggleTodo={gh.updateIssueBody}
+        reminders={gh.reminders}
+        onAddReminder={gh.addReminder}
+        onRemoveReminder={gh.removeReminder}
+        allIssues={[...gh.issues, ...gh.closedIssues]}
+        onOpenIssue={onOpen}
+        subIssueApi={subIssueApi}
+        listTimeline={gh.listTimeline}
+        onShowCommit={showTimelineCommit}
+        onSetEstimate={gh.setEstimate}
+      />
+    );
+  }
+
   const shell = (
     <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""}${display.settings.hints ? "" : " hints-off"}`}>
       {/* たたんだサイドバーは、画面の端にマウスを寄せると出てくる */}
@@ -719,13 +783,17 @@ function App() {
               onCreateIssue={gh.createIssue}
               onCreateMemo={gh.createMemo}
               onRefresh={gh.loadAll}
-              onSelectIssue={setSelectedIssue}
+              onSelectIssue={taskSplit ? selectTask : setSelectedIssue}
               onAddReminder={gh.addReminder}
               savedViews={gh.savedViews}
               onSaveViews={gh.saveSavedViews}
               stateOrder={(gh.boardConfig?.columns ?? DEFAULT_COLUMNS).map((c) => c.key)}
               onEnsureEstimateLabel={gh.ensureEstimateLabel}
               status={gh.status}
+              splitCapable={!isMobile && wideEnough}
+              onSplitChange={setTaskSplit}
+              selectedIssue={taskSelected}
+              detail={taskSplit ? renderIssueDetail(taskSelected, true, () => selectTask(null), openTask) : null}
             />
           )}
 
@@ -904,38 +972,8 @@ function App() {
         />
       )}
 
-      {/* Issue詳細モーダル */}
-      {selectedIssue !== null && (() => {
-        const issueObj = gh.issues.find((i) => i.number === selectedIssue)
-          || gh.closedIssues.find((i) => i.number === selectedIssue)
-          || (openedFallback?.number === selectedIssue ? openedFallback : undefined);
-        return issueObj ? (
-          <IssueDetailModal
-            // 親・子へ移ったら、書きかけの状態を持ち越さないよう作り直す
-            key={issueObj.number}
-            issue={issueObj}
-            onClose={() => setSelectedIssue(null)}
-            listComments={gh.listComments}
-            createComment={gh.createComment}
-            availableLabels={gh.customLabels}
-            milestones={gh.milestones}
-            collaborators={gh.collaborators}
-            updateIssue={gh.updateIssue}
-            onCloseIssue={gh.closeIssue}
-            onReopenIssue={gh.reopenIssue}
-            onToggleTodo={gh.updateIssueBody}
-            reminders={gh.reminders}
-            onAddReminder={gh.addReminder}
-            onRemoveReminder={gh.removeReminder}
-            allIssues={[...gh.issues, ...gh.closedIssues]}
-            onOpenIssue={openIssue}
-            subIssueApi={subIssueApi}
-            listTimeline={gh.listTimeline}
-            onShowCommit={showTimelineCommit}
-            onSetEstimate={gh.setEstimate}
-          />
-        ) : null;
-      })()}
+      {/* Issue詳細（重ねて出す） */}
+      {renderIssueDetail(selectedIssue, false, () => setSelectedIssue(null), openIssue)}
     </main>
   );
   return (

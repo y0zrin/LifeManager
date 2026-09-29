@@ -18,6 +18,7 @@ export function IssueCard({
   picking = false,
   picked = false,
   onTogglePick,
+  selected = false,
 }: {
   issue: GitHubIssue;
   onClose: (n: number) => void;
@@ -31,6 +32,8 @@ export function IssueCard({
   picking?: boolean;
   picked?: boolean;
   onTogglePick?: (n: number) => void;
+  /** 右の欄に詳細を出している（PC のタスク） */
+  selected?: boolean;
 }) {
   const isMemo = issue.labels.some((l) => l.name === "種別:メモ");
   const currentStatus = issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
@@ -49,7 +52,8 @@ export function IssueCard({
   }
 
   return (
-    <div className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}`} onClick={handleCardClick}
+    <div className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}${selected ? " issue-card--selected" : ""}`}
+      onClick={handleCardClick} data-issue={issue.number}
       style={{ cursor: onSelect || picking ? "pointer" : "default", marginLeft: depth > 0 ? `${Math.min(depth, 3) * 28}px` : undefined }}>
       {depth === 0 && <ParentMark issue={issue} />}
       <div className="issue-card-header">

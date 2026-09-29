@@ -3,7 +3,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { GitHubLogin } from "../common/GitHubLogin";
 import { TokenEntry } from "../common/TokenEntry";
 import { TokenReportView } from "../common/TokenReportView";
-import { InvitesForMe } from "../common/InvitesForMe";
 import { RepoAccess } from "../common/RepoAccess";
 import {
   APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, markSetupPending,
@@ -34,6 +33,15 @@ const NEW_NAMES: Record<Path, string> = { team: "team-project", join: "", solo: 
 /** 使い方を選ぶ画面で、届いている招待を確かめに行く間隔 */
 const INVITE_POLL_MS = 30000;
 
+/**
+ * 招待を受ける画面で、参加したか（使えるリポジトリが増えたか）を確かめる間隔。はじめの 5 分は 5 秒ごと、そのあとは 30 秒ごと。
+ * 「GitHub でログイン」の鍵では、参加する前のリポジトリの招待がアプリから見えない（GitHub の決まり）ので、
+ * 招待はメールか招待のページで受けてもらい、使えるようになったことにアプリが気づく
+ */
+const JOIN_POLL_MS = 5000;
+const JOIN_SLOW_POLL_MS = 30000;
+const JOIN_FAST_MS = 5 * 60 * 1000;
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** アカウントを作る流れ: 作っていない → 登録のページを開いた → 作れたのでログインする */
@@ -43,7 +51,8 @@ type Signup = "none" | "opened" | "login";
  * 最初のセットアップ。① GitHub にログイン（アカウントがなければ、ここで作ってからログイン。「トークンで入る」もできる）
  * → ② 使い方を選ぶ（チームを作る／招待を受ける／個人で使う。招待が届いていれば「招待を受ける」に印）
  * → ③ 選んだ道だけを出す。チームを作る・個人で使う:「使用するリポジトリを選ぶ」→ もうあるものか新しく作るかを決めて、はじめる。
- * 招待を受ける: 自分の GitHub の名前を大きく出し、届いた招待で「参加してはじめる」。どの道も、最後のボタンでそのままはじめる
+ * 招待を受ける: 自分の GitHub の名前を大きく出す。招待はメール（か招待のページ）で受け、使えるようになったらアプリが気づいて
+ * 「このリポジトリではじめる」を出す。どの道も、最後のボタンでそのままはじめる
  */
 export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [step, setStep] = useState(0);
@@ -73,6 +82,8 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [inviteCount, setInviteCount] = useState(0);
   // 参加したリポジトリを使えるか確かめているところ
   const [joining, setJoining] = useState<string | null>(null);
+  // 招待を受ける画面を開いたとき、もう参加していたリポジトリ（あとから増えたものを「参加しました」と出す）
+  const [joinBaseline, setJoinBaseline] = useState<Set<string> | null>(null);
   // 招待に参加したが、まだ使えない（リーダーが Life Manager を入れていない）
   const [joinProblem, setJoinProblem] = useState<{ fullName: string; message: string } | null>(null);
   const [joinTextCopied, setJoinTextCopied] = useState(false);
@@ -192,6 +203,35 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     [repos, me],
   );
   const joinedRepos = useMemo(() => (repos ?? []).filter((r) => r.owner.login.toLowerCase() !== me?.login.toLowerCase()), [repos, me]);
+  // 招待を受ける画面を開いてから参加したもの（GitHub の画面で受けた）と、前から参加しているもの
+  const newlyJoined = useMemo(
+    () => (joinBaseline ? joinedRepos.filter((r) => !joinBaseline.has(r.full_name.toLowerCase())) : []),
+    [joinedRepos, joinBaseline],
+  );
+  const otherJoined = useMemo(() => joinedRepos.filter((r) => !newlyJoined.includes(r)), [joinedRepos, newlyJoined]);
+
+  // 招待を受ける: 開いたときに使えたリポジトリを覚えておく
+  useEffect(() => {
+    if (step !== 2 || path !== "join" || joinBaseline !== null || repos === null) return;
+    setJoinBaseline(new Set(repos.map((r) => r.full_name.toLowerCase())));
+  }, [step, path, joinBaseline, repos]);
+
+  // 招待を受ける: GitHub の画面で参加すると使えるリポジトリが増えるので、確かめ続ける
+  useEffect(() => {
+    if (step !== 2 || path !== "join") return;
+    const started = Date.now();
+    let alive = true;
+    let timer = 0;
+    const tick = async () => {
+      await loadRepos();
+      if (alive) timer = window.setTimeout(tick, Date.now() - started < JOIN_FAST_MS ? JOIN_POLL_MS : JOIN_SLOW_POLL_MS);
+    };
+    timer = window.setTimeout(tick, JOIN_POLL_MS);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [step, path, loadRepos]);
 
   // チームを作る・個人で使う: 一覧を読んだら、もうあるもの（いちばん最近のもの）か、新しく作るかを決めておく
   useEffect(() => {
@@ -237,6 +277,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     setPicked(null);
     setError(null);
     setJoinProblem(null);
+    setJoinBaseline(null);
     // 名前を打ち直していなければ、道に合う名前にする
     setNewName((n) => (Object.values(NEW_NAMES).includes(n) ? NEW_NAMES[p] : n));
     setStep(2);
@@ -289,7 +330,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     }
   }
 
-  // 参加してはじめる: 招待を受けたら、使えるのを確かめて、そのままはじめる。
+  // このリポジトリではじめる: 参加したリポジトリを使えるのを確かめて、そのままはじめる。
   // 参加したばかりは使えるようになるまで少しかかることがあるので、何度か確かめる
   async function joinAndStart(fullName: string) {
     setJoinProblem(null);
@@ -501,15 +542,33 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
                     {nameCopied ? "✔ コピーしました" : "コピー"}
                   </button>
                 </div>
-                <p className="setup-name-hint">① この名前をリーダーに伝える　② 招待が届くと下に出るので「参加してはじめる」を押す</p>
               </>
             )}
-            <InvitesForMe poll joinLabel="参加してはじめる" onJoined={(fullName) => joinAndStart(fullName)} onOrgsChanged={() => loadRepos()}
-              empty={
-                <p className="setup-note">
-                  <i className="spinner" aria-hidden="true" /> 招待を待っています…（30 秒ごとに確かめます）
-                </p>
-              } />
+            <ol className="setup-join-steps">
+              <li>この名前をリーダーに伝える</li>
+              <li>
+                招待のメールが届いたら「<b>View invitation</b>」→「<b>Accept invitation</b>」（リーダーから届いたリンクを開いても同じ）
+              </li>
+              <li>参加すると、アプリが自分で気づきます</li>
+            </ol>
+            {newlyJoined.length === 0 ? (
+              <p className="setup-wait">
+                <i className="spinner" aria-hidden="true" /> 参加を待っています…
+              </p>
+            ) : (
+              newlyJoined.map((r) => (
+                <div key={r.full_name} className="setup-joined-new">
+                  <b>✔ {r.full_name} に参加しました</b>
+                  <span className="setup-note">
+                    {r.owner.type === "Organization" ? `組織 ${r.owner.login} のリポジトリ` : `${r.owner.login} さんのリポジトリ`}
+                    {r.private ? "・非公開" : ""}
+                  </span>
+                  <button type="button" className="btn-primary" disabled={!!joining || finishing} onClick={() => joinAndStart(r.full_name)}>
+                    このリポジトリではじめる
+                  </button>
+                </div>
+              ))
+            )}
             {joining && (
               <p className="setup-note">
                 <i className="spinner" aria-hidden="true" /> {joining} を使えるか確かめています…
@@ -525,21 +584,25 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
                 </div>
               </div>
             )}
-            {joinedRepos.length > 0 && (
+            {otherJoined.length > 0 && (
               <div className="setup-joined">
-                <p className="setup-note">メールなどから先に参加したときは、ここから選びます。</p>
-                {joinedRepos.map((r) => (
+                <p className="setup-note">ほかに参加しているリポジトリ</p>
+                {otherJoined.map((r) => (
                   <div key={r.full_name} className="setup-joined-row">
                     {r.owner.avatar_url && <img src={r.owner.avatar_url} alt="" />}
                     <span className="setup-joined-name">{r.full_name}</span>
                     {r.private && <span className="setup-repo-badge">非公開</span>}
                     <button type="button" className="btn-sm" disabled={!!joining || finishing} onClick={() => joinAndStart(r.full_name)}>
-                      このリポジトリではじめる
+                      はじめる
                     </button>
                   </div>
                 ))}
               </div>
             )}
+            <p className="setup-note">
+              招待はアプリの中には出ません（参加する前のリポジトリは、GitHub の決まりでアプリから見えないため）。
+              参加したのに、しばらくしても出てこないときは、リーダーに「そのリポジトリに Life Manager を入れて」と伝えてください。
+            </p>
           </>
         )}
 

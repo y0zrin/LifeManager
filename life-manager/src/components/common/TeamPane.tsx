@@ -27,7 +27,7 @@ function ago(iso: string): string {
 function resultText({ name, outcome }: Result): { mark: string; tone: string; text: string } {
   switch (outcome.status) {
     case "invited":
-      return { mark: "✔", tone: "ok", text: `${name} — 招待しました（メールと、Life Manager の「あなた宛ての招待」に届きます）` };
+      return { mark: "✔", tone: "ok", text: `${name} — 招待しました（GitHub からメールで届きます。メンバーは、メールの View invitation から参加します）` };
     case "already":
       return { mark: "―", tone: "warn", text: `${name} — もうこのリポジトリを使えます` };
     case "no_user":
@@ -91,10 +91,11 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
   const joinGuide = [
     `Life Manager で「${owner}/${repo}」を使います。`,
     `① アプリを入れる：${DOWNLOAD_URL}`,
-    "② アプリを開いて「GitHub でログイン」（アカウントがなければ「GitHub で作る」）",
-    `③「招待を受ける」を選び、画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
-    "④ 招待が届くとアプリに出るので「参加してはじめる」を押す",
-    "　（GitHub から届く招待のメールは、開かなくてかまいません）",
+    "② アプリを開いて「GitHub でログイン」→「招待を受ける」（アカウントがなければ「GitHub で作る」）",
+    `③ 画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
+    "④ 招待のメールが届いたら「View invitation」→「Accept invitation」",
+    `　（このリンクからも受けられます：https://github.com/${owner}/${repo}/invitations）`,
+    "⑤ アプリが気づくので「このリポジトリではじめる」",
   ].join("\n");
 
   async function send() {
@@ -172,9 +173,9 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
     <div className="team-pane">
       <div className="form-card team-card">
         <h3 className="team-h">
-          あなた宛ての招待 <small>リーダーがこのアプリから送った招待も、GitHub から送った招待も、ここに届きます</small>
+          あなた宛ての招待 <small>招待は GitHub から届くメールの「View invitation」で受けます</small>
         </h3>
-        <InvitesForMe empty={<p className="team-note">今は届いていません。</p>} />
+        <InvitesForMe empty={<p className="team-note">「GitHub でログイン」では、まだ参加していないリポジトリの招待は、ここには出ません（GitHub の決まり）。</p>} />
       </div>
 
       {!owner || !repo ? (

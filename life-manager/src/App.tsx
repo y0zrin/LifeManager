@@ -1008,6 +1008,13 @@ function App() {
               onOpenPull={openPull}
               focus={actionsFocus}
               onFocusHandled={clearActionsFocus}
+              currentUser={gh.currentUser}
+              folder={folder ?? null}
+              onPlacedWorkflow={(file) => {
+                git.notify("ok", `${file} を作業フォルダに置きました。チェックを入れてコミットし、プッシュすると Actions が動き始めます`);
+                git.refresh();
+                setView("work");
+              }}
             />
           )}
 

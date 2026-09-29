@@ -26,6 +26,18 @@ fn inside(repo: &Path, file: &str) -> Result<PathBuf, String> {
     Ok(repo.join(rel))
 }
 
+/// 新しいファイルを置く（Actions のワークフローのひな形など）。もうあれば書き換えない。足りないフォルダは作る
+pub fn write_new(repo: &Path, file: &str, text: &str) -> Result<(), String> {
+    let path = inside(repo, file)?;
+    if path.exists() {
+        return Err(format!("{} はもうあります（書き換えません）。別の名前にするか、そのファイルを直してください", file));
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れませんでした: {}", e))?;
+    }
+    std::fs::write(&path, text).map_err(|e| format!("{} に書き込めませんでした: {}", file, e))
+}
+
 pub fn read(repo: &Path, file: &str) -> Result<ConflictText, String> {
     let path = inside(repo, file)?;
     match std::fs::read(&path) {
@@ -112,5 +124,19 @@ mod tests {
         assert!(inside(repo, "C:/Windows/win.ini").is_err());
         #[cfg(not(windows))]
         assert!(inside(repo, "/etc/passwd").is_err());
+    }
+
+    #[test]
+    fn writes_a_new_file_only_once_and_only_inside() {
+        let repo = std::env::temp_dir().join(format!("lm-write-new-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&repo);
+        std::fs::create_dir_all(&repo).unwrap();
+        write_new(&repo, ".github/workflows/test.yml", "name: テスト\n").unwrap();
+        assert_eq!(std::fs::read_to_string(repo.join(".github/workflows/test.yml")).unwrap(), "name: テスト\n");
+        // もうあるファイルは書き換えない
+        assert!(write_new(&repo, ".github/workflows/test.yml", "別の中身").is_err());
+        assert_eq!(std::fs::read_to_string(repo.join(".github/workflows/test.yml")).unwrap(), "name: テスト\n");
+        assert!(write_new(&repo, "../outside.yml", "x").is_err());
+        let _ = std::fs::remove_dir_all(&repo);
     }
 }

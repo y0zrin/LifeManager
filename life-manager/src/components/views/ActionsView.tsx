@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  ACTIONS_PERMISSIONS,
   LEVELS,
+  SECURITY_PERMISSIONS,
   STALE_DAYS,
   actionsWorkflows,
+  enableDependabot,
+  isPermissionError,
   duration,
   eventLabel,
   isActive,
@@ -20,6 +24,8 @@ import type { ActionsState } from "../../hooks/useActions";
 import { RunDetail } from "../actions/RunDetail";
 import { SecurityDetail } from "../actions/SecurityDetail";
 import { DispatchDialog } from "../actions/DispatchDialog";
+import { PermissionPrompt } from "../actions/PermissionPrompt";
+import { WorkflowStarter } from "../actions/WorkflowStarter";
 
 type Tab = "stack" | "runs" | "workflows";
 const TABS: Tab[] = ["stack", "runs", "workflows"];
@@ -39,10 +45,24 @@ interface ActionsViewProps {
   /** この実行（とジョブ）を開く（プルリクのチェックから来たとき） */
   focus: { runId: number; jobId?: number | null } | null;
   onFocusHandled: () => void;
+  currentUser: string;
+  /** この PC の作業フォルダ（あれば、ワークフローのひな形をそこに置ける） */
+  folder: string | null;
+  /** ひな形を作業フォルダに置いた（作業タブへ） */
+  onPlacedWorkflow: (file: string) => void;
+}
+
+/** はじめる準備の「今は使わない」を、リポジトリごとにこの PC に覚える */
+function loadHidden(key: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
 }
 
 /** Actions: 直す順に積んだ山（解決する順）・すべての実行・ワークフロー。右に中身 */
-export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHandled }: ActionsViewProps) {
+export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHandled, currentUser, folder, onPlacedWorkflow }: ActionsViewProps) {
   const { overview, stack, error, loading, reload } = actions;
   const wide = useMediaQuery("(min-width: 901px)");
   const [tab, setTab] = useState<Tab>("stack");
@@ -55,6 +75,21 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const [dispatching, setDispatching] = useState<Workflow | null>(null);
   const [filters, setFilters] = useState({ workflow: "", branch: "", result: "" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [starter, setStarter] = useState(false);
+  const hiddenKey = `actions-setup-hidden:${owner}/${repo}`;
+  const [hidden, setHidden] = useState<string[]>(() => loadHidden(hiddenKey));
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  useEffect(() => setHidden(loadHidden(hiddenKey)), [hiddenKey]);
+  function hide(item: string) {
+    const next = [...hidden, item];
+    setHidden(next);
+    try {
+      localStorage.setItem(hiddenKey, JSON.stringify(next));
+    } catch {
+      // 覚えられなくても、今は隠れる
+    }
+  }
 
   useEffect(() => {
     setPicked(null);
@@ -166,20 +201,93 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
     );
   }
 
-  function securityNote(kind: "dependabot" | "code") {
-    const s = kind === "dependabot" ? overview?.dependabot : overview?.code_scanning;
-    if (!s || s.state === "ok") return null;
-    const icon = kind === "dependabot" ? "🛡" : "🔍";
-    const name = kind === "dependabot" ? "Dependabot（古くて危ないライブラリのお知らせ）" : "コードスキャン（危ない書き方のお知らせ）";
-    return (
-      <p key={kind} className="ac-security-note">
-        {icon}{" "}
-        {s.state === "off"
-          ? `${name}は使っていません。GitHub の Settings → Code security で有効にすると、この山に入ります`
-          : s.message ?? `${name}を読めませんでした`}
-      </p>
-    );
+  // はじめる準備（GitHub の側で要るもの）を促す: ワークフローを置く・Dependabot を有効にする・コードスキャン・足りない権限
+  const settingsUrl = `https://github.com/${owner}/${repo}/settings/security_analysis`;
+  async function turnOnDependabot() {
+    setSetupBusy(true);
+    setSetupError(null);
+    try {
+      await enableDependabot(owner, repo);
+      setNotice("🛡 Dependabot のお知らせを有効にしました。しばらくすると、見つかったものが山に入ります");
+      window.setTimeout(reload, 3000);
+    } catch (e) {
+      setSetupError(String(e));
+    } finally {
+      setSetupBusy(false);
+    }
   }
+  function setupItems(): { key: string; node: ReactNode }[] {
+    if (!overview) return [];
+    const items: { key: string; node: ReactNode }[] = [];
+    if (overview.workflow_count === 0 && !hidden.includes("workflow")) {
+      items.push({
+        key: "workflow",
+        node: (
+          <>
+            <span className="ac-setup-text">
+              ▶ <b>ワークフローがありません。</b>テストを動かすワークフローを置くと、プッシュやプルリクのたびに GitHub が確かめて、失敗したらこの山に入ります。
+            </span>
+            <span className="ac-setup-actions">
+              <button type="button" className="btn-sm primary" onClick={() => setStarter(true)}>
+                ひな形から置く…
+              </button>
+            </span>
+          </>
+        ),
+      });
+    }
+    const dep = overview.dependabot;
+    if (dep.state === "off" && !hidden.includes("dependabot")) {
+      items.push({
+        key: "dependabot",
+        node: (
+          <>
+            <span className="ac-setup-text">
+              🛡 <b>Dependabot のお知らせが止まっています。</b>使っているライブラリに危ない版が見つかると、知らせてくれます（無料）。
+              {!overview.can_admin && " 有効にできるのは管理者です。"}
+            </span>
+            <span className="ac-setup-actions">
+              {overview.can_admin ? (
+                <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={turnOnDependabot}>
+                  有効にする
+                </button>
+              ) : (
+                <button type="button" className="btn-sm" onClick={() => openUrl(settingsUrl).catch(() => {})}>
+                  設定の画面を開く ↗
+                </button>
+              )}
+            </span>
+          </>
+        ),
+      });
+    }
+    if (dep.state === "forbidden" && !hidden.includes("dependabot")) {
+      items.push({ key: "dependabot", node: <PermissionPrompt owner={owner} currentUser={currentUser} need={SECURITY_PERMISSIONS.dependabot} compact /> });
+    }
+    const code = overview.code_scanning;
+    if (code.state === "off" && !overview.private && !hidden.includes("code")) {
+      items.push({
+        key: "code",
+        node: (
+          <>
+            <span className="ac-setup-text">
+              🔍 <b>コードスキャンを使っていません。</b>危ない書き方（SQL の組み立てなど）を見つけてくれます。公開のリポジトリなら無料です（Settings → Code security → CodeQL analysis）。
+            </span>
+            <span className="ac-setup-actions">
+              <button type="button" className="btn-sm" onClick={() => openUrl(settingsUrl).catch(() => {})}>
+                設定の画面を開く ↗
+              </button>
+            </span>
+          </>
+        ),
+      });
+    }
+    if (code.state === "forbidden" && !hidden.includes("code")) {
+      items.push({ key: "code", node: <PermissionPrompt owner={owner} currentUser={currentUser} need={SECURITY_PERMISSIONS.code} compact /> });
+    }
+    return items;
+  }
+  const setup = setupItems();
 
   const detail = (() => {
     if (card?.kind === "run" && card.run) {
@@ -300,12 +408,18 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
       </div>
 
       {error && !overview ? (
-        <div className="pulls-empty">
-          <p className="git-dialog-error">{error}</p>
-          <button type="button" className="btn-sm" onClick={reload}>
-            もう一度読み込む
-          </button>
-        </div>
+        isPermissionError(error) ? (
+          <div className="pulls-empty">
+            <PermissionPrompt owner={owner} currentUser={currentUser} need={ACTIONS_PERMISSIONS} message={error} onRetry={reload} />
+          </div>
+        ) : (
+          <div className="pulls-empty">
+            <p className="git-dialog-error">{error}</p>
+            <button type="button" className="btn-sm" onClick={reload}>
+              もう一度読み込む
+            </button>
+          </div>
+        )
       ) : !overview || !stack ? (
         <p className="pulls-empty muted">読み込んでいます…</p>
       ) : (
@@ -322,6 +436,20 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
             <div className="ac-items">
               {tab === "stack" && (
                 <>
+                  {setup.length > 0 && (
+                    <div className="ac-setup ac-setup-list">
+                      <b className="ac-setup-title">はじめる準備</b>
+                      {setup.map((item) => (
+                        <div key={item.key} className="ac-setup-item">
+                          {item.node}
+                          <button type="button" className="link-button ac-setup-hide" onClick={() => hide(item.key)} title="このリポジトリでは、もう出さない">
+                            今は使わない
+                          </button>
+                        </div>
+                      ))}
+                      {setupError && <p className="git-dialog-error">{setupError}</p>}
+                    </div>
+                  )}
                   <div className="ac-meter" aria-hidden="true">
                     {LEVELS.map((l) => stack.counts[l.level] > 0 && <i key={l.level} className={`l${l.level}`} style={{ flex: stack.counts[l.level] }} />)}
                     {stack.fine.length > 0 && <i className="fine" style={{ flex: stack.fine.length }} />}
@@ -339,12 +467,15 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                       <b className="ok">✔ {stack.fine.length}</b> 問題なし
                     </span>
                   </div>
-                  {cards.length === 0 && (
-                    <div className="ac-clear">
-                      <b>✔ 直すものはありません</b>
-                      <span>テスト・ビルドの最後の結果は、すべて成功です。</span>
-                    </div>
-                  )}
+                  {cards.length === 0 &&
+                    (runs.length === 0 ? (
+                      <p className="pulls-empty muted">まだ実行はありません。ワークフローを置いてプッシュすると、結果がここに積まれます。</p>
+                    ) : (
+                      <div className="ac-clear">
+                        <b>✔ 直すものはありません</b>
+                        <span>テスト・ビルドの最後の結果は、すべて成功です。</span>
+                      </div>
+                    ))}
                   {cards.map(renderCard)}
                   {stack.fixed.map((f) => (
                     <button key={f.key} type="button" className="ac-fixed" onClick={() => pick(`run:${f.run.id}`, cardOrder)}>
@@ -368,8 +499,6 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                         <span className="muted">{ago(r.updated_at)}</span>
                       </button>
                     ))}
-                  {securityNote("dependabot")}
-                  {securityNote("code")}
                   <p className="hint">直してプッシュすると自動でもう一度動き、成功すれば「✔ 直りました」と出て山から消えます。</p>
                 </>
               )}
@@ -479,6 +608,21 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
             {detail}
           </div>
         </div>
+      )}
+
+      {starter && overview && (
+        <WorkflowStarter
+          owner={owner}
+          repo={repo}
+          defaultBranch={overview.default_branch}
+          language={overview.language}
+          folder={folder}
+          onClose={() => setStarter(false)}
+          onPlaced={(file) => {
+            setStarter(false);
+            onPlacedWorkflow(file);
+          }}
+        />
       )}
 
       {dispatching && overview && (

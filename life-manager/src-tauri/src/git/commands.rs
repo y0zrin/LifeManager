@@ -447,6 +447,12 @@ pub async fn git_resolve_conflict(path: String, file: String, text: String) -> R
     blocking(move || conflict::resolve(Path::new(&path), &file, &text)).await
 }
 
+/// 作業フォルダに新しいファイルを置く（ステージはしない。作業タブでチェックを入れてコミットする）
+#[tauri::command]
+pub async fn git_add_new_file(path: String, file: String, text: String) -> Result<(), String> {
+    blocking(move || conflict::write_new(Path::new(&path), &file, &text)).await
+}
+
 /// ファイルを片方の内容（ours・theirs）にするか、消したままにして（delete）、ステージする
 #[tauri::command]
 pub async fn git_take_side(path: String, file: String, side: String) -> Result<GitRun, String> {

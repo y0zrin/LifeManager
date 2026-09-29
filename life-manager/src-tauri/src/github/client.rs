@@ -1012,6 +1012,12 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    /// Dependabot のお知らせを有効にする（管理者だけ。Administration の権限）
+    pub async fn enable_vulnerability_alerts(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/vulnerability-alerts", BASE_URL, owner, repo);
+        return self.put(&url, &serde_json::json!({})).await;
+    }
+
     /// Dependabot のお知らせ（開いているもの）
     pub async fn dependabot_alerts(&self, owner: &str, repo: &str) -> Result<String, String> {
         let url = format!("{}/repos/{}/{}/dependabot/alerts?state=open&per_page=100", BASE_URL, owner, repo);

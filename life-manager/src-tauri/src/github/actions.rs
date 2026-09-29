@@ -282,7 +282,7 @@ fn compact_check(c: &Value) -> Value {
 pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: String) -> Result<Value, String> {
     let client = client_of(&state).await?;
     let full_name = format!("{}/{}", owner, repo);
-    let (runs, info, branches, protected, pulls, dependabot, code_scanning) = tokio::join!(
+    let (runs, info, branches, protected, pulls, dependabot, code_scanning, workflows) = tokio::join!(
         client.list_runs(&owner, &repo),
         client.get_repository(&owner, &repo),
         client.list_branches(&owner, &repo),
@@ -290,8 +290,11 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         client.list_open_pulls(&owner, &repo),
         client.dependabot_alerts(&owner, &repo),
         client.code_scanning_alerts(&owner, &repo),
+        client.list_workflows(&owner, &repo),
     );
     let runs = parse(&runs.map_err(|e| explain(&e, "Actions の実行を読むこと"))?)?;
+    // ワークフローがないとき（はじめる準備を促す）。読めなければ null
+    let workflow_count = workflows.ok().and_then(|t| parse(&t).ok()).and_then(|v| v["total_count"].as_u64());
     let info = parse(&info.map_err(|e| explain(&e, "リポジトリを読むこと"))?)?;
     let branches = branches.ok().and_then(|t| parse(&t).ok()).map(|v| names(&v));
     let protected = protected.ok().and_then(|t| parse(&t).ok()).map(|v| names(&v)).unwrap_or_default();
@@ -308,6 +311,10 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
     Ok(json!({
         "default_branch": info["default_branch"],
         "can_push": info["permissions"]["push"].as_bool().unwrap_or(false),
+        "can_admin": info["permissions"]["admin"].as_bool().unwrap_or(false),
+        "private": info["private"].as_bool().unwrap_or(true),
+        "language": info["language"],
+        "workflow_count": workflow_count,
         "branches": branches,
         "protected": protected,
         "pulls": pulls,
@@ -315,6 +322,46 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         "dependabot": security_state(dependabot, compact_dependabot, &DEPENDABOT, "Dependabot のお知らせを読むこと"),
         "code_scanning": security_state(code_scanning, compact_code_scanning, &CODE_SCANNING, "コードスキャンのお知らせを読むこと"),
     }))
+}
+
+/// このアカウント（owner）に入れてある Life Manager の権限（足りない権限を、承認の画面へ促すため）。
+/// 自分で作ったトークンで入っているときは kind = token
+#[tauri::command]
+pub async fn installation_permissions(state: ClientState<'_>, owner: String) -> Result<Value, String> {
+    let client = client_of(&state).await?;
+    match client.list_installations().await {
+        Ok(list) => {
+            let found = list.iter().find(|i| i["account"]["login"].as_str().map(|l| l.eq_ignore_ascii_case(&owner)).unwrap_or(false));
+            Ok(json!({
+                "kind": "app",
+                "installed": found.is_some(),
+                "html_url": found.map(|i| i["html_url"].clone()),
+                "account_type": found.map(|i| i["account"]["type"].clone()),
+                "permissions": found.map(|i| i["permissions"].clone()),
+                "repository_selection": found.map(|i| i["repository_selection"].clone()),
+            }))
+        }
+        Err(e) if e.starts_with("HTTP 403") || e.starts_with("HTTP 401") => Ok(json!({ "kind": "token" })),
+        Err(e) => Err(e),
+    }
+}
+
+/// Dependabot のお知らせを有効にする（管理者だけ）
+#[tauri::command]
+pub async fn enable_dependabot(state: ClientState<'_>, owner: String, repo: String) -> Result<(), String> {
+    let client = client_of(&state).await?;
+    const ADMIN: Permission = Permission { name: "Administration", access: "Read and write" };
+    client.enable_vulnerability_alerts(&owner, &repo).await.map_err(|e| {
+        errors::explain(&e, "Dependabot のお知らせを有効にすること", &ADMIN, &[("admin", "有効にできるのは、このリポジトリの管理者だけです")])
+    })?;
+    Ok(())
+}
+
+/// ワークフローのひな形を選ぶための、リポジトリのいちばん上のファイルの名前
+#[tauri::command]
+pub async fn repo_root_files(state: ClientState<'_>, owner: String, repo: String) -> Result<Vec<String>, String> {
+    let client = client_of(&state).await?;
+    client.list_directory(&owner, &repo, "").await.map_err(|e| explain(&e, "ファイルの一覧を読むこと"))
 }
 
 /// ワークフローの一覧。手で実行できるもの（workflow_dispatch）には、入力の一覧（dispatch）を付ける

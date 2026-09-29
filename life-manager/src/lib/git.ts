@@ -173,6 +173,8 @@ export const resolveConflict = (path: string, file: string, text: string) => inv
 export const takeSide = (path: string, file: string, side: "ours" | "theirs" | "delete") => invoke<GitRun>("git_take_side", { path, file, side });
 /** ファイルを、いつものアプリ（エディタなど）で開く */
 export const openFile = (path: string, file: string) => invoke<void>("git_open_file", { path, file });
+/** 作業フォルダに新しいファイルを置く（もうあれば書き換えない。ステージはしない） */
+export const addNewFile = (path: string, file: string, text: string) => invoke<void>("git_add_new_file", { path, file, text });
 
 /** git のメッセージから、競合したファイルを読み取る（CONFLICT (content): Merge conflict in menu.txt など） */
 export function conflictFilesIn(message: string): string[] {

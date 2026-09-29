@@ -107,6 +107,13 @@ export interface OpenPull {
 export interface ActionsOverview {
   default_branch: string;
   can_push: boolean;
+  /** 管理者か（Dependabot を有効にできる） */
+  can_admin: boolean;
+  private: boolean;
+  /** GitHub が見た、いちばん多い言語（ワークフローのひな形を選ぶ） */
+  language: string | null;
+  /** ワークフローの数（読めなければ null）。0 なら、はじめる準備を促す */
+  workflow_count: number | null;
   /** ブランチの一覧（読めなければ null） */
   branches: string[] | null;
   protected: string[];
@@ -171,6 +178,44 @@ export interface CheckSummary {
   pending: number;
 }
 
+/** このアカウントに入れてある Life Manager の権限（kind = token は、自分で作ったトークンで入っているとき） */
+export interface InstallationInfo {
+  kind: "app" | "token";
+  installed?: boolean;
+  html_url?: string | null;
+  account_type?: string | null;
+  /** 権限の名前（actions・pull_requests など）→ read / write */
+  permissions?: Record<string, string> | null;
+  repository_selection?: string | null;
+}
+
+/** 画面ごとに要る権限（key は GitHub の API の名前、name は GitHub の設定の画面の名前） */
+export interface NeededPermission {
+  key: string;
+  name: string;
+  access: "read" | "write";
+}
+
+export const PULL_PERMISSIONS: NeededPermission[] = [{ key: "pull_requests", name: "Pull requests", access: "write" }];
+export const ACTIONS_PERMISSIONS: NeededPermission[] = [
+  { key: "actions", name: "Actions", access: "write" },
+  { key: "checks", name: "Checks", access: "read" },
+  { key: "statuses", name: "Commit statuses", access: "read" },
+];
+export const SECURITY_PERMISSIONS: Record<"dependabot" | "code", NeededPermission[]> = {
+  dependabot: [{ key: "vulnerability_alerts", name: "Dependabot alerts", access: "read" }],
+  code: [{ key: "security_events", name: "Code scanning alerts", access: "read" }],
+};
+
+/** 入れてある権限に、要る権限が足りているか（write があれば read も足りる） */
+export const hasPermission = (granted: Record<string, string> | null | undefined, p: NeededPermission) => {
+  const g = granted?.[p.key];
+  return g === "write" || g === "admin" || (p.access === "read" && g === "read");
+};
+
+/** エラーが「権限が足りない」ものか（github/errors.rs の言いかえ） */
+export const isPermissionError = (message: string | null | undefined) => !!message && message.includes("の権限");
+
 // --- GitHub とのやりとり ---
 
 export const actionsOverview = (owner: string, repo: string) => invoke<ActionsOverview>("actions_overview", { owner, repo });
@@ -182,6 +227,9 @@ export const cancelRun = (owner: string, repo: string, runId: number) => invoke<
 export const dispatchWorkflow = (owner: string, repo: string, workflowId: number, gitRef: string, inputs: Record<string, string>) =>
   invoke<void>("dispatch_workflow", { owner, repo, workflowId, gitRef, inputs });
 export const commitChecks = (owner: string, repo: string, sha: string) => invoke<CommitChecks>("commit_checks", { owner, repo, sha });
+export const installationPermissions = (owner: string) => invoke<InstallationInfo>("installation_permissions", { owner });
+export const enableDependabot = (owner: string, repo: string) => invoke<void>("enable_dependabot", { owner, repo });
+export const repoRootFiles = (owner: string, repo: string) => invoke<string[]>("repo_root_files", { owner, repo });
 export const commitsChecks = (owner: string, repo: string, shas: string[]) => invoke<Record<string, CheckSummary>>("commits_checks", { owner, repo, shas });
 
 // --- 解決する順の山 ---

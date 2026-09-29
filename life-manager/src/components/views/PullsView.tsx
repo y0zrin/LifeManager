@@ -15,7 +15,8 @@ import {
   type Verdicts,
 } from "../../lib/pulls";
 import { withTransition } from "../../lib/motion";
-import { commitsChecks, type CheckSummary } from "../../lib/actions";
+import { PULL_PERMISSIONS, commitsChecks, isPermissionError, type CheckSummary } from "../../lib/actions";
+import { PermissionPrompt } from "../actions/PermissionPrompt";
 import { PullDetail } from "../pulls/PullDetail";
 import { CreatePullDialog } from "../pulls/CreatePullDialog";
 
@@ -173,12 +174,18 @@ export function PullsView(props: PullsViewProps) {
         )}
         <div className="pulls-items tab-body" role="list">
           {error ? (
-            <div className="pulls-empty">
-              <p className="git-dialog-error">{error}</p>
-              <button type="button" className="btn-sm" onClick={load}>
-                もう一度読み込む
-              </button>
-            </div>
+            isPermissionError(error) ? (
+              <div className="pulls-empty">
+                <PermissionPrompt owner={owner} currentUser={currentUser} need={PULL_PERMISSIONS} message={error} onRetry={load} />
+              </div>
+            ) : (
+              <div className="pulls-empty">
+                <p className="git-dialog-error">{error}</p>
+                <button type="button" className="btn-sm" onClick={load}>
+                  もう一度読み込む
+                </button>
+              </div>
+            )
           ) : !pulls ? (
             <p className="pulls-empty muted">読み込んでいます…</p>
           ) : shown.length === 0 ? (

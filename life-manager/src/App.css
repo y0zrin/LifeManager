@@ -11345,11 +11345,6 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   width: calc(100% - 12px);
 }
 .ac-fine-item.on { box-shadow: 0 0 0 1px var(--view-accent); }
-.ac-security-note {
-  margin: 4px 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
 .ac-filters {
   display: flex;
   flex-wrap: wrap;
@@ -11585,4 +11580,101 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   margin: 0;
   color: var(--accent-yellow);
   font-size: var(--font-sm);
+}
+
+/* --- はじめる準備・足りない権限を促す --- */
+.ac-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-lg);
+  background: var(--accent-yellow-bg);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  text-align: left;
+}
+.ac-setup p { margin: 0; }
+.ac-setup.compact { padding: 0; border: none; background: none; }
+.ac-setup-list { margin-bottom: var(--space-md); }
+.ac-setup-title { color: var(--accent-yellow); font-size: var(--font-md); }
+.ac-setup-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-default);
+}
+.ac-setup-item:first-of-type { border-top: none; padding-top: 0; }
+.ac-setup-text { flex: 1 1 260px; }
+.ac-setup-text b { color: var(--text-primary); }
+.ac-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ac-setup-hide { font-size: var(--font-xs); }
+.ac-setup-message {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* ワークフローのひな形 */
+.git-dialog.ac-starter {
+  width: 760px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.ac-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ac-template {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+.ac-template.on { border-color: var(--view-accent); background: var(--bg-tertiary); }
+.ac-template input { margin-top: 3px; }
+.ac-template b { color: var(--text-primary); }
+.ac-starter-dir { display: flex; flex-direction: column; gap: 4px; }
+.ac-starter-file { color: var(--text-secondary); font-size: var(--font-sm); }
+.ac-yaml {
+  max-height: 280px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+/* プルリク・Actions の画面の入力欄（ほかの画面の .input-full とそろえる） */
+.pr-ui input:not([type="checkbox"]):not([type="radio"]),
+.pr-ui textarea {
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  outline: none;
+}
+.pr-ui input:not([type="checkbox"]):not([type="radio"]):focus,
+.pr-ui textarea:focus {
+  border-color: var(--accent-blue);
 }

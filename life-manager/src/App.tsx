@@ -47,6 +47,7 @@ import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
 import { RepoSwitcher } from "./components/common/RepoSwitcher";
 import { AddRepoWizard } from "./components/common/AddRepoWizard";
+import { MemoFab } from "./components/common/MemoFab";
 import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
@@ -781,7 +782,6 @@ function App() {
               onListTemplates={gh.listIssueTemplates}
               onAddTemplates={gh.addIssueTemplates}
               onCreateIssue={gh.createIssue}
-              onCreateMemo={gh.createMemo}
               onRefresh={gh.loadAll}
               onSelectIssue={taskSplit ? selectTask : setSelectedIssue}
               onAddReminder={gh.addReminder}
@@ -898,6 +898,8 @@ function App() {
 
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
+      {/* メモの投入（画面の下の角の 📝・Ctrl+M。置く角はサイドバーの側） */}
+      {gh.connected && <MemoFab labels={gh.customLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />}
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {addRepoOpen && (
         <AddRepoWizard

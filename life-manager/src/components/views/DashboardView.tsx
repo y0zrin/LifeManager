@@ -11,7 +11,7 @@ import { TemplatePicker } from "../common/TemplatePicker";
 import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
 import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
-import { isEnter, isEscape } from "../../lib/keys";
+import { isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
 import { ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
 import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
@@ -103,7 +103,6 @@ interface DashboardViewProps {
   onListTemplates: () => Promise<IssueTemplate[]>;
   onAddTemplates: (templates: IssueTemplate[]) => Promise<IssueTemplate[]>;
   onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
-  onCreateMemo: (text: string, theme: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
@@ -143,13 +142,11 @@ function loadSplit(): number {
 export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
-  onCreateIssue, onCreateMemo, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
+  onCreateIssue, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
   splitCapable = false, onSplitChange, selectedIssue = null, detail,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const unit = useEstimateUnit();
-  const [memoText, setMemoText] = useState("");
-  const [memoTheme, setMemoTheme] = useState("分野:私用");
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [issueBody, setIssueBody] = useState("");
@@ -258,14 +255,6 @@ export function DashboardView({
       else next.add(n);
       return next;
     });
-  }
-
-  async function handleMemoSubmit() {
-    if (!memoText.trim()) return;
-    const text = memoText;
-    const theme = memoTheme;
-    setMemoText("");
-    await onCreateMemo(text, theme);
   }
 
   async function handleIssueCreate() {
@@ -544,39 +533,19 @@ export function DashboardView({
   );
 
   return (
-    <div className={`content${splitActive ? " task-split-page" : ""}`}>
-      {/* メモ投入 */}
-      <div className="memo-bar">
-        <input
-          value={memoText}
-          onChange={(e) => setMemoText(e.target.value)}
-          onKeyDown={(e) => { if (isEnter(e)) handleMemoSubmit(); }}
-          placeholder="メモを投入... (Enter)"
-          className="memo-input"
-        />
-        <select value={memoTheme} onChange={(e) => setMemoTheme(e.target.value)} className="select-sm">
-          <option value="分野:私用">私用</option>
-          <option value="分野:仕事">仕事</option>
-          <option value="分野:やりたい">やりたい</option>
-          <option value="分野:健康">健康</option>
-          <option value="分野:学習">学習</option>
-        </select>
-        <button onClick={handleMemoSubmit} className="btn-primary">投入</button>
-      </div>
-
-      {/* 検索 */}
-      <div className="search-bar">
-        <input value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Issue を検索..."
-          className="search-input" />
-        {searchQuery && (
-          <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
-        )}
-      </div>
-
-      {/* フィルタ & アクション */}
-      <div className="toolbar">
+    // 表のときは、列が入るように横いっぱいに使う
+    <div className={`content${splitActive ? " task-split-page" : mode === "table" ? " task-table-page" : ""}`}>
+      {/* 検索・絞り込み（メモの投入は、画面の下の角の 📝 か Ctrl+M から） */}
+      <div className="toolbar task-toolbar">
+        <div className="search-bar">
+          <input value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Issue を検索..."
+            className="search-input" />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
+          )}
+        </div>
         {categories.map((cat) => {
           const catLabels = labels.filter((l) => l.name.startsWith(cat));
           if (catLabels.length === 0) return null;
@@ -619,6 +588,36 @@ export function DashboardView({
             リセット
           </button>
         )}
+      </div>
+
+      {/* カード／表・まとめる・並び・選ぶ・保存した見方・件数・更新・作る */}
+      <div className="task-list-options">
+        <span className="list-mode" role="group" aria-label="見せ方">
+          {(["card", "table"] as ListMode[]).map((m) => (
+            <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
+              {m === "card" ? "カード" : "表"}
+            </button>
+          ))}
+        </span>
+        <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+          {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
+            <option key={k} value={k}>まとめる: {GROUP_LABELS[k]}</option>
+          ))}
+        </select>
+        <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
+          {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+            <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
+          ))}
+        </select>
+        <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
+          onClick={() => (picking ? quitPicking() : setPicking(true))}>
+          ☑ 選ぶ
+        </button>
+        <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
+        <span className="issue-count task-list-count">
+          {filteredIssues.length} 件
+          <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
+        </span>
         <button onClick={onRefresh} className="btn-sm">更新</button>
         <button onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm">
           {showIssueForm ? "×" : "+ イシュー作成"}
@@ -784,36 +783,6 @@ export function DashboardView({
           </p>
         </div>
       )}
-
-      {/* カード／表・まとめる・並び・選ぶ・保存した見方 */}
-      <div className="task-list-options">
-        <span className="list-mode" role="group" aria-label="見せ方">
-          {(["card", "table"] as ListMode[]).map((m) => (
-            <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
-              {m === "card" ? "カード" : "表"}
-            </button>
-          ))}
-        </span>
-        <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
-          {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
-            <option key={k} value={k}>まとめる: {GROUP_LABELS[k]}</option>
-          ))}
-        </select>
-        <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
-          {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-            <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
-          ))}
-        </select>
-        <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
-          onClick={() => (picking ? quitPicking() : setPicking(true))}>
-          ☑ 選ぶ
-        </button>
-        <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
-        <span className="issue-count task-list-count">
-          {filteredIssues.length} 件
-          <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
-        </span>
-      </div>
 
       {/* Issue一覧。PC・カードのときは、左に一覧・右に選んだタスクの詳細 */}
       {splitActive ? (

@@ -1023,28 +1023,18 @@ body {
   color: var(--text-muted);
 }
 
-/* --- Memo Bar --- */
+/* --- タスクの上の行: 検索（左端）と絞り込み --- */
 
-.memo-bar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: var(--space-md);
+.task-toolbar .search-bar {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 320px;
+  margin-bottom: 0;
 }
 
-.memo-input {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-size: var(--font-md);
-  outline: none;
-  min-height: 36px;
-}
-
-.memo-input:focus {
-  border-color: var(--accent-blue);
+/* 表のときは、列が入るように横いっぱいに使う */
+.content.task-table-page {
+  max-width: none;
 }
 
 /* --- Search Bar --- */
@@ -4865,6 +4855,224 @@ button:hover {
   border-top: none;
 }
 
+/* --- メモの投入（画面の下の角の 📝・Ctrl+M） --- */
+
+.app-shell {
+  --fab-size: 48px;
+  --fab-bottom: var(--space-lg);
+}
+
+.memo-fab-wrap {
+  position: fixed;
+  bottom: var(--fab-bottom);
+  z-index: 85;
+  width: var(--fab-size);
+  height: var(--fab-size);
+  transition: translate var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard);
+}
+
+/* 置く角はサイドバーの側: 左 → 左下（サイドバーのすぐ右）、右 → 右下（サイドバーのすぐ左）、上・下の帯 → 左下。たたんだときは画面の角 */
+@media (min-width: 640px) {
+  .memo-fab-wrap {
+    left: calc(var(--sidebar-width) + var(--space-lg));
+  }
+
+  .sb-hidden .memo-fab-wrap,
+  .sb-top .memo-fab-wrap,
+  .sb-bottom .memo-fab-wrap {
+    left: var(--space-lg);
+  }
+
+  .sb-bottom:not(.sb-hidden) {
+    --fab-bottom: calc(var(--hbar-height) + var(--space-lg));
+  }
+
+  .sb-right .memo-fab-wrap {
+    left: auto;
+    right: calc(var(--sidebar-width) + var(--space-lg));
+  }
+
+  .sb-right.sb-hidden .memo-fab-wrap {
+    right: var(--space-lg);
+  }
+
+  .sb-right .memo-pop {
+    left: auto;
+    right: 0;
+  }
+
+  .sb-right .memo-fab-tip {
+    left: auto;
+    right: calc(100% + 14px);
+  }
+
+  /* git のお知らせ（右下）: メモのボタンが右下にあるときは、その上に。下の帯を出しているときは、帯の上に */
+  .sb-right .git-notices {
+    bottom: calc(var(--fab-bottom) + var(--fab-size) + var(--space-md));
+  }
+
+  .sb-bottom:not(.sb-hidden) .git-notices {
+    bottom: calc(var(--hbar-height) + var(--space-lg));
+  }
+}
+
+/* スマホ: 右下（下のナビの上） */
+@media (max-width: 639px) {
+  .app-shell {
+    --fab-bottom: calc(var(--bottom-nav-height) + var(--space-md));
+  }
+
+  .memo-fab-wrap {
+    right: var(--space-md);
+  }
+
+  .memo-fab-wrap .memo-pop {
+    left: auto;
+    right: 0;
+    width: calc(100vw - 2 * var(--space-md));
+  }
+
+  .memo-fab-tip {
+    display: none;
+  }
+}
+
+/* ほかの欄で文字を打っているあいだと、選んでまとめて変えている（下の帯が出ている）あいだは、画面の下へよける */
+.memo-fab-wrap.away,
+.app-shell:has(.bulk-bar) .memo-fab-wrap:not(.open) {
+  translate: 0 calc(100% + var(--fab-bottom) + 24px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.memo-fab {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--accent-green-hover);
+  border-radius: 50%;
+  background: var(--accent-green);
+  color: var(--text-on-accent);
+  font-size: 22px;
+  box-shadow: var(--shadow-popover);
+  transition: scale var(--dur-fast) var(--ease-out), background-color var(--dur-fast);
+}
+
+/* マウスを乗せると大きく */
+.memo-fab:hover,
+.memo-fab:focus-visible {
+  scale: 1.2;
+  background: var(--accent-green-hover);
+}
+
+.memo-fab-wrap.open .memo-fab {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* マウスを乗せたときの名前（ボタンの横） */
+.memo-fab-tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  translate: 0 -50%;
+  padding: 2px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast);
+}
+
+.memo-fab:hover + .memo-fab-tip {
+  opacity: 1;
+}
+
+/* 開いた欄（ボタンの上） */
+.memo-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 360px;
+  max-width: calc(100vw - 2 * var(--space-md));
+  padding: var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+  animation: rise-in var(--dur-base) var(--ease-out);
+}
+
+.memo-pop-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.memo-pop-repo {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memo-pop-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  outline: none;
+}
+
+.memo-pop-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.memo-pop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.memo-pop-note {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.memo-pop-note.ok {
+  color: var(--accent-green-hover);
+}
+
+.memo-pop-note.err {
+  color: var(--accent-red);
+}
+
+/* 一番下まで送ったとき、最後の行がメモのボタンに隠れないように */
+.content:not(.task-split-page):not(.gantt-screen),
+.task-split-list,
+.w-left {
+  padding-bottom: calc(var(--fab-size) + 2 * var(--space-lg));
+}
+
 /* --- git: 操作の結果（右下） --- */
 
 .git-notices {
@@ -7427,8 +7635,9 @@ button.lh:hover {
     padding-top: var(--space-lg);
   }
 
-  .memo-bar {
-    flex-direction: column;
+  .task-toolbar .search-bar {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   .modal-content {

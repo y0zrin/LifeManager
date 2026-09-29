@@ -246,7 +246,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       const result = await invoke("create_issue", {
         owner, repo,
         title: text, body: "",
-        labels: ["種別:メモ", "状態:未整理", theme],
+        labels: ["種別:メモ", "状態:未整理", theme].filter(Boolean),
         milestone: null,
         assignees: currentUser ? [currentUser] : null,
         notice: eventNotice("issue_created", `📝 {issue} ${text} をメモ投入`),

@@ -13,16 +13,20 @@ export type MemoButtonPosition = "top-right" | "bottom-right" | "top-left" | "bo
 
 export const MEMO_BUTTON_POSITIONS: MemoButtonPosition[] = ["top-right", "bottom-right", "top-left", "bottom-left", "hidden"];
 
+/** 画面の動き。ふつう = 動いた向きで種類を変える（縦・横・奥行き）、少なめ = うすく出るだけ */
+export type MotionLevel = "normal" | "reduced";
+
 export interface DisplaySettings {
   /** 学習の補助: ステージ・コミット・退避などの意味と、対応する git コマンドを画面に添える */
   hints: boolean;
   branchStyle: BranchStyle;
   sidebarPosition: SidebarPosition;
   memoButton: MemoButtonPosition;
+  motion: MotionLevel;
 }
 
 const STORAGE_KEY = "display-settings";
-const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label", sidebarPosition: "left", memoButton: "bottom-left" };
+const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label", sidebarPosition: "left", memoButton: "bottom-left", motion: "normal" };
 
 function load(): DisplaySettings {
   try {
@@ -32,6 +36,7 @@ function load(): DisplaySettings {
       branchStyle: saved.branchStyle === "line" ? "line" : DEFAULTS.branchStyle,
       sidebarPosition: SIDEBAR_POSITIONS.includes(saved.sidebarPosition) ? saved.sidebarPosition : DEFAULTS.sidebarPosition,
       memoButton: MEMO_BUTTON_POSITIONS.includes(saved.memoButton) ? saved.memoButton : DEFAULTS.memoButton,
+      motion: saved.motion === "reduced" ? "reduced" : DEFAULTS.motion,
     };
   } catch {
     return DEFAULTS;

@@ -7,6 +7,7 @@ import { useDismiss } from "../../hooks/useDismiss";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { DiffView } from "../git/DiffView";
 import { MergeTool } from "../git/MergeTool";
+import { withTransition } from "../../lib/motion";
 import { isEnter } from "../../lib/keys";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
@@ -218,6 +219,11 @@ function Workspace({
   const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [tab, setTab] = useState<"changes" | "stash">("changes");
+  // 横に並んだタブなので、右（退避中）へは右から・左（変更）へは左から入れ替わる
+  function changeTab(next: "changes" | "stash") {
+    if (next === tab) return;
+    withTransition(() => setTab(next), ["vt-tab", next === "stash" ? "vt-right" : "vt-left"]);
+  }
   const [selected, setSelected] = useState<Selected | null>(null);
   const [summaryError, setSummaryError] = useState(false);
   const summaryRef = useRef<HTMLInputElement>(null);
@@ -409,11 +415,13 @@ function Workspace({
       <div className="w-body">
         <div className="w-left">
           <div className="w-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === "changes"} className={`w-tab${tab === "changes" ? " on" : ""}`} onClick={() => setTab("changes")}>
+            <button type="button" role="tab" aria-selected={tab === "changes"} className={`w-tab${tab === "changes" ? " on" : ""}`} onClick={() => changeTab("changes")}>
               変更 <span className="count">{changeCount}</span>
+              {tab === "changes" && <span className="tab-active-bar" aria-hidden="true" />}
             </button>
-            <button type="button" role="tab" aria-selected={tab === "stash"} className={`w-tab${tab === "stash" ? " on" : ""}`} onClick={() => setTab("stash")}>
+            <button type="button" role="tab" aria-selected={tab === "stash"} className={`w-tab${tab === "stash" ? " on" : ""}`} onClick={() => changeTab("stash")}>
               退避中 <span className="count">{g.stashes.length}</span>
+              {tab === "stash" && <span className="tab-active-bar" aria-hidden="true" />}
             </button>
           </div>
 

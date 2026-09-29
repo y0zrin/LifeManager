@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, useMemo, useContext, type ReactNode } from "react";
+import { Fragment, useState, useRef, useEffect, useMemo, useContext, useCallback, type ReactNode } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
@@ -12,6 +12,7 @@ import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates"
 import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEscape } from "../../lib/keys";
+import { stepDirection, withTransition } from "../../lib/motion";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
 import { ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
 import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
@@ -345,6 +346,31 @@ export function DashboardView({
     onSplitChange?.(splitActive);
   }, [splitActive, onSplitChange]);
 
+  // 左右に分けているとき: 下のタスクを選ぶと、右の詳細は下から・上なら上から入れ替わる
+  const pickTask = useCallback((n: number) => {
+    if (!splitActive || selectedIssue === null) {
+      onSelectIssue(n);
+      return;
+    }
+    const dir = stepDirection(rows.map((r) => r.issue.number), selectedIssue, n, "vertical");
+    withTransition(() => onSelectIssue(n), ["vt-pick", dir]);
+  }, [splitActive, selectedIssue, rows, onSelectIssue]);
+
+  // 新しく入ったカード（メモを投入したときなど。いちどに 3 件まで。プロジェクトを切り替えたときは光らせない）
+  const seenIssues = useRef<Set<number> | null>(null);
+  const [freshIssues, setFreshIssues] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    const now = new Set(issues.map((i) => i.number));
+    const before = seenIssues.current;
+    seenIssues.current = now;
+    if (!before) return;
+    const added = [...now].filter((n) => !before.has(n));
+    if (added.length === 0 || added.length > 3) return;
+    setFreshIssues(new Set(added));
+    const timer = window.setTimeout(() => setFreshIssues(new Set()), 1800);
+    return () => window.clearTimeout(timer);
+  }, [issues]);
+
   // ↑↓ で上下のタスクへ（文字を打つ欄にいるときは使わない）
   useEffect(() => {
     if (!splitActive || picking) return;
@@ -358,11 +384,11 @@ export function DashboardView({
       const at = selectedIssue === null ? -1 : order.indexOf(selectedIssue);
       const next = e.key === "ArrowDown" ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at === -1 ? 0 : at - 1)];
       e.preventDefault();
-      if (next !== selectedIssue) onSelectIssue(next);
+      if (next !== selectedIssue) pickTask(next);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [splitActive, picking, rows, selectedIssue, onSelectIssue]);
+  }, [splitActive, picking, rows, selectedIssue, pickTask]);
 
   // 選んだタスクが一覧の見えるところにあるように
   const listRef = useRef<HTMLDivElement>(null);
@@ -410,13 +436,14 @@ export function DashboardView({
     mode,
   };
 
+  // 並び・まとめ方を変えたら、カードが新しい場所まで動いていく
   function changeSort(v: SortKey) {
-    setSortKey(v);
+    withTransition(() => setSortKey(v), ["vt-reorder"]);
     store(SORT_STORE, v);
   }
 
   function changeGroup(v: GroupKey) {
-    setGroup(v);
+    withTransition(() => setGroup(v), ["vt-reorder"]);
     store(GROUP_STORE, v);
   }
 
@@ -509,12 +536,14 @@ export function DashboardView({
                 <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
               </div>
             )}
-            {g.rows.map(({ issue, depth }) => (
+            {g.rows.map(({ issue, depth }, i) => (
               <IssueCard key={issue.number} issue={issue}
                 onClose={onClose} onReopen={onReopen}
                 onPromote={onPromote} onStatusChange={onStatusChange}
-                onSelect={onSelectIssue}
+                onSelect={pickTask}
                 depth={depth}
+                index={i}
+                fresh={freshIssues.has(issue.number)}
                 picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick}
                 selected={splitActive && selectedIssue === issue.number} />
             ))}

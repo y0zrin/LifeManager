@@ -1,4 +1,5 @@
-// 画面の動き（イージング付きのスクロール）。CSS の --ease-standard と同じ曲線を使う
+// 画面の動き。イージング付きのスクロール（CSS の --ease-standard と同じ曲線）と、画面の書き換えの動き（View Transitions）
+import { flushSync } from "react-dom";
 
 /** cubic-bezier(x1, y1, x2, y2) の値を返す関数を作る（CSS のイージングと同じ計算） */
 function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
@@ -61,4 +62,50 @@ export function easeScrollTo(el: HTMLElement, to: { left?: number; top?: number 
   };
   frame = requestAnimationFrame(step);
   return finish;
+}
+
+// --- 画面の書き換えの動き（View Transitions） ---
+// 動いた向きで種類を変える: 縦（縦に並んだもの）・横（横に並んだもの）・奥行き（寄る・引く・ふくらむ）。
+// 書き換えの前後の画面をブラウザが撮って、そのあいだを動かすので、画面の作りそのものは変えない
+
+/** 設定 → 表示 の「動き」（少なめなら使わない） */
+let enabled = true;
+
+export function setMotionEnabled(on: boolean) {
+  enabled = on;
+}
+
+/** 動きを使えるか（設定・OS の「視差効果を減らす」・見えているか・ブラウザが対応しているか） */
+export function motionOn(): boolean {
+  return (
+    enabled &&
+    typeof document !== "undefined" &&
+    typeof document.startViewTransition === "function" &&
+    document.visibilityState === "visible" &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * 画面を書き換える。動きを使えるときは、前後の画面のあいだを動かす（classes は、そのあいだ <html> に付ける印。どう動くかを CSS で決める）。
+ * update の中の React の書き換えは、すぐに画面に出す（前後の画面を撮るため）
+ */
+export function withTransition(update: () => void, classes: string[] = []): Promise<void> {
+  if (!motionOn()) {
+    update();
+    return Promise.resolve();
+  }
+  const root = document.documentElement;
+  root.classList.add(...classes);
+  const t = document.startViewTransition(() => flushSync(update));
+  // 途中で次の動きが始まったとき・撮れなかったときは、動きだけやめる（書き換えはされる）
+  t.ready.catch(() => {});
+  return t.finished.catch(() => {}).finally(() => root.classList.remove(...classes));
+}
+
+/** 並んでいるものの中で、前後どちらへ動いたか */
+export function stepDirection<T>(order: T[], from: T, to: T, axis: "vertical" | "horizontal"): string {
+  const forward = order.indexOf(to) > order.indexOf(from);
+  if (axis === "horizontal") return forward ? "vt-right" : "vt-left";
+  return forward ? "vt-down" : "vt-up";
 }

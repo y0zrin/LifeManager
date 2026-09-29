@@ -1,4 +1,6 @@
+import { useRef, useState, type CSSProperties } from "react";
 import type { GitHubIssue } from "../../lib/types";
+import { motionOn } from "../../lib/motion";
 import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
@@ -19,6 +21,8 @@ export function IssueCard({
   picked = false,
   onTogglePick,
   selected = false,
+  index = 0,
+  fresh = false,
 }: {
   issue: GitHubIssue;
   onClose: (n: number) => void;
@@ -34,7 +38,30 @@ export function IssueCard({
   onTogglePick?: (n: number) => void;
   /** 右の欄に詳細を出している（PC のタスク） */
   selected?: boolean;
+  /** 一覧の何番目か（画面に入るとき、順に出す） */
+  index?: number;
+  /** 新しく入った（メモを投入したときなど）。上から入って少し光る */
+  fresh?: boolean;
 }) {
+  // 完了を押したあと: はんこ（✓）→ しぼんで消える → 閉じる（動きを使わないときは、すぐ閉じる）
+  const [leaving, setLeaving] = useState<"none" | "stamp" | "shrink">("none");
+  const cardRef = useRef<HTMLDivElement>(null);
+  function finish() {
+    if (leaving !== "none") return;
+    if (!motionOn()) {
+      onClose(issue.number);
+      return;
+    }
+    setLeaving("stamp");
+    window.setTimeout(() => {
+      const el = cardRef.current;
+      if (el) el.style.height = `${el.offsetHeight}px`;
+      requestAnimationFrame(() => setLeaving("shrink"));
+    }, 600);
+    // 画面を移っても閉じるように、ここで呼ぶ
+    window.setTimeout(() => onClose(issue.number), 950);
+  }
+
   const isMemo = issue.labels.some((l) => l.name === "種別:メモ");
   const currentStatus = issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
   const dateStr = new Date(issue.created_at).toLocaleDateString("ja-JP");
@@ -52,9 +79,17 @@ export function IssueCard({
   }
 
   return (
-    <div className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}${selected ? " issue-card--selected" : ""}`}
+    <div ref={cardRef}
+      className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}${selected ? " issue-card--selected" : ""}${fresh ? " issue-card--fresh" : ""}${leaving !== "none" ? " issue-card--done" : ""}${leaving === "shrink" ? " issue-card--leaving" : ""}`}
       onClick={handleCardClick} data-issue={issue.number}
-      style={{ cursor: onSelect || picking ? "pointer" : "default", marginLeft: depth > 0 ? `${Math.min(depth, 3) * 28}px` : undefined }}>
+      style={{
+        cursor: onSelect || picking ? "pointer" : "default",
+        marginLeft: depth > 0 ? `${Math.min(depth, 3) * 28}px` : undefined,
+        // 順に出るときの番号と、並べ替えで動かすときの名前（CSS の --i・--vt-name）
+        "--i": index,
+        "--vt-name": `issue-${issue.number}`,
+      } as CSSProperties}>
+      {leaving !== "none" && <span className="issue-card-stamp" aria-hidden="true">✓</span>}
       {depth === 0 && <ParentMark issue={issue} />}
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
@@ -108,7 +143,7 @@ export function IssueCard({
 
       {!picking && <div className="issue-card-actions">
         {issue.state === "open" ? (
-          <button className="btn-sm" onClick={() => onClose(issue.number)}>完了</button>
+          <button className="btn-sm" onClick={finish} disabled={leaving !== "none"}>完了</button>
         ) : (
           <button className="btn-sm" onClick={() => onReopen(issue.number)}>再開</button>
         )}

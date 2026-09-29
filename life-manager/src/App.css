@@ -103,7 +103,23 @@
   --modal-max-width: 700px;
   --sidebar-width: 200px;
 
+  /* 画面ごとの色（サイドバーの印・上の題の線） */
+  --view-work: #f0883e;
+  --view-insights: #39c5cf;
+  --view-dashboard: #58a6ff;
+  --view-kanban: #3fb950;
+  --view-milestones: #bc8cff;
+  --view-routines: #f778ba;
+  --view-timeline: #e3b341;
+  --view-gantt: #ff7b72;
+  --view-branches: #7ee787;
+  --view-overview: #a5d6ff;
+  --view-settings: #d29922;
+
   /* Motion（画面遷移には基本的にイージングを入れる） */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-leave: 0.2s;
+  --dur-enter: 0.44s;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur-fast: 0.16s;
@@ -907,6 +923,310 @@ body {
 @keyframes view-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
+}
+
+/* --- 画面の動き（設定 → 表示 の「動き: ふつう」。動いた向きで種類を変える） --- */
+/* 縦に並んだもの（縦のサイドバー・一覧）の中を移ると上下、横に並んだもの（横の帯・タブ・ボードの列）の中を移ると左右、
+   作業 ⇄ ブランチ ⇄ 全体図・カード ⇄ 詳細 は奥行き（寄る・引く・ふくらむ）。前後の画面は View Transitions で撮って動かす */
+
+.app-shell { --view-accent: var(--accent-blue); }
+.app-shell[data-view="work"] { --view-accent: var(--view-work); }
+.app-shell[data-view="insights"] { --view-accent: var(--view-insights); }
+.app-shell[data-view="dashboard"] { --view-accent: var(--view-dashboard); }
+.app-shell[data-view="kanban"] { --view-accent: var(--view-kanban); }
+.app-shell[data-view="milestones"] { --view-accent: var(--view-milestones); }
+.app-shell[data-view="routines"] { --view-accent: var(--view-routines); }
+.app-shell[data-view="timeline"] { --view-accent: var(--view-timeline); }
+.app-shell[data-view="gantt"] { --view-accent: var(--view-gantt); }
+.app-shell[data-view="branches"] { --view-accent: var(--view-branches); }
+.app-shell[data-view="overview"] { --view-accent: var(--view-overview); }
+.app-shell[data-view="settings"] { --view-accent: var(--view-settings); }
+
+/* 選んでいる画面の印: 画面の色。切り替えると、次の画面の印まですべって移る（nav-active） */
+.app-shell .sidebar-item {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shell .sidebar-item.active {
+  background: transparent;
+  color: var(--view-accent);
+}
+
+.sidebar-active-bg,
+.bottom-nav-active-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--view-accent) 18%, transparent);
+  box-shadow: inset 3px 0 0 var(--view-accent);
+  pointer-events: none;
+  view-transition-name: nav-active;
+}
+
+.sb-right .sidebar-active-bg { box-shadow: inset -3px 0 0 var(--view-accent); }
+.sb-top .sidebar-active-bg { box-shadow: inset 0 -3px 0 var(--view-accent); }
+.sb-bottom .sidebar-active-bg,
+.bottom-nav-active-bg { box-shadow: inset 0 3px 0 var(--view-accent); }
+
+/* 上の題の下に、画面の色の短い線（切り替えると、次の画面の色に変わりながら動く） */
+.topbar-title {
+  position: relative;
+}
+
+.topbar-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--view-accent);
+}
+
+/* 画面そのもの（screen）。ふつうの動きでは、今までの「うすく出る」の代わりに、前後の画面のあいだを動かす */
+.view-enter {
+  view-transition-name: screen;
+}
+
+@supports (view-transition-name: none) {
+  .motion-normal .view-enter,
+  .motion-normal .view-enter.zoom-in,
+  .motion-normal .view-enter.zoom-out {
+    animation: none;
+  }
+}
+
+/* サイドバー・上のバーなど（名前のない所）は、そのまま替える */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(nav-active) {
+  animation-duration: 0.42s;
+  animation-timing-function: var(--ease-spring);
+}
+
+html.vt-screen::view-transition-group(screen) {
+  animation: none;
+}
+
+html.vt-screen::view-transition-old(screen) {
+  animation: var(--dur-leave) cubic-bezier(0.4, 0, 1, 1) both vt-to-top;
+}
+
+html.vt-screen::view-transition-new(screen) {
+  animation: var(--dur-enter) var(--ease-out) both vt-from-bottom;
+}
+
+html.vt-screen.vt-up::view-transition-old(screen) { animation-name: vt-to-bottom; }
+html.vt-screen.vt-up::view-transition-new(screen) { animation-name: vt-from-top; }
+html.vt-screen.vt-right::view-transition-old(screen) { animation-name: vt-to-left; }
+html.vt-screen.vt-right::view-transition-new(screen) { animation-name: vt-from-right; }
+html.vt-screen.vt-left::view-transition-old(screen) { animation-name: vt-to-right; }
+html.vt-screen.vt-left::view-transition-new(screen) { animation-name: vt-from-left; }
+/* 引く（作業 → ブランチ → 全体図）: 今の画面は小さく遠のき、次の画面は手前から収まる。寄るはその逆 */
+html.vt-screen.vt-out::view-transition-old(screen) { animation-name: vt-shrink-away; }
+html.vt-screen.vt-out::view-transition-new(screen) { animation-name: vt-from-near; }
+html.vt-screen.vt-in::view-transition-old(screen) { animation-name: vt-grow-away; }
+html.vt-screen.vt-in::view-transition-new(screen) { animation-name: vt-from-far; }
+
+@keyframes vt-to-top { to { opacity: 0; transform: translateY(-24px); } }
+@keyframes vt-from-bottom { from { opacity: 0; transform: translateY(40px); } }
+@keyframes vt-to-bottom { to { opacity: 0; transform: translateY(24px); } }
+@keyframes vt-from-top { from { opacity: 0; transform: translateY(-40px); } }
+@keyframes vt-to-left { to { opacity: 0; transform: translateX(-36px); } }
+@keyframes vt-from-right { from { opacity: 0; transform: translateX(56px); } }
+@keyframes vt-to-right { to { opacity: 0; transform: translateX(36px); } }
+@keyframes vt-from-left { from { opacity: 0; transform: translateX(-56px); } }
+@keyframes vt-shrink-away { to { opacity: 0; transform: scale(0.92); } }
+@keyframes vt-from-near { from { opacity: 0; transform: scale(1.08); } }
+@keyframes vt-grow-away { to { opacity: 0; transform: scale(1.08); } }
+@keyframes vt-from-far { from { opacity: 0; transform: scale(0.92); } }
+
+/* 画面の中のタブ（設定の区分・作業の 変更／退避中）: 横にすべる。印（tab-active）も次のタブへすべる */
+html.vt-tab .settings-pane-body,
+html.vt-tab .w-left > .w-pane {
+  view-transition-name: tab-body;
+}
+
+html.vt-tab::view-transition-group(tab-body) {
+  animation: none;
+}
+
+html.vt-tab::view-transition-old(tab-body) {
+  animation: 0.18s cubic-bezier(0.4, 0, 1, 1) both vt-to-left;
+}
+
+html.vt-tab::view-transition-new(tab-body) {
+  animation: 0.38s var(--ease-out) both vt-from-right;
+}
+
+html.vt-tab.vt-left::view-transition-old(tab-body) { animation-name: vt-to-right; }
+html.vt-tab.vt-left::view-transition-new(tab-body) { animation-name: vt-from-left; }
+
+/* タブの印は tab-active-bar に替える（下線の色は画面の色） */
+.app-shell .settings-pane-tab,
+.app-shell .w-tab {
+  position: relative;
+}
+
+.app-shell .settings-pane-tab--active,
+.app-shell .w-tab.on {
+  border-bottom-color: transparent;
+}
+
+.app-shell .settings-pane-tab--active {
+  color: var(--view-accent);
+}
+
+.tab-active-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--view-accent);
+  pointer-events: none;
+  view-transition-name: tab-active;
+}
+
+::view-transition-group(tab-active) {
+  animation-duration: 0.38s;
+  animation-timing-function: var(--ease-spring);
+}
+
+/* 並べ替え・まとめ方を変えたとき: カードが、新しい場所まで動いていく（縦） */
+html.vt-reorder .issue-card {
+  view-transition-name: var(--vt-name);
+}
+
+html.vt-reorder::view-transition-group(*) {
+  animation-duration: 0.38s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* カード → 詳細: カードがふくらんで詳細になり、閉じると元の場所へ戻る（奥行き） */
+html.vt-detail .palette-overlay > .modal-content {
+  view-transition-name: issue-detail;
+}
+
+::view-transition-group(issue-detail) {
+  animation-duration: 0.42s;
+  animation-timing-function: var(--ease-out);
+}
+
+::view-transition-old(issue-detail),
+::view-transition-new(issue-detail) {
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.motion-normal .palette-overlay {
+  animation: overlay-in 0.24s ease both;
+}
+
+@keyframes overlay-in {
+  from { background-color: transparent; }
+}
+
+/* 左に一覧・右に詳細: 下のタスクを選ぶと詳細は下から、上なら上から入れ替わる（縦） */
+html.vt-pick .task-split-detail {
+  view-transition-name: task-detail;
+}
+
+html.vt-pick::view-transition-group(task-detail) {
+  animation: none;
+}
+
+html.vt-pick::view-transition-old(task-detail) {
+  animation: 0.16s cubic-bezier(0.4, 0, 1, 1) both vt-to-top;
+}
+
+html.vt-pick::view-transition-new(task-detail) {
+  animation: 0.34s var(--ease-out) both vt-from-bottom;
+}
+
+html.vt-pick.vt-up::view-transition-old(task-detail) { animation-name: vt-to-bottom; }
+html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-top; }
+
+/* カード: 画面に入るとき順に出る・マウスを乗せると少し持ち上がる */
+.motion-normal .view-enter .issue-card {
+  animation: card-in 0.42s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 35ms + 60ms);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+.motion-normal .issue-card {
+  transition: border-color 0.16s, transform 0.16s var(--ease-out), box-shadow 0.16s;
+}
+
+.motion-normal .issue-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--view-accent) 45%, var(--border-default));
+  box-shadow: var(--shadow-popover);
+}
+
+/* 完了: ✓ のはんこが押され、カードがしぼんで消える */
+.issue-card--done {
+  position: relative;
+  border-color: var(--accent-green-hover);
+}
+
+.issue-card-stamp {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 0 6px var(--accent-green-bg);
+  color: var(--text-on-accent);
+  font-size: 19px;
+  font-weight: 700;
+  animation: stamp 0.42s var(--ease-spring) both;
+}
+
+@keyframes stamp {
+  from { opacity: 0; transform: scale(2.2) rotate(-25deg); }
+  to { opacity: 1; transform: scale(1) rotate(-8deg); }
+}
+
+.motion-normal .view-enter .issue-card.issue-card--leaving {
+  overflow: hidden;
+  height: 0 !important;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateX(40px);
+  transition: height 0.32s var(--ease-out), margin 0.32s var(--ease-out), padding 0.32s var(--ease-out), opacity 0.24s, transform 0.32s var(--ease-out);
+}
+
+/* 新しく入ったカード（メモを投入したときなど）: 上から入って、少し光る */
+.motion-normal .view-enter .issue-card.issue-card--fresh {
+  animation: fresh-in 0.52s var(--ease-spring) both, fresh-glow 1.4s ease-out 0.2s;
+}
+
+@keyframes fresh-in {
+  from { opacity: 0; transform: translateY(-18px) scale(0.96); }
+}
+
+@keyframes fresh-glow {
+  from { box-shadow: 0 0 0 2px var(--accent-green-hover); }
+  to { box-shadow: 0 0 0 0 transparent; }
 }
 
 .coming-soon {

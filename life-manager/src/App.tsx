@@ -53,6 +53,7 @@ import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } 
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
 import { isEscape } from "./lib/keys";
+import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib/motion";
 
 type NavItem = { key: ViewType; icon: string; label: string };
 
@@ -102,7 +103,27 @@ function App() {
   const gh = useGitHub();
   const localFolders = useLocalFolders();
   const display = useDisplaySettings();
-  const [view, setView] = useState<ViewType>("dashboard");
+  const [view, setViewState] = useState<ViewType>("dashboard");
+  // 画面を切り替える。動いた向きで動きの種類を変える: 作業 ⇄ ブランチ ⇄ 全体図 は奥行き（寄る・引く）、
+  // ほかはサイドバーの並びの前後で、縦のサイドバーなら上下・横の帯（上・下に置いたとき、スマホの下のナビ）なら左右
+  const viewRef = useRef(view);
+  const sidebarPosRef = useRef(display.settings.sidebarPosition);
+  sidebarPosRef.current = display.settings.sidebarPosition;
+  const setView = useCallback((next: ViewType) => {
+    const from = viewRef.current;
+    if (next === from) return;
+    viewRef.current = next;
+    const a = ZOOM_LEVELS.indexOf(from);
+    const b = ZOOM_LEVELS.indexOf(next);
+    const pos = sidebarPosRef.current;
+    const horizontal = isMobile || pos === "top" || pos === "bottom";
+    const order = (isMobile ? MOBILE_NAV_ITEMS : ALL_NAV_ITEMS).map((item) => item.key);
+    const dir = a >= 0 && b >= 0 ? (b > a ? "vt-out" : "vt-in") : stepDirection(order, from, next, horizontal ? "horizontal" : "vertical");
+    withTransition(() => setViewState(next), ["vt-screen", dir]);
+  }, []);
+  useEffect(() => {
+    setMotionEnabled(display.settings.motion === "normal");
+  }, [display.settings.motion]);
   // 設定を開いたときに出すペイン（セットアップのあとの「メンバーを招待する」だけ。設定を離れたら元に戻す）
   const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
   // 設定を、決めた区分で開き直す（設定を開いたまま、アカウントのメニューから「ログインとトークン」を選んだときも）
@@ -227,6 +248,31 @@ function App() {
   const openIssue = useCallback((n: number, fallback?: GitHubIssue) => {
     setOpenedFallback(fallback ?? null);
     setSelectedIssue(n);
+  }, []);
+
+  // 一覧のカード（か表の行）から詳細を開く・閉じる: カードがふくらんで詳細になり、閉じると元の場所へ戻る（奥行き）
+  const issueSource = (n: number) => document.querySelector<HTMLElement>(`.issue-card[data-issue="${n}"], .task-row[data-issue="${n}"]`);
+  const openIssueFromList = useCallback((n: number) => {
+    const source = issueSource(n);
+    if (!source || !motionOn()) {
+      setSelectedIssue(n);
+      return;
+    }
+    source.style.viewTransitionName = "issue-detail";
+    withTransition(() => {
+      source.style.viewTransitionName = "";
+      setSelectedIssue(n);
+    }, ["vt-detail"]);
+  }, []);
+  const closeIssueDetail = useCallback((n: number | null) => {
+    let target: HTMLElement | null = null;
+    withTransition(() => {
+      setSelectedIssue(null);
+      target = n === null ? null : issueSource(n);
+      if (target) target.style.viewTransitionName = "issue-detail";
+    }, ["vt-detail"]).then(() => {
+      if (target) target.style.viewTransitionName = "";
+    });
   }, []);
 
   // タスク（PC で窓が広く、カードのとき）: 左に一覧、右に選んだタスクの詳細。選んだタスクは、リポジトリごとに覚える
@@ -591,12 +637,15 @@ function App() {
       <button
         key={item.key}
         className={`sidebar-item ${view === item.key ? "active" : ""}`}
+        data-view={item.key}
         onClick={() => {
           setView(item.key);
           setSidebarPeek(false);
         }}
         title={conflicted ? `${item.label}（競合しています）` : count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
       >
+        {/* 選んでいる画面の印（画面を切り替えると、次の画面の印まですべって移る） */}
+        {view === item.key && <span className="sidebar-active-bg" aria-hidden="true" />}
         <span className="sidebar-icon">{item.icon}</span>
         <span className="sidebar-label">{item.label}</span>
         {conflicted ? <span className="sidebar-conflict">⚠ 競合</span> : count > 0 && <span className="sidebar-count">{count}</span>}
@@ -679,7 +728,8 @@ function App() {
   }
 
   const shell = (
-    <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""}${display.settings.hints ? "" : " hints-off"}`}>
+    <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""}${display.settings.hints ? "" : " hints-off"} motion-${display.settings.motion}`}
+      data-view={view}>
       {/* たたんだサイドバーは、画面の端にマウスを寄せると出てくる */}
       {sidebarCollapsed && (
         <div className="sidebar-hotzone" aria-hidden="true" onMouseEnter={showSidebar} onMouseLeave={hideSidebarSoon} />
@@ -901,7 +951,7 @@ function App() {
               onAddTemplates={gh.addIssueTemplates}
               onCreateIssue={gh.createIssue}
               onRefresh={gh.loadAll}
-              onSelectIssue={taskSplit ? selectTask : setSelectedIssue}
+              onSelectIssue={taskSplit ? selectTask : openIssueFromList}
               onAddReminder={gh.addReminder}
               savedViews={gh.savedViews}
               onSaveViews={gh.saveSavedViews}
@@ -1079,6 +1129,7 @@ function App() {
             className={`bottom-nav-btn ${view === item.key ? "active" : ""}`}
             onClick={() => setView(item.key)}
           >
+            {view === item.key && <span className="bottom-nav-active-bg" aria-hidden="true" />}
             <span className="bottom-nav-icon">{item.icon}</span>
             <span className="bottom-nav-label">{item.label}</span>
           </button>
@@ -1104,7 +1155,7 @@ function App() {
       )}
 
       {/* Issue詳細（重ねて出す） */}
-      {renderIssueDetail(selectedIssue, false, () => setSelectedIssue(null), openIssue)}
+      {renderIssueDetail(selectedIssue, false, () => closeIssueDetail(selectedIssue), openIssue)}
     </main>
   );
   return (

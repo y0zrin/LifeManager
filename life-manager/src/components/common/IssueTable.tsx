@@ -65,6 +65,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
               return (
                 <tr
                   key={issue.number}
+                  data-issue={issue.number}
                   className={`task-row${isPicked ? " task-row--picked" : ""}${issue.state === "closed" ? " task-row--closed" : ""}`}
                   onClick={() => (picking ? onTogglePick(issue.number) : onSelect(issue.number))}
                 >

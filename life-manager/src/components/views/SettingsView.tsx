@@ -11,6 +11,7 @@ import { LabelBadge } from "../common/LabelBadge";
 import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
+import { stepDirection, withTransition } from "../../lib/motion";
 
 interface SettingsViewProps {
   labels: GitHubLabel[];
@@ -89,6 +90,12 @@ const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: str
 
 export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
+  // 区分を切り替える（横に並んだタブなので、右の区分へは右から・左へは左から入れ替わる）
+  function changePane(next: SettingsPane) {
+    if (next === activePane) return;
+    const dir = stepDirection(PANES.map((p) => p.key), activePane, next, "horizontal");
+    withTransition(() => setActivePane(next), ["vt-tab", dir]);
+  }
   const [appVersion, setAppVersion] = useState("");
   const [discordWebhookInput, setDiscordWebhookInput] = useState("");
   const [discordConfigured, setDiscordConfigured] = useState(false);
@@ -243,11 +250,15 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         {PANES.map((p) => (
           <button key={p.key}
             className={`settings-pane-tab${activePane === p.key ? " settings-pane-tab--active" : ""}`}
-            onClick={() => setActivePane(p.key)}>
+            onClick={() => changePane(p.key)}>
             {p.label}
+            {activePane === p.key && <span className="tab-active-bar" aria-hidden="true" />}
           </button>
         ))}
       </div>
+
+      {/* 区分の中身（切り替えると横にすべる） */}
+      <div className="settings-pane-body">
 
       {/* === 接続ペイン（チーム。リポジトリの追加・切り替え・この PC のフォルダは左上のリポジトリから） === */}
       {activePane === "connection" && <>
@@ -801,6 +812,28 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </p>
       </div>
 
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>画面の動き</h3>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="motion" checked={displaySettings.motion === "normal"}
+              onChange={() => onChangeDisplaySettings({ motion: "normal" })} />
+            <span>
+              <b>ふつう（はじめはこれ）</b>
+              <small>動いた向きで動きが変わります。縦に並んだものは上下、横に並んだもの（タブ・横の帯）は左右、作業 ⇄ ブランチ ⇄ 全体図 とカード ⇄ 詳細 は寄る・引く</small>
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="motion" checked={displaySettings.motion === "reduced"}
+              onChange={() => onChangeDisplaySettings({ motion: "reduced" })} />
+            <span>
+              <b>少なめ</b>
+              <small>画面はうすく出るだけ。OS で「視差効果を減らす」（アニメーションを減らす）にしているときも、動きは少なくなります</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
       </>}
 
       {/* === その他ペイン === */}
@@ -867,6 +900,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       </div>
 
       </>}
+      </div>
     </div>
   );
 }

@@ -137,12 +137,35 @@
   }
   nav.toc a:hover { background: var(--bg-soft); color: var(--text); }
   nav.toc a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  nav.toc .toc-group {
-    margin: 14px 8px 4px;
-    color: var(--faint);
-    font-size: 12px;
-    font-weight: 600;
+  /* 目次: 部 → 章。今読んでいる章だけ節まで開く。上の欄で探す */
+  nav.toc [hidden] { display: none !important; }
+  nav.toc .toc-search {
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
   }
+  nav.toc .toc-part-title {
+    margin: 14px 8px 4px;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  nav.toc .toc-part-title span { display: inline-block; min-width: 50px; color: var(--faint); }
+  nav.toc .toc-n { display: inline-block; min-width: 26px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  nav.toc a.on .toc-n { color: var(--accent); }
+  nav.toc .toc-secs { display: none; margin: 1px 0 6px 14px; }
+  nav.toc .toc-ch.open .toc-secs,
+  nav.toc .toc-tree.searching .toc-ch.found .toc-secs { display: block; }
+  nav.toc .toc-secs a { padding: 1px 8px; font-size: 12.5px; }
+  nav.toc .toc-secs .toc-n { min-width: 36px; }
+  nav.toc .toc-secs a.on { background: none; box-shadow: inset 2px 0 0 var(--accent); color: var(--accent); font-weight: 600; }
+  nav.toc .toc-empty { margin: 4px 8px; color: var(--faint); font-size: 13px; }
   main { min-width: 0; padding: 32px 48px 80px; }
   @media (max-width: 860px) {
     .layout { display: block; }
@@ -165,6 +188,53 @@
   header.cover p { margin: 4px 0; color: var(--text-soft); }
 
   section { margin-bottom: 48px; }
+
+  /* 部・章・節。番号は CSS で数える（章を足しても、番号と目次がずれない） */
+  main { counter-reset: chapter; }
+  main > section { counter-increment: chapter; counter-reset: sec; }
+  main > section > h2::before {
+    content: counter(chapter);
+    margin-right: 10px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  main > section > h3 { counter-increment: sec; }
+  main > section > h3::before {
+    content: counter(chapter) "." counter(sec);
+    margin-right: 8px;
+    color: var(--faint);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .part-head {
+    margin: 56px 0 24px;
+    padding: 12px 16px;
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+  .part-head .part-no { margin-right: 12px; color: var(--accent); }
+  .crumb { margin-bottom: 2px; color: var(--text-soft); font-size: 12.5px; }
+  .in-ch {
+    margin: 0 0 18px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+    font-size: 13.5px;
+    line-height: 1.9;
+  }
+  .in-ch b { display: block; color: var(--text-soft); font-size: 12px; }
+  .in-ch a { display: inline-block; margin-right: 16px; text-decoration: none; }
+  .pager { display: flex; gap: 12px; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .pager > * { flex: 1; }
+  .pager a { display: block; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; }
+  .pager a:hover { background: var(--bg-soft); }
+  .pager a small { display: block; color: var(--text-soft); font-size: 12px; }
+  .pager a.next { text-align: right; }
   h2 {
     margin: 0 0 12px;
     padding-bottom: 6px;
@@ -342,7 +412,8 @@
     }
   }
   @media print {
-    :root, :root[data-theme] {
+    /* パソコンが暗い表示でも、印刷はいつも明るい色（暗い表示の決まりと同じ強さで、あとから上書きする） */
+    :root, :root:not([data-theme="light"]), :root[data-theme] {
       --bg: #ffffff;
       --bg-soft: #f6f8fa;
       --bg-code: #eff2f5;
@@ -377,10 +448,15 @@
     .print-toc .toc-title { margin: 0 0 8px; font-size: 16pt; font-weight: 700; }
     .print-toc ol { margin: 0; padding-left: 1em; list-style: none; }
     .print-toc a { color: var(--text); text-decoration: none; }
-    .print-toc .toc-group { margin: 12px 0 4px; color: var(--text-soft); font-weight: 700; }
+    .print-toc .toc-part-title { margin: 12px 0 4px; color: var(--text-soft); font-weight: 700; }
+    .print-toc .toc-part-title span { margin-right: 8px; }
+    .print-toc .toc-n { display: inline-block; min-width: 2em; color: var(--text-soft); }
+    .print-toc .toc-search, .print-toc .toc-secs, .print-toc .toc-empty { display: none; }
+    .in-ch, .pager, .crumb { display: none; }
 
-    /* 章のまとまり（git・タスク・設定）と、配ることの多い「だれが何をするか」は新しいページから */
-    #git-basics, #tasks, #settings, #roles { break-before: page; }
+    /* 部と、配ることの多い「だれが何をするか」は新しいページから */
+    .part-head, #roles { break-before: page; }
+    .part-head { margin: 0 0 16px; font-size: 16pt; }
     section { margin-bottom: 28px; }
     h2 { font-size: 16pt; }
     h3 { font-size: 12.5pt; }
@@ -398,48 +474,9 @@
 
 <nav class="toc" aria-label="目次">
   <p class="toc-title">目次</p>
-  <ol>
-    <li><a href="#intro">はじめに</a></li>
-    <li><a href="#requirements">必要なもの</a></li>
-    <li><a href="#install">インストール</a></li>
-    <li><a href="#setup">初期セットアップ</a></li>
-    <li><a href="#screen">画面の構成</a></li>
-  </ol>
-  <div class="toc-group">git で作業する（PC）</div>
-  <ol>
-    <li><a href="#git-basics">git のしくみ（まずここから）</a></li>
-    <li><a href="#prepare">使う準備（Git・名前・作業フォルダ）</a></li>
-    <li><a href="#work">作業タブ</a></li>
-    <li><a href="#branches">ブランチ画面</a></li>
-    <li><a href="#overview">全体図</a></li>
-    <li><a href="#pulls">プルリク</a></li>
-    <li><a href="#actions">Actions</a></li>
-    <li><a href="#releases">リリース</a></li>
-    <li><a href="#activity">アクティビティ</a></li>
-    <li><a href="#menus">操作メニューの一覧</a></li>
-    <li><a href="#conflict">競合（コンフリクト）したとき</a></li>
-    <li><a href="#glossary">git のことば</a></li>
-  </ol>
-  <div class="toc-group">タスクを管理する</div>
-  <ol>
-    <li><a href="#tasks">タスク</a></li>
-    <li><a href="#board">ボード</a></li>
-    <li><a href="#milestones">マイルストーン</a></li>
-    <li><a href="#gantt">ガントチャート</a></li>
-    <li><a href="#routines">ルーチン</a></li>
-    <li><a href="#journal">日誌</a></li>
-    <li><a href="#issue">Issue の詳細</a></li>
-    <li><a href="#palette">コマンドパレット</a></li>
-    <li><a href="#offline">つながらないとき（オフライン）</a></li>
-    <li><a href="#labels">ラベルの決まり</a></li>
-  </ol>
-  <div class="toc-group">設定・チーム</div>
-  <ol>
-    <li><a href="#settings">設定</a></li>
-    <li><a href="#roles">だれが何をするか（アカウント・トークン・許可）</a></li>
-    <li><a href="#team">チームで使う（管理者向け）</a></li>
-    <li><a href="#faq">よくある質問・困ったとき</a></li>
-  </ol>
+  <input type="search" class="toc-search" placeholder="目次から探す（例: ブランチ）" aria-label="目次から探す">
+  <div class="toc-tree" id="toc-tree"></div>
+  <p class="toc-empty" id="toc-empty" hidden>見つかりません</p>
 </nav>
 
 <main>
@@ -448,10 +485,13 @@
   <h1>Life Manager マニュアル</h1>
   <p>タスク管理と、git によるバージョン管理を、画面で見ながら行うためのアプリです。</p>
   <p>このマニュアルは、左のサイドバーから「作業」「ブランチ」「全体図」を使える版（0.9 以降）に合わせています。サイドバーは、ホーム（オーバービュー・アクティビティ）・タスク（作業から）・リポジトリ の 3 つに分かれています。</p>
+  <p>マニュアルは 6 つの部（はじめる・ホーム・タスクを管理する・git で作業する・GitHub でチームと作る・設定と困ったとき）に分かれ、章と節に番号が付いています。左の目次は、読んでいる章だけ節まで開きます。上の欄で、章・節の名前から探せます。</p>
   <p class="print-only" id="print-date"></p>
 </header>
 
 <!-- ============================================================ -->
+<div class="part-head" id="part-1"><span class="part-no">第 1 部</span>はじめる</div>
+
 <section id="intro">
   <h2>はじめに</h2>
   <p>Life Manager は、GitHub のリポジトリを使って、次の 2 つをまとめて行うアプリです。</p>
@@ -466,7 +506,6 @@
   </div>
 </section>
 
-<!-- ============================================================ -->
 <section id="requirements">
   <h2>必要なもの</h2>
   <div class="table-wrap">
@@ -481,9 +520,8 @@
   <p>スマホ版は、タスク管理と、GitHub にある履歴を見ることに使います。git の操作（コミットやプッシュ）は PC 版で行います。</p>
 </section>
 
-<!-- ============================================================ -->
 <section id="install">
-  <h2>インストール</h2>
+  <h2>インストールと更新</h2>
   <ol>
     <li>配布されたインストーラー（<code>Life Manager_x.x.x_x64-setup.exe</code>）を実行します。</li>
     <li>画面の案内に沿ってインストールします。</li>
@@ -498,7 +536,6 @@
   <p>新しいバージョンが出ると、アプリの上に「新しいバージョン … が利用可能です」と表示されます。<span class="ui">今すぐ更新</span> で更新できます。<span class="ui">後で</span> で閉じても、設定 → その他 の「バージョン」から更新できます。起動したときのほか、そこの <span class="ui">新しいバージョンを確かめる</span> でも確かめられます。</p>
 </section>
 
-<!-- ============================================================ -->
 <section id="setup">
   <h2>初期セットアップ</h2>
   <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。<b>トークンを自分で作る必要はありません。</b></p>
@@ -587,7 +624,6 @@
   </div>
 </section>
 
-<!-- ============================================================ -->
 <section id="screen">
   <h2>画面の構成</h2>
   <p>PC では、左のサイドバーで画面を切り替えます（置く場所は 設定 → 表示 で左・右・上・下から選べます）。サイドバーの上の、使っているリポジトリ（📦）を押すと一覧が開き、選ぶと切り替わります。一覧の一番下の <span class="ui">＋ リポジトリを追加…</span> で、リポジトリを足せます（「<a href="#prepare">使う準備</a>」）。</p>
@@ -641,42 +677,6 @@
   <p>スマホでは、下のナビゲーションで「タスク」「ボード」「マイルストーン」「ルーチン」「日誌」「ガント」「設定」を切り替えます。</p>
 </section>
 
-<!-- ============================================================ -->
-<section id="git-basics">
-  <h2>git のしくみ（まずここから）</h2>
-  <p>git は、ファイルの変更を「いつ・だれが・何を変えたか」として記録する道具です。記録の単位を<b>コミット</b>と呼びます。Life Manager の「作業」タブは、次の流れをそのまま画面にしています。</p>
-  <figure>
-    <svg viewBox="0 0 760 170" role="img" aria-label="作業中のファイル、ステージ、コミット（この PC のリポジトリ）、GitHub の 4 つの場所と、そのあいだを移すコマンドの図">
-      <defs>
-        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="svg-arrowhead"/></marker>
-      </defs>
-      <rect x="10" y="30" width="150" height="70" rx="8" class="svg-box"/>
-      <text x="85" y="60" text-anchor="middle" class="svg-text">作業中のファイル</text>
-      <text x="85" y="82" text-anchor="middle" class="svg-soft">エディタで編集する</text>
-      <rect x="210" y="30" width="150" height="70" rx="8" class="svg-box"/>
-      <text x="285" y="60" text-anchor="middle" class="svg-text">ステージ</text>
-      <text x="285" y="82" text-anchor="middle" class="svg-soft">次のコミットに入れるもの</text>
-      <rect x="410" y="30" width="150" height="70" rx="8" class="svg-box"/>
-      <text x="485" y="60" text-anchor="middle" class="svg-text">コミット（履歴）</text>
-      <text x="485" y="82" text-anchor="middle" class="svg-soft">この PC のリポジトリ</text>
-      <rect x="610" y="30" width="140" height="70" rx="8" class="svg-box"/>
-      <text x="680" y="60" text-anchor="middle" class="svg-text">GitHub</text>
-      <text x="680" y="82" text-anchor="middle" class="svg-soft">みんなで共有する</text>
-      <path d="M160,52 H206" class="svg-arrow" marker-end="url(#ah)"/>
-      <text x="185" y="22" text-anchor="middle" class="svg-code">git add</text>
-      <path d="M360,52 H406" class="svg-arrow" marker-end="url(#ah)"/>
-      <text x="385" y="22" text-anchor="middle" class="svg-code">git commit</text>
-      <path d="M560,52 H606" class="svg-arrow" marker-end="url(#ah)"/>
-      <text x="585" y="22" text-anchor="middle" class="svg-code">git push</text>
-      <path d="M680,100 V140 H85 V104" class="svg-arrow" marker-end="url(#ah)"/>
-      <text x="380" y="160" text-anchor="middle" class="svg-code">git pull（GitHub の新しいコミットを取り込む）</text>
-    </svg>
-    <figcaption>ファイルを編集 → 入れたい変更をステージ → コミットで記録 → プッシュで GitHub に送る。ほかの人の変更はプルで取り込む。</figcaption>
-  </figure>
-  <p><b>ブランチ</b>は、作業を分けて進めるための「流れ」です。たとえば Issue ごとにブランチを作って作業し、終わったら元のブランチに<b>マージ</b>（合流）します。こうすると、途中の作業がほかの作業と混ざりません。</p>
-</section>
-
-<!-- ============================================================ -->
 <section id="prepare">
   <h2>使う準備（Git・名前・作業フォルダ）</h2>
   <p>「作業」「ブランチ」「全体図」で git を使うための準備です（PC のみ）。</p>
@@ -751,6 +751,360 @@ git push -u origin main</div>
 </section>
 
 <!-- ============================================================ -->
+<div class="part-head" id="part-2"><span class="part-no">第 2 部</span>ホーム</div>
+
+<section id="analytics">
+  <h2>オーバービュー（いまの状況）</h2>
+  <p>サイドバーのホームの <b>📈 オーバービュー</b> で、Issue の数字と図を見ます（タスクの一覧が見やすいよう、一覧の上からこちらへ移しました）。上の <span class="ui">マイルストーン</span>・<span class="ui">担当</span>・<span class="ui">分野</span> で絞り込めます（次に開いたときも同じ。<span class="ui">絞り込みを外す</span> で全部に戻ります）。下には「<a href="#sprint">チームのペース</a>」も出ます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>中身</th></tr>
+    <tr><td>開いている</td><td>開いている Issue の数と、見積もりの合計（設定の単位。「<a href="#estimate">見積もり</a>」）</td></tr>
+    <tr><td>期限切れ・3 日以内</td><td>期限（ガントの終了日、なければマイルストーンの期限）を過ぎた Issue と、今日から 3 日以内の Issue。番号を押すと詳細が開きます</td></tr>
+    <tr><td>担当なし</td><td>担当の決まっていない Issue の数と見積もり</td></tr>
+    <tr><td>状態ごと</td><td>状態の割合（ボードの列の順）</td></tr>
+    <tr><td>担当ごと</td><td>人ごとの Issue の数と見積もり（負担の偏りが分かります）。2 人で担当している Issue は、2 人ともに数えます</td></tr>
+    <tr><td>8 週の流れ</td><td>週（月曜から）ごとに、作った Issue と閉じた Issue の数。閉じた数が作った数を上回っていれば、残りが減っています</td></tr>
+  </table>
+  </div>
+  <p>数えるのは開いている Issue です。8 週の流れだけは閉じた Issue も入れます。</p>
+</section>
+
+<section id="activity">
+  <h2>アクティビティ</h2>
+  <p>サイドバーの <span class="ui">📰 アクティビティ</span> で、上に <b>あなたがすること</b>、下に <b>チームの動き</b>（日ごと）が出ます。サイドバーの青い数は、あなたがすることの数です。</p>
+  <h3>あなたがすること</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>出るもの</th><th>押すと</th></tr>
+    <tr><td>✖ あなたのプルリクのチェックが失敗しています</td><td>そのプルリク</td></tr>
+    <tr><td>✏️ あなたのプルリクで修正を頼まれています ／ ✔ 承認されました（マージできます）</td><td>そのプルリク</td></tr>
+    <tr><td>👀 レビューを頼まれています</td><td>そのプルリク</td></tr>
+    <tr><td>📅 担当の Issue の期限（3 日以内・過ぎた）</td><td>その Issue</td></tr>
+    <tr><td>✖ あなたがプッシュしたブランチの Actions の失敗（プルリクのないもの）</td><td>Actions のそのカード</td></tr>
+    <tr><td>💬 コメントで名前を呼ばれた（@名前）・👤 担当になった（14 日以内）</td><td>その Issue・プルリク</td></tr>
+  </table>
+  </div>
+  <p>見たものは <span class="ui">×</span> で消せます（この PC に覚えます。中身が変わると、また出ます）。GitHub の通知（ベル）そのものは、GitHub の決まりで Life Manager のような App からは読めないので、Issue・プルリク・Actions から集めて代わりにしています。</p>
+  <h3>チームの動き</h3>
+  <p>プッシュ（コミットの一覧つき。押すと変更内容）・プルリクを作った・マージした・承認した・Issue を作った・完了にした・コメントした・担当にした・ブランチやタグ・リリースなどが、日ごとに新しい順で出ます。<span class="ui">だれ</span> と <span class="ui">種類</span>（Issue・プルリク・プッシュ・リリース・そのほか）で絞れます。GitHub が残している、最近の 90 日ほど（100 件まで）です。</p>
+</section>
+
+<!-- ============================================================ -->
+<div class="part-head" id="part-3"><span class="part-no">第 3 部</span>タスクを管理する</div>
+
+<section id="tasks">
+  <h2>タスク（一覧）</h2>
+  <p>タスク（Issue）の確認・作成・管理を行う、メインの画面です。</p>
+  <h3>クイックメモ</h3>
+  <p>画面の角の <span class="ui">📝</span> を押すか、<kbd>Ctrl</kbd>＋<kbd>M</kbd> で小さな欄が開きます（どの画面からでも使えます）。文字を入れて <kbd>Enter</kbd> で投入し、そのまま続けて書けます。<kbd>Esc</kbd> か、欄の外を押すと閉じます（書きかけは残ります）。メモは、今のリポジトリの Issue（<code>種別:メモ</code>・<code>状態:未整理</code>）として登録され、タスクの一覧に出ます。</p>
+  <ul>
+    <li>分野は、そのリポジトリの「分野:」のラベルから選びます（前に選んだものを覚えます。「なし」も選べます）。</li>
+    <li><span class="ui">📝</span> を置く角は、設定 → 表示 の「メモのボタン」で 右上・右下・左上・左下・隠す から選べます（はじめは左下）。サイドバーや上のバーにはかぶらない所に出て、たたんだサイドバーが端から出てきたときは、押し出されて動きます。「隠す」にすると、ボタンは出さず、<kbd>Ctrl</kbd>＋<kbd>M</kbd> で画面の上のほうに欄が開きます。マウスを乗せると大きくなります。</li>
+    <li>ほかの欄で文字を打っているあいだは、じゃまにならないよう画面の外へよけ、打つのをやめると戻ってきます。<span class="ui">☑ 選ぶ</span> の帯が出ているあいだも、よけます。</li>
+    <li>Issue の詳細やダイアログを重ねて開いているあいだは、<kbd>Ctrl</kbd>＋<kbd>M</kbd> は効きません（閉じてから使います）。</li>
+  </ul>
+  <h3>Issue を作る</h3>
+  <p><span class="ui">＋ イシュー作成</span> から、くわしい Issue を作れます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>説明</th></tr>
+    <tr><td>タイトル</td><td>Issue の題名（必須）</td></tr>
+    <tr><td>本文</td><td>くわしい説明。マークダウンが使えます</td></tr>
+    <tr><td>ラベル</td><td>分類のラベル（複数選べます）</td></tr>
+    <tr><td>マイルストーン</td><td>結びつける目標</td></tr>
+    <tr><td>担当者</td><td>担当する人</td></tr>
+  </table>
+  </div>
+  <p>「＋ タスク項目」で、チェックボックスつきの項目（<code>- [ ]</code>）を本文に入れられます。</p>
+  <h3>テンプレート</h3>
+  <p>フォームのいちばん上で <span class="ui">テンプレート</span> を選ぶと、題名の頭・本文・ラベルが入ります（あとから直せます）。本文に自分で書いた内容があるときは、本文は入れ替えません。</p>
+  <ul>
+    <li>テンプレートは GitHub と同じもので、リポジトリの <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルです。GitHub の「New issue」でも同じものが出ます。</li>
+    <li>まだテンプレートがないリポジトリでは、見本の 3 つ（🐞 バグ報告・✅ やること・🔍 調べもの）が使えます。<span class="ui">このリポジトリに置く</span> を押すと、3 つのファイルを 1 つのコミットにして GitHub のリポジトリに置きます（作業タブでプルすると、手元にも来ます）。</li>
+    <li>中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。先頭の <code>---</code> で囲んだところに、名前（<code>name</code>）・説明（<code>about</code>）・題名の頭（<code>title</code>）・ラベル（<code>labels</code>）を書きます。</li>
+  </ul>
+  <div class="cmd"><span class="c"># .github/ISSUE_TEMPLATE/bug.md の例</span>
+---
+name: "🐞 バグ報告"
+about: "動かない・おかしい"
+title: "[バグ] "
+labels: ["種別:バグ", "状態:未整理"]
+---
+## 何が起きたか</div>
+  <h3>絞り込み</h3>
+  <p>上の行の左端の検索欄で、タイトル・本文・番号で探せます。そのとなりの <span class="ui">フィルタ</span> を押すと、種別・分野・状態・優先・見積・担当者・マイルストーン・表示（オープンのみ・クローズのみ・両方）の一覧が開き、押すとすぐに一覧に反映されます。<span class="ui">更新</span> と <span class="ui">＋ イシュー作成</span> は、同じ行の右端にあります。</p>
+  <ul>
+    <li>ラベル（種別・分野など）は複数選べます。2 つ以上選ぶと、<span class="ui">どれか</span>（選んだラベルのどれかが付いている）と <span class="ui">すべて</span>（選んだラベルがすべて付いている）を切り替えられます。</li>
+    <li>種類どうし（たとえば「分野」と「状態」）は、両方に当てはまるものだけが出ます。</li>
+    <li>かけている絞り込みは、<span class="ui">フィルタ</span> の数と、下の小さなチップで分かります。チップの <span class="ui">×</span> で外せ、<span class="ui">すべて外す</span> でまとめてやめます。</li>
+  </ul>
+  <h3>並び・期限</h3>
+  <ul>
+    <li><span class="ui">並び</span>: 新しい順・古い順・更新が新しい順・優先度順（高 → 中・なし → 低）・期限が近い順。次に開いたときも同じ並びです。</li>
+    <li>カードの <b>📅 10/10（あと 12 日）</b> が期限です。期限は、ガントの終了日、なければマイルストーンの期限です。3 日以内は黄色、過ぎたら赤で <b>⚠ 9/25（3 日超過）</b> と出ます。</li>
+  </ul>
+  <h3>見せ方・まとめ方</h3>
+  <ul>
+    <li><b>左に一覧・右に詳細</b>（PC で窓が広いとき・カードのとき）: 一覧が左に、押したタスクの詳細が右に出ます（重ねて開かないので、閉じる手間がありません）。<kbd>↑</kbd><kbd>↓</kbd> で上下のタスクに移れます（文字を打つ欄にいるときは効きません）。左右の境目をドラッグすると幅を変えられます。選んだタスクと幅は、次に開いたときも同じです。右上の <span class="ui">×</span> で右を空にします。窓が狭いとき・スマホ・表のとき、ほかの画面から開くときは、今まで通り詳細を重ねて出します。</li>
+    <li><span class="ui">カード｜表</span>: 表にすると、1 行に 1 件で 番号・題・状態・優先・担当・マイルストーン・期限 が並びます（窓の横いっぱいに広がります）。行を押すと詳細が開きます（<span class="ui">☑ 選ぶ</span> のあいだは、押すと選べます）。</li>
+    <li><span class="ui">まとめる</span>: なし・親子・状態・優先・分野・担当・マイルストーン。まとまりごとに見出しと件数が出ます。
+      <b>親子</b>は、サブイシュー（子）を親のすぐ下に字下げして並べます（「<a href="#issue">Issue の詳細</a>」）。
+      <b>状態</b>はボードの列の順に並び、閉じた Issue は「完了」にまとまります。</li>
+    <li>見せ方とまとめ方も、次に開いたときに同じになります。</li>
+  </ul>
+  <h3>保存した見方</h3>
+  <p>絞り込み・並び・まとめ方・カードか表か、をまとめて名前を付けて保存できます。<span class="ui">保存した見方 ▾</span> から選ぶと、その見方に切り替わります。今の設定と同じ見方があるときは、ボタンにその名前が出ます。</p>
+  <ul>
+    <li><b>保存</b>: 名前を入れて <span class="ui">保存</span>。同じ名前があれば <span class="ui">上書き保存</span> になります。</li>
+    <li><b>名前を変える・消す</b>: 保存した見方を選んでいるときに使えます。</li>
+    <li>マイルストーンの絞り込みも見方に入ります（例: 「0.5.0 の残り」＝マイルストーン 0.5.0・オープンのみ・期限が近い順）。</li>
+    <li>見方はリポジトリの <code>config/views.yaml</code> に保存され、GitHub に送られます。<b>チームの全員が同じ見方を使えます</b>。担当を「自分」にして保存した見方は、開いた人の担当に読み替わります。</li>
+    <li>二人が同時に見方を足したときは、両方とも残ります。つながらないあいだの保存は、送信待ちになります（「<a href="#offline">つながらないとき</a>」）。</li>
+  </ul>
+  <h3 id="estimate">見積もり</h3>
+  <p>タスクの大きさ（かかる時間）を付けます。単位はチームで一つ選びます（設定 → タスク の <span class="ui">見積もりの単位</span>）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>単位</th><th>押して選べる数</th><th>考え方</th></tr>
+    <tr><td>ポイント（はじめはこれ）</td><td>1pt・2pt・3pt・5pt・8pt</td><td>時間ではなく、ほかのタスクと比べた大きさ。最初は 1pt＝1 時間ほど・2pt＝半日・3pt＝1 日・5pt＝2〜3 日・8pt＝1 週間近い（分けることを考える）を目安に、慣れたらチームで決めた基準のタスクと比べて付けます</td></tr>
+    <tr><td>時間</td><td>1・2・4・8・16 時間</td><td>実際にかかると思う時間</td></tr>
+    <tr><td>日</td><td>0.5・1・2・3・5 日</td><td>1 人が働いてかかる日数（1 日＝8 時間）</td></tr>
+    <tr><td>人月</td><td>0.25・0.5・1・2・3 人月</td><td>1 人が 1 か月（20 日・160 時間）働く量。大きな作業の計画向き</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>付け方</b>: Issue の詳細の <b>設定</b> のタブの <span class="ui">見積もり</span>（<span class="ui">ほかの数</span> に打って <kbd>Enter</kbd> で、並んでいない数も付けられます）、作るときの <span class="ui">📏 見積もり</span>、まとめて変える帯の <span class="ui">見積もり…</span> から。<span class="ui">なし</span>（または <span class="ui">（外す）</span>）で外します。ボタンにマウスを乗せると、その数の目安が出ます。</li>
+    <li>GitHub には、ラベル <code>見積:3pt</code>・<code>見積:2時間</code>・<code>見積:0.5日</code>・<code>見積:1人月</code> の形で付きます（1 つの Issue に 1 つだけ）。GitHub の画面でも見え、絞り込めます。ラベルがまだなければ、付けたときに作ります。</li>
+    <li><b>出る所</b>: カードの <b>📏 3pt</b>、表の「見積」の列、まとまりの見出し・一覧の件数・ボードの列の <b>見積 8pt</b>（合計）、マイルストーンの <b>見積 5/13pt</b>（閉じた分／全部）。見積もりのない Issue があるときは「（見積もりなし 1 件）」と添えます。</li>
+    <li><b>合計の単位</b>: 設定の単位で数えます。時間・日・人月どうしは、1 日＝8 時間、1 人月＝20 日で換算して足します。ポイントと時間の単位は換算できないので、「（単位の違う見積もり 2 件は数えていません）」と出ます。途中で単位を変えても、付けてある見積もりのラベルはそのままです。</li>
+    <li>絞り込みの <span class="ui">見積</span> で、見積もりの数で絞れます。</li>
+  </ul>
+  <h3>まとめて変える</h3>
+  <p><span class="ui">☑ 選ぶ</span> を押すと、カードを押して選べるようになります（<span class="ui">全部選ぶ</span> もあります）。下の帯で、選んだ Issue をまとめて 完了・再開・状態・ラベル・見積もり・マイルストーン・担当 に変えられます。<span class="ui">やめる</span> か <kbd>Esc</kbd> で元に戻ります。</p>
+  <h3>Issue の操作</h3>
+  <ul>
+    <li>カードをクリック: Issue の詳細を開きます。</li>
+    <li>状態の変更: 進行中・ブロックなどに変えます。</li>
+    <li><span class="ui">完了</span>: Issue を閉じます。</li>
+  </ul>
+</section>
+
+<section id="issue">
+  <h2>Issue の詳細</h2>
+  <p>Issue のカードを押すと、詳細の画面が開きます。いちばん上に 番号・状態・<span class="ui">クローズ ▾</span>・題名・ラベルと担当、その下に <b>内容</b>（本文とチェックリスト）がいつも出ます。内容の下は 3 つのタブに分かれていて、はじめは <b>履歴</b> です。</p>
+  <ul>
+    <li><b>内容</b>: 本文を押すか <span class="ui">✏️</span> で編集、保存。チェックボックス（<code>- [ ]</code>）は押して切り替えられ、下に <b>チェック 2/5</b> と進み具合のバーが出ます。長いときは 3 行ほどでたたみ、<span class="ui">すべて表示 ▾</span> で全部（<span class="ui">たたむ ▴</span> で戻す）。たたんだままでも、見えているチェックは付けられます。</li>
+  </ul>
+  <div class="table-wrap">
+  <table>
+    <tr><th>タブ</th><th>中身と操作</th></tr>
+    <tr><td>履歴</td><td>コメントと変更の履歴。書いて <span class="ui">コメント追加</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）。GitHub の Issue のコメントとして保存されます。<span class="ui">新しい順</span>・<span class="ui">古い順</span> で並びを変えられます（はじめは新しい順。この PC に覚えます）。新しい順では書く欄が一覧の上、古い順では下に出ます（下の説明）</td></tr>
+    <tr><td>設定</td><td>このタスクの設定を 1 つの表にまとめています。値はいつも見え、行の <span class="ui">✎</span>（まだないものは <span class="ui">＋</span>）を押すと、その行の下に編集の欄が開きます（<span class="ui">保存</span>・<span class="ui">やめる</span>）。<br>
+      <b>分ける</b>: ラベル（種別・状態・優先・分野ごとに並んだ中から選ぶ）・見積もり（数を押して付け替え、<span class="ui">なし</span> で外す、<span class="ui">ほかの数</span> も付けられる。「<a href="#estimate">見積もり</a>」）<br>
+      <b>だれが・いつまでに</b>: 担当・マイルストーン<br>
+      <b>ガント</b>: 日程（開始 → 終了。ガントの帯になる）・先行（先にすませる Issue。ガントで矢印）・進み（チェックリストの数・手で入れる %・達成したか）<br>
+      <b>知らせ</b>: リマインダー（日時と通知先: OS の通知・Discord。その時刻に知らせる。× で取り消す）</td></tr>
+    <tr><td>つながり</td><td>サブイシュー（大きな Issue を小さな「子」に分ける）と 🔗 関連（意味の近い Issue を結ぶ）。下の説明</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>題名は押して編集し、<kbd>Enter</kbd> で保存します。</li>
+    <li>上のラベルと担当を押すと、<b>設定</b> のタブでラベルを変える欄が開きます。</li>
+    <li>タブの横の数は、<b>つながり</b> が子と関連の数、<b>履歴</b> がコメントの数です。</li>
+    <li>ほかの Issue（親・子・関連）の詳細に移ると、<b>履歴</b> のタブから開きます（内容はたたんだところから）。</li>
+  </ul>
+  <h3>サブイシュー（親子）</h3>
+  <p>詳細の <b>つながり</b> のタブの <span class="ui">🧩 サブイシュー</span> の欄に、子の Issue の一覧と、いくつ終わったか（<code>2 / 5 完了</code> とバー）が出ます。GitHub の画面でも同じ親子で見えます。</p>
+  <ul>
+    <li><b>子を作る</b>: タイトルを入れて <kbd>Enter</kbd>。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じになります。</li>
+    <li><b>今ある Issue を子にする</b>: <span class="ui">既存の Issue をつなぐ…</span> を押し、番号かタイトルで探して選びます。ほかの親の子なら、付け替えます。</li>
+    <li><b>子から外す</b>: 行の <span class="ui">×</span>。親子のつながりを外すだけで、Issue は消えません。</li>
+    <li>子の <span class="ui">○</span> を押すとクローズ、題名を押すとその子の詳細が開きます。子の詳細のいちばん上の <span class="ui">↑ 親：#45 …</span> で親に戻れます。</li>
+  </ul>
+  <p>タスク・ボード・マイルストーンのカードには、子のある Issue に <b>🧩 2/5</b>（子 5 件のうち 2 件が完了）、子の Issue に <b>↑ #45 親の題名</b> が出ます。子を全部クローズしても、親は自動では閉じません。サブイシューは、GitHub につながっているときだけ使えます。</p>
+  <h3>閉じ方を選ぶ</h3>
+  <p><span class="ui">クローズ ▾</span> から、GitHub と同じ 3 つの閉じ方を選べます。閉じた Issue の上には「Closed（完了）」のように、閉じ方が出ます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>閉じ方</th><th>使うとき</th></tr>
+    <tr><td>✅ 完了として閉じる</td><td>やり終えた（いつもの閉じ方）</td></tr>
+    <tr><td>⊘ 予定なしとして閉じる</td><td>やらないことにした</td></tr>
+    <tr><td>🔁 重複として閉じる…</td><td>同じ内容の Issue がある。番号かタイトルで元の Issue を選ぶと、こちらを閉じて「重複」の印を付けます</td></tr>
+  </table>
+  </div>
+  <h3>🔗 関連</h3>
+  <p>意味の近い Issue を結びます（<b>つながり</b> のタブ。ガントの「先行」とは別で、日程には関係しません）。<span class="ui">＋ 関連を足す</span> で、番号かタイトルで探して選びます。結んだ相手の Issue の詳細にも出ます（「#6 の側で結んだ」のように、どちらで結んだかも出ます）。<span class="ui">×</span> で外しても、Issue は消えません。関連は、本文の見えない印（<code>&lt;!-- related:#12 --&gt;</code>）に残します。</p>
+  <h3>コメントと変更の履歴</h3>
+  <p><b>履歴</b> のタブでは、コメントのあいだに、その Issue に起きたことが時間の順に出ます。<span class="ui">コメントだけ</span> にすると、コメントだけになります。<span class="ui">新しい順</span>（はじめはこれ）・<span class="ui">古い順</span> で、並びを変えられます。</p>
+  <ul>
+    <li>作った・ラベルを付けた／外した・担当・マイルストーン・題名の変更・閉じた（閉じ方）・開き直した・子を足した など</li>
+    <li><b>ほかの Issue から触れられた</b>: ほかの Issue の本文やコメントに <code>#45</code> と書くと、ここに出ます。押すとその Issue が開きます。</li>
+    <li><b>コミットから触れられた</b>: コミットのメッセージに <code>#45</code> と書いてプッシュすると、ここに出ます。ハッシュを押すと、そのコミットの「変更内容を見る」が開きます（「<a href="#work">作業タブ</a>」でコミットの要約に番号を入れると、つながります）。</li>
+  </ul>
+  <p>変更の履歴は、GitHub につながっているときだけ出ます（コメントは、つながっていなくても出ます）。</p>
+</section>
+
+<section id="board">
+  <h2>ボード</h2>
+  <p>Issue を、状態ごとの板に付箋（クエストボードでは依頼書）として貼って見る画面です。作業タブの流れでも、状態が動きます: <b>① で始める → 進行中</b>（自分が担当に）、<b>プルリクを作る → チェック待ち</b>（つないだ Issue）、<b>マージ → 完了</b>（<code>Closes #N</code> でクローズ）。</p>
+  <h3>2 つのボード（タブ）</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>ボード</th><th>板（区画）</th><th>使い方</th></tr>
+    <tr><td>📥 未整理</td><td>未整理・未着手・いつか</td><td>整理して、やることを決める</td></tr>
+    <tr><td>🔥 着手済み</td><td>進行中・チェック待ち・動作確認・完了承認待ち</td><td>やっていることを追う</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>状態ごとに別の板が掛かっていて、付箋をドラッグして別の板に貼り替えると、状態が変わります。もう一方のボードのタブに落とすと、そちらへ移せます（未整理 → 着手済みは「進行中」、着手済み → 未整理は「未着手」）。スマホでは、付箋の <span class="ui">移動</span> から選びます。</li>
+    <li>空の板には、どうすれば入るかが出ます（進行中は「作業タブで始めると、ここに入ります」、チェック待ちは「プルリクを作ると、ここに入ります」）。</li>
+    <li>付箋には、題名・期限（過ぎていたら「期限切れ」）・見積もり・分野・担当（自分は色つき）と、<b>✏️ 作業中</b>（作業タブで取り組んでいる Issue）・<b>🔃 #2 レビュー待ち</b>（つないだプルリクと、その進み: 下書き・レビュー待ち・承認済み・修正の依頼。押すとプルリクが開きます）が出ます。付箋を押すと、Issue の詳細が開きます。</li>
+    <li>上の <span class="ui">フィルタ</span> はタスク一覧と同じです（種別・分野・優先・見積・担当者・マイルストーン）。<span class="ui">自分の担当だけ</span> で、自分の付箋だけにできます。</li>
+    <li>見た目は、アプリのテーマ（設定 → 表示 の「テーマ」）のボードになります: <span class="ui">黒板</span>（黒板に付箋）・<span class="ui">ホワイトボード</span>（会議のホワイトボードに付箋。種別で付箋の色）・<span class="ui">クエスト</span>（木とコルクの板に依頼書。見積もりは報酬と難しさの星、自分の担当は「受注」の判）。開いていたボード（タブ）は、この PC に覚えておきます。</li>
+    <li>ボードの下の <b>机</b>（黒板は勉強机、ホワイトボードはオフィスのデスク、クエストはギルドの受付）に付箋をドラッグすると、<b>自分の担当</b>になります（状態はそのまま）。置けるのは担当のない付箋だけで、ほかの人の担当の付箋は「◯◯ の担当です」と出て置けません。机の上には自分の担当の付箋が並び、押すと詳細が開きます（ドラッグで区画へも移せます）。スマホでは、付箋の <span class="ui">移動</span> の <span class="ui">🙋 自分の担当にする</span> で担当になります。</li>
+    <li>区画をどちらのボードに置くか・並び・外す・足すは、設定 → タスク の「ボードの区画」で決めます（ボードの <span class="ui">⚙ 区画の設定</span> で開きます）。チームで一つの決まりで、リポジトリの <code>config/board.yaml</code> に置きます。板の見出しの <b>見積 8pt</b> は、その板のタスクの見積もりの合計です（「<a href="#estimate">見積もり</a>」）。</li>
+  </ul>
+</section>
+
+<section id="milestones">
+  <h2>マイルストーン</h2>
+  <p>期限つきの目標を管理します。Issue をマイルストーンに結びつけると、目標に対する進み具合が見えます。</p>
+  <ol>
+    <li><span class="ui">＋ マイルストーン</span> を押します。</li>
+    <li>名前（必須）・説明・開始日・期日を入れて、<span class="ui">作成</span> を押します。</li>
+  </ol>
+  <p>カードには、完了した Issue の割合（進捗バー）、完了数 / 全体の数、期日が出ます。見積もりの付いた Issue があれば、<b>見積 5/13pt</b>（閉じた Issue の見積もりの合計／全部の合計）も出ます。</p>
+  <h3 id="sprint">スプリントとして使う（バーンダウン・ベロシティ・サイクルタイム）</h3>
+  <p>マイルストーンを、決まった期間で区切った作業のまとまり（スプリント）として使えます。<b>開始日</b>から<b>期日</b>までがスプリントの期間です。開始日は <span class="ui">編集</span> で決めます（説明の最後に「開始: 2026-09-28」の形で書かれ、GitHub の画面でも読めます）。決めていなければ、マイルストーンを作った日から数えます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>ところ</th><th>中身</th></tr>
+    <tr><td>バーンダウン（カードを開く）</td><td>残りの量が日ごとにどう減ったかの図。点線は理想（期日にちょうど 0）。<b>残り</b>・<b>経過</b>（何日目か）・<b>このペースだと</b>（今の減り方で終わる日と、期日より何日遅れそうか）も出ます。途中で足した Issue の分は、線が上がります</td></tr>
+    <tr><td>チームのペース（<a href="#analytics">オーバービュー</a>）</td><td><b>ベロシティ</b>: 終わったマイルストーン（閉じた・期日を過ぎた・Issue が全部閉じた）ごとに終えた量。最近 5 つの平均が「次のスプリントに入れる量の目安」です。<br><b>サイクルタイム</b>: 「状態:進行中」にしてから閉じるまでの日数（真ん中の値と分け方）。作ってから閉じるまで（リードタイム）も出ます</td></tr>
+    <tr><td>目安（カードの右下）</td><td>まだ終わっていないマイルストーンに入れた量を、目安と比べます。目安より 1 割以上多いと黄色になります</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>量は、見積もり（設定の単位）で数えます。マイルストーンの画面の上（またはオーバービューのチームのペース）の <span class="ui">見積もり｜件数</span> で、件数で数えるのに切り替えられます（どちらで変えても同じ。次に開いたときも同じ）。見積もりで数えるとき、見積もりを 1 つも付けていないマイルストーンはベロシティに入れません。</li>
+    <li>Issue がいつマイルストーンに入ったかは GitHub から分からないので、作った日（開始日より前なら開始日）から数えます。</li>
+    <li>サイクルタイムは、閉じた Issue の変更の履歴を読んで数えます（最近の 40 件まで。読んだ結果は覚えておくので、2 回目からは速くなります）。つながっているときだけ読めます。</li>
+  </ul>
+</section>
+
+<section id="gantt">
+  <h2>ガントチャート</h2>
+  <p>マイルストーンの中の Issue を、日程の帯で見る画面です。</p>
+  <ul>
+    <li>上のプルダウンでマイルストーンを選びます（前に選んだものを覚えています。はじめて開いたときは、いちばん近い開いたマイルストーンが出ます）。選ぶと、今日が見える所まで送ります。</li>
+    <li>開始日・終了日が決まっている Issue が、帯で表示されます。帯をドラッグすると日程を動かせ、端をドラッグすると長さを変えられます。</li>
+    <li>担当者・状態・分野で絞り込めます。表示の単位は 日・週・月 から選べます。<span class="ui">今日</span> で今日に移ります。</li>
+    <li>先行タスク（依存）を決めると、矢印でつながります。クリティカルパス（遅れると全体が遅れる流れ）は赤く表示されます。</li>
+    <li>マイルストーンに期限があれば、その日の終わりに赤い点線（<b>期限 10/17</b>）を引きます。</li>
+    <li>左の一覧には、見積もり（<b>2日</b> など）が出ます。日程も見積もりもない開いた Issue には「日程・見積もりなし」と出ます。</li>
+    <li>帯の色（デフォルト・進行中・ブロック・完了・クリティカルパス・優先:高）は、設定 → 表示 の「ガントの帯の色」で変えます（上の <span class="ui">⚙ 色の設定</span> で開きます）。</li>
+  </ul>
+  <h3 id="gantt-tentative">見積もりから仮の日程を置く</h3>
+  <p>日程（開始日・終了日）がまだなく、<a href="#estimate">見積もり</a>の付いている開いた Issue は、見積もりから仮の帯（点線）で置きます。一覧には <b>仮</b> と出ます。上の <span class="ui">見積もりから仮の日程を置く</span> を外すと、仮の帯は出なくなります（次に開いたときも同じです）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>決まり</th><th>中身</th></tr>
+    <tr><td>長さ</td><td>見積もりを日に直し、端数は 1 日に切り上げます。1 日＝8 時間、1 人月＝20 日です。ポイントは見積もりの目安（1pt＝1 時間〜8pt＝1 週間）で日に直します。土日も数えます</td></tr>
+    <tr><td>始まり</td><td>今日から。先行タスクがあれば、その終わりの次の日から</td></tr>
+    <tr><td>同じ担当</td><td>重ならないよう、空いている日に置きます。日程の決まった Issue を避け、仮の Issue どうしは 優先度 → 期限 → 番号 の順に並べます。担当のない Issue は、それぞれ今日から置きます</td></tr>
+    <tr><td>期限を超えた分</td><td>赤で出します（間に合わない見込み）</td></tr>
+  </table>
+  </div>
+  <p>仮の帯を押すと、<span class="ui">この日程で決める</span> と <span class="ui">詳細を開く</span> が出ます。<span class="ui">この日程で決める</span> で、仮の日程が本当の開始日・終了日になります。仮の帯をドラッグしても、動かした先の日程で決まります。日程の決まった Issue は、仮の帯のために動かしません。</p>
+  <p>日程や依存は、Issue の詳細の <b>設定</b> のタブの <b>ガント</b>（日程・先行・進み）で決めます。Issue の本文に HTML のコメントとして保存されるので、GitHub での見た目は変わりません。Life Manager でも、Issue の詳細の本文には出さず、本文を直す欄にも出しません（保存するときに、そのまま残します）。</p>
+  <div class="cmd">&lt;!-- gantt:2026-03-10/2026-03-20 --&gt;   開始日/終了日
+&lt;!-- depends:#12,#15 --&gt;               先行タスク
+&lt;!-- progress-mode:manual --&gt;          進み具合の数え方
+&lt;!-- progress:60 --&gt;                   手で入れた進み具合</div>
+</section>
+
+<section id="routines">
+  <h2>ルーチン</h2>
+  <p>毎日・毎週・毎月、決まった時刻に Issue を自動で作る機能です。日報や定期的な確認に使えます。</p>
+  <ol>
+    <li><span class="ui">＋ ルーチン追加</span> を押します。</li>
+    <li>名前・頻度（毎日／毎週／毎月）・曜日・時刻・Issue のタイトル・ラベル・本文・自動で閉じる時刻（任意）を決めます。</li>
+    <li><span class="ui">保存</span> を押します。</li>
+  </ol>
+  <p>タイトルや本文では、次の書き方が使えます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>書き方</th><th>置き換わる例</th></tr>
+    <tr><td><code>{{date}}</code></td><td>2026-03-14</td></tr>
+    <tr><td><code>{{week}}</code></td><td>2026年第11週</td></tr>
+    <tr><td><code>{{month}}</code></td><td>2026-03</td></tr>
+  </table>
+  </div>
+  <p>ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。このとき Life Manager が自動でコミットを作ります（ブランチ画面・全体図では「アプリの自動コミット」としてまとめて表示します）。</p>
+</section>
+
+<section id="journal">
+  <h2>日誌</h2>
+  <p>日ごとの活動の記録を見る画面です。その日に作った・閉じた Issue などがまとめられます。</p>
+  <ul>
+    <li><span class="ui">前日</span> <span class="ui">翌日</span> や日付の選択で移ります。<span class="ui">今日</span> で今日に戻ります。</li>
+    <li><span class="ui">更新</span> で、選んでいる日の日誌を作り直します。日誌の中の <code>[#12]</code> を押すと、その Issue が開きます。</li>
+  </ul>
+</section>
+
+<section id="labels">
+  <h2>ラベルの決まり</h2>
+  <p>ラベルは <code>カテゴリ:値</code> の形で付けます。設定 → タスク の <span class="ui">ラベル一括作成</span> で、次のラベルがリポジトリに作られます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>カテゴリ</th><th>ラベル</th></tr>
+    <tr><td>種別（タスクの種類）</td><td><code>種別:イシュー</code>（ふつうのタスク）、<code>種別:メモ</code>（思いつき・タスクの手前のもの）、<code>種別:ルーチン</code>（自動で作られるタスク）</td></tr>
+    <tr><td>分野</td><td><code>分野:仕事</code>、<code>分野:私用</code>、<code>分野:やりたい</code>、<code>分野:健康</code>、<code>分野:学習</code></td></tr>
+    <tr><td>状態</td><td><code>状態:未整理</code>、<code>状態:進行中</code>、<code>状態:ブロック</code>、<code>状態:いつか</code></td></tr>
+    <tr><td>優先</td><td><code>優先:高</code>、<code>優先:中</code>、<code>優先:低</code></td></tr>
+    <tr><td>見積（タスクの大きさ）</td><td><code>見積:3pt</code>、<code>見積:2時間</code>、<code>見積:0.5日</code>、<code>見積:1人月</code> など。単位は設定 → タスク の <span class="ui">見積もりの単位</span> で決め、付けたときに作ります（「<a href="#estimate">見積もり</a>」）</td></tr>
+  </table>
+  </div>
+  <p>ボードの列（未着手・チェック待ち・動作確認・完了承認待ち など）の状態ラベルは、カードを動かしたときに付きます。ラベルの名前・色・説明は、設定 → タスク の「ラベル管理」で変えられます。</p>
+</section>
+
+<!-- ============================================================ -->
+<div class="part-head" id="part-4"><span class="part-no">第 4 部</span>git で作業する（PC）</div>
+
+<section id="git-basics">
+  <h2>git のしくみ（まずここから）</h2>
+  <p>git は、ファイルの変更を「いつ・だれが・何を変えたか」として記録する道具です。記録の単位を<b>コミット</b>と呼びます。Life Manager の「作業」タブは、次の流れをそのまま画面にしています。</p>
+  <figure>
+    <svg viewBox="0 0 760 170" role="img" aria-label="作業中のファイル、ステージ、コミット（この PC のリポジトリ）、GitHub の 4 つの場所と、そのあいだを移すコマンドの図">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="svg-arrowhead"/></marker>
+      </defs>
+      <rect x="10" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="85" y="60" text-anchor="middle" class="svg-text">作業中のファイル</text>
+      <text x="85" y="82" text-anchor="middle" class="svg-soft">エディタで編集する</text>
+      <rect x="210" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="285" y="60" text-anchor="middle" class="svg-text">ステージ</text>
+      <text x="285" y="82" text-anchor="middle" class="svg-soft">次のコミットに入れるもの</text>
+      <rect x="410" y="30" width="150" height="70" rx="8" class="svg-box"/>
+      <text x="485" y="60" text-anchor="middle" class="svg-text">コミット（履歴）</text>
+      <text x="485" y="82" text-anchor="middle" class="svg-soft">この PC のリポジトリ</text>
+      <rect x="610" y="30" width="140" height="70" rx="8" class="svg-box"/>
+      <text x="680" y="60" text-anchor="middle" class="svg-text">GitHub</text>
+      <text x="680" y="82" text-anchor="middle" class="svg-soft">みんなで共有する</text>
+      <path d="M160,52 H206" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="185" y="22" text-anchor="middle" class="svg-code">git add</text>
+      <path d="M360,52 H406" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="385" y="22" text-anchor="middle" class="svg-code">git commit</text>
+      <path d="M560,52 H606" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="585" y="22" text-anchor="middle" class="svg-code">git push</text>
+      <path d="M680,100 V140 H85 V104" class="svg-arrow" marker-end="url(#ah)"/>
+      <text x="380" y="160" text-anchor="middle" class="svg-code">git pull（GitHub の新しいコミットを取り込む）</text>
+    </svg>
+    <figcaption>ファイルを編集 → 入れたい変更をステージ → コミットで記録 → プッシュで GitHub に送る。ほかの人の変更はプルで取り込む。</figcaption>
+  </figure>
+  <p><b>ブランチ</b>は、作業を分けて進めるための「流れ」です。たとえば Issue ごとにブランチを作って作業し、終わったら元のブランチに<b>マージ</b>（合流）します。こうすると、途中の作業がほかの作業と混ざりません。</p>
+</section>
+
 <section id="work">
   <h2>作業タブ</h2>
   <p>取り組む Issue を決めて、ファイルの変更をコミットし、GitHub に送るまでを進める画面です。</p>
@@ -877,7 +1231,6 @@ git push -u origin main</div>
   </div>
 </section>
 
-<!-- ============================================================ -->
 <section id="branches">
   <h2>ブランチ画面</h2>
   <p>ブランチごとに、そのブランチで積み重ねてきたコミットを、日付の新しい順に見る画面です。</p>
@@ -911,7 +1264,6 @@ git push -u origin main</div>
   </ul>
 </section>
 
-<!-- ============================================================ -->
 <section id="overview">
   <h2>全体図</h2>
   <p>ブランチ画面から一歩引いて、どこでブランチが分かれ、どうコミットが続き、いつマージされたかを 1 枚の図で見る画面です。上が新しく、下が古いコミットです。</p>
@@ -946,7 +1298,83 @@ git push -u origin main</div>
   </ul>
 </section>
 
+<section id="conflict">
+  <h2>競合（コンフリクト）したとき</h2>
+  <p>プル・マージ・チェリーピック・リバート・リベース・退避した変更を戻す などで、同じファイルの同じところが両方で変わっていると、git は自動でまとめられずに止まります。これが競合です。</p>
+  <p>競合が起きると、どの画面にいても「⚠ 競合（コンフリクト）が起きました」の知らせが 1 回だけ出ます。競合したファイル・自動でまとまったファイル・直し方・ファイルに入った印の見本が出て、<span class="ui">作業タブで直す</span> で作業タブに移ります。競合しているあいだは、サイドバーの「作業」に <span class="ui">⚠ 競合</span> が出て、作業タブの上に「〇〇の途中です」と出ます。</p>
+  <h3>マージツールで直す</h3>
+  <ol>
+    <li>作業タブの「競合」の欄のファイルを選ぶと、右に <span class="ui">競合を直す</span> が出ます。競合したか所ごとに、左に<b>今のブランチの側（青）</b>、右に<b>取り込む側（紫）</b>が並びます。</li>
+    <li>か所ごとに <span class="ui">✔ 今のブランチの方を使う</span> か <span class="ui">✔ 取り込む側を使う</span> を押します。使う側は太い枠と「✔ 使う」、捨てる側は薄い打ち消し線と「✖ 捨てる」になります。両方を残すとき（順番も選べます）や、自分で書き直すとき（<span class="ui">自分で書く…</span>）は、下のボタンから選びます。選び直すときは <span class="ui">やり直す</span> を押します。</li>
+    <li>すべてのか所を選ぶと <span class="ui">直したので、ステージする</span> が押せます。印を消して、選んだ内容だけをファイルに書き込み、ステージします（<code>git add</code>。「直した」という合図です）。</li>
+    <li>すべてのファイルを直したら、マージの途中ならコミットすると終わります。リベース・チェリーピック・リバートの途中なら <span class="ui">続ける</span> を押します（<code>git rebase --continue</code> など）。</li>
+  </ol>
+  <ul>
+    <li><span class="ui">まるごと今のブランチの方に…</span> / <span class="ui">まるごと取り込む側に…</span>: ファイル全体を片方の内容にします（<code>git checkout --ours</code> / <code>--theirs</code>）。画像など文字でないファイルは、これで選びます。片方で消されたファイルは、<span class="ui">消したままにする…</span> も選べます。</li>
+    <li><span class="ui">エディタで開く</span>: いつものエディタで開いて、自分で直すこともできます。直したら <span class="ui">読み直す</span> を押すか、作業タブでファイルにチェックを入れます。</li>
+    <li>リベースでは、左が「付け替え先（取り込み済みの内容）」、右が「自分のコミット」です。退避した変更を戻したときは、左が「今のファイル」、右が「退避していた変更」です。</li>
+  </ul>
+  <p>ファイルの中では、競合したところに次のような印が入っています（マージツールは、この印を読んで並べています）。</p>
+  <div class="cmd">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+今のブランチの内容
+=======
+取り込もうとした内容
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature</div>
+  <h3>捨てた内容を、あとで入れたいとき</h3>
+  <p>捨てた側の内容も、消えてはいません。取り込もうとしたブランチ（やコミット）に、そのまま残っています。ただし、同じブランチをもう一度マージしても、git は「もう取り込んである」と考えるので、捨てた内容は戻ってきません。あとで要るときは、そのブランチのファイルを見て、手で入れてコミットします（多くの現場でも、このやり方です）。</p>
+  <div class="cmd"><span class="c"># feature/udon での menu.txt を見る</span>
+git show feature/udon:menu.txt
+<span class="c"># ファイルまるごと feature/udon の内容にする（今の変更は消えるので注意）</span>
+git restore --source=feature/udon -- menu.txt</div>
+  <p>マージのコミットをする前なら、マージツールの <span class="ui">やり直す</span> で選び直せます。やめたいときは <span class="ui">〇〇を中止…</span> を押すと、始める前の状態に戻ります（<code>git merge --abort</code> など）。</p>
+</section>
+
+<section id="menus">
+  <h2>操作メニューの一覧</h2>
+  <p>どの操作も、実行するコマンドがメニューに表示されます。元に戻せない操作や、履歴が変わる操作は、確認の画面を出してから実行します（確認の画面にもコマンドが出ます）。押せない項目には、その理由が小さく書かれます。</p>
+
+  <p>作業タブのファイルのメニュー（右クリック）は、「<a href="#gitignore">記録しないファイル（.gitignore）</a>」を見てください。</p>
+
+  <h3>コミットのメニュー</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
+    <tr><td>このコミットからブランチを作成…</td><td><code>git switch -c 名前 コミット</code></td><td>そのコミットから新しいブランチを作って切り替える</td></tr>
+    <tr><td>タグを付ける…</td><td><code>git tag 名前 コミット</code></td><td>そのコミットに名前を付ける</td></tr>
+    <tr><td>このコミットを取り出す</td><td><code>git switch --detach コミット</code></td><td>ブランチではなく、そのコミットそのものを取り出す（切り離された HEAD）</td></tr>
+    <tr><td>（今のブランチ）に取り込む（チェリーピック）</td><td><code>git cherry-pick コミット</code></td><td>そのコミットの変更を、今のブランチにもう一度コミットする</td></tr>
+    <tr><td>打ち消すコミットを作る（リバート）</td><td><code>git revert --no-edit コミット</code></td><td>そのコミットの変更を元に戻すコミットを作る（履歴は消さない）</td></tr>
+    <tr><td>ここまで戻す：ソフト…</td><td><code>git reset --soft コミット</code></td><td>今のブランチをそのコミットまで戻す。後の変更はステージに残る（確認あり）</td></tr>
+    <tr><td>ここまで戻す：混在…</td><td><code>git reset --mixed コミット</code></td><td>同じく戻す。後の変更は作業中のファイルに残る（確認あり）</td></tr>
+    <tr><td>ここまで戻す：ハード…</td><td><code>git reset --hard コミット</code></td><td>同じく戻し、後の変更も作業中の変更も捨てる。<b>元に戻せない</b>（確認あり）</td></tr>
+    <tr><td>変更内容を見る</td><td><code>git show --stat --patch コミット</code></td><td>そのコミットで変えたファイルと差分を見る</td></tr>
+    <tr><td>ハッシュをコピー / GitHub で開く</td><td></td><td>コミットの番号をコピーする / GitHub のページで見る</td></tr>
+  </table>
+  </div>
+
+  <h3>ブランチのメニュー</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
+    <tr><td>このブランチに切り替える</td><td><code>git switch ブランチ</code></td><td>そのブランチで作業する</td></tr>
+    <tr><td>（今のブランチ）に取り込む（マージ）</td><td><code>git merge --no-edit ブランチ</code></td><td>そのブランチの変更を、今のブランチに合流させる</td></tr>
+    <tr><td>（今のブランチ）を…の先に付け替える（リベース）…</td><td><code>git rebase ブランチ</code></td><td>今のブランチで作ったコミットを、そのブランチの先に作り直す。履歴が書き換わる（確認あり）</td></tr>
+    <tr><td>プッシュ</td><td><code>git push origin ブランチ</code></td><td>そのブランチを GitHub に送る（まだ GitHub になければ <code>-u</code> を付けて公開する）</td></tr>
+    <tr><td>上流ブランチを設定</td><td><code>git branch -u origin/ブランチ ブランチ</code></td><td>プッシュ・プルの相手を、GitHub の同じ名前のブランチにする</td></tr>
+    <tr><td>名前を変更…</td><td><code>git branch -m 今の名前 新しい名前</code></td><td>この PC のブランチの名前を変える（GitHub の方はそのまま）</td></tr>
+    <tr><td>削除…</td><td><code>git branch -d ブランチ</code></td><td>この PC のブランチを消す。マージしていないコミットがあると git が止める。止められても消したいときは「マージしていなくても削除する（<code>-D</code>）」を選ぶ（確認あり）</td></tr>
+    <tr><td>GitHub で開く</td><td></td><td>GitHub のページで見る</td></tr>
+  </table>
+  </div>
+  <div class="box warn">
+    <span class="label">GitHub に送ったコミットの書き換えに注意</span>
+    <p>リセットやリベース、amend は、コミットを作り直したり、ブランチから外したりします。すでに GitHub に送ったコミットを書き換えると、GitHub の履歴と食い違い、送り直すのに強制プッシュが必要になります。Life Manager では、送り済みのコミットの amend はできないようにしています。</p>
+  </div>
+</section>
+
 <!-- ============================================================ -->
+<div class="part-head" id="part-5"><span class="part-no">第 5 部</span>GitHub でチームと作る</div>
+
 <section id="pulls">
   <h2>プルリク</h2>
   <p>プルリク（プルリクエスト）は、「このブランチの変更を <code>main</code> に入れてください」というお願いです。チームの人が変更を見て（<b>レビュー</b>）、よければ <b>マージ</b>（合流）します。サイドバーの <span class="ui">🔃 プルリク</span> で、左に一覧、右に詳細が出ます。</p>
@@ -1016,7 +1444,6 @@ git push -u origin main</div>
   <p>作業タブの流れは <b>Issue → ブランチ → 変更 → コミット → プッシュ → プルリク → マージ → 完了</b> です。ブランチをプッシュすると <span class="ui">プルリクを作る…</span>、プルリクを出すと <span class="ui">#12 を開く（レビュー・マージ）</span>、マージされると <span class="ui">完了</span> と <span class="ui">main に戻って最新にする</span>（<code>git switch main</code> → <code>git pull</code>）が出ます。既定のブランチ（<code>main</code>）で直接コミットしたときは、プルリク・マージの段はとばします。</p>
 </section>
 
-<!-- ============================================================ -->
 <section id="actions">
   <h2>Actions</h2>
   <p>Actions は、プッシュやプルリクのたびに、GitHub がテストやビルドを自動で動かすしくみです（<code>.github/workflows/*.yml</code> に書きます）。サイドバーの <span class="ui">▶️ Actions</span> では、<b>直さなければいけないものを、直す順に積んで</b>見せます。サイドバーの赤い数は、🔴 すぐ直す と 🟠 早めに の数です。</p>
@@ -1104,7 +1531,6 @@ git push -u origin main</div>
   <p>プルリクの一覧に <span class="ui">✔ チェック</span>・<span class="ui">✖ チェック 1</span>・<span class="ui">● チェック中</span>、詳細に <span class="ui">チェック</span> のタブが出ます。マージの箱には「⚠ 失敗したチェックがあります」と出て、<span class="ui">ログを見る →</span> で Actions のそのカードとジョブが開きます（外の CI の結果は、その CI の画面が開きます）。作業タブの流れの「マージ」の段にも ✖ チェック と出ます。</p>
 </section>
 
-<!-- ============================================================ -->
 <section id="releases">
   <h2>リリース</h2>
   <p>リリースは「この版をみんなに配る」印です。コミットに付ける名前（<b>タグ</b>。例: <code>1.0.0</code>）に、何が変わったか（<b>ノート</b>）と、配るファイル（インストーラーなど）をまとめます。サイドバーの <span class="ui">🏷️ リリース</span> で、左に一覧（<span class="ui">最新</span>・<span class="ui">試用版</span>・<span class="ui">下書き</span>）、右にノートと添えたファイル（大きさ・ダウンロード数）が出ます。</p>
@@ -1128,104 +1554,251 @@ git push -u origin main</div>
   <p>リリースすると、キラキラと「✨ … を出しました」が出ます。ノートと題名は <span class="ui">✏️ 編集</span> で直せます。消すときは GitHub の画面で行います。</p>
 </section>
 
-<!-- ============================================================ -->
-<section id="activity">
-  <h2>アクティビティ</h2>
-  <p>サイドバーの <span class="ui">📰 アクティビティ</span> で、上に <b>あなたがすること</b>、下に <b>チームの動き</b>（日ごと）が出ます。サイドバーの青い数は、あなたがすることの数です。</p>
-  <h3>あなたがすること</h3>
-  <div class="table-wrap">
-  <table>
-    <tr><th>出るもの</th><th>押すと</th></tr>
-    <tr><td>✖ あなたのプルリクのチェックが失敗しています</td><td>そのプルリク</td></tr>
-    <tr><td>✏️ あなたのプルリクで修正を頼まれています ／ ✔ 承認されました（マージできます）</td><td>そのプルリク</td></tr>
-    <tr><td>👀 レビューを頼まれています</td><td>そのプルリク</td></tr>
-    <tr><td>📅 担当の Issue の期限（3 日以内・過ぎた）</td><td>その Issue</td></tr>
-    <tr><td>✖ あなたがプッシュしたブランチの Actions の失敗（プルリクのないもの）</td><td>Actions のそのカード</td></tr>
-    <tr><td>💬 コメントで名前を呼ばれた（@名前）・👤 担当になった（14 日以内）</td><td>その Issue・プルリク</td></tr>
-  </table>
-  </div>
-  <p>見たものは <span class="ui">×</span> で消せます（この PC に覚えます。中身が変わると、また出ます）。GitHub の通知（ベル）そのものは、GitHub の決まりで Life Manager のような App からは読めないので、Issue・プルリク・Actions から集めて代わりにしています。</p>
-  <h3>チームの動き</h3>
-  <p>プッシュ（コミットの一覧つき。押すと変更内容）・プルリクを作った・マージした・承認した・Issue を作った・完了にした・コメントした・担当にした・ブランチやタグ・リリースなどが、日ごとに新しい順で出ます。<span class="ui">だれ</span> と <span class="ui">種類</span>（Issue・プルリク・プッシュ・リリース・そのほか）で絞れます。GitHub が残している、最近の 90 日ほど（100 件まで）です。</p>
-</section>
-
-<!-- ============================================================ -->
-<section id="menus">
-  <h2>操作メニューの一覧</h2>
-  <p>どの操作も、実行するコマンドがメニューに表示されます。元に戻せない操作や、履歴が変わる操作は、確認の画面を出してから実行します（確認の画面にもコマンドが出ます）。押せない項目には、その理由が小さく書かれます。</p>
-
-  <p>作業タブのファイルのメニュー（右クリック）は、「<a href="#gitignore">記録しないファイル（.gitignore）</a>」を見てください。</p>
-
-  <h3>コミットのメニュー</h3>
-  <div class="table-wrap">
-  <table>
-    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
-    <tr><td>このコミットからブランチを作成…</td><td><code>git switch -c 名前 コミット</code></td><td>そのコミットから新しいブランチを作って切り替える</td></tr>
-    <tr><td>タグを付ける…</td><td><code>git tag 名前 コミット</code></td><td>そのコミットに名前を付ける</td></tr>
-    <tr><td>このコミットを取り出す</td><td><code>git switch --detach コミット</code></td><td>ブランチではなく、そのコミットそのものを取り出す（切り離された HEAD）</td></tr>
-    <tr><td>（今のブランチ）に取り込む（チェリーピック）</td><td><code>git cherry-pick コミット</code></td><td>そのコミットの変更を、今のブランチにもう一度コミットする</td></tr>
-    <tr><td>打ち消すコミットを作る（リバート）</td><td><code>git revert --no-edit コミット</code></td><td>そのコミットの変更を元に戻すコミットを作る（履歴は消さない）</td></tr>
-    <tr><td>ここまで戻す：ソフト…</td><td><code>git reset --soft コミット</code></td><td>今のブランチをそのコミットまで戻す。後の変更はステージに残る（確認あり）</td></tr>
-    <tr><td>ここまで戻す：混在…</td><td><code>git reset --mixed コミット</code></td><td>同じく戻す。後の変更は作業中のファイルに残る（確認あり）</td></tr>
-    <tr><td>ここまで戻す：ハード…</td><td><code>git reset --hard コミット</code></td><td>同じく戻し、後の変更も作業中の変更も捨てる。<b>元に戻せない</b>（確認あり）</td></tr>
-    <tr><td>変更内容を見る</td><td><code>git show --stat --patch コミット</code></td><td>そのコミットで変えたファイルと差分を見る</td></tr>
-    <tr><td>ハッシュをコピー / GitHub で開く</td><td></td><td>コミットの番号をコピーする / GitHub のページで見る</td></tr>
-  </table>
-  </div>
-
-  <h3>ブランチのメニュー</h3>
-  <div class="table-wrap">
-  <table>
-    <tr><th>項目</th><th>コマンド</th><th>すること</th></tr>
-    <tr><td>このブランチに切り替える</td><td><code>git switch ブランチ</code></td><td>そのブランチで作業する</td></tr>
-    <tr><td>（今のブランチ）に取り込む（マージ）</td><td><code>git merge --no-edit ブランチ</code></td><td>そのブランチの変更を、今のブランチに合流させる</td></tr>
-    <tr><td>（今のブランチ）を…の先に付け替える（リベース）…</td><td><code>git rebase ブランチ</code></td><td>今のブランチで作ったコミットを、そのブランチの先に作り直す。履歴が書き換わる（確認あり）</td></tr>
-    <tr><td>プッシュ</td><td><code>git push origin ブランチ</code></td><td>そのブランチを GitHub に送る（まだ GitHub になければ <code>-u</code> を付けて公開する）</td></tr>
-    <tr><td>上流ブランチを設定</td><td><code>git branch -u origin/ブランチ ブランチ</code></td><td>プッシュ・プルの相手を、GitHub の同じ名前のブランチにする</td></tr>
-    <tr><td>名前を変更…</td><td><code>git branch -m 今の名前 新しい名前</code></td><td>この PC のブランチの名前を変える（GitHub の方はそのまま）</td></tr>
-    <tr><td>削除…</td><td><code>git branch -d ブランチ</code></td><td>この PC のブランチを消す。マージしていないコミットがあると git が止める。止められても消したいときは「マージしていなくても削除する（<code>-D</code>）」を選ぶ（確認あり）</td></tr>
-    <tr><td>GitHub で開く</td><td></td><td>GitHub のページで見る</td></tr>
-  </table>
-  </div>
+<section id="team">
+  <h2>チームで使う（管理者向け）</h2>
   <div class="box warn">
-    <span class="label">GitHub に送ったコミットの書き換えに注意</span>
-    <p>リセットやリベース、amend は、コミットを作り直したり、ブランチから外したりします。すでに GitHub に送ったコミットを書き換えると、GitHub の履歴と食い違い、送り直すのに強制プッシュが必要になります。Life Manager では、送り済みのコミットの amend はできないようにしています。</p>
+    <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
+    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリに Life Manager を入れて、メンバーを招待することだけです（「<a href="#roles">だれが何をするか</a>」）。</p>
+  </div>
+  <h3>リーダー: メンバーを招待する</h3>
+  <ol>
+    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。セットアップで <span class="ui">チームを作る</span> を選び、<span class="ui">使用するリポジトリを選ぶ</span>（入れてあれば 設定 → トークン の <span class="ui">リポジトリを追加する</span>）で GitHub が開きます（画面の名前は「Life Manager App」。あなたのアカウントを選んだ状態）。そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。セットアップの <span class="ui">作って、メンバーを招待する</span> で作ったリポジトリは、そのまま使えます。入れていないリポジトリは、メンバーが参加しても使えません。</li>
+    <li>設定 → 接続 の <span class="ui">案内をコピー</span> で「参加の案内」をコピーして、メンバーに送ります（チャット・メール・授業のページなど）。</li>
+    <li>メンバーから、GitHub の名前が届きます（メンバーのアプリの画面に大きく出ています）。</li>
+    <li>設定 → 接続 の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
+    <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
+  </ol>
+  <h3>メンバーとして参加する</h3>
+  <ol>
+    <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
+    <li>ログインしたら <span class="ui">招待を受ける</span> を選び、画面に出る「あなたの GitHub の名前」をリーダーに伝えます。</li>
+    <li>招待のメールが届いたら「View invitation」→「Accept invitation」を押します（リーダーから届いたリンクを開いても同じです）。セットアップの「招待を受ける」では、アプリが自分で気づいて「○○ に参加しました」と出るので、<span class="ui">このリポジトリではじめる</span> を押します。使い始めたあとに参加したリポジトリは、左上のリポジトリの <span class="ui">＋ リポジトリを追加…</span> → <span class="ui">GitHub にある</span> の一覧から選びます。</li>
+    <li>チームのリポジトリが出てこないときは、リーダー（組織なら組織の持ち主）に、そのリポジトリへ Life Manager を入れてもらいます（最初の一度だけ）。</li>
+  </ol>
+  <h3>Organization を使う（おすすめ）</h3>
+  <p>2 人以上で続けて使うときは、GitHub の Organization（無料）がおすすめです。人ではなく Organization がリポジトリを持つので、人が抜けても残り、権限をチーム単位で管理できます。</p>
+  <ol>
+    <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
+    <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
+    <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
+    <li><b>Life Manager を組織に入れます（一度だけ）。</b>組織の持ち主が、アプリの <span class="ui">使用するリポジトリを選ぶ</span> の下の「組織に入れるときは こちら」で GitHub を開き、組織を選んで、使うリポジトリを選び <span class="ui">Install</span> します。メンバーはログインするだけで使えます。</li>
+  </ol>
+  <p>個人のリポジトリで使うときは、持ち主が自分のアカウントに Life Manager を入れてリポジトリを選び、設定 → 接続 から招待します（GitHub の Settings → Collaborators → Add people でも同じです）。</p>
+  <h3>トークンで使うときの注意</h3>
+  <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは <span class="ui">GitHub でログイン</span> を使うか、Organization に移します。トークンは、プロジェクト専用のトークン → いつものトークン の順に使われます。</p>
+  <h3>git の作業をチームで行うときの流れ（例）</h3>
+  <ol>
+    <li>Issue を作り、担当を決める。</li>
+    <li>作業タブで Issue を選び、Issue 用のブランチ（<code>issue-12</code> など）を作る。</li>
+    <li>変更をコミットして、プッシュする。</li>
+    <li>作業タブの <span class="ui">プルリクを作る…</span> でプルリクを作り、チームの人が「変更されたファイル」を見てレビューする。よければマージする（説明に <code>Closes #12</code> があれば、Issue が自動で閉じる。「<a href="#pulls">プルリク</a>」）。</li>
+  </ol>
+</section>
+
+<section id="roles">
+  <h2>だれが何をするか（アカウント・トークン・許可）</h2>
+  <p>GitHub のアカウント・ログイン・招待・組織の許可は、役によってすることが違います。自分の役の行だけ読めば足ります。1 人で使うときは、メンバーとリーダーの両方をします。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>役</th><th>すること</th><th>しないこと</th></tr>
+    <tr>
+      <td><b>メンバー</b><br>（生徒など）</td>
+      <td>① GitHub のアカウントを自分で作る（自分のメールで）<br>
+        ② <span class="ui">GitHub でログイン</span>（自分のアカウントで）<br>
+        ③ 画面に出る自分の GitHub の名前をリーダーに伝え、届いた招待のメールで参加する（アプリが気づくので <span class="ui">このリポジトリではじめる</span>）<br>
+        ④ チームのリポジトリが出てこないときは、リーダーに「Life Manager を入れて」と伝える<br>
+        ⑤ 共用の PC で使い終わったら <span class="ui">ログアウト</span></td>
+      <td>トークンやパスワードを人に渡す・もらう・チャットに貼る</td>
+    </tr>
+    <tr>
+      <td><b>リーダー</b><br>（リポジトリの管理者）</td>
+      <td>① チームのリポジトリを作る（組織の中に作るのがおすすめ）<br>
+        ② そのリポジトリに Life Manager を入れる（一度だけ。組織のリポジトリなら、組織の持ち主が入れる）<br>
+        ③ 設定 → 接続 で、届いた名前をまとめて貼って招待する<br>
+        ④ Discord に知らせるときは、Webhook の URL をチームの中だけで伝える</td>
+      <td>メンバーのトークンを作って配る・預かる</td>
+    </tr>
+    <tr>
+      <td><b>組織の持ち主</b><br>（先生など）</td>
+      <td>① Organization を作り、チームのリポジトリとリーダーを決める<br>
+        ② Life Manager を組織に入れて、使うリポジトリを選ぶ（一度だけ）<br>
+        ③ トークンで入る人がいるときは、その人のトークンを 1 本ずつ承認する</td>
+      <td>全員分のトークンをまとめて作って配る</td>
+    </tr>
+  </table>
+  </div>
+  <div class="box hint">
+    <span class="label">「GitHub でログイン」をすすめる理由</span>
+    <p>ログインなら、Life Manager が触れるのは <b>持ち主が選んだリポジトリだけ</b>で、鍵は 8 時間ごとに新しくなり、PC ごとの期限（30 日〜半年）で切れます。組織では、持ち主が <b>Life Manager を一度入れるだけ</b>です。トークン（Fine-grained token）で入ると、組織のはじめの設定では <b>トークン 1 本ごとに持ち主の承認</b>がいり、期限（アプリが開く作成ページでは 90 日）が来るたびに、作り直しと承認がまた必要です。ほかの人の個人のリポジトリは Fine-grained token では選べず、届いた招待もアプリの中では受けられません。</p>
+  </div>
+  <h3>しまってある場所と、やめ方</h3>
+  <p>どれも、使っている PC の資格情報（Windows は資格情報マネージャー、Mac はキーチェーン。名前は <code>life-manager</code>）にしまわれ、ほかの PC には送られません。GitHub のパスワードは、アプリには入れません（GitHub の画面にだけ入れます）。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>もの</th><th>期限</th><th>やめ方・消し方</th></tr>
+    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>鍵は 8 時間ごとに自動で新しくなる。この PC では、選んだ期限（30 日・90 日・半年）まで</td><td>左下のアカウント（か 設定 → トークン）の <span class="ui">ログアウト</span>（この PC から消える）。GitHub での許可は、Settings → Applications → Authorized GitHub Apps → Life Manager App → Revoke</td></tr>
+    <tr><td>トークン（<span class="ui">トークンで入る</span>）</td><td>作るときに決める</td><td><span class="ui">ログアウト</span>。GitHub のトークンの画面で Delete</td></tr>
+    <tr><td>プロジェクト専用のトークン</td><td>作るときに決める</td><td>設定 → トークン の <span class="ui">いつものに戻す</span></td></tr>
+    <tr><td>Discord の Webhook の URL</td><td>なし</td><td>設定 → 通知 で URL を消して <span class="ui">解除</span>。人に漏れたら、Discord でウェブフックを作り直す</td></tr>
+  </table>
   </div>
 </section>
 
 <!-- ============================================================ -->
-<section id="conflict">
-  <h2>競合（コンフリクト）したとき</h2>
-  <p>プル・マージ・チェリーピック・リバート・リベース・退避した変更を戻す などで、同じファイルの同じところが両方で変わっていると、git は自動でまとめられずに止まります。これが競合です。</p>
-  <p>競合が起きると、どの画面にいても「⚠ 競合（コンフリクト）が起きました」の知らせが 1 回だけ出ます。競合したファイル・自動でまとまったファイル・直し方・ファイルに入った印の見本が出て、<span class="ui">作業タブで直す</span> で作業タブに移ります。競合しているあいだは、サイドバーの「作業」に <span class="ui">⚠ 競合</span> が出て、作業タブの上に「〇〇の途中です」と出ます。</p>
-  <h3>マージツールで直す</h3>
-  <ol>
-    <li>作業タブの「競合」の欄のファイルを選ぶと、右に <span class="ui">競合を直す</span> が出ます。競合したか所ごとに、左に<b>今のブランチの側（青）</b>、右に<b>取り込む側（紫）</b>が並びます。</li>
-    <li>か所ごとに <span class="ui">✔ 今のブランチの方を使う</span> か <span class="ui">✔ 取り込む側を使う</span> を押します。使う側は太い枠と「✔ 使う」、捨てる側は薄い打ち消し線と「✖ 捨てる」になります。両方を残すとき（順番も選べます）や、自分で書き直すとき（<span class="ui">自分で書く…</span>）は、下のボタンから選びます。選び直すときは <span class="ui">やり直す</span> を押します。</li>
-    <li>すべてのか所を選ぶと <span class="ui">直したので、ステージする</span> が押せます。印を消して、選んだ内容だけをファイルに書き込み、ステージします（<code>git add</code>。「直した」という合図です）。</li>
-    <li>すべてのファイルを直したら、マージの途中ならコミットすると終わります。リベース・チェリーピック・リバートの途中なら <span class="ui">続ける</span> を押します（<code>git rebase --continue</code> など）。</li>
-  </ol>
+<div class="part-head" id="part-6"><span class="part-no">第 6 部</span>設定と困ったとき</div>
+
+<section id="settings">
+  <h2>設定</h2>
+  <p>設定は、上のタブで「接続」「タスク」「通知」「表示」「トークン」「その他」に分かれています。</p>
+  <h3>トークン</h3>
   <ul>
-    <li><span class="ui">まるごと今のブランチの方に…</span> / <span class="ui">まるごと取り込む側に…</span>: ファイル全体を片方の内容にします（<code>git checkout --ours</code> / <code>--theirs</code>）。画像など文字でないファイルは、これで選びます。片方で消されたファイルは、<span class="ui">消したままにする…</span> も選べます。</li>
-    <li><span class="ui">エディタで開く</span>: いつものエディタで開いて、自分で直すこともできます。直したら <span class="ui">読み直す</span> を押すか、作業タブでファイルにチェックを入れます。</li>
-    <li>リベースでは、左が「付け替え先（取り込み済みの内容）」、右が「自分のコミット」です。退避した変更を戻したときは、左が「今のファイル」、右が「退避していた変更」です。</li>
+    <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
+      <ul>
+        <li><span class="ui">ログインし直す（期限を延ばす）</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます（ログインし直すと、この PC で使う期限も今日から数え直します）。<span class="ui">確かめる</span>: もう一度確かめます。</li>
+        <li><span class="ui">使用するリポジトリを選ぶ</span> / <span class="ui">リポジトリを追加する</span>（ログインしているとき）: GitHub が開き、Life Manager に使わせるリポジトリを選ぶ・足すことができます。足すと、アプリが自分で気づきます。「すべてのリポジトリ」に入れてあるときは、ボタンは出ません。</li>
+        <li>プロジェクトの行の <span class="ui">専用のトークンにする…</span>: そのプロジェクトだけ別のトークンを使います（別のアカウントのリポジトリなど）。<span class="ui">いつものに戻す</span> で外せます。使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。</li>
+        <li>🔴 や 🟡 のときは <span class="ui">直し方</span> を押すと、何をすれば直るかと、そのページを開くボタンが出ます。</li>
+        <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。使うリポジトリの一覧はあなたの分としてしまうので、次に使う別の人には出ません（あなたがもう一度ログインすれば、続きから使えます）。ほかのアカウントが残っていなければ、最初のセットアップの画面になり、GitHub での許可も取り消すときの案内が出ます。</li>
+      </ul>
+    </li>
   </ul>
-  <p>ファイルの中では、競合したところに次のような印が入っています（マージツールは、この印を読んで並べています）。</p>
-  <div class="cmd">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
-今のブランチの内容
-=======
-取り込もうとした内容
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature</div>
-  <h3>捨てた内容を、あとで入れたいとき</h3>
-  <p>捨てた側の内容も、消えてはいません。取り込もうとしたブランチ（やコミット）に、そのまま残っています。ただし、同じブランチをもう一度マージしても、git は「もう取り込んである」と考えるので、捨てた内容は戻ってきません。あとで要るときは、そのブランチのファイルを見て、手で入れてコミットします（多くの現場でも、このやり方です）。</p>
-  <div class="cmd"><span class="c"># feature/udon での menu.txt を見る</span>
-git show feature/udon:menu.txt
-<span class="c"># ファイルまるごと feature/udon の内容にする（今の変更は消えるので注意）</span>
-git restore --source=feature/udon -- menu.txt</div>
-  <p>マージのコミットをする前なら、マージツールの <span class="ui">やり直す</span> で選び直せます。やめたいときは <span class="ui">〇〇を中止…</span> を押すと、始める前の状態に戻ります（<code>git merge --abort</code> など）。</p>
+  <p>ログアウトは、左下のアカウントのメニューからもできます。</p>
+  <h3>接続</h3>
+  <p>今のリポジトリのチーム（招待・メンバー）をまとめています。リポジトリの追加・切り替え・この PC のフォルダは、左上のリポジトリから行います（上の <span class="ui">＋ リポジトリを追加…</span> からも開けます）。</p>
+  <ul>
+    <li><b>参加の案内</b>（管理者）: メンバーに送る文（ダウンロード先・ログイン・名前を伝える・招待を受けるリンク）を <span class="ui">案内をコピー</span> でコピーして、チャットなどに貼ります。</li>
+    <li><b>招待する</b>（今のリポジトリの管理者だけ）: メンバーから届いた GitHub の名前を、改行・カンマ・空白で区切って何人でも貼り、<span class="ui">招待を送る</span>。1 人ずつ「招待しました」「もうこのリポジトリを使えます」「その名前の人は GitHub にいません」などの結果が出ます。うまくいかなかった名前は欄に残るので、直して送り直せます。組織のリポジトリでは権限（書き込み・運営・整理・読むだけ・管理）を選べます。</li>
+    <li><b>送った招待</b>（管理者だけ）: まだ受けていない招待。<span class="ui">リンクをコピー</span>（招待を受けるページの URL。チャットで送る用）・<span class="ui">取り消す</span>。招待は 7 日で切れ、切れたものは <span class="ui">送り直す</span>。</li>
+    <li><b>メンバー</b>: このリポジトリを使える人と権限。管理者は、行の <span class="ui">外す</span> → その行に出る確かめで <span class="ui">外す</span> を押すと、メンバーから外せます（持ち主と自分の行には出ません）。外した人は、このリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。組織のリポジトリで、組織のメンバーとしてまだ使える人は、組織の画面（People・Teams）で外します。</li>
+    <li>管理者でないときは、リーダーに伝える自分の名前（<span class="ui">コピー</span>）が出ます。</li>
+    <li>自分で作ったトークン（Fine-grained token）で入っているときは、招待する・送った招待を見る・取り消すのに、トークンの「Administration」の権限（Read and write）がいります。足りないときは、その旨と直し方が出ます（<span class="ui">GitHub でログイン</span> なら要りません）。</li>
+    <li><b>あなた宛ての招待</b>（下のほう）: トークンで入ったときなど、アプリから見える招待が出ます（<span class="ui">断る</span>、組織への招待は <span class="ui">GitHub で参加</span>）。「GitHub でログイン」では、まだ参加していないリポジトリの招待はここに出ないので、メールの <span class="ui">View invitation</span> から受けます。</li>
+  </ul>
+  <h3>タスク</h3>
+  <p>チームで一つの決まりをまとめています（リポジトリに置き、GitHub に送ります）。</p>
+  <ul>
+    <li><b>見積もりの単位</b>: ポイント・時間・日・人月（「<a href="#estimate">見積もり</a>」）。</li>
+    <li><b>ボードの区画</b>: 状態ごとの区画を、どちらのボード（未整理・着手済み）に置くか・並び・外す・足す。変えたら <span class="ui">保存</span>（<span class="ui">元に戻す</span> でやめられます）。ボードの <span class="ui">⚙ 区画の設定</span> からも開けます。</li>
+    <li><b>ラベル管理</b>: ラベルの一括作成・作成・編集・削除。</li>
+  </ul>
+  <h3>通知</h3>
+  <ul>
+    <li><b>Discord Webhook 通知</b>: Discord のチャンネルに通知を送るための URL を決めます。Discord のチャンネルの設定 → 連携サービス → ウェブフック で作った URL を貼り付け、<span class="ui">テスト送信</span> で確かめます。</li>
+    <li><b>通知スケジュール</b>: 今日のタスク一覧・期限超過・全体のまとめ・自由なメッセージを、決まった時刻に送ります（OS の通知 / Discord）。</li>
+    <li><b>イベント通知</b>: Issue を作った・閉じた・状態を変えた などのときに知らせるかを決めます。</li>
+  </ul>
+  <h3>表示</h3>
+  <ul>
+    <li><b>テーマ</b>: 黒板（暗い色。はじめはこれ）/ ホワイトボード（明るい色）/ クエスト（木と羊皮紙の色）。アプリ全体の色が変わり、ボードと、ボードの下の机もテーマのものになります（黒板 = 勉強机、ホワイトボード = オフィスのデスク、クエスト = ギルドの受付）。</li>
+    <li><b>学習の補助（解説を表示する）</b>: ステージ・コミット・退避などの意味と、対応する git のコマンドの解説を、画面に出すかどうか。</li>
+    <li><b>全体図でのブランチの見せ方</b>: ラベル / 線。</li>
+    <li><b>ガントの帯の色</b>: デフォルト・進行中・ブロック・完了・クリティカルパス・優先:高 の色。<span class="ui">はじめの色に戻す</span> で戻せます。ガントの <span class="ui">⚙ 色の設定</span> からも開けます。</li>
+    <li><b>サイドバーの位置</b>: 左（はじめはこれ）/ 右 / 上 / 下。上・下にすると、横に並んだ帯になります。</li>
+    <li><b>メモのボタン（📝）</b>: 右上 / 右下 / 左上 / 左下（はじめはこれ）/ 隠す（<kbd>Ctrl</kbd>＋<kbd>M</kbd> だけで開く）。</li>
+    <li><b>画面の動き</b>: ふつう（はじめはこれ）/ 少なめ。ふつうでは、動いた向きで動きが変わります（「<a href="#screen">画面の構成</a>」の章の「画面の動き」）。少なめにすると、画面はうすく出るだけになります。OS で「視差効果を減らす」（アニメーションを減らす）にしているときも、少なめになります。</li>
+  </ul>
+  <h3>その他</h3>
+  <ul>
+    <li><b>この PC の git</b>（PC のみ）: 使う git の版と、<span class="ui">使う準備を確かめる</span>（Git のインストール・コミットに使う名前）。Git が見つからないときは <span class="ui">Git をインストールする…</span>（「<a href="#prepare">使う準備</a>」）。</li>
+    <li><b>Actions の「はじめる準備」に出すもの</b>: 今のリポジトリの Actions の画面に出す勧め（ワークフローを置く・Dependabot のお知らせ・コードスキャン）。<span class="ui">今は使わない</span> で隠したものは、チェックを入れると また出ます。</li>
+    <li><b>バージョン</b>（PC のみ）: 今のバージョンと <span class="ui">新しいバージョンを確かめる</span>。新しいバージョンがあれば <span class="ui">今すぐ更新</span>。</li>
+    <li><b>フィードバック</b>: バグの報告や機能の要望を、メールで送ります。</li>
+    <li><b>マニュアルを開く</b>: このマニュアルを開きます。</li>
+  </ul>
 </section>
 
-<!-- ============================================================ -->
+<section id="palette">
+  <h2>コマンドパレット</h2>
+  <p><kbd>Ctrl</kbd>＋<kbd>K</kbd> で開きます。キーボードだけで、すばやく操作できます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>入力</th><th>すること</th><th>例</th></tr>
+    <tr><td><code>m 文字</code></td><td>クイックメモを作る</td><td><code>m 牛乳を買う</code></td></tr>
+    <tr><td><code>#番号</code></td><td>番号で Issue を探す</td><td><code>#42</code></td></tr>
+    <tr><td><code>@ラベル</code></td><td>ラベルで絞り込む</td><td><code>@分野:仕事</code></td></tr>
+    <tr><td>そのほかの文字</td><td>タイトル・本文を探す</td><td><code>バグ修正</code></td></tr>
+  </table>
+  </div>
+  <p><kbd>Enter</kbd> で実行、<kbd>Esc</kbd> で閉じます。</p>
+</section>
+
+<section id="offline">
+  <h2>つながらないとき（オフライン）</h2>
+  <p>電車の中など、インターネットにつながらないところでも、最後に読み込んだ Issue・設定・日誌を見たり、変えたりできます。変えた内容はこの端末に置いておき（送信待ち）、つながったら順に GitHub に送ります。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>表示</th><th>意味</th></tr>
+    <tr><td>上の <span class="ui">オフライン</span></td><td>GitHub につながっていません。最後に読み込んだ内容を表示しています。</td></tr>
+    <tr><td>上の <span class="ui">未送信 2</span></td><td>まだ GitHub に送っていない変更が 2 件あります。押すと、一覧と <span class="ui">今すぐ送る</span> が出ます。</td></tr>
+    <tr><td>上の <span class="ui">確認 1</span></td><td>送るときに、GitHub 側の変更とぶつかったもの（または送れなかったもの）があります。押して、どうするか決めてください。</td></tr>
+    <tr><td>カードの <span class="ui">未送信</span></td><td>その Issue（コメント）に、まだ送っていない変更があります。</td></tr>
+    <tr><td><code>仮1</code> のような番号</td><td>つながらないあいだに作った Issue です。GitHub に送ると、本当の番号（<code>#67</code> など）に変わります。本文の <code>#仮の番号</code> への参照・ガントの先行タスク・リマインダーも、一緒に本当の番号に直ります。</td></tr>
+  </table>
+  </div>
+  <h3>つながらないあいだにできること</h3>
+  <ul>
+    <li>Issue・メモを作る。タイトル・本文・ラベル・担当者・マイルストーンを変える。閉じる・開き直す。コメントする。</li>
+    <li>ルーチン・通知スケジュール・イベント通知・リマインダー・ボードの設定を保存する。</li>
+    <li>日誌のノートを保存する（一度開いたことのある日誌だけ）。日誌の作成は、つながってから行われます（夜の自動作成も同じ）。</li>
+    <li>リマインダーと通知スケジュールの <strong>OS の通知</strong> は、つながらないあいだも出ます。ルーチンの Issue も、決めた時刻に送信待ちとして作られます。</li>
+  </ul>
+  <p>送るのは、つながったとき（送っていない変更があるあいだは、アプリが 30 秒ごとに確かめます）か、<span class="ui">今すぐ送る</span> を押したときです。Discord などへのお知らせも、GitHub に送れたときに、送れたあとの番号で出します。</p>
+  <p>ラベル・マイルストーンの作成・変更は、つながっているときに行ってください。</p>
+  <h3>GitHub 側でも変えられていたとき</h3>
+  <p>送る前に、GitHub の今の内容と比べます。まとめられるものは、自動でまとめます。</p>
+  <ul>
+    <li>ラベル・担当者・リマインダーは、足したもの・外したものだけを当てるので、両方の変更が残ります。</li>
+    <li>本文・日誌のノートは、git のマージと同じように行ごとに比べます。別々の行を変えていれば、両方の変更が残ります。チェックボックスの付け外しだけなら、GitHub 側の新しい本文に同じ付け外しをします。</li>
+    <li>同じところを両方で別の内容に変えていたときは、<span class="ui">確認</span> に並びます。</li>
+  </ul>
+  <p><span class="ui">確認</span> を開くと、ぶつかったところを 1 件ずつ見せます。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>ボタン</th><th>すること</th></tr>
+    <tr><td><span class="ui">GitHub の内容を残す</span></td><td>自分の変更は送りません。</td></tr>
+    <tr><td><span class="ui">自分の変更で上書き</span></td><td>自分の変更を、GitHub の内容と比べずに送ります。</td></tr>
+    <tr><td><span class="ui">自分の変更</span> / <span class="ui">GitHub</span> / <span class="ui">両方</span></td><td>本文・ノートで、ぶつかったところごとに残す方を選びます。全部選ぶと <span class="ui">選んだ内容で送る</span> が押せます。</td></tr>
+    <tr><td><span class="ui">手で直す…</span></td><td>まとめた文章を自分で直して送ります。まだ選んでいないところには、git の競合と同じ印（<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> ・ <code>=======</code> ・ <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>）が入ります。印の行を消してから送ってください（「<a href="#conflict">競合したとき</a>」と同じ考え方です）。</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="faq">
+  <h2>よくある質問・困ったとき</h2>
+  <dl class="qa">
+    <dt>上の「未送信」がなかなか消えません</dt>
+    <dd>まだ GitHub につながっていないか、トークンが無効になっているかもしれません。<span class="ui">未送信</span> を押すと、送れなかった理由が出ます。トークンが無効のときは、設定 → トークン で、ログインし直すかトークンを入れ直してください（「<a href="#offline">つながらないとき</a>」）。</dd>
+    <dt>「git が見つかりません」と出ます</dt>
+    <dd>Git が入っていません。設定 → その他 の「この PC の git」の <span class="ui">Git をインストールする…</span> から入れてください。入れたあとも見つからないときは、アプリを開き直してください。</dd>
+    <dt>プッシュやプルで「GitHub へのログインが必要です」と出ます</dt>
+    <dd>この PC の git が、まだ GitHub にログインしていません。Windows では、はじめてのプッシュのときにログインの画面（ブラウザ）が出ることがあります。出ないときは、<span class="ui">その他 ▾</span> → <span class="ui">このフォルダでターミナルを開く</span> で、同じ操作（<code>git push</code> など）を一度打ってログインしてください。</dd>
+    <dt>プッシュが「拒否された（rejected）」と出ます</dt>
+    <dd>GitHub の方に、まだ取り込んでいないコミットがあります。先に <span class="ui">⬇ プル</span> で取り込んでから、もう一度プッシュしてください。</dd>
+    <dt>コミットできません</dt>
+    <dd>コミットするファイルにチェック（ステージ）が入っているかを確かめてください。「名前とメールアドレスが決まっていません」と出るときは、設定 → その他 の「この PC の git」の <span class="ui">使う準備を確かめる</span> から決めてください。</dd>
+    <dt>作業フォルダに選べません</dt>
+    <dd>選べるのは、そのリポジトリをクローンしたフォルダだけです。まだ PC にない場合は、左上のリポジトリの <span class="ui">⋯</span> → <span class="ui">この PC にクローンする…</span> を使ってください。</dd>
+    <dt>学校の PC で Git がインストールできません</dt>
+    <dd>インストールには PC の管理者の確認が必要です。PC の管理者に Git のインストールを頼んでください（<a href="https://git-scm.com/downloads">https://git-scm.com/downloads</a>）。</dd>
+    <dt>データはどこに保存されますか？</dt>
+    <dd>すべて GitHub のリポジトリ（Issue・マイルストーン・ラベル）に保存されます。ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。アプリを消しても、データは GitHub に残ります。作業フォルダの場所や表示の設定は、この PC だけに保存されます。</dd>
+    <dt>画面の上に「トークンの期限が…」「トークンが使えません」と出ます</dt>
+    <dd>設定 → トークン で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、この PC で使う期限（30 日・90 日・半年）が近づくと知らせが出ます。<span class="ui">ログインし直す（期限を延ばす）</span> を押すと、今日から数え直します。</dd>
+    <dt>学校の PC で使い終わったら？</dt>
+    <dd>左下のアカウントを押して <span class="ui">ログアウト</span>（か 設定 → トークン の <span class="ui">ログアウト</span>）を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications → Authorized GitHub Apps から Life Manager App を取り消します（ログアウトのあとの画面にも案内が出ます）。</dd>
+    <dt>チームのリポジトリが一覧に出てきません</dt>
+    <dd>招待を受けているか（メールの「Accept invitation」）、リーダー（組織なら組織の持ち主）がそのリポジトリに Life Manager を入れているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
+    <dt>複数のリポジトリを使えますか？</dt>
+    <dd>使えます。左上のリポジトリの <span class="ui">＋ リポジトリを追加…</span> で足し、同じ一覧から切り替えます。作業フォルダも、リポジトリごとに（一覧の <span class="ui">⋯</span> から）決められます。</dd>
+    <dt>ガントチャートに帯が出ません</dt>
+    <dd>Issue の詳細の <b>設定</b> のタブの <b>日程</b> で、開始日と終了日を決めてください。見積もりを付けるだけでも、仮の帯（点線）で出ます（「<a href="#gantt-tentative">見積もりから仮の日程を置く</a>」）。</dd>
+    <dt>オフラインで使えますか？</dt>
+    <dd>使えます。つながらないあいだも、最後に読んだ内容を見られ、Issue の作成・変更・コメントは送信待ちになって、つながったら送られます（「<a href="#offline">つながらないとき</a>」）。git の作業（ステージ・コミットなど）は PC の中で行えますが、プッシュ・プル・フェッチには接続が必要です。</dd>
+      <dt>スマホに Discord の通知が届きません</dt>
+    <dd>Android の電池の節約で、Discord の知らせが止められていることがあります。スマホの Discord の設定で、電池の使い方を「制限なし」にしてください。PC の Discord を開いたままだと、スマホへの知らせが出ないこともあります（PC の Discord を閉じると届きます）。</dd>
+  </dl>
+</section>
+
 <section id="glossary">
   <h2>git のことば</h2>
   <dl class="terms">
@@ -1286,549 +1859,6 @@ git restore --source=feature/udon -- menu.txt</div>
   </dl>
 </section>
 
-<!-- ============================================================ -->
-<section id="tasks">
-  <h2>タスク</h2>
-  <p>タスク（Issue）の確認・作成・管理を行う、メインの画面です。</p>
-  <h3>クイックメモ</h3>
-  <p>画面の角の <span class="ui">📝</span> を押すか、<kbd>Ctrl</kbd>＋<kbd>M</kbd> で小さな欄が開きます（どの画面からでも使えます）。文字を入れて <kbd>Enter</kbd> で投入し、そのまま続けて書けます。<kbd>Esc</kbd> か、欄の外を押すと閉じます（書きかけは残ります）。メモは、今のリポジトリの Issue（<code>種別:メモ</code>・<code>状態:未整理</code>）として登録され、タスクの一覧に出ます。</p>
-  <ul>
-    <li>分野は、そのリポジトリの「分野:」のラベルから選びます（前に選んだものを覚えます。「なし」も選べます）。</li>
-    <li><span class="ui">📝</span> を置く角は、設定 → 表示 の「メモのボタン」で 右上・右下・左上・左下・隠す から選べます（はじめは左下）。サイドバーや上のバーにはかぶらない所に出て、たたんだサイドバーが端から出てきたときは、押し出されて動きます。「隠す」にすると、ボタンは出さず、<kbd>Ctrl</kbd>＋<kbd>M</kbd> で画面の上のほうに欄が開きます。マウスを乗せると大きくなります。</li>
-    <li>ほかの欄で文字を打っているあいだは、じゃまにならないよう画面の外へよけ、打つのをやめると戻ってきます。<span class="ui">☑ 選ぶ</span> の帯が出ているあいだも、よけます。</li>
-    <li>Issue の詳細やダイアログを重ねて開いているあいだは、<kbd>Ctrl</kbd>＋<kbd>M</kbd> は効きません（閉じてから使います）。</li>
-  </ul>
-  <h3>Issue を作る</h3>
-  <p><span class="ui">＋ イシュー作成</span> から、くわしい Issue を作れます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>項目</th><th>説明</th></tr>
-    <tr><td>タイトル</td><td>Issue の題名（必須）</td></tr>
-    <tr><td>本文</td><td>くわしい説明。マークダウンが使えます</td></tr>
-    <tr><td>ラベル</td><td>分類のラベル（複数選べます）</td></tr>
-    <tr><td>マイルストーン</td><td>結びつける目標</td></tr>
-    <tr><td>担当者</td><td>担当する人</td></tr>
-  </table>
-  </div>
-  <p>「＋ タスク項目」で、チェックボックスつきの項目（<code>- [ ]</code>）を本文に入れられます。</p>
-  <h3>テンプレート</h3>
-  <p>フォームのいちばん上で <span class="ui">テンプレート</span> を選ぶと、題名の頭・本文・ラベルが入ります（あとから直せます）。本文に自分で書いた内容があるときは、本文は入れ替えません。</p>
-  <ul>
-    <li>テンプレートは GitHub と同じもので、リポジトリの <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルです。GitHub の「New issue」でも同じものが出ます。</li>
-    <li>まだテンプレートがないリポジトリでは、見本の 3 つ（🐞 バグ報告・✅ やること・🔍 調べもの）が使えます。<span class="ui">このリポジトリに置く</span> を押すと、3 つのファイルを 1 つのコミットにして GitHub のリポジトリに置きます（作業タブでプルすると、手元にも来ます）。</li>
-    <li>中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。先頭の <code>---</code> で囲んだところに、名前（<code>name</code>）・説明（<code>about</code>）・題名の頭（<code>title</code>）・ラベル（<code>labels</code>）を書きます。</li>
-  </ul>
-  <div class="cmd"><span class="c"># .github/ISSUE_TEMPLATE/bug.md の例</span>
----
-name: "🐞 バグ報告"
-about: "動かない・おかしい"
-title: "[バグ] "
-labels: ["種別:バグ", "状態:未整理"]
----
-## 何が起きたか</div>
-  <h3>絞り込み</h3>
-  <p>上の行の左端の検索欄で、タイトル・本文・番号で探せます。そのとなりの <span class="ui">フィルタ</span> を押すと、種別・分野・状態・優先・見積・担当者・マイルストーン・表示（オープンのみ・クローズのみ・両方）の一覧が開き、押すとすぐに一覧に反映されます。<span class="ui">更新</span> と <span class="ui">＋ イシュー作成</span> は、同じ行の右端にあります。</p>
-  <ul>
-    <li>ラベル（種別・分野など）は複数選べます。2 つ以上選ぶと、<span class="ui">どれか</span>（選んだラベルのどれかが付いている）と <span class="ui">すべて</span>（選んだラベルがすべて付いている）を切り替えられます。</li>
-    <li>種類どうし（たとえば「分野」と「状態」）は、両方に当てはまるものだけが出ます。</li>
-    <li>かけている絞り込みは、<span class="ui">フィルタ</span> の数と、下の小さなチップで分かります。チップの <span class="ui">×</span> で外せ、<span class="ui">すべて外す</span> でまとめてやめます。</li>
-  </ul>
-  <h3>並び・期限</h3>
-  <ul>
-    <li><span class="ui">並び</span>: 新しい順・古い順・更新が新しい順・優先度順（高 → 中・なし → 低）・期限が近い順。次に開いたときも同じ並びです。</li>
-    <li>カードの <b>📅 10/10（あと 12 日）</b> が期限です。期限は、ガントの終了日、なければマイルストーンの期限です。3 日以内は黄色、過ぎたら赤で <b>⚠ 9/25（3 日超過）</b> と出ます。</li>
-  </ul>
-  <h3>見せ方・まとめ方</h3>
-  <ul>
-    <li><b>左に一覧・右に詳細</b>（PC で窓が広いとき・カードのとき）: 一覧が左に、押したタスクの詳細が右に出ます（重ねて開かないので、閉じる手間がありません）。<kbd>↑</kbd><kbd>↓</kbd> で上下のタスクに移れます（文字を打つ欄にいるときは効きません）。左右の境目をドラッグすると幅を変えられます。選んだタスクと幅は、次に開いたときも同じです。右上の <span class="ui">×</span> で右を空にします。窓が狭いとき・スマホ・表のとき、ほかの画面から開くときは、今まで通り詳細を重ねて出します。</li>
-    <li><span class="ui">カード｜表</span>: 表にすると、1 行に 1 件で 番号・題・状態・優先・担当・マイルストーン・期限 が並びます（窓の横いっぱいに広がります）。行を押すと詳細が開きます（<span class="ui">☑ 選ぶ</span> のあいだは、押すと選べます）。</li>
-    <li><span class="ui">まとめる</span>: なし・親子・状態・優先・分野・担当・マイルストーン。まとまりごとに見出しと件数が出ます。
-      <b>親子</b>は、サブイシュー（子）を親のすぐ下に字下げして並べます（「<a href="#issue">Issue の詳細</a>」）。
-      <b>状態</b>はボードの列の順に並び、閉じた Issue は「完了」にまとまります。</li>
-    <li>見せ方とまとめ方も、次に開いたときに同じになります。</li>
-  </ul>
-  <h3>保存した見方</h3>
-  <p>絞り込み・並び・まとめ方・カードか表か、をまとめて名前を付けて保存できます。<span class="ui">保存した見方 ▾</span> から選ぶと、その見方に切り替わります。今の設定と同じ見方があるときは、ボタンにその名前が出ます。</p>
-  <ul>
-    <li><b>保存</b>: 名前を入れて <span class="ui">保存</span>。同じ名前があれば <span class="ui">上書き保存</span> になります。</li>
-    <li><b>名前を変える・消す</b>: 保存した見方を選んでいるときに使えます。</li>
-    <li>マイルストーンの絞り込みも見方に入ります（例: 「0.5.0 の残り」＝マイルストーン 0.5.0・オープンのみ・期限が近い順）。</li>
-    <li>見方はリポジトリの <code>config/views.yaml</code> に保存され、GitHub に送られます。<b>チームの全員が同じ見方を使えます</b>。担当を「自分」にして保存した見方は、開いた人の担当に読み替わります。</li>
-    <li>二人が同時に見方を足したときは、両方とも残ります。つながらないあいだの保存は、送信待ちになります（「<a href="#offline">つながらないとき</a>」）。</li>
-  </ul>
-  <h3 id="analytics">オーバービュー（いまの状況）</h3>
-  <p>サイドバーのホームの <b>📈 オーバービュー</b> で、Issue の数字と図を見ます（タスクの一覧が見やすいよう、一覧の上からこちらへ移しました）。上の <span class="ui">マイルストーン</span>・<span class="ui">担当</span>・<span class="ui">分野</span> で絞り込めます（次に開いたときも同じ。<span class="ui">絞り込みを外す</span> で全部に戻ります）。下には「<a href="#sprint">チームのペース</a>」も出ます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>項目</th><th>中身</th></tr>
-    <tr><td>開いている</td><td>開いている Issue の数と、見積もりの合計（設定の単位。「<a href="#estimate">見積もり</a>」）</td></tr>
-    <tr><td>期限切れ・3 日以内</td><td>期限（ガントの終了日、なければマイルストーンの期限）を過ぎた Issue と、今日から 3 日以内の Issue。番号を押すと詳細が開きます</td></tr>
-    <tr><td>担当なし</td><td>担当の決まっていない Issue の数と見積もり</td></tr>
-    <tr><td>状態ごと</td><td>状態の割合（ボードの列の順）</td></tr>
-    <tr><td>担当ごと</td><td>人ごとの Issue の数と見積もり（負担の偏りが分かります）。2 人で担当している Issue は、2 人ともに数えます</td></tr>
-    <tr><td>8 週の流れ</td><td>週（月曜から）ごとに、作った Issue と閉じた Issue の数。閉じた数が作った数を上回っていれば、残りが減っています</td></tr>
-  </table>
-  </div>
-  <p>数えるのは開いている Issue です。8 週の流れだけは閉じた Issue も入れます。</p>
-  <h3 id="estimate">見積もり</h3>
-  <p>タスクの大きさ（かかる時間）を付けます。単位はチームで一つ選びます（設定 → タスク の <span class="ui">見積もりの単位</span>）。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>単位</th><th>押して選べる数</th><th>考え方</th></tr>
-    <tr><td>ポイント（はじめはこれ）</td><td>1pt・2pt・3pt・5pt・8pt</td><td>時間ではなく、ほかのタスクと比べた大きさ。最初は 1pt＝1 時間ほど・2pt＝半日・3pt＝1 日・5pt＝2〜3 日・8pt＝1 週間近い（分けることを考える）を目安に、慣れたらチームで決めた基準のタスクと比べて付けます</td></tr>
-    <tr><td>時間</td><td>1・2・4・8・16 時間</td><td>実際にかかると思う時間</td></tr>
-    <tr><td>日</td><td>0.5・1・2・3・5 日</td><td>1 人が働いてかかる日数（1 日＝8 時間）</td></tr>
-    <tr><td>人月</td><td>0.25・0.5・1・2・3 人月</td><td>1 人が 1 か月（20 日・160 時間）働く量。大きな作業の計画向き</td></tr>
-  </table>
-  </div>
-  <ul>
-    <li><b>付け方</b>: Issue の詳細の <b>設定</b> のタブの <span class="ui">見積もり</span>（<span class="ui">ほかの数</span> に打って <kbd>Enter</kbd> で、並んでいない数も付けられます）、作るときの <span class="ui">📏 見積もり</span>、まとめて変える帯の <span class="ui">見積もり…</span> から。<span class="ui">なし</span>（または <span class="ui">（外す）</span>）で外します。ボタンにマウスを乗せると、その数の目安が出ます。</li>
-    <li>GitHub には、ラベル <code>見積:3pt</code>・<code>見積:2時間</code>・<code>見積:0.5日</code>・<code>見積:1人月</code> の形で付きます（1 つの Issue に 1 つだけ）。GitHub の画面でも見え、絞り込めます。ラベルがまだなければ、付けたときに作ります。</li>
-    <li><b>出る所</b>: カードの <b>📏 3pt</b>、表の「見積」の列、まとまりの見出し・一覧の件数・ボードの列の <b>見積 8pt</b>（合計）、マイルストーンの <b>見積 5/13pt</b>（閉じた分／全部）。見積もりのない Issue があるときは「（見積もりなし 1 件）」と添えます。</li>
-    <li><b>合計の単位</b>: 設定の単位で数えます。時間・日・人月どうしは、1 日＝8 時間、1 人月＝20 日で換算して足します。ポイントと時間の単位は換算できないので、「（単位の違う見積もり 2 件は数えていません）」と出ます。途中で単位を変えても、付けてある見積もりのラベルはそのままです。</li>
-    <li>絞り込みの <span class="ui">見積</span> で、見積もりの数で絞れます。</li>
-  </ul>
-  <h3>まとめて変える</h3>
-  <p><span class="ui">☑ 選ぶ</span> を押すと、カードを押して選べるようになります（<span class="ui">全部選ぶ</span> もあります）。下の帯で、選んだ Issue をまとめて 完了・再開・状態・ラベル・見積もり・マイルストーン・担当 に変えられます。<span class="ui">やめる</span> か <kbd>Esc</kbd> で元に戻ります。</p>
-  <h3>Issue の操作</h3>
-  <ul>
-    <li>カードをクリック: Issue の詳細を開きます。</li>
-    <li>状態の変更: 進行中・ブロックなどに変えます。</li>
-    <li><span class="ui">完了</span>: Issue を閉じます。</li>
-  </ul>
-</section>
-
-<!-- ============================================================ -->
-<section id="board">
-  <h2>ボード</h2>
-  <p>Issue を、状態ごとの板に付箋（クエストボードでは依頼書）として貼って見る画面です。作業タブの流れでも、状態が動きます: <b>① で始める → 進行中</b>（自分が担当に）、<b>プルリクを作る → チェック待ち</b>（つないだ Issue）、<b>マージ → 完了</b>（<code>Closes #N</code> でクローズ）。</p>
-  <h3>2 つのボード（タブ）</h3>
-  <div class="table-wrap">
-  <table>
-    <tr><th>ボード</th><th>板（区画）</th><th>使い方</th></tr>
-    <tr><td>📥 未整理</td><td>未整理・未着手・いつか</td><td>整理して、やることを決める</td></tr>
-    <tr><td>🔥 着手済み</td><td>進行中・チェック待ち・動作確認・完了承認待ち</td><td>やっていることを追う</td></tr>
-  </table>
-  </div>
-  <ul>
-    <li>状態ごとに別の板が掛かっていて、付箋をドラッグして別の板に貼り替えると、状態が変わります。もう一方のボードのタブに落とすと、そちらへ移せます（未整理 → 着手済みは「進行中」、着手済み → 未整理は「未着手」）。スマホでは、付箋の <span class="ui">移動</span> から選びます。</li>
-    <li>空の板には、どうすれば入るかが出ます（進行中は「作業タブで始めると、ここに入ります」、チェック待ちは「プルリクを作ると、ここに入ります」）。</li>
-    <li>付箋には、題名・期限（過ぎていたら「期限切れ」）・見積もり・分野・担当（自分は色つき）と、<b>✏️ 作業中</b>（作業タブで取り組んでいる Issue）・<b>🔃 #2 レビュー待ち</b>（つないだプルリクと、その進み: 下書き・レビュー待ち・承認済み・修正の依頼。押すとプルリクが開きます）が出ます。付箋を押すと、Issue の詳細が開きます。</li>
-    <li>上の <span class="ui">フィルタ</span> はタスク一覧と同じです（種別・分野・優先・見積・担当者・マイルストーン）。<span class="ui">自分の担当だけ</span> で、自分の付箋だけにできます。</li>
-    <li>見た目は、アプリのテーマ（設定 → 表示 の「テーマ」）のボードになります: <span class="ui">黒板</span>（黒板に付箋）・<span class="ui">ホワイトボード</span>（会議のホワイトボードに付箋。種別で付箋の色）・<span class="ui">クエスト</span>（木とコルクの板に依頼書。見積もりは報酬と難しさの星、自分の担当は「受注」の判）。開いていたボード（タブ）は、この PC に覚えておきます。</li>
-    <li>ボードの下の <b>机</b>（黒板は勉強机、ホワイトボードはオフィスのデスク、クエストはギルドの受付）に付箋をドラッグすると、<b>自分の担当</b>になります（状態はそのまま）。置けるのは担当のない付箋だけで、ほかの人の担当の付箋は「◯◯ の担当です」と出て置けません。机の上には自分の担当の付箋が並び、押すと詳細が開きます（ドラッグで区画へも移せます）。スマホでは、付箋の <span class="ui">移動</span> の <span class="ui">🙋 自分の担当にする</span> で担当になります。</li>
-    <li>区画をどちらのボードに置くか・並び・外す・足すは、設定 → タスク の「ボードの区画」で決めます（ボードの <span class="ui">⚙ 区画の設定</span> で開きます）。チームで一つの決まりで、リポジトリの <code>config/board.yaml</code> に置きます。板の見出しの <b>見積 8pt</b> は、その板のタスクの見積もりの合計です（「<a href="#estimate">見積もり</a>」）。</li>
-  </ul>
-</section>
-
-<!-- ============================================================ -->
-<section id="milestones">
-  <h2>マイルストーン</h2>
-  <p>期限つきの目標を管理します。Issue をマイルストーンに結びつけると、目標に対する進み具合が見えます。</p>
-  <ol>
-    <li><span class="ui">＋ マイルストーン</span> を押します。</li>
-    <li>名前（必須）・説明・開始日・期日を入れて、<span class="ui">作成</span> を押します。</li>
-  </ol>
-  <p>カードには、完了した Issue の割合（進捗バー）、完了数 / 全体の数、期日が出ます。見積もりの付いた Issue があれば、<b>見積 5/13pt</b>（閉じた Issue の見積もりの合計／全部の合計）も出ます。</p>
-  <h3 id="sprint">スプリントとして使う（バーンダウン・ベロシティ・サイクルタイム）</h3>
-  <p>マイルストーンを、決まった期間で区切った作業のまとまり（スプリント）として使えます。<b>開始日</b>から<b>期日</b>までがスプリントの期間です。開始日は <span class="ui">編集</span> で決めます（説明の最後に「開始: 2026-09-28」の形で書かれ、GitHub の画面でも読めます）。決めていなければ、マイルストーンを作った日から数えます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>ところ</th><th>中身</th></tr>
-    <tr><td>バーンダウン（カードを開く）</td><td>残りの量が日ごとにどう減ったかの図。点線は理想（期日にちょうど 0）。<b>残り</b>・<b>経過</b>（何日目か）・<b>このペースだと</b>（今の減り方で終わる日と、期日より何日遅れそうか）も出ます。途中で足した Issue の分は、線が上がります</td></tr>
-    <tr><td>チームのペース（<a href="#analytics">オーバービュー</a>）</td><td><b>ベロシティ</b>: 終わったマイルストーン（閉じた・期日を過ぎた・Issue が全部閉じた）ごとに終えた量。最近 5 つの平均が「次のスプリントに入れる量の目安」です。<br><b>サイクルタイム</b>: 「状態:進行中」にしてから閉じるまでの日数（真ん中の値と分け方）。作ってから閉じるまで（リードタイム）も出ます</td></tr>
-    <tr><td>目安（カードの右下）</td><td>まだ終わっていないマイルストーンに入れた量を、目安と比べます。目安より 1 割以上多いと黄色になります</td></tr>
-  </table>
-  </div>
-  <ul>
-    <li>量は、見積もり（設定の単位）で数えます。マイルストーンの画面の上（またはオーバービューのチームのペース）の <span class="ui">見積もり｜件数</span> で、件数で数えるのに切り替えられます（どちらで変えても同じ。次に開いたときも同じ）。見積もりで数えるとき、見積もりを 1 つも付けていないマイルストーンはベロシティに入れません。</li>
-    <li>Issue がいつマイルストーンに入ったかは GitHub から分からないので、作った日（開始日より前なら開始日）から数えます。</li>
-    <li>サイクルタイムは、閉じた Issue の変更の履歴を読んで数えます（最近の 40 件まで。読んだ結果は覚えておくので、2 回目からは速くなります）。つながっているときだけ読めます。</li>
-  </ul>
-</section>
-
-<!-- ============================================================ -->
-<section id="gantt">
-  <h2>ガントチャート</h2>
-  <p>マイルストーンの中の Issue を、日程の帯で見る画面です。</p>
-  <ul>
-    <li>上のプルダウンでマイルストーンを選びます（前に選んだものを覚えています。はじめて開いたときは、いちばん近い開いたマイルストーンが出ます）。選ぶと、今日が見える所まで送ります。</li>
-    <li>開始日・終了日が決まっている Issue が、帯で表示されます。帯をドラッグすると日程を動かせ、端をドラッグすると長さを変えられます。</li>
-    <li>担当者・状態・分野で絞り込めます。表示の単位は 日・週・月 から選べます。<span class="ui">今日</span> で今日に移ります。</li>
-    <li>先行タスク（依存）を決めると、矢印でつながります。クリティカルパス（遅れると全体が遅れる流れ）は赤く表示されます。</li>
-    <li>マイルストーンに期限があれば、その日の終わりに赤い点線（<b>期限 10/17</b>）を引きます。</li>
-    <li>左の一覧には、見積もり（<b>2日</b> など）が出ます。日程も見積もりもない開いた Issue には「日程・見積もりなし」と出ます。</li>
-    <li>帯の色（デフォルト・進行中・ブロック・完了・クリティカルパス・優先:高）は、設定 → 表示 の「ガントの帯の色」で変えます（上の <span class="ui">⚙ 色の設定</span> で開きます）。</li>
-  </ul>
-  <h3 id="gantt-tentative">見積もりから仮の日程を置く</h3>
-  <p>日程（開始日・終了日）がまだなく、<a href="#estimate">見積もり</a>の付いている開いた Issue は、見積もりから仮の帯（点線）で置きます。一覧には <b>仮</b> と出ます。上の <span class="ui">見積もりから仮の日程を置く</span> を外すと、仮の帯は出なくなります（次に開いたときも同じです）。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>決まり</th><th>中身</th></tr>
-    <tr><td>長さ</td><td>見積もりを日に直し、端数は 1 日に切り上げます。1 日＝8 時間、1 人月＝20 日です。ポイントは見積もりの目安（1pt＝1 時間〜8pt＝1 週間）で日に直します。土日も数えます</td></tr>
-    <tr><td>始まり</td><td>今日から。先行タスクがあれば、その終わりの次の日から</td></tr>
-    <tr><td>同じ担当</td><td>重ならないよう、空いている日に置きます。日程の決まった Issue を避け、仮の Issue どうしは 優先度 → 期限 → 番号 の順に並べます。担当のない Issue は、それぞれ今日から置きます</td></tr>
-    <tr><td>期限を超えた分</td><td>赤で出します（間に合わない見込み）</td></tr>
-  </table>
-  </div>
-  <p>仮の帯を押すと、<span class="ui">この日程で決める</span> と <span class="ui">詳細を開く</span> が出ます。<span class="ui">この日程で決める</span> で、仮の日程が本当の開始日・終了日になります。仮の帯をドラッグしても、動かした先の日程で決まります。日程の決まった Issue は、仮の帯のために動かしません。</p>
-  <p>日程や依存は、Issue の詳細の <b>設定</b> のタブの <b>ガント</b>（日程・先行・進み）で決めます。Issue の本文に HTML のコメントとして保存されるので、GitHub での見た目は変わりません。Life Manager でも、Issue の詳細の本文には出さず、本文を直す欄にも出しません（保存するときに、そのまま残します）。</p>
-  <div class="cmd">&lt;!-- gantt:2026-03-10/2026-03-20 --&gt;   開始日/終了日
-&lt;!-- depends:#12,#15 --&gt;               先行タスク
-&lt;!-- progress-mode:manual --&gt;          進み具合の数え方
-&lt;!-- progress:60 --&gt;                   手で入れた進み具合</div>
-</section>
-
-<!-- ============================================================ -->
-<section id="routines">
-  <h2>ルーチン</h2>
-  <p>毎日・毎週・毎月、決まった時刻に Issue を自動で作る機能です。日報や定期的な確認に使えます。</p>
-  <ol>
-    <li><span class="ui">＋ ルーチン追加</span> を押します。</li>
-    <li>名前・頻度（毎日／毎週／毎月）・曜日・時刻・Issue のタイトル・ラベル・本文・自動で閉じる時刻（任意）を決めます。</li>
-    <li><span class="ui">保存</span> を押します。</li>
-  </ol>
-  <p>タイトルや本文では、次の書き方が使えます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>書き方</th><th>置き換わる例</th></tr>
-    <tr><td><code>{{date}}</code></td><td>2026-03-14</td></tr>
-    <tr><td><code>{{week}}</code></td><td>2026年第11週</td></tr>
-    <tr><td><code>{{month}}</code></td><td>2026-03</td></tr>
-  </table>
-  </div>
-  <p>ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。このとき Life Manager が自動でコミットを作ります（ブランチ画面・全体図では「アプリの自動コミット」としてまとめて表示します）。</p>
-</section>
-
-<!-- ============================================================ -->
-<section id="journal">
-  <h2>日誌</h2>
-  <p>日ごとの活動の記録を見る画面です。その日に作った・閉じた Issue などがまとめられます。</p>
-  <ul>
-    <li><span class="ui">前日</span> <span class="ui">翌日</span> や日付の選択で移ります。<span class="ui">今日</span> で今日に戻ります。</li>
-    <li><span class="ui">更新</span> で、選んでいる日の日誌を作り直します。日誌の中の <code>[#12]</code> を押すと、その Issue が開きます。</li>
-  </ul>
-</section>
-
-<!-- ============================================================ -->
-<section id="issue">
-  <h2>Issue の詳細</h2>
-  <p>Issue のカードを押すと、詳細の画面が開きます。いちばん上に 番号・状態・<span class="ui">クローズ ▾</span>・題名・ラベルと担当、その下に <b>内容</b>（本文とチェックリスト）がいつも出ます。内容の下は 3 つのタブに分かれていて、はじめは <b>履歴</b> です。</p>
-  <ul>
-    <li><b>内容</b>: 本文を押すか <span class="ui">✏️</span> で編集、保存。チェックボックス（<code>- [ ]</code>）は押して切り替えられ、下に <b>チェック 2/5</b> と進み具合のバーが出ます。長いときは 3 行ほどでたたみ、<span class="ui">すべて表示 ▾</span> で全部（<span class="ui">たたむ ▴</span> で戻す）。たたんだままでも、見えているチェックは付けられます。</li>
-  </ul>
-  <div class="table-wrap">
-  <table>
-    <tr><th>タブ</th><th>中身と操作</th></tr>
-    <tr><td>履歴</td><td>コメントと変更の履歴。書いて <span class="ui">コメント追加</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）。GitHub の Issue のコメントとして保存されます。<span class="ui">新しい順</span>・<span class="ui">古い順</span> で並びを変えられます（はじめは新しい順。この PC に覚えます）。新しい順では書く欄が一覧の上、古い順では下に出ます（下の説明）</td></tr>
-    <tr><td>設定</td><td>このタスクの設定を 1 つの表にまとめています。値はいつも見え、行の <span class="ui">✎</span>（まだないものは <span class="ui">＋</span>）を押すと、その行の下に編集の欄が開きます（<span class="ui">保存</span>・<span class="ui">やめる</span>）。<br>
-      <b>分ける</b>: ラベル（種別・状態・優先・分野ごとに並んだ中から選ぶ）・見積もり（数を押して付け替え、<span class="ui">なし</span> で外す、<span class="ui">ほかの数</span> も付けられる。「<a href="#estimate">見積もり</a>」）<br>
-      <b>だれが・いつまでに</b>: 担当・マイルストーン<br>
-      <b>ガント</b>: 日程（開始 → 終了。ガントの帯になる）・先行（先にすませる Issue。ガントで矢印）・進み（チェックリストの数・手で入れる %・達成したか）<br>
-      <b>知らせ</b>: リマインダー（日時と通知先: OS の通知・Discord。その時刻に知らせる。× で取り消す）</td></tr>
-    <tr><td>つながり</td><td>サブイシュー（大きな Issue を小さな「子」に分ける）と 🔗 関連（意味の近い Issue を結ぶ）。下の説明</td></tr>
-  </table>
-  </div>
-  <ul>
-    <li>題名は押して編集し、<kbd>Enter</kbd> で保存します。</li>
-    <li>上のラベルと担当を押すと、<b>設定</b> のタブでラベルを変える欄が開きます。</li>
-    <li>タブの横の数は、<b>つながり</b> が子と関連の数、<b>履歴</b> がコメントの数です。</li>
-    <li>ほかの Issue（親・子・関連）の詳細に移ると、<b>履歴</b> のタブから開きます（内容はたたんだところから）。</li>
-  </ul>
-  <h3>サブイシュー（親子）</h3>
-  <p>詳細の <b>つながり</b> のタブの <span class="ui">🧩 サブイシュー</span> の欄に、子の Issue の一覧と、いくつ終わったか（<code>2 / 5 完了</code> とバー）が出ます。GitHub の画面でも同じ親子で見えます。</p>
-  <ul>
-    <li><b>子を作る</b>: タイトルを入れて <kbd>Enter</kbd>。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じになります。</li>
-    <li><b>今ある Issue を子にする</b>: <span class="ui">既存の Issue をつなぐ…</span> を押し、番号かタイトルで探して選びます。ほかの親の子なら、付け替えます。</li>
-    <li><b>子から外す</b>: 行の <span class="ui">×</span>。親子のつながりを外すだけで、Issue は消えません。</li>
-    <li>子の <span class="ui">○</span> を押すとクローズ、題名を押すとその子の詳細が開きます。子の詳細のいちばん上の <span class="ui">↑ 親：#45 …</span> で親に戻れます。</li>
-  </ul>
-  <p>タスク・ボード・マイルストーンのカードには、子のある Issue に <b>🧩 2/5</b>（子 5 件のうち 2 件が完了）、子の Issue に <b>↑ #45 親の題名</b> が出ます。子を全部クローズしても、親は自動では閉じません。サブイシューは、GitHub につながっているときだけ使えます。</p>
-  <h3>閉じ方を選ぶ</h3>
-  <p><span class="ui">クローズ ▾</span> から、GitHub と同じ 3 つの閉じ方を選べます。閉じた Issue の上には「Closed（完了）」のように、閉じ方が出ます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>閉じ方</th><th>使うとき</th></tr>
-    <tr><td>✅ 完了として閉じる</td><td>やり終えた（いつもの閉じ方）</td></tr>
-    <tr><td>⊘ 予定なしとして閉じる</td><td>やらないことにした</td></tr>
-    <tr><td>🔁 重複として閉じる…</td><td>同じ内容の Issue がある。番号かタイトルで元の Issue を選ぶと、こちらを閉じて「重複」の印を付けます</td></tr>
-  </table>
-  </div>
-  <h3>🔗 関連</h3>
-  <p>意味の近い Issue を結びます（<b>つながり</b> のタブ。ガントの「先行」とは別で、日程には関係しません）。<span class="ui">＋ 関連を足す</span> で、番号かタイトルで探して選びます。結んだ相手の Issue の詳細にも出ます（「#6 の側で結んだ」のように、どちらで結んだかも出ます）。<span class="ui">×</span> で外しても、Issue は消えません。関連は、本文の見えない印（<code>&lt;!-- related:#12 --&gt;</code>）に残します。</p>
-  <h3>コメントと変更の履歴</h3>
-  <p><b>履歴</b> のタブでは、コメントのあいだに、その Issue に起きたことが時間の順に出ます。<span class="ui">コメントだけ</span> にすると、コメントだけになります。<span class="ui">新しい順</span>（はじめはこれ）・<span class="ui">古い順</span> で、並びを変えられます。</p>
-  <ul>
-    <li>作った・ラベルを付けた／外した・担当・マイルストーン・題名の変更・閉じた（閉じ方）・開き直した・子を足した など</li>
-    <li><b>ほかの Issue から触れられた</b>: ほかの Issue の本文やコメントに <code>#45</code> と書くと、ここに出ます。押すとその Issue が開きます。</li>
-    <li><b>コミットから触れられた</b>: コミットのメッセージに <code>#45</code> と書いてプッシュすると、ここに出ます。ハッシュを押すと、そのコミットの「変更内容を見る」が開きます（「<a href="#work">作業タブ</a>」でコミットの要約に番号を入れると、つながります）。</li>
-  </ul>
-  <p>変更の履歴は、GitHub につながっているときだけ出ます（コメントは、つながっていなくても出ます）。</p>
-</section>
-
-<!-- ============================================================ -->
-<section id="palette">
-  <h2>コマンドパレット</h2>
-  <p><kbd>Ctrl</kbd>＋<kbd>K</kbd> で開きます。キーボードだけで、すばやく操作できます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>入力</th><th>すること</th><th>例</th></tr>
-    <tr><td><code>m 文字</code></td><td>クイックメモを作る</td><td><code>m 牛乳を買う</code></td></tr>
-    <tr><td><code>#番号</code></td><td>番号で Issue を探す</td><td><code>#42</code></td></tr>
-    <tr><td><code>@ラベル</code></td><td>ラベルで絞り込む</td><td><code>@分野:仕事</code></td></tr>
-    <tr><td>そのほかの文字</td><td>タイトル・本文を探す</td><td><code>バグ修正</code></td></tr>
-  </table>
-  </div>
-  <p><kbd>Enter</kbd> で実行、<kbd>Esc</kbd> で閉じます。</p>
-</section>
-
-<!-- ============================================================ -->
-<section id="offline">
-  <h2>つながらないとき（オフライン）</h2>
-  <p>電車の中など、インターネットにつながらないところでも、最後に読み込んだ Issue・設定・日誌を見たり、変えたりできます。変えた内容はこの端末に置いておき（送信待ち）、つながったら順に GitHub に送ります。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>表示</th><th>意味</th></tr>
-    <tr><td>上の <span class="ui">オフライン</span></td><td>GitHub につながっていません。最後に読み込んだ内容を表示しています。</td></tr>
-    <tr><td>上の <span class="ui">未送信 2</span></td><td>まだ GitHub に送っていない変更が 2 件あります。押すと、一覧と <span class="ui">今すぐ送る</span> が出ます。</td></tr>
-    <tr><td>上の <span class="ui">確認 1</span></td><td>送るときに、GitHub 側の変更とぶつかったもの（または送れなかったもの）があります。押して、どうするか決めてください。</td></tr>
-    <tr><td>カードの <span class="ui">未送信</span></td><td>その Issue（コメント）に、まだ送っていない変更があります。</td></tr>
-    <tr><td><code>仮1</code> のような番号</td><td>つながらないあいだに作った Issue です。GitHub に送ると、本当の番号（<code>#67</code> など）に変わります。本文の <code>#仮の番号</code> への参照・ガントの先行タスク・リマインダーも、一緒に本当の番号に直ります。</td></tr>
-  </table>
-  </div>
-  <h3>つながらないあいだにできること</h3>
-  <ul>
-    <li>Issue・メモを作る。タイトル・本文・ラベル・担当者・マイルストーンを変える。閉じる・開き直す。コメントする。</li>
-    <li>ルーチン・通知スケジュール・イベント通知・リマインダー・ボードの設定を保存する。</li>
-    <li>日誌のノートを保存する（一度開いたことのある日誌だけ）。日誌の作成は、つながってから行われます（夜の自動作成も同じ）。</li>
-    <li>リマインダーと通知スケジュールの <strong>OS の通知</strong> は、つながらないあいだも出ます。ルーチンの Issue も、決めた時刻に送信待ちとして作られます。</li>
-  </ul>
-  <p>送るのは、つながったとき（送っていない変更があるあいだは、アプリが 30 秒ごとに確かめます）か、<span class="ui">今すぐ送る</span> を押したときです。Discord などへのお知らせも、GitHub に送れたときに、送れたあとの番号で出します。</p>
-  <p>ラベル・マイルストーンの作成・変更は、つながっているときに行ってください。</p>
-  <h3>GitHub 側でも変えられていたとき</h3>
-  <p>送る前に、GitHub の今の内容と比べます。まとめられるものは、自動でまとめます。</p>
-  <ul>
-    <li>ラベル・担当者・リマインダーは、足したもの・外したものだけを当てるので、両方の変更が残ります。</li>
-    <li>本文・日誌のノートは、git のマージと同じように行ごとに比べます。別々の行を変えていれば、両方の変更が残ります。チェックボックスの付け外しだけなら、GitHub 側の新しい本文に同じ付け外しをします。</li>
-    <li>同じところを両方で別の内容に変えていたときは、<span class="ui">確認</span> に並びます。</li>
-  </ul>
-  <p><span class="ui">確認</span> を開くと、ぶつかったところを 1 件ずつ見せます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>ボタン</th><th>すること</th></tr>
-    <tr><td><span class="ui">GitHub の内容を残す</span></td><td>自分の変更は送りません。</td></tr>
-    <tr><td><span class="ui">自分の変更で上書き</span></td><td>自分の変更を、GitHub の内容と比べずに送ります。</td></tr>
-    <tr><td><span class="ui">自分の変更</span> / <span class="ui">GitHub</span> / <span class="ui">両方</span></td><td>本文・ノートで、ぶつかったところごとに残す方を選びます。全部選ぶと <span class="ui">選んだ内容で送る</span> が押せます。</td></tr>
-    <tr><td><span class="ui">手で直す…</span></td><td>まとめた文章を自分で直して送ります。まだ選んでいないところには、git の競合と同じ印（<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> ・ <code>=======</code> ・ <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>）が入ります。印の行を消してから送ってください（「<a href="#conflict">競合したとき</a>」と同じ考え方です）。</td></tr>
-  </table>
-  </div>
-</section>
-
-<!-- ============================================================ -->
-<section id="labels">
-  <h2>ラベルの決まり</h2>
-  <p>ラベルは <code>カテゴリ:値</code> の形で付けます。設定 → タスク の <span class="ui">ラベル一括作成</span> で、次のラベルがリポジトリに作られます。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>カテゴリ</th><th>ラベル</th></tr>
-    <tr><td>種別（タスクの種類）</td><td><code>種別:イシュー</code>（ふつうのタスク）、<code>種別:メモ</code>（思いつき・タスクの手前のもの）、<code>種別:ルーチン</code>（自動で作られるタスク）</td></tr>
-    <tr><td>分野</td><td><code>分野:仕事</code>、<code>分野:私用</code>、<code>分野:やりたい</code>、<code>分野:健康</code>、<code>分野:学習</code></td></tr>
-    <tr><td>状態</td><td><code>状態:未整理</code>、<code>状態:進行中</code>、<code>状態:ブロック</code>、<code>状態:いつか</code></td></tr>
-    <tr><td>優先</td><td><code>優先:高</code>、<code>優先:中</code>、<code>優先:低</code></td></tr>
-    <tr><td>見積（タスクの大きさ）</td><td><code>見積:3pt</code>、<code>見積:2時間</code>、<code>見積:0.5日</code>、<code>見積:1人月</code> など。単位は設定 → タスク の <span class="ui">見積もりの単位</span> で決め、付けたときに作ります（「<a href="#estimate">見積もり</a>」）</td></tr>
-  </table>
-  </div>
-  <p>ボードの列（未着手・チェック待ち・動作確認・完了承認待ち など）の状態ラベルは、カードを動かしたときに付きます。ラベルの名前・色・説明は、設定 → タスク の「ラベル管理」で変えられます。</p>
-</section>
-
-<!-- ============================================================ -->
-<section id="settings">
-  <h2>設定</h2>
-  <p>設定は、上のタブで「接続」「タスク」「通知」「表示」「トークン」「その他」に分かれています。</p>
-  <h3>トークン</h3>
-  <ul>
-    <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
-      <ul>
-        <li><span class="ui">ログインし直す（期限を延ばす）</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます（ログインし直すと、この PC で使う期限も今日から数え直します）。<span class="ui">確かめる</span>: もう一度確かめます。</li>
-        <li><span class="ui">使用するリポジトリを選ぶ</span> / <span class="ui">リポジトリを追加する</span>（ログインしているとき）: GitHub が開き、Life Manager に使わせるリポジトリを選ぶ・足すことができます。足すと、アプリが自分で気づきます。「すべてのリポジトリ」に入れてあるときは、ボタンは出ません。</li>
-        <li>プロジェクトの行の <span class="ui">専用のトークンにする…</span>: そのプロジェクトだけ別のトークンを使います（別のアカウントのリポジトリなど）。<span class="ui">いつものに戻す</span> で外せます。使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。</li>
-        <li>🔴 や 🟡 のときは <span class="ui">直し方</span> を押すと、何をすれば直るかと、そのページを開くボタンが出ます。</li>
-        <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。使うリポジトリの一覧はあなたの分としてしまうので、次に使う別の人には出ません（あなたがもう一度ログインすれば、続きから使えます）。ほかのアカウントが残っていなければ、最初のセットアップの画面になり、GitHub での許可も取り消すときの案内が出ます。</li>
-      </ul>
-    </li>
-  </ul>
-  <p>ログアウトは、左下のアカウントのメニューからもできます。</p>
-  <h3>接続</h3>
-  <p>今のリポジトリのチーム（招待・メンバー）をまとめています。リポジトリの追加・切り替え・この PC のフォルダは、左上のリポジトリから行います（上の <span class="ui">＋ リポジトリを追加…</span> からも開けます）。</p>
-  <ul>
-    <li><b>参加の案内</b>（管理者）: メンバーに送る文（ダウンロード先・ログイン・名前を伝える・招待を受けるリンク）を <span class="ui">案内をコピー</span> でコピーして、チャットなどに貼ります。</li>
-    <li><b>招待する</b>（今のリポジトリの管理者だけ）: メンバーから届いた GitHub の名前を、改行・カンマ・空白で区切って何人でも貼り、<span class="ui">招待を送る</span>。1 人ずつ「招待しました」「もうこのリポジトリを使えます」「その名前の人は GitHub にいません」などの結果が出ます。うまくいかなかった名前は欄に残るので、直して送り直せます。組織のリポジトリでは権限（書き込み・運営・整理・読むだけ・管理）を選べます。</li>
-    <li><b>送った招待</b>（管理者だけ）: まだ受けていない招待。<span class="ui">リンクをコピー</span>（招待を受けるページの URL。チャットで送る用）・<span class="ui">取り消す</span>。招待は 7 日で切れ、切れたものは <span class="ui">送り直す</span>。</li>
-    <li><b>メンバー</b>: このリポジトリを使える人と権限。管理者は、行の <span class="ui">外す</span> → その行に出る確かめで <span class="ui">外す</span> を押すと、メンバーから外せます（持ち主と自分の行には出ません）。外した人は、このリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。組織のリポジトリで、組織のメンバーとしてまだ使える人は、組織の画面（People・Teams）で外します。</li>
-    <li>管理者でないときは、リーダーに伝える自分の名前（<span class="ui">コピー</span>）が出ます。</li>
-    <li>自分で作ったトークン（Fine-grained token）で入っているときは、招待する・送った招待を見る・取り消すのに、トークンの「Administration」の権限（Read and write）がいります。足りないときは、その旨と直し方が出ます（<span class="ui">GitHub でログイン</span> なら要りません）。</li>
-    <li><b>あなた宛ての招待</b>（下のほう）: トークンで入ったときなど、アプリから見える招待が出ます（<span class="ui">断る</span>、組織への招待は <span class="ui">GitHub で参加</span>）。「GitHub でログイン」では、まだ参加していないリポジトリの招待はここに出ないので、メールの <span class="ui">View invitation</span> から受けます。</li>
-  </ul>
-  <h3>タスク</h3>
-  <p>チームで一つの決まりをまとめています（リポジトリに置き、GitHub に送ります）。</p>
-  <ul>
-    <li><b>見積もりの単位</b>: ポイント・時間・日・人月（「<a href="#estimate">見積もり</a>」）。</li>
-    <li><b>ボードの区画</b>: 状態ごとの区画を、どちらのボード（未整理・着手済み）に置くか・並び・外す・足す。変えたら <span class="ui">保存</span>（<span class="ui">元に戻す</span> でやめられます）。ボードの <span class="ui">⚙ 区画の設定</span> からも開けます。</li>
-    <li><b>ラベル管理</b>: ラベルの一括作成・作成・編集・削除。</li>
-  </ul>
-  <h3>通知</h3>
-  <ul>
-    <li><b>Discord Webhook 通知</b>: Discord のチャンネルに通知を送るための URL を決めます。Discord のチャンネルの設定 → 連携サービス → ウェブフック で作った URL を貼り付け、<span class="ui">テスト送信</span> で確かめます。</li>
-    <li><b>通知スケジュール</b>: 今日のタスク一覧・期限超過・全体のまとめ・自由なメッセージを、決まった時刻に送ります（OS の通知 / Discord）。</li>
-    <li><b>イベント通知</b>: Issue を作った・閉じた・状態を変えた などのときに知らせるかを決めます。</li>
-  </ul>
-  <h3>表示</h3>
-  <ul>
-    <li><b>テーマ</b>: 黒板（暗い色。はじめはこれ）/ ホワイトボード（明るい色）/ クエスト（木と羊皮紙の色）。アプリ全体の色が変わり、ボードと、ボードの下の机もテーマのものになります（黒板 = 勉強机、ホワイトボード = オフィスのデスク、クエスト = ギルドの受付）。</li>
-    <li><b>学習の補助（解説を表示する）</b>: ステージ・コミット・退避などの意味と、対応する git のコマンドの解説を、画面に出すかどうか。</li>
-    <li><b>全体図でのブランチの見せ方</b>: ラベル / 線。</li>
-    <li><b>ガントの帯の色</b>: デフォルト・進行中・ブロック・完了・クリティカルパス・優先:高 の色。<span class="ui">はじめの色に戻す</span> で戻せます。ガントの <span class="ui">⚙ 色の設定</span> からも開けます。</li>
-    <li><b>サイドバーの位置</b>: 左（はじめはこれ）/ 右 / 上 / 下。上・下にすると、横に並んだ帯になります。</li>
-    <li><b>メモのボタン（📝）</b>: 右上 / 右下 / 左上 / 左下（はじめはこれ）/ 隠す（<kbd>Ctrl</kbd>＋<kbd>M</kbd> だけで開く）。</li>
-    <li><b>画面の動き</b>: ふつう（はじめはこれ）/ 少なめ。ふつうでは、動いた向きで動きが変わります（下の「画面の動き」）。少なめにすると、画面はうすく出るだけになります。OS で「視差効果を減らす」（アニメーションを減らす）にしているときも、少なめになります。</li>
-  </ul>
-  <h3>その他</h3>
-  <ul>
-    <li><b>この PC の git</b>（PC のみ）: 使う git の版と、<span class="ui">使う準備を確かめる</span>（Git のインストール・コミットに使う名前）。Git が見つからないときは <span class="ui">Git をインストールする…</span>（「<a href="#prepare">使う準備</a>」）。</li>
-    <li><b>Actions の「はじめる準備」に出すもの</b>: 今のリポジトリの Actions の画面に出す勧め（ワークフローを置く・Dependabot のお知らせ・コードスキャン）。<span class="ui">今は使わない</span> で隠したものは、チェックを入れると また出ます。</li>
-    <li><b>バージョン</b>（PC のみ）: 今のバージョンと <span class="ui">新しいバージョンを確かめる</span>。新しいバージョンがあれば <span class="ui">今すぐ更新</span>。</li>
-    <li><b>フィードバック</b>: バグの報告や機能の要望を、メールで送ります。</li>
-    <li><b>マニュアルを開く</b>: このマニュアルを開きます。</li>
-  </ul>
-</section>
-
-<!-- ============================================================ -->
-<section id="roles">
-  <h2>だれが何をするか（アカウント・トークン・許可）</h2>
-  <p>GitHub のアカウント・ログイン・招待・組織の許可は、役によってすることが違います。自分の役の行だけ読めば足ります。1 人で使うときは、メンバーとリーダーの両方をします。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>役</th><th>すること</th><th>しないこと</th></tr>
-    <tr>
-      <td><b>メンバー</b><br>（生徒など）</td>
-      <td>① GitHub のアカウントを自分で作る（自分のメールで）<br>
-        ② <span class="ui">GitHub でログイン</span>（自分のアカウントで）<br>
-        ③ 画面に出る自分の GitHub の名前をリーダーに伝え、届いた招待のメールで参加する（アプリが気づくので <span class="ui">このリポジトリではじめる</span>）<br>
-        ④ チームのリポジトリが出てこないときは、リーダーに「Life Manager を入れて」と伝える<br>
-        ⑤ 共用の PC で使い終わったら <span class="ui">ログアウト</span></td>
-      <td>トークンやパスワードを人に渡す・もらう・チャットに貼る</td>
-    </tr>
-    <tr>
-      <td><b>リーダー</b><br>（リポジトリの管理者）</td>
-      <td>① チームのリポジトリを作る（組織の中に作るのがおすすめ）<br>
-        ② そのリポジトリに Life Manager を入れる（一度だけ。組織のリポジトリなら、組織の持ち主が入れる）<br>
-        ③ 設定 → 接続 で、届いた名前をまとめて貼って招待する<br>
-        ④ Discord に知らせるときは、Webhook の URL をチームの中だけで伝える</td>
-      <td>メンバーのトークンを作って配る・預かる</td>
-    </tr>
-    <tr>
-      <td><b>組織の持ち主</b><br>（先生など）</td>
-      <td>① Organization を作り、チームのリポジトリとリーダーを決める<br>
-        ② Life Manager を組織に入れて、使うリポジトリを選ぶ（一度だけ）<br>
-        ③ トークンで入る人がいるときは、その人のトークンを 1 本ずつ承認する</td>
-      <td>全員分のトークンをまとめて作って配る</td>
-    </tr>
-  </table>
-  </div>
-  <div class="box hint">
-    <span class="label">「GitHub でログイン」をすすめる理由</span>
-    <p>ログインなら、Life Manager が触れるのは <b>持ち主が選んだリポジトリだけ</b>で、鍵は 8 時間ごとに新しくなり、PC ごとの期限（30 日〜半年）で切れます。組織では、持ち主が <b>Life Manager を一度入れるだけ</b>です。トークン（Fine-grained token）で入ると、組織のはじめの設定では <b>トークン 1 本ごとに持ち主の承認</b>がいり、期限（アプリが開く作成ページでは 90 日）が来るたびに、作り直しと承認がまた必要です。ほかの人の個人のリポジトリは Fine-grained token では選べず、届いた招待もアプリの中では受けられません。</p>
-  </div>
-  <h3>しまってある場所と、やめ方</h3>
-  <p>どれも、使っている PC の資格情報（Windows は資格情報マネージャー、Mac はキーチェーン。名前は <code>life-manager</code>）にしまわれ、ほかの PC には送られません。GitHub のパスワードは、アプリには入れません（GitHub の画面にだけ入れます）。</p>
-  <div class="table-wrap">
-  <table>
-    <tr><th>もの</th><th>期限</th><th>やめ方・消し方</th></tr>
-    <tr><td>ログイン（<span class="ui">GitHub でログイン</span>）</td><td>鍵は 8 時間ごとに自動で新しくなる。この PC では、選んだ期限（30 日・90 日・半年）まで</td><td>左下のアカウント（か 設定 → トークン）の <span class="ui">ログアウト</span>（この PC から消える）。GitHub での許可は、Settings → Applications → Authorized GitHub Apps → Life Manager App → Revoke</td></tr>
-    <tr><td>トークン（<span class="ui">トークンで入る</span>）</td><td>作るときに決める</td><td><span class="ui">ログアウト</span>。GitHub のトークンの画面で Delete</td></tr>
-    <tr><td>プロジェクト専用のトークン</td><td>作るときに決める</td><td>設定 → トークン の <span class="ui">いつものに戻す</span></td></tr>
-    <tr><td>Discord の Webhook の URL</td><td>なし</td><td>設定 → 通知 で URL を消して <span class="ui">解除</span>。人に漏れたら、Discord でウェブフックを作り直す</td></tr>
-  </table>
-  </div>
-</section>
-
-<!-- ============================================================ -->
-<section id="team">
-  <h2>チームで使う（管理者向け）</h2>
-  <div class="box warn">
-    <span class="label">リーダーが、メンバーのトークンを作って配らないでください</span>
-    <p>トークンは、作った人の「合鍵」です。人のトークンを使うと、だれが操作したかが分からなくなり、その人のほかのリポジトリまで触れてしまいます。メンバーはそれぞれ、自分の GitHub アカウントで <span class="ui">GitHub でログイン</span> します。リーダーがすることは、リポジトリに Life Manager を入れて、メンバーを招待することだけです（「<a href="#roles">だれが何をするか</a>」）。</p>
-  </div>
-  <h3>リーダー: メンバーを招待する</h3>
-  <ol>
-    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。セットアップで <span class="ui">チームを作る</span> を選び、<span class="ui">使用するリポジトリを選ぶ</span>（入れてあれば 設定 → トークン の <span class="ui">リポジトリを追加する</span>）で GitHub が開きます（画面の名前は「Life Manager App」。あなたのアカウントを選んだ状態）。そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。セットアップの <span class="ui">作って、メンバーを招待する</span> で作ったリポジトリは、そのまま使えます。入れていないリポジトリは、メンバーが参加しても使えません。</li>
-    <li>設定 → 接続 の <span class="ui">案内をコピー</span> で「参加の案内」をコピーして、メンバーに送ります（チャット・メール・授業のページなど）。</li>
-    <li>メンバーから、GitHub の名前が届きます（メンバーのアプリの画面に大きく出ています）。</li>
-    <li>設定 → 接続 の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
-    <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
-  </ol>
-  <h3>メンバーとして参加する</h3>
-  <ol>
-    <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
-    <li>ログインしたら <span class="ui">招待を受ける</span> を選び、画面に出る「あなたの GitHub の名前」をリーダーに伝えます。</li>
-    <li>招待のメールが届いたら「View invitation」→「Accept invitation」を押します（リーダーから届いたリンクを開いても同じです）。セットアップの「招待を受ける」では、アプリが自分で気づいて「○○ に参加しました」と出るので、<span class="ui">このリポジトリではじめる</span> を押します。使い始めたあとに参加したリポジトリは、左上のリポジトリの <span class="ui">＋ リポジトリを追加…</span> → <span class="ui">GitHub にある</span> の一覧から選びます。</li>
-    <li>チームのリポジトリが出てこないときは、リーダー（組織なら組織の持ち主）に、そのリポジトリへ Life Manager を入れてもらいます（最初の一度だけ）。</li>
-  </ol>
-  <h3>Organization を使う（おすすめ）</h3>
-  <p>2 人以上で続けて使うときは、GitHub の Organization（無料）がおすすめです。人ではなく Organization がリポジトリを持つので、人が抜けても残り、権限をチーム単位で管理できます。</p>
-  <ol>
-    <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
-    <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
-    <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
-    <li><b>Life Manager を組織に入れます（一度だけ）。</b>組織の持ち主が、アプリの <span class="ui">使用するリポジトリを選ぶ</span> の下の「組織に入れるときは こちら」で GitHub を開き、組織を選んで、使うリポジトリを選び <span class="ui">Install</span> します。メンバーはログインするだけで使えます。</li>
-  </ol>
-  <p>個人のリポジトリで使うときは、持ち主が自分のアカウントに Life Manager を入れてリポジトリを選び、設定 → 接続 から招待します（GitHub の Settings → Collaborators → Add people でも同じです）。</p>
-  <h3>トークンで使うときの注意</h3>
-  <p>Fine-grained token でリポジトリを選ぶとき、出てくるのは「自分が持ち主のリポジトリ」と「入っている Organization のリポジトリ」だけです。ほかの人の個人リポジトリに招待された場合は出てきません。そのときは <span class="ui">GitHub でログイン</span> を使うか、Organization に移します。トークンは、プロジェクト専用のトークン → いつものトークン の順に使われます。</p>
-  <h3>git の作業をチームで行うときの流れ（例）</h3>
-  <ol>
-    <li>Issue を作り、担当を決める。</li>
-    <li>作業タブで Issue を選び、Issue 用のブランチ（<code>issue-12</code> など）を作る。</li>
-    <li>変更をコミットして、プッシュする。</li>
-    <li>作業タブの <span class="ui">プルリクを作る…</span> でプルリクを作り、チームの人が「変更されたファイル」を見てレビューする。よければマージする（説明に <code>Closes #12</code> があれば、Issue が自動で閉じる。「<a href="#pulls">プルリク</a>」）。</li>
-  </ol>
-</section>
-
-<!-- ============================================================ -->
-<section id="faq">
-  <h2>よくある質問・困ったとき</h2>
-  <dl class="qa">
-    <dt>上の「未送信」がなかなか消えません</dt>
-    <dd>まだ GitHub につながっていないか、トークンが無効になっているかもしれません。<span class="ui">未送信</span> を押すと、送れなかった理由が出ます。トークンが無効のときは、設定 → トークン で、ログインし直すかトークンを入れ直してください（「<a href="#offline">つながらないとき</a>」）。</dd>
-    <dt>「git が見つかりません」と出ます</dt>
-    <dd>Git が入っていません。設定 → その他 の「この PC の git」の <span class="ui">Git をインストールする…</span> から入れてください。入れたあとも見つからないときは、アプリを開き直してください。</dd>
-    <dt>プッシュやプルで「GitHub へのログインが必要です」と出ます</dt>
-    <dd>この PC の git が、まだ GitHub にログインしていません。Windows では、はじめてのプッシュのときにログインの画面（ブラウザ）が出ることがあります。出ないときは、<span class="ui">その他 ▾</span> → <span class="ui">このフォルダでターミナルを開く</span> で、同じ操作（<code>git push</code> など）を一度打ってログインしてください。</dd>
-    <dt>プッシュが「拒否された（rejected）」と出ます</dt>
-    <dd>GitHub の方に、まだ取り込んでいないコミットがあります。先に <span class="ui">⬇ プル</span> で取り込んでから、もう一度プッシュしてください。</dd>
-    <dt>コミットできません</dt>
-    <dd>コミットするファイルにチェック（ステージ）が入っているかを確かめてください。「名前とメールアドレスが決まっていません」と出るときは、設定 → その他 の「この PC の git」の <span class="ui">使う準備を確かめる</span> から決めてください。</dd>
-    <dt>作業フォルダに選べません</dt>
-    <dd>選べるのは、そのリポジトリをクローンしたフォルダだけです。まだ PC にない場合は、左上のリポジトリの <span class="ui">⋯</span> → <span class="ui">この PC にクローンする…</span> を使ってください。</dd>
-    <dt>学校の PC で Git がインストールできません</dt>
-    <dd>インストールには PC の管理者の確認が必要です。PC の管理者に Git のインストールを頼んでください（<a href="https://git-scm.com/downloads">https://git-scm.com/downloads</a>）。</dd>
-    <dt>データはどこに保存されますか？</dt>
-    <dd>すべて GitHub のリポジトリ（Issue・マイルストーン・ラベル）に保存されます。ルーチンや通知の設定は、リポジトリの <code>config/</code> フォルダに保存されます。アプリを消しても、データは GitHub に残ります。作業フォルダの場所や表示の設定は、この PC だけに保存されます。</dd>
-    <dt>画面の上に「トークンの期限が…」「トークンが使えません」と出ます</dt>
-    <dd>設定 → トークン で、<span class="ui">GitHub でログインし直す</span>（トークンで使っているときは <span class="ui">トークンを入れる…</span>）を押してください。プロジェクト専用のトークンなら、その行の <span class="ui">入れ替える…</span> から入れ直します。GitHub でログインした場合は、この PC で使う期限（30 日・90 日・半年）が近づくと知らせが出ます。<span class="ui">ログインし直す（期限を延ばす）</span> を押すと、今日から数え直します。</dd>
-    <dt>学校の PC で使い終わったら？</dt>
-    <dd>左下のアカウントを押して <span class="ui">ログアウト</span>（か 設定 → トークン の <span class="ui">ログアウト</span>）を押してください。この PC から、あなたのトークンがすべて消えます。GitHub 側でもやめたいときは、GitHub の Settings → Applications → Authorized GitHub Apps から Life Manager App を取り消します（ログアウトのあとの画面にも案内が出ます）。</dd>
-    <dt>チームのリポジトリが一覧に出てきません</dt>
-    <dd>招待を受けているか（メールの「Accept invitation」）、リーダー（組織なら組織の持ち主）がそのリポジトリに Life Manager を入れているかを確かめてください（「<a href="#team">チームで使う</a>」）。URL を貼って選ぶと、何が足りないかが出ます。</dd>
-    <dt>複数のリポジトリを使えますか？</dt>
-    <dd>使えます。左上のリポジトリの <span class="ui">＋ リポジトリを追加…</span> で足し、同じ一覧から切り替えます。作業フォルダも、リポジトリごとに（一覧の <span class="ui">⋯</span> から）決められます。</dd>
-    <dt>ガントチャートに帯が出ません</dt>
-    <dd>Issue の詳細の <b>設定</b> のタブの <b>日程</b> で、開始日と終了日を決めてください。見積もりを付けるだけでも、仮の帯（点線）で出ます（「<a href="#gantt-tentative">見積もりから仮の日程を置く</a>」）。</dd>
-    <dt>オフラインで使えますか？</dt>
-    <dd>使えます。つながらないあいだも、最後に読んだ内容を見られ、Issue の作成・変更・コメントは送信待ちになって、つながったら送られます（「<a href="#offline">つながらないとき</a>」）。git の作業（ステージ・コミットなど）は PC の中で行えますが、プッシュ・プル・フェッチには接続が必要です。</dd>
-  </dl>
-</section>
-
 <footer>
   Life Manager マニュアル（0.9 系）。わからないところや間違いに気づいたら、設定 → その他 の「フィードバック」から教えてください。
 </footer>
@@ -1852,21 +1882,160 @@ labels: ["種別:バグ", "状態:未整理"]
     });
   })();
 
-  // 目次で、今読んでいる章を目立たせる
+  // 目次を、部・章・節の見出しから組み立てる（番号は CSS と同じ数え方）。
+  // 章の頭に部の名前と「この章の中」、終わりに前の章・次の章。読んでいる章だけ節まで開き、上の欄で章・節の名前から探せる
   (function () {
-    var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
-    var byId = {};
-    links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
-    if (!("IntersectionObserver" in window)) return;
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        links.forEach(function (a) { a.classList.remove("on"); });
-        var link = byId[entry.target.id];
-        if (link) link.classList.add("on");
+    var main = document.querySelector("main");
+    var tree = document.getElementById("toc-tree");
+    if (!main || !tree) return;
+    var esc = function (t) {
+      return t.replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+    };
+    var parts = [];
+    var chapters = [];
+    var part = null;
+    Array.prototype.forEach.call(main.children, function (el) {
+      if (el.classList.contains("part-head")) {
+        var no = el.querySelector(".part-no");
+        part = { no: no ? no.textContent : "", title: el.textContent.replace(no ? no.textContent : "", "").trim(), chapters: [] };
+        parts.push(part);
+        return;
+      }
+      if (el.tagName !== "SECTION" || !part) return;
+      var h2 = el.querySelector("h2");
+      var ch = { id: el.id, el: el, part: part, n: chapters.length + 1, title: h2 ? h2.textContent.trim() : el.id, secs: [] };
+      Array.prototype.forEach.call(el.children, function (h) {
+        if (h.tagName !== "H3") return;
+        if (!h.id) h.id = el.id + "-" + (ch.secs.length + 1);
+        ch.secs.push({ id: h.id, el: h, n: ch.n + "." + (ch.secs.length + 1), title: h.textContent.trim() });
       });
-    }, { rootMargin: "0px 0px -70% 0px" });
-    document.querySelectorAll("main section[id]").forEach(function (s) { observer.observe(s); });
+      part.chapters.push(ch);
+      chapters.push(ch);
+    });
+
+    tree.innerHTML = parts.map(function (p) {
+      return '<div class="toc-part"><div class="toc-part-title"><span>' + esc(p.no) + "</span>" + esc(p.title) + "</div><ol>" +
+        p.chapters.map(function (c) {
+          return '<li class="toc-ch" data-id="' + c.id + '"><a href="#' + c.id + '"><span class="toc-n">' + c.n + "</span>" + esc(c.title) + "</a>" +
+            (c.secs.length
+              ? '<ol class="toc-secs">' + c.secs.map(function (x) {
+                  return '<li data-id="' + x.id + '"><a href="#' + x.id + '"><span class="toc-n">' + x.n + "</span>" + esc(x.title) + "</a></li>";
+                }).join("") + "</ol>"
+              : "") + "</li>";
+        }).join("") + "</ol></div>";
+    }).join("");
+
+    // 章の頭（部の名前・この章の中）と終わり（前の章・次の章）
+    chapters.forEach(function (c, i) {
+      var h2 = c.el.querySelector("h2");
+      if (!h2) return;
+      var crumb = document.createElement("div");
+      crumb.className = "crumb";
+      crumb.textContent = c.part.no + " " + c.part.title;
+      c.el.insertBefore(crumb, h2);
+      if (c.secs.length >= 2) {
+        var inCh = document.createElement("nav");
+        inCh.className = "in-ch";
+        inCh.setAttribute("aria-label", "この章の中");
+        inCh.innerHTML = "<b>この章の中</b>" + c.secs.map(function (x) {
+          return '<a href="#' + x.id + '">' + x.n + " " + esc(x.title) + "</a>";
+        }).join("");
+        h2.insertAdjacentElement("afterend", inCh);
+      }
+      var prev = chapters[i - 1];
+      var next = chapters[i + 1];
+      var pager = document.createElement("nav");
+      pager.className = "pager";
+      pager.setAttribute("aria-label", "前の章・次の章");
+      pager.innerHTML =
+        (prev ? '<a class="prev" href="#' + prev.id + '"><small>← 前の章</small>' + prev.n + " " + esc(prev.title) + "</a>" : "<span></span>") +
+        (next ? '<a class="next" href="#' + next.id + '"><small>次の章 →</small>' + next.n + " " + esc(next.title) + "</a>" : "<span></span>");
+      c.el.appendChild(pager);
+    });
+
+    // 今読んでいる章・節を目立たせ、その章だけ節まで開く
+    var chLi = {};
+    var secA = {};
+    Array.prototype.forEach.call(tree.querySelectorAll(".toc-ch"), function (li) { chLi[li.getAttribute("data-id")] = li; });
+    Array.prototype.forEach.call(tree.querySelectorAll(".toc-secs li"), function (li) { secA[li.getAttribute("data-id")] = li.querySelector("a"); });
+    function setChapter(id) {
+      Object.keys(chLi).forEach(function (k) {
+        chLi[k].classList.toggle("open", k === id);
+        chLi[k].querySelector("a").classList.toggle("on", k === id);
+      });
+    }
+    function setSection(id) {
+      Object.keys(secA).forEach(function (k) { secA[k].classList.toggle("on", k === id); });
+    }
+    // 画面の上から 3 割の所にある章・節を「今読んでいる所」にする（なめらかに動いているあいだも、上に戻ったときも同じ）
+    var nav = tree.closest("nav");
+    var current = null;
+    function keepVisible(el) {
+      if (!nav || nav.scrollHeight <= nav.clientHeight) return;
+      var r = el.getBoundingClientRect();
+      var n = nav.getBoundingClientRect();
+      if (r.top < n.top + 60) nav.scrollTop -= n.top + 60 - r.top;
+      else if (r.bottom > n.bottom - 24) nav.scrollTop += r.bottom - (n.bottom - 24);
+    }
+    function spy() {
+      var line = window.innerHeight * 0.3;
+      var ch = null;
+      var sec = null;
+      for (var i = 0; i < chapters.length; i++) {
+        if (chapters[i].el.getBoundingClientRect().top <= line) ch = chapters[i];
+        else break;
+      }
+      if (ch) {
+        for (var j = 0; j < ch.secs.length; j++) {
+          if (ch.secs[j].el.getBoundingClientRect().top <= line) sec = ch.secs[j];
+          else break;
+        }
+      }
+      setChapter(ch ? ch.id : "");
+      setSection(sec ? sec.id : "");
+      if (ch && ch !== current && chLi[ch.id]) keepVisible(chLi[ch.id]);
+      current = ch;
+    }
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () {
+        ticking = false;
+        spy();
+      });
+    }, { passive: true });
+    window.addEventListener("resize", spy);
+    spy();
+
+    // 目次から探す（章・節の名前）
+    var search = document.querySelector("nav.toc .toc-search");
+    var empty = document.getElementById("toc-empty");
+    if (search) {
+      search.addEventListener("input", function () {
+        var q = search.value.trim().toLowerCase();
+        var any = false;
+        Array.prototype.forEach.call(tree.querySelectorAll(".toc-part"), function (pe) {
+          var partAny = false;
+          Array.prototype.forEach.call(pe.querySelectorAll(".toc-ch"), function (li) {
+            var chHit = !q || li.querySelector("a").textContent.toLowerCase().indexOf(q) >= 0;
+            var secHit = false;
+            Array.prototype.forEach.call(li.querySelectorAll(".toc-secs li"), function (sl) {
+              var hit = !!q && sl.textContent.toLowerCase().indexOf(q) >= 0;
+              sl.hidden = !!q && !hit && !chHit;
+              if (hit) secHit = true;
+            });
+            li.hidden = !(chHit || secHit);
+            li.classList.toggle("found", !!q && (chHit || secHit));
+            if (!li.hidden) partAny = true;
+          });
+          pe.hidden = !partAny;
+          if (partAny) any = true;
+        });
+        tree.classList.toggle("searching", !!q);
+        if (empty) empty.hidden = any;
+      });
+    }
   })();
 
   // 印刷・PDF 用: 表紙に日付を入れ、目次を表紙のあとに写す（画面では左の目次を使う）
@@ -1882,6 +2051,8 @@ labels: ["種別:バグ", "状態:未整理"]
     copy.className = "print-toc";
     copy.setAttribute("aria-hidden", "true");
     copy.innerHTML = nav.innerHTML;
+    // 写しには、id を持たせない（画面の目次と重ならないように）
+    Array.prototype.forEach.call(copy.querySelectorAll("[id]"), function (el) { el.removeAttribute("id"); });
     cover.insertAdjacentElement("afterend", copy);
   })();
 </script>

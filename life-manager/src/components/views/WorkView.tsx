@@ -891,7 +891,9 @@ function CommitForm({
 
   // プッシュ済みのコミットを修正すると、送り直すのに強制プッシュが要る。学ぶ段階ではできないようにしておく
   const lastPushed = !!st.head && (st.upstream ? st.ahead === 0 : st.unpushed === 0);
-  const nothingToCommit = stagedCount === 0 && !draft.amend && !draft.allowEmpty;
+  // マージの途中で競合を直し終えたら、変更がなくてもコミットでマージを終える（競合を「今のブランチの方」で直すと、変更は 0 になる）
+  const concludingMerge = st.operation === "merge" && !hasConflicts;
+  const nothingToCommit = stagedCount === 0 && !draft.amend && !draft.allowEmpty && !concludingMerge;
   const blocked = busy || nothingToCommit || hasConflicts || (draft.amend && !st.head);
 
   return (

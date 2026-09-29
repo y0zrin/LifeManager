@@ -539,11 +539,12 @@
   </div>
 
   <h3>ステップ 3: チームを作る・個人で使う</h3>
-  <ol>
-    <li><span class="ui">使用するリポジトリを選ぶ</span> を押すと、GitHub の Life Manager App を入れる画面が、<b>あなたのアカウントを選んだ状態</b>で開きます。「すべてのリポジトリ」か、使うリポジトリを選んで <span class="ui">Install</span> を押すと、アプリが自分で気づいて「Life Manager が入っています」になります。2 つ目からは <span class="ui">リポジトリを追加する</span>（GitHub で足して <span class="ui">Save</span>）です。</li>
-    <li>「使うリポジトリ」で、<b>もうあるもの</b>（Life Manager を入れた、自分が管理者のリポジトリ）を選ぶか、<b>新しく作る</b>で名前を決めます（はじめは非公開）。</li>
-    <li>チームを作るときは <span class="ui">はじめて、メンバーを招待する</span>（新しく作るときは <span class="ui">作って、メンバーを招待する</span>）を押します。はじまると 設定 → 接続 が開くので、メンバーを招待します（「<a href="#team">チームで使う</a>」）。個人で使うときは <span class="ui">はじめる</span>（新しく作るときは <span class="ui">作ってはじめる</span>）で、タスクの画面になります。</li>
-  </ol>
+  <p>先に <span class="ui">もうあるリポジトリを使う</span> か <span class="ui">新しく作る</span> かを選びます。</p>
+  <ul>
+    <li><b>もうあるリポジトリを使う</b>: ① <span class="ui">使用するリポジトリを選ぶ</span> を押すと、GitHub の Life Manager App の画面が、<b>あなたのアカウントを選んだ状態</b>で開きます。使うリポジトリだけを選んで <span class="ui">Install</span> を押すと、アプリが自分で気づきます（2 つ目からは <span class="ui">リポジトリを追加する</span> → GitHub で足して <span class="ui">Save</span>）。② 許可したリポジトリを選んで、下のボタンを押します。</li>
+    <li><b>新しく作る</b>: 3 つの手順で進めます（「<a href="#prepare">リポジトリを追加する</a>」の「新しく作る」と同じ）。① <b>作る</b> → ② <b>Life Manager に許可</b>（作ったリポジトリだけ）→ ③ <b>この PC に</b>（クローン）。</li>
+  </ul>
+  <p>最後のボタンは、チームを作るときは <span class="ui">はじめて、メンバーを招待する</span>（はじまると 設定 → 接続 が開くので、メンバーを招待します。「<a href="#team">チームで使う</a>」）、個人で使うときは <span class="ui">はじめる</span>（タスクの画面になります）です。</p>
 
   <h3>ステップ 3: 招待を受ける</h3>
   <p><b>あなたの GitHub の名前</b>が大きく出ます。この名前をリーダーに伝えます（<span class="ui">コピー</span> でコピーもできます）。リーダーが招待すると、GitHub からメールが届くので、<span class="ui">View invitation</span> → <span class="ui">Accept invitation</span> を押します（リーダーから届いたリンク <code>https://github.com/持ち主/名前/invitations</code> を開いても同じです）。参加すると、アプリが自分で気づいて「○○ に参加しました」と出るので、<span class="ui">このリポジトリではじめる</span> を押します。</p>
@@ -685,17 +686,24 @@ git clone https://github.com/オーナー名/リポジトリ名.git D:\work\リ�
     <tr><th>選ぶもの</th><th>すること</th></tr>
     <tr><td><span class="ui">GitHub にある（リモート）</span></td><td>使えるリポジトリの一覧から選ぶか、URL（<code>https://github.com/持ち主/名前</code>、<code>git@github.com:持ち主/名前.git</code>、<code>持ち主/名前</code> のどれでも）を貼ります。<span class="ui">この PC にも持ってくる（クローン）</span> にチェックを入れると、置き場所を選んでクローンし、そのフォルダを作業フォルダにします。一覧にないときは <span class="ui">リポジトリを追加する</span>（GitHub で Life Manager に選ばせる）で出てきます。</td></tr>
     <tr><td><span class="ui">この PC にある（ローカル）</span></td><td>フォルダを選びます。GitHub からクローンしたフォルダなら、そのまま追加して作業フォルダにします。GitHub にまだないフォルダは、<span class="ui">GitHub に上げる…</span> で上げてから追加します（下の「手元のフォルダを GitHub に上げる」）。</td></tr>
-    <tr><td><span class="ui">新しく作る</span></td><td>名前を決めて、GitHub に自分のリポジトリ（README つき）を作ります。クローンにチェックを入れると、この PC にも持ってきます。「GitHub でログイン」では、先に自分のアカウントに Life Manager を入れておきます。</td></tr>
+    <tr><td><span class="ui">新しく作る</span></td><td>下の 3 つの手順で、GitHub に自分のリポジトリを作ります。</td></tr>
   </table>
   </div>
+  <h4>新しく作る（作る → Life Manager に許可 → この PC に）</h4>
+  <ol>
+    <li><b>作る</b>: 名前を決めます（はじめは非公開）。まだ自分のアカウントに Life Manager を入れていないときは、<span class="ui">GitHub で作る</span> でブラウザが開くので、「Add a README file」にチェックを入れて「Create repository」を押し、戻って <span class="ui">作ったので次へ</span> を押します。もう入れてあるとき（とトークンで入ったとき）は、<span class="ui">作る</span> でアプリが作ります。</li>
+    <li><b>Life Manager に許可</b>: <span class="ui">許可する画面を開く</span> で GitHub が開きます。「Only select repositories」→ 作ったリポジトリを選んで <span class="ui">Install</span>（2 回目からは足して <span class="ui">Save</span>）を押すと、アプリが自分で気づいて次へ進みます。<b>作ったリポジトリだけ</b>を許可するので、ほかのリポジトリには触れません。アプリで作ったときは、自動で許可に入るので、この手順は飛ばします。</li>
+    <li><b>この PC に</b>: <span class="ui">この PC にも持ってくる（クローン）</span> で置き場所を選び、<span class="ui">クローンして追加する</span>。git の作業をしないなら、チェックを外して <span class="ui">追加する</span>。</li>
+  </ol>
   <p>一覧の各行の <span class="ui">⋯</span> では、この PC のフォルダ（上の表）のほかに、<span class="ui">GitHub で開く</span>、<span class="ui">一覧から外す</span>（GitHub のリポジトリやフォルダは消えません）ができます。今使っているリポジトリは、ほかに切り替えてから外します。</p>
 
   <h3>手元のフォルダを GitHub に上げる</h3>
-  <p>まだ GitHub に無いフォルダ（課題や作品のフォルダ）は、リポジトリを追加 → <span class="ui">この PC にある（ローカル）</span> でフォルダを選び、<span class="ui">GitHub に上げる…</span> から、4 つの手順で上げられます。</p>
+  <p>まだ GitHub に無いフォルダ（課題や作品のフォルダ）は、リポジトリを追加 → <span class="ui">この PC にある（ローカル）</span> でフォルダを選び、<span class="ui">GitHub に上げる…</span> から、4 つの手順（「GitHub でログイン」のときは 5 つ）で上げられます。</p>
   <ol>
     <li><b>記録を始める</b>: 上げるフォルダを選びます。まだ Git の記録がなければ、記録を始め（<code>git init</code>）、<code>.gitignore</code> のひな形（Visual Studio / Unity / Unreal Engine）を置いて、今の中身を最初のコミットにします。</li>
     <li><b>GitHub に場所を作る</b>: <span class="ui">GitHub で作る</span> でブラウザが開きます。README や .gitignore は付けずに「Create repository」を押し、戻って <span class="ui">作ったので次へ</span> を押します（リポジトリができたかを確かめます）。</li>
     <li><b>つないで送る</b>: GitHub の置き場所を <code>origin</code> という名前で登録し、送ります（<code>git push -u</code>）。</li>
+    <li><b>Life Manager に許可</b>（「GitHub でログイン」のとき）: 上げたリポジトリだけを Life Manager に許可します（上の「新しく作る」の ② と同じ）。しないと、Issue やタスクが使えません。</li>
     <li><b>できあがり</b>: プロジェクトに登録し、このフォルダを作業フォルダにします。</li>
   </ol>
   <div class="cmd"><span class="c"># 実行されるコマンドの例</span>

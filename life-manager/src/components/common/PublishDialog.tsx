@@ -3,6 +3,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as git from "../../lib/git";
 import { isEscape } from "../../lib/keys";
+import { useLoginInfo } from "../../hooks/useLoginInfo";
+import { AllowRepoStep } from "./AllowRepoStep";
 
 interface PublishDialogProps {
   /** GitHub にログインしている人（リポジトリの持ち主の候補） */
@@ -23,6 +25,8 @@ const TEMPLATES: { value: git.GitignoreTemplate; label: string }[] = [
 ];
 
 const STEPS = ["記録を始める", "GitHub に場所を作る", "つないで送る", "できあがり"];
+/** 「GitHub でログイン」のときは、上げたリポジトリを Life Manager に許可する手順を足す（しないと Issue が使えない） */
+const STEPS_WITH_ALLOW = ["記録を始める", "GitHub に場所を作る", "つないで送る", "Life Manager に許可", "できあがり"];
 
 /** フォルダの名前から、GitHub のリポジトリに使える名前を作る（使えない文字は - に） */
 function repoNameOf(path: string): string {
@@ -32,7 +36,7 @@ function repoNameOf(path: string): string {
   return name && (name === base || /[A-Za-z]/.test(name)) ? name : "my-project";
 }
 
-/** 手元のフォルダを GitHub に上げる（記録を始める → GitHub に空のリポジトリを作る → つないで送る） */
+/** 手元のフォルダを GitHub に上げる（記録を始める → GitHub に空のリポジトリを作る → つないで送る →（ログインなら）Life Manager に許可） */
 export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishDialogProps) {
   const [step, setStep] = useState(0);
   const [folder, setFolder] = useState("");
@@ -45,6 +49,10 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const { me, byLogin, installUrl, installations, reloadInstallations } = useLoginInfo();
+  const steps = byLogin ? STEPS_WITH_ALLOW : STEPS;
+  const allowStep = byLogin ? 3 : -1;
+  const lastStep = steps.length - 1;
 
   const url = `https://github.com/${owner.trim()}/${name.trim()}.git`;
   const branch = state?.branch || "main";
@@ -119,13 +127,14 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         setDone(`実行しました：${r.command}`);
         setStep(3);
       });
-    } else {
+    } else if (step === lastStep) {
       await run(() => onDone(owner.trim(), name.trim(), folder));
     }
   }
 
   const canNext =
     !busy &&
+    step !== allowStep &&
     (step === 0
       ? !!state && !state.inside
       : step === 1
@@ -134,7 +143,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
   const nextLabel =
     step === 1
       ? "作ったので次へ"
-      : step === 3
+      : step === lastStep
         ? "プロジェクトに追加して閉じる"
         : step === 0 && state && prepareCommands.length === 0
           ? "次へ"
@@ -144,10 +153,10 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onBack()}>
       <div className="git-dialog publish-dialog" role="dialog" aria-modal="true" aria-label="手元のフォルダを GitHub に上げる" onClick={(e) => e.stopPropagation()}>
         <h3>
-          手元のフォルダを GitHub に上げる <span className="publish-count">{step + 1} / {STEPS.length}</span>
+          手元のフォルダを GitHub に上げる <span className="publish-count">{step + 1} / {steps.length}</span>
         </h3>
         <ol className="publish-steps">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <li key={s} className={i < step ? "done" : i === step ? "on" : ""}>
               {s}
             </li>
@@ -263,15 +272,25 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
           </>
         )}
 
-        {step === 3 && (
+        {step === allowStep && me && (
           <>
             <p className="local-folder-message local-folder-message--ok">✔ GitHub に上げました。</p>
+            <AllowRepoStep me={me} installUrl={installUrl} installations={installations} target={{ owner: owner.trim(), repo: name.trim() }}
+              onAllowed={(r) => { setOwner(r.owner); setName(r.repo); setDone(null); setStep(lastStep); }} onInstallationsChanged={reloadInstallations} />
+          </>
+        )}
+
+        {step === lastStep && (
+          <>
+            <p className="local-folder-message local-folder-message--ok">✔ GitHub に上げました{byLogin ? "。Life Manager で使えます" : ""}。</p>
             <p className="git-dialog-message">
               「プロジェクトに追加して閉じる」で、{owner.trim()}/{name.trim()} をプロジェクトに登録し、このフォルダを作業フォルダにします。
             </p>
-            <p className="git-dialog-note">
-              Issue やタスクも使うときは、ログイン（トークン）がこのリポジトリを使えるようにしてください（設定 → トークン）。
-            </p>
+            {!byLogin && (
+              <p className="git-dialog-note">
+                Issue やタスクも使うときは、トークンがこのリポジトリを使えるようにしてください（設定 → トークン）。
+              </p>
+            )}
             <div className="publish-open">
               <button type="button" className="btn-sm" onClick={() => openUrl(`https://github.com/${owner.trim()}/${name.trim()}`)}>
                 GitHub で開く
@@ -289,14 +308,16 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         {error && <p className="git-dialog-error">{error}</p>}
 
         <div className="git-dialog-actions add-project-actions">
-          {step < 3 && (
+          {step <= 2 && (
             <button type="button" className="link-button" disabled={busy} onClick={() => (step === 0 ? onBack() : setStep(step - 1))}>
               {step === 0 ? "← 追加の画面に戻る" : "← 前へ"}
             </button>
           )}
-          <button type="button" className="btn-primary" disabled={!canNext} onClick={next}>
-            {nextLabel}
-          </button>
+          {step !== allowStep && (
+            <button type="button" className="btn-primary" disabled={!canNext} onClick={next}>
+              {nextLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

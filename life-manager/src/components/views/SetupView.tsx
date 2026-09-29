@@ -4,16 +4,17 @@ import { GitHubLogin } from "../common/GitHubLogin";
 import { TokenEntry } from "../common/TokenEntry";
 import { TokenReportView } from "../common/TokenReportView";
 import { RepoAccess } from "../common/RepoAccess";
+import { CreateRepoFlow } from "../common/CreateRepoFlow";
 import {
   APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, markSetupPending,
   setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type TokenReport, type UserRepo,
 } from "../../lib/auth";
-import { createMyRepo, listMyInvitations, SIGNUP_URL } from "../../lib/team";
-import { isEnter } from "../../lib/keys";
+import { listMyInvitations, SIGNUP_URL } from "../../lib/team";
 
 interface SetupViewProps {
-  /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → 接続 を開く */
-  onDone: (owner: string, repo: string, inviteNext?: boolean) => Promise<void>;
+  /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → 接続 を開く。
+   * folder は、新しく作ってこの PC にクローンしたときの作業フォルダ */
+  onDone: (owner: string, repo: string, inviteNext?: boolean, folder?: string) => Promise<void>;
   /** セットアップの途中で閉じて、開き直した。ログインが生きていれば 2.（使い方を選ぶ）から */
   resume?: boolean;
 }
@@ -27,7 +28,7 @@ const PATHS: { id: Path; icon: string; label: string; desc: string }[] = [
   { id: "solo", icon: "👤", label: "個人で使う", desc: "自分だけのリポジトリで使います（あとからチームにもできます）" },
 ];
 
-/** 新しく作るリポジトリの名前（はじめに入れておくもの） */
+/** 新しく作るリポジトリの名前（手順 1 の欄に、はじめに入れておくもの） */
 const NEW_NAMES: Record<Path, string> = { team: "team-project", join: "", solo: "my-tasks" };
 
 /** 使い方を選ぶ画面で、届いている招待を確かめに行く間隔 */
@@ -63,7 +64,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [me, setMe] = useState<TokenReport | null>(null);
   const [repos, setRepos] = useState<UserRepo[] | null>(null);
   const [reposError, setReposError] = useState<string | null>(null);
-  // 使うリポジトリ: もうあるものを選ぶ／新しく作る（null は、一覧を読んでから決める）
+  // チームを作る・個人で使う: もうあるリポジトリを使う／新しく作る（null は、まだ選んでいない）
   const [mode, setMode] = useState<"existing" | "new" | null>(null);
   const [picked, setPicked] = useState<{ owner: string; repo: string } | null>(null);
   const [check, setCheck] = useState<TokenReport | null>(null);
@@ -71,9 +72,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameCopied, setNameCopied] = useState(false);
-  // 新しく作るリポジトリ
-  const [newName, setNewName] = useState(NEW_NAMES.solo);
-  const [newPrivate, setNewPrivate] = useState(true);
+  // 新しく作っているところ（作る → Life Manager に許可 → この PC に。CreateRepoFlow）
   const [createBusy, setCreateBusy] = useState(false);
   // Life Manager App を入れる画面（使用するリポジトリを選ぶ・リポジトリを追加する）と、入れてある先
   const [installUrl, setInstallUrl] = useState("");
@@ -233,17 +232,12 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     };
   }, [step, path, loadRepos]);
 
-  // チームを作る・個人で使う: 一覧を読んだら、もうあるもの（いちばん最近のもの）か、新しく作るかを決めておく
+  // もうあるリポジトリを使う: まだ選んでいなければ、いちばん最近のものを選んでおく
   useEffect(() => {
-    if (step !== 2 || !path || path === "join" || mode !== null || repos === null) return;
+    if (step !== 2 || !path || path === "join" || mode !== "existing" || picked || repos === null) return;
     const first = ownRepos[0];
-    if (first) {
-      setPicked({ owner: first.owner.login, repo: first.name });
-      setMode("existing");
-    } else {
-      setMode("new");
-    }
-  }, [step, path, mode, repos, ownRepos]);
+    if (first) setPicked({ owner: first.owner.login, repo: first.name });
+  }, [step, path, mode, picked, repos, ownRepos]);
 
   // 選んだリポジトリを使えるか確かめる
   useEffect(() => {
@@ -263,13 +257,9 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const pickedOk = !!check && check.repos[0]?.ok;
   // 自分のアカウントに Life Manager App が入っているか（参加しているリポジトリの持ち主の分は数えない）
   const ownInstall = !!me && !!installations?.some((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
-  // 「GitHub でログイン」は、自分のアカウントに Life Manager App を入れてからでないと作れない
-  const canCreate = !byLogin || ownInstall;
-  const startReady = mode === "new" ? !!newName.trim() && canCreate : mode === "existing" && !!picked && pickedOk;
+  const startReady = mode === "existing" && !!picked && pickedOk;
   const team = path === "team";
-  const startLabel = mode === "new"
-    ? team ? "作って、メンバーを招待する" : "作ってはじめる"
-    : team ? "はじめて、メンバーを招待する" : "はじめる";
+  const startLabel = team ? "はじめて、メンバーを招待する" : "はじめる";
 
   function choose(p: Path) {
     setPath(p);
@@ -278,14 +268,18 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     setError(null);
     setJoinProblem(null);
     setJoinBaseline(null);
-    // 名前を打ち直していなければ、道に合う名前にする
-    setNewName((n) => (Object.values(NEW_NAMES).includes(n) ? NEW_NAMES[p] : n));
     setStep(2);
   }
 
   function back() {
     setError(null);
     setJoinProblem(null);
+    // チームを作る・個人で使う: もうある／新しく作る を選び直す
+    if (step === 2 && mode !== null) {
+      setMode(null);
+      setPicked(null);
+      return;
+    }
     if (step === 2) setPath(null);
     setStep((s) => Math.max(0, s - 1));
   }
@@ -300,30 +294,17 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     }
   }
 
-  // チームを作る・個人で使う: 新しく作るなら作ってから、はじめる（チームなら、はじめたあと 設定 → 接続 を開く）
+  // もうあるリポジトリを使う: 選んだもので、はじめる（チームなら、はじめたあと 設定 → 接続 を開く）
   async function start() {
-    if (!startReady || createBusy || finishing) return;
-    if (mode === "existing" && picked) {
-      await startWith(picked.owner, picked.repo, team);
-      return;
-    }
-    setCreateBusy(true);
-    setError(null);
-    try {
-      const repo = await createMyRepo(newName.trim(), newPrivate);
-      await startWith(repo.owner.login, repo.name, team);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setCreateBusy(false);
-    }
+    if (!startReady || finishing || !picked) return;
+    await startWith(picked.owner, picked.repo, team);
   }
 
-  async function startWith(owner: string, repo: string, inviteNext = false) {
+  async function startWith(owner: string, repo: string, inviteNext = false, folder?: string) {
     setFinishing(true);
     setError(null);
     try {
-      await onDone(owner, repo, inviteNext);
+      await onDone(owner, repo, inviteNext, folder);
     } catch (e) {
       setError(String(e));
       setFinishing(false);
@@ -609,96 +590,110 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
         {step === 2 && (path === "team" || path === "solo") && (
           <>
             <p className="setup-lead">{team ? "チームで使うリポジトリを用意して、メンバーを招待します。" : "自分だけのリポジトリで、タスクを管理します。"}</p>
-            <ol className="setup-path-steps">
-              {byLogin && me && installUrl && (
-                <li>
-                  <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!ownInstall}
-                    onChanged={async (added) => {
-                      await loadInstallations();
-                      await loadRepos(added.length === 1 ? added[0] : undefined);
-                      if (added.length === 1) setMode("existing");
-                    }} />
-                </li>
-              )}
-              <li>
-                <b>使うリポジトリ</b>
-                <div className="setup-radio">
-                  <label className="chk">
-                    <input type="radio" name="setup-repo-mode" checked={mode === "existing"} disabled={ownRepos.length === 0 || createBusy}
-                      onChange={() => setMode("existing")} />
-                    もうあるもの
-                  </label>
-                  {ownRepos.length > 0 ? (
-                    <select className="select-sm" value={picked ? `${picked.owner}/${picked.repo}` : ""} disabled={createBusy}
-                      onChange={(e) => {
-                        const [owner, repo] = e.target.value.split("/");
-                        if (owner && repo) {
-                          setPicked({ owner, repo });
-                          setMode("existing");
-                        }
-                      }}>
-                      {!picked && <option value="">選ぶ</option>}
-                      {ownRepos.map((r) => (
-                        <option key={r.full_name} value={r.full_name}>
-                          {r.full_name}{r.private ? "（非公開）" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="setup-note">{repos === null ? "読んでいます…" : "まだありません"}</span>
-                  )}
-                  <button type="button" className="link-button" onClick={() => { loadRepos(); if (byLogin) loadInstallations(); }}
-                    title="GitHub で入れたあとなど、使えるリポジトリをもう一度読みます">
-                    読み直す
-                  </button>
-                </div>
-                <div className="setup-radio">
-                  <label className="chk">
-                    <input type="radio" name="setup-repo-mode" checked={mode === "new"} disabled={createBusy} onChange={() => setMode("new")} />
-                    新しく作る
-                  </label>
-                  <span className="setup-create-owner">{me?.login ?? ""} /</span>
-                  <input className="setup-create-name" value={newName} onFocus={() => setMode("new")} onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => { if (isEnter(e)) start(); }} disabled={createBusy} aria-label="リポジトリの名前" />
-                  <label className="chk">
-                    <input type="checkbox" checked={newPrivate} onChange={(e) => setNewPrivate(e.target.checked)} disabled={createBusy} />
-                    非公開
-                  </label>
-                </div>
-              </li>
-            </ol>
-            {mode === "new" && !canCreate && installations !== null && (
-              <p className="setup-note setup-note--warn">先に「使用するリポジトリを選ぶ」で、Life Manager を入れてください（入れたあとは、ここで作れます）。</p>
+            {mode === null && (
+              <div className="wizard-choices">
+                <button type="button" className="wizard-choice" onClick={() => { setMode("existing"); setError(null); }}>
+                  <span className="wizard-choice-icon" aria-hidden="true">📂</span>
+                  <span className="wizard-choice-body">
+                    <b>もうあるリポジトリを使う</b>
+                    <span>GitHub にあるリポジトリを、Life Manager に許可して使います</span>
+                  </span>
+                </button>
+                <button type="button" className="wizard-choice" onClick={() => { setMode("new"); setError(null); }}>
+                  <span className="wizard-choice-icon" aria-hidden="true">✨</span>
+                  <span className="wizard-choice-body">
+                    <b>新しく作る</b>
+                    <span>作る → Life Manager に許可 → この PC に持ってくる、の順に進めます</span>
+                  </span>
+                </button>
+              </div>
             )}
-            {mode === "existing" && checking && (
+
+            {mode === "existing" && (
+              <>
+                <ol className="setup-path-steps">
+                  {byLogin && me && installUrl && (
+                    <li>
+                      <b>Life Manager に許可する</b>（使うリポジトリだけを選びます）
+                      <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!ownInstall}
+                        onChanged={async (added) => {
+                          await loadInstallations();
+                          await loadRepos(added.length === 1 ? added[0] : undefined);
+                        }} />
+                    </li>
+                  )}
+                  <li>
+                    <b>使うリポジトリを選ぶ</b>
+                    <div className="setup-radio">
+                      {ownRepos.length > 0 ? (
+                        <select className="select-sm" value={picked ? `${picked.owner}/${picked.repo}` : ""}
+                          onChange={(e) => {
+                            const [owner, repo] = e.target.value.split("/");
+                            if (owner && repo) setPicked({ owner, repo });
+                          }}>
+                          {!picked && <option value="">選ぶ</option>}
+                          {ownRepos.map((r) => (
+                            <option key={r.full_name} value={r.full_name}>
+                              {r.full_name}{r.private ? "（非公開）" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="setup-note">{repos === null ? "読んでいます…" : byLogin ? "まだありません（上で許可すると、ここに出ます）" : "まだありません"}</span>
+                      )}
+                      <button type="button" className="link-button" onClick={() => { loadRepos(); if (byLogin) loadInstallations(); }}
+                        title="GitHub で許可したあとなど、使えるリポジトリをもう一度読みます">
+                        読み直す
+                      </button>
+                    </div>
+                  </li>
+                </ol>
+                {checking && (
+                  <p className="setup-note">
+                    <i className="spinner" aria-hidden="true" /> 使えるか確かめています…
+                  </p>
+                )}
+                {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={check} installUrl={installUrl} />}
+                {check && check.repos[0]?.ok && check.repos[0].message && <p className="setup-note">⚠ {check.repos[0].message}</p>}
+                {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）</p>}
+              </>
+            )}
+
+            {mode === "new" && (
+              <CreateRepoFlow
+                defaultName={NEW_NAMES[path]}
+                finishLabel={() => startLabel}
+                onFinish={(o, r, folder) => startWith(o, r, team, folder)}
+                onBack={() => setMode(null)}
+                onBusyChange={setCreateBusy}
+              />
+            )}
+
+            {mode !== "new" && (
               <p className="setup-note">
-                <i className="spinner" aria-hidden="true" /> 使えるか確かめています…
+                {team
+                  ? "はじめると 設定 → 接続 が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。"
+                  : "あとから 設定 → 接続 でメンバーを招待すれば、チームで使えます。"}
               </p>
             )}
-            {mode === "existing" && check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={check} installUrl={installUrl} />}
-            {mode === "existing" && check && check.repos[0]?.ok && check.repos[0].message && <p className="setup-note">⚠ {check.repos[0].message}</p>}
-            {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）</p>}
-            <p className="setup-note">
-              {team
-                ? "はじめると 設定 → 接続 が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。"
-                : "あとから 設定 → 接続 でメンバーを招待すれば、チームで使えます。"}
-            </p>
           </>
         )}
 
         {error && <p className="token-error">{error}</p>}
 
-        <div className="setup-actions">
-          <button type="button" className="btn-sm" style={{ visibility: step > 0 ? "visible" : "hidden" }} disabled={finishing || createBusy}
-            onClick={back}>
-            ← 戻る
-          </button>
-          {step === 2 && (path === "team" || path === "solo") && (
-            <button type="button" className="btn-primary" disabled={!startReady || finishing || createBusy} onClick={start}>
-              {createBusy ? "作っています…" : finishing ? "準備しています…" : startLabel}
+        {!(step === 2 && mode === "new") && (
+          <div className="setup-actions">
+            <button type="button" className="btn-sm" style={{ visibility: step > 0 ? "visible" : "hidden" }} disabled={finishing || createBusy}
+              onClick={back}>
+              ← 戻る
             </button>
-          )}
-        </div>
+            {step === 2 && mode === "existing" && (path === "team" || path === "solo") && (
+              <button type="button" className="btn-primary" disabled={!startReady || finishing} onClick={start}>
+                {finishing ? "準備しています…" : startLabel}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -317,9 +317,11 @@ function App() {
 
   // 最初のセットアップ: ログイン（またはトークン）はもう済んでいる。使うリポジトリをプロジェクトにして、つなぐ
   // （トークンはプロジェクト専用には入れない。いつものトークンを使う）
-  async function handleSetupDone(owner: string, repo: string, inviteNext = false) {
+  async function handleSetupDone(owner: string, repo: string, inviteNext = false, folder?: string) {
     await gh.setRepoConfig(owner, repo);
     await gh.addProject(owner, repo, `${owner}/${repo}`);
+    // 新しく作って、この PC にクローンしたとき
+    if (folder) await localFolders.setFolder(owner, repo, folder);
     await gh.loadToken();
     markSetupPending(false);
     setResumeSetup(false);

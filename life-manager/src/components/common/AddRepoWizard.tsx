@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import * as git from "../../lib/git";
 import { isMobile } from "../../lib/platform";
-import { isEnter, isEscape } from "../../lib/keys";
-import { authInstallUrl, checkToken, listInstallations, listUserRepos, type Installation, type TokenReport, type UserRepo } from "../../lib/auth";
-import { createMyRepo } from "../../lib/team";
+import { isEscape } from "../../lib/keys";
+import { checkToken, listUserRepos, type TokenReport, type UserRepo } from "../../lib/auth";
 import type { Project } from "../../lib/types";
+import { useLoginInfo } from "../../hooks/useLoginInfo";
+import { CreateRepoFlow } from "./CreateRepoFlow";
 import { PublishDialog } from "./PublishDialog";
 import { RepoAccess } from "./RepoAccess";
 import { TokenReportView } from "./TokenReportView";
@@ -64,16 +65,14 @@ const onTop = (node: ReactNode) => createPortal(node, document.querySelector("ma
 /**
  * リポジトリを追加（左上のリポジトリの一覧の「＋ リポジトリを追加…」）。
  * GitHub にある（一覧から選ぶ・URL を貼る。この PC にクローンもできる）／この PC にある（フォルダを選ぶ。GitHub になければ上げる）／
- * 新しく作る（GitHub に作る。この PC にクローンもできる）。追加したら、そのリポジトリに切り替える
+ * 新しく作る（作る → Life Manager に許可 → この PC に。CreateRepoFlow）。追加したら、そのリポジトリに切り替える
  */
 export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder, onSwitch, onNotify, onClose }: AddRepoWizardProps) {
   const [step, setStep] = useState<Step>("choose");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // だれで入っているか（GitHub でログインなら、Life Manager を入れる案内を出す）
-  const [me, setMe] = useState<TokenReport | null>(null);
-  const [installUrl, setInstallUrl] = useState("");
-  const [installations, setInstallations] = useState<Installation[] | null>(null);
+  // だれで入っているか（GitHub でログインなら、Life Manager に許可する案内を出す）
+  const { me, byLogin, installUrl, installations, reloadInstallations } = useLoginInfo();
   // GitHub にある
   const [repos, setRepos] = useState<UserRepo[] | null>(null);
   const [query, setQuery] = useState("");
@@ -82,7 +81,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
   const [showMore, setShowMore] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [token, setToken] = useState("");
-  // この PC にもクローンする（GitHub にある・新しく作る）
+  // この PC にもクローンする（GitHub にある）
   const [clone, setClone] = useState(!isMobile);
   const [parent, setParent] = useState(loadParent);
   // この PC にある
@@ -92,9 +91,6 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
   // フォルダを調べ終わった（調べられなかったときは「まだ GitHub にありません」を出さない）
   const [localChecked, setLocalChecked] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  // 新しく作る
-  const [newName, setNewName] = useState("");
-  const [newPrivate, setNewPrivate] = useState(true);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -112,26 +108,10 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
       setError(`使えるリポジトリを読めませんでした（${String(e)}）。URL を貼っても選べます`);
     }
   };
-  const loadInstallations = async () => {
-    try {
-      setInstallations(await listInstallations());
-    } catch {
-      setInstallations([]);
-    }
-  };
-
   useEffect(() => {
-    checkToken({ repos: [] }).then(setMe).catch(() => {});
-    authInstallUrl().then(setInstallUrl).catch(() => {});
     loadRepos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const byLogin = me?.kind === "app";
-  useEffect(() => {
-    if (byLogin) loadInstallations();
-  }, [byLogin]);
-  // 自分のアカウントに Life Manager App が入っているか（新しく作るのに要る）
-  const ownInstall = !!me && !!installations?.some((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
 
   const isAdded = (r: { owner: string; repo: string }) => projects.some((p) => sameRepo(p, r));
   const q = query.trim().toLowerCase();
@@ -223,26 +203,6 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
     });
   }
 
-  // --- 新しく作る ---
-  const newValid = /^[A-Za-z0-9._-]+$/.test(newName.trim());
-  const canCreate = !byLogin || ownInstall;
-  const createDest = newValid && parent ? joinPath(parent, newName.trim()) : "";
-
-  function create() {
-    if (!newValid || !canCreate) return;
-    run(async () => {
-      const made = await createMyRepo(newName.trim(), newPrivate);
-      const o = made.owner.login;
-      const r = made.name;
-      let folder: string | undefined;
-      if (useClone) {
-        const result = await git.cloneRepo(parent, o, r);
-        folder = result.path;
-      }
-      await finish(o, r, `${o}/${r}`, folder);
-    });
-  }
-
   if (publishing) {
     return onTop(
       <PublishDialog
@@ -259,7 +219,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
   const repoAccess = byLogin && me && installUrl && (
     <RepoAccess me={me} installUrl={installUrl} installations={installations}
       onChanged={async (added) => {
-        await loadInstallations();
+        await reloadInstallations();
         await loadRepos();
         if (added.length === 1) {
           const got = git.parseGitHub(added[0]);
@@ -438,39 +398,23 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
         {step === "create" && (
           <>
             <h3>新しく作る</h3>
-            <p className="git-dialog-message">GitHub に、あなたのリポジトリ（README つき）を作ります。</p>
-            <label className="git-dialog-label">
-              名前（英数字・ハイフン・ドット・アンダースコア）
-              <span className="add-project-row">
-                <span className="setup-create-owner">{me?.login ?? login} /</span>
-                <input className="input-full" value={newName} autoFocus spellCheck={false} placeholder="my-project"
-                  onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (isEnter(e)) create(); }} disabled={busy} />
-              </span>
-            </label>
-            {newName.trim() && !newValid && <p className="git-dialog-error">名前に使えない文字があります（英数字・ハイフン・ドット・アンダースコアだけ）</p>}
-            <label className="chk">
-              <input type="checkbox" checked={newPrivate} onChange={(e) => setNewPrivate(e.target.checked)} disabled={busy} />
-              非公開にする（学校の課題やチーム制作は、こちら）
-            </label>
-            {byLogin && installations !== null && !ownInstall && (
-              <div className="wizard-case wizard-case--warn">
-                <b>先に、あなたのアカウントに Life Manager を入れてください</b>
-                <span className="git-dialog-note">「GitHub でログイン」では、Life Manager を入れたアカウントにだけリポジトリを作れます（入れたあとは、ここで作れます）。</span>
-                {repoAccess}
-              </div>
-            )}
-            {cloneOptions(createDest, newValid ? git.displayCommand(["clone", `https://github.com/${me?.login ?? login}/${newName.trim()}.git`, createDest || "（置き場所）"]) : "")}
+            <CreateRepoFlow
+              finishLabel={(c) => (c ? "クローンして追加する" : "追加する")}
+              onFinish={(o, r, folder) => finish(o, r, `${o}/${r}`, folder)}
+              onBack={() => { setStep("choose"); setError(null); }}
+              onBusyChange={setBusy}
+            />
           </>
         )}
 
-        {busy && (
+        {busy && step !== "create" && (
           <p className="git-dialog-running">
-            <i className="spinner" aria-hidden="true" /> {useClone && step !== "local" ? "クローンしています…（大きなリポジトリは時間がかかります）" : "実行しています…"}
+            <i className="spinner" aria-hidden="true" /> {useClone && step === "remote" ? "クローンしています…（大きなリポジトリは時間がかかります）" : "実行しています…"}
           </p>
         )}
-        {error && <p className="git-dialog-error">{error}</p>}
+        {error && step !== "create" && <p className="git-dialog-error">{error}</p>}
 
-        {step !== "choose" && (
+        {(step === "remote" || step === "local") && (
           <div className="git-dialog-actions add-project-actions">
             <button type="button" className="link-button" onClick={() => { setStep("choose"); setError(null); }} disabled={busy}>
               ← 戻る
@@ -485,11 +429,6 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
               <button type="button" className="btn-primary" disabled={busy}
                 onClick={() => run(() => finish(localFound.owner, localFound.repo, `${localFound.owner}/${localFound.repo}`, localFound.top))}>
                 {isAdded(localFound) ? "作業フォルダにして切り替える" : "追加する"}
-              </button>
-            )}
-            {step === "create" && (
-              <button type="button" className="btn-primary" onClick={create} disabled={busy || !newValid || !canCreate || (useClone && !parent)}>
-                {useClone ? "作ってクローンする" : "作って追加する"}
               </button>
             )}
           </div>

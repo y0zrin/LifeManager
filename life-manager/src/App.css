@@ -4977,6 +4977,36 @@ button:hover {
   margin-right: auto;
 }
 
+/* 新しく作る（作る → Life Manager に許可 → この PC に）と、手順「Life Manager に許可」 */
+.create-flow,
+.allow-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.allow-step-how {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 3px solid var(--border-default);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.allow-step-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* 名前の欄の前の「持ち主 /」は折り返さない */
+.add-project-row .setup-create-owner {
+  flex: none;
+  align-self: center;
+  white-space: nowrap;
+}
+
 /* リポジトリを追加（ウィザード）: GitHub にある／この PC にある／新しく作る */
 .wizard-choices {
   display: flex;

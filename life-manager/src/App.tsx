@@ -24,6 +24,8 @@ import { GanttView } from "./components/views/GanttView";
 import { WorkView, EMPTY_DRAFT, type CommitDraft } from "./components/views/WorkView";
 import { BranchesView } from "./components/views/BranchesView";
 import { OverviewView } from "./components/views/OverviewView";
+import { PullsView } from "./components/views/PullsView";
+import type { PullDetail } from "./lib/pulls";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
 import { ConflictNotice } from "./components/git/ConflictNotice";
@@ -36,6 +38,7 @@ import { DEFAULT_COLUMNS } from "./lib/board";
 import { EstimateUnitContext } from "./components/common/EstimateChip";
 import { SetupDialog } from "./components/git/SetupDialog";
 import { setupStatus as readSetupStatus } from "./lib/git";
+import * as gitApi from "./lib/git";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { IssueDetailModal } from "./components/common/IssueDetailModal";
 import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssueMarks";
@@ -72,10 +75,10 @@ const TASK_ITEMS: NavItem[] = [
 const REPO_ITEMS: NavItem[] = [
   { key: "branches", icon: "🌿", label: "ブランチ" },
   { key: "overview", icon: "🗺️", label: "全体図" },
+  { key: "pulls", icon: "🔃", label: "プルリク" },
 ];
 // これから作る画面（サイドバーに「予定」として見せておく）
 const PLANNED_REPO_ITEMS = [
-  { icon: "🔃", label: "プルリク" },
   { icon: "▶️", label: "Actions" },
   { icon: "🏷️", label: "リリース" },
 ];
@@ -136,7 +139,7 @@ function App() {
   }, [view]);
   // git の操作は PC だけ。作業・ブランチ・全体図を開いているあいだは、状態をこまめに読み直す
   const folder = isMobile ? undefined : localFolders.folders[`${gh.owner}/${gh.repo}`];
-  const repoView = view === "work" || view === "branches" || view === "overview";
+  const repoView = view === "work" || view === "branches" || view === "overview" || view === "pulls";
   const git = useGit(folder, repoView);
   const {
     actions: gitActions,
@@ -520,11 +523,45 @@ function App() {
     await gh.switchProject(projOwner, projRepo);
   }
 
+  // プルリク: 見ているプルリク（作業タブから開けるよう、ここで持つ）と、作業タブからの「プルリクを作る」
+  const [pullSelected, setPullSelected] = useState<number | null>(null);
+  const [pullCreate, setPullCreate] = useState<{ head: string | null; issue: number | null } | null>(null);
+  const clearPullCreate = useCallback(() => setPullCreate(null), []);
+  const openPull = useCallback((n: number) => {
+    setPullSelected(n);
+    setView("pulls");
+  }, [setView]);
+  const createPull = useCallback((head: string | null, issue: number | null) => {
+    setPullCreate({ head, issue });
+    setView("pulls");
+  }, [setView]);
+  // プルリクの競合を、この PC の作業フォルダで直す: 最新を取ってきて、そのブランチで入れる先を取り込む → 作業タブの「競合を直す」へ
+  const fixPullLocally = useCallback(async (p: PullDetail) => {
+    const st = git.status;
+    if (!st) return;
+    if (st.files.length > 0 || st.operation) {
+      git.notify("error", "作業中の変更（または途中の操作）があります。先にコミットするか、退避してから、もう一度「この PC で直す」を押します");
+      setView("work");
+      return;
+    }
+    const fetched = await git.exec("フェッチしています", gitApi.fetch, "GitHub の最新を取ってきました");
+    if (!fetched.ok) return;
+    if (st.branch !== p.head) {
+      const switched = await git.exec("切り替えています", (path) => gitApi.switchBranch(path, p.head, false), `${p.head} に切り替えました`);
+      if (!switched.ok) return;
+    }
+    await git.exec("取り込んでいます", (path) => gitApi.pull(path), `${p.head} を GitHub の最新にしました`, { quiet: true });
+    await git.exec("取り込んでいます", (path) => gitApi.merge(path, `origin/${p.base}`), `origin/${p.base} を ${p.head} に取り込みました（競合はありませんでした）`);
+    setView("work");
+  }, [git, setView]);
+
   // 別のリポジトリに切り替えたら、コミット欄の書きかけや見ていたブランチは持ち越さない
   useEffect(() => {
     setCommitDraft(EMPTY_DRAFT);
     setRepoBranch(null);
     setFocusCommit(null);
+    setPullSelected(null);
+    setPullCreate(null);
   }, [gh.owner, gh.repo]);
 
   // 全体図の点をクリック: そのコミットを積み重ねてきたブランチのページで、そのコミットへ寄る
@@ -845,6 +882,9 @@ function App() {
               onOpenIssue={setSelectedIssue}
               onStartIssue={(n) => gh.changeIssueStatus(n, "状態:進行中")}
               onCloseIssue={gh.closeIssue}
+              closedIssues={gh.closedIssues}
+              onCreatePull={createPull}
+              onOpenPull={openPull}
               draft={commitDraft}
               onDraftChange={setCommitDraft}
               commitRequest={commitRequest}
@@ -914,6 +954,26 @@ function App() {
                 />
               )}
             </div>
+          )}
+
+          {/* プルリク */}
+          {view === "pulls" && gh.connected && (
+            <PullsView
+              owner={gh.owner}
+              repo={gh.repo}
+              currentUser={gh.currentUser}
+              collaborators={gh.collaborators}
+              issues={workIssues}
+              closedIssues={gh.closedIssues}
+              onOpenIssue={openIssue}
+              selected={pullSelected}
+              onSelect={setPullSelected}
+              createRequest={pullCreate}
+              onCreateRequestHandled={clearPullCreate}
+              onMerged={gh.loadAll}
+              onFixLocally={folder && git.status ? fixPullLocally : undefined}
+              localBranch={git.status?.branch ?? null}
+            />
           )}
 
           {/* オーバービュー（いまの状況・チームのペース） */}

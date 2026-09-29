@@ -10,6 +10,7 @@ import { MergeTool } from "../git/MergeTool";
 import { withTransition } from "../../lib/motion";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEnter } from "../../lib/keys";
+import { branchPull, type PullSummary } from "../../lib/pulls";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
 export interface CommitDraft {
@@ -44,6 +45,11 @@ interface WorkViewProps {
   onOpenIssue: (n: number) => void;
   onStartIssue: (n: number) => Promise<void>;
   onCloseIssue: (n: number) => Promise<void>;
+  /** 閉じた Issue（マージで閉じた Issue を、完了の段で見せる） */
+  closedIssues: GitHubIssue[];
+  /** プルリクを作る（プルリクの画面で、作るダイアログを開く） */
+  onCreatePull: (head: string | null, issue: number | null) => void;
+  onOpenPull: (n: number) => void;
   draft: CommitDraft;
   onDraftChange: (draft: CommitDraft) => void;
   /** ツールバーの「コミット…」「空コミット…」から来たとき。コミット欄を開いたら onCommitRequestHandled で消してもらう */
@@ -62,7 +68,7 @@ type Selected = { path: string; side: Side };
 /** 取り組み中の Issue。"none" は「Issue なしで作業する」を選んだとき、null はまだ選んでいないとき */
 type IssueChoice = number | "none" | null;
 
-const STEP_NAMES = ["Issue を選ぶ", "ブランチ", "変更", "コミット", "プッシュ", "完了"];
+const STEP_NAMES = ["Issue を選ぶ", "ブランチ", "変更", "コミット", "プッシュ", "プルリク", "マージ", "完了"];
 const IN_PROGRESS = "状態:進行中";
 
 // --- 取り組み中の Issue は、リポジトリごとにこの PC に覚えておく ---
@@ -135,13 +141,24 @@ function Lines({ lines }: { lines: GitLineStat | null }) {
   );
 }
 
-// --- 作業の流れ（Issue → ブランチ → 変更 → コミット → プッシュ → 完了） ---
+// --- 作業の流れ（Issue → ブランチ → 変更 → コミット → プッシュ → プルリク → マージ → 完了） ---
 
 interface Flow {
   step: number;
   labels: string[];
   hint: ReactNode;
   action: { label: string; run: () => void } | null;
+  /** もう 1 つのボタン（マージしたあと「main に戻る」など） */
+  secondary?: { label: string; run: () => void } | null;
+}
+
+/** プルリクのレビューの進み（流れの「マージ」の段の小さな字） */
+function reviewLabel(pr: PullSummary): string {
+  if (pr.draft) return "下書き";
+  const v = pr.verdicts;
+  if (v && v.changes_requested.length > 0) return "修正の依頼";
+  if (v && v.approved.length > 0) return `承認 ${v.approved.length}`;
+  return "レビュー待ち";
 }
 
 export function WorkView(props: WorkViewProps) {
@@ -210,6 +227,9 @@ function Workspace({
   onOpenIssue,
   onStartIssue,
   onCloseIssue,
+  closedIssues,
+  onCreatePull,
+  onOpenPull,
   draft,
   onDraftChange,
   commitRequest,
@@ -239,6 +259,8 @@ function Workspace({
   }
 
   const issue = typeof choice === "number" ? issues.find((i) => i.number === choice) ?? null : null;
+  // 選んでいた Issue が閉じられた（プルリクのマージの Closes など）
+  const closedIssue = typeof choice === "number" && !issue ? closedIssues.find((i) => i.number === choice) ?? null : null;
 
   // --- ファイルの分類 ---
   const files = st.files;
@@ -282,24 +304,62 @@ function Workspace({
   const lastPush = g.lastPush?.branch === st.branch ? g.lastPush : null;
   const committedHere = lastCommit !== null;
   const pushedAfterCommit = lastCommit !== null && lastPush !== null && lastPush.at > lastCommit.at;
+  // 既定のブランチと先頭が違えば、このブランチで作ったコミットがある（アプリを開き直したあとも、プルリクの段に進めるように）
+  const defaultHead = g.branches.find((b) => b.name === defaultBranch)?.head ?? "";
+  const sameHead = (a: string, b: string) => a !== "" && b !== "" && (a.startsWith(b) || b.startsWith(a));
+  const hasOwnCommits = committedHere || (st.head !== "" && defaultHead !== "" && !sameHead(st.head, defaultHead));
+  const onBranch = !!st.branch && !onDefault;
+
+  // このブランチから出したプルリク（GitHub に聞く。画面に戻ったとき・1 分ごとにも読み直す）
+  const [branchPr, setBranchPr] = useState<{ branch: string; pull: PullSummary | null; error: string | null } | null>(null);
+  useEffect(() => {
+    const branch = st.branch;
+    if (!branch || onDefault || !published) {
+      setBranchPr(null);
+      return;
+    }
+    let alive = true;
+    const load = () =>
+      branchPull(owner, repo, branch)
+        .then((pull) => alive && setBranchPr({ branch, pull, error: null }))
+        .catch((e) => alive && setBranchPr({ branch, pull: null, error: String(e) }));
+    load();
+    window.addEventListener("focus", load);
+    const timer = window.setInterval(load, 60000);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", load);
+      window.clearInterval(timer);
+    };
+  }, [owner, repo, st.branch, onDefault, published, lastPush?.at]);
+  const pr = branchPr && branchPr.branch === st.branch ? branchPr.pull : null;
+  const prError = branchPr && branchPr.branch === st.branch ? branchPr.error : null;
 
   const flow: Flow = (() => {
     let step: number;
-    if (choice === null || (typeof choice === "number" && !issue)) step = 1;
+    if (choice === null || (typeof choice === "number" && !issue && !closedIssue)) step = 1;
     else if (changeCount > 0) step = staged.length > 0 ? 4 : 3;
     else if (needsPush) step = 5;
-    else if (issue && pushedAfterCommit) step = 6;
+    else if (onBranch && pr?.state === "open") step = 7;
+    else if (onBranch && pr?.merged) step = 8;
+    else if (closedIssue) step = 8;
+    // 既定のブランチで直接コミットしたときは、プルリク・マージの段はとばす
+    else if (onDefault && issue && pushedAfterCommit) step = 8;
+    else if (onBranch && published && (pushedAfterCommit || hasOwnCommits)) step = 6;
     else if (issue && onDefault) step = 2;
     else step = 3;
+    const direct = onDefault && step === 8;
 
     const labels = [
       "",
-      issue ? `#${issue.number}` : choice === "none" ? "なし" : "未選択",
+      issue ? `#${issue.number}` : closedIssue ? `#${closedIssue.number}` : choice === "none" ? "なし" : "未選択",
       st.branch || `切り離し ${st.head}`,
       changeCount ? `${changeCount} ファイル` : "なし",
       changeCount ? `ステージ ${staged.length}` : committedHere ? "済み" : "—",
       !published ? (st.unpushed > 0 ? "未公開" : "—") : st.ahead > 0 ? `↑${st.ahead}` : "済み",
-      "Issue を閉じる",
+      direct ? "なし（直接）" : pr ? `#${pr.number}${pr.state === "closed" && !pr.merged ? " 閉じた" : ""}` : "—",
+      direct ? "なし（直接）" : pr?.merged ? "済み" : pr?.state === "open" ? reviewLabel(pr) : "—",
+      closedIssue ? "閉じました" : issue ? "Issue を閉じる" : "—",
     ];
 
     const hints: Record<number, ReactNode> = {
@@ -318,7 +378,33 @@ function Workspace({
         ) : (
           <>「プッシュ」で、記録したコミットを GitHub に送ります（<code>git push</code>）。</>
         ),
-      6: <>GitHub に送れました。Issue を閉じて完了にします。</>,
+      6: (
+        <>
+          GitHub に送れました。「プルリクを作る」で、この変更を <b>{defaultBranch}</b> に入れるお願いを出します。チームの人が変更を見て
+          （レビュー）、よければマージします。
+          {pr && pr.state === "closed" && !pr.merged && <> 前のプルリク #{pr.number} は、マージせずに閉じられています。</>}
+          {prError && <span className="w-flow-warn">{prError}</span>}
+        </>
+      ),
+      7: pr ? (
+        <>
+          プルリク <b>#{pr.number}</b> を出しました。レビューしてもらい、よければマージします（ひとりなら、差分を自分で確かめてマージしてかまいません）。
+          直すときは、このブランチでコミット・プッシュすると、プルリクに足されます。
+        </>
+      ) : null,
+      8: direct ? (
+        <>GitHub に送れました。Issue を閉じて完了にします。</>
+      ) : closedIssue ? (
+        <>
+          #{closedIssue.number} は閉じられました{pr?.merged ? `（#${pr.number} のマージで）` : ""}。
+          {onBranch && <> 次の作業は <b>{defaultBranch}</b> に戻ってから始めます（<code>git switch {defaultBranch}</code> → <code>git pull</code>）。</>}
+        </>
+      ) : (
+        <>
+          マージできました。{issue ? "Issue を閉じて完了にします。" : ""}
+          {onBranch && <> 次の作業は <b>{defaultBranch}</b> に戻ってから始めます（<code>git switch {defaultBranch}</code> → <code>git pull</code>）。</>}
+        </>
+      ),
     };
 
     let action: Flow["action"] = null;
@@ -326,7 +412,9 @@ function Workspace({
     else if (step === 2 && issue) action = { label: "ブランチを作る…", run: () => actions.createBranch(`issue-${issue.number}`) };
     else if (step === 4) action = { label: "コミット欄へ", run: () => focusCommit() };
     else if (step === 5) action = st.behind > 0 ? { label: "プルする", run: actions.pull } : { label: "プッシュする", run: actions.push };
-    else if (step === 6 && issue) {
+    else if (step === 6) action = { label: "プルリクを作る…", run: () => onCreatePull(st.branch, issue?.number ?? null) };
+    else if (step === 7 && pr) action = { label: `#${pr.number} を開く（レビュー・マージ）`, run: () => onOpenPull(pr.number) };
+    else if (step === 8 && issue) {
       action = {
         label: `#${issue.number} を完了にする`,
         run: async () => {
@@ -335,8 +423,29 @@ function Workspace({
           setChoice(null);
         },
       };
-    }
-    return { step, labels, hint: hints[step], action };
+    } else if (step === 8 && closedIssue) {
+      action = {
+        label: "完了（次の Issue へ）",
+        run: () => {
+          celebrateDone(`#${closedIssue.number}`);
+          setChoice(null);
+        },
+      };
+    } else if (step === 8) action = { label: "次の作業へ", run: () => setChoice(null) };
+    // マージしたあと: 既定のブランチに戻って、最新にする
+    const secondary =
+      step === 8 && onBranch
+        ? {
+            label: `${defaultBranch} に戻って最新にする`,
+            run: async () => {
+              const switched = await g.exec("切り替えています", (p) => gitApi.switchBranch(p, defaultBranch, false), `${defaultBranch} に切り替えました`);
+              if (switched.ok) await g.exec("プルしています", gitApi.pull, `${defaultBranch} を最新にしました`);
+            },
+          }
+        : step === 7 && pr
+          ? { label: "もう一度読む", run: () => branchPull(owner, repo, st.branch).then((pull) => setBranchPr({ branch: st.branch, pull, error: null })).catch(() => {}) }
+          : null;
+    return { step, labels, hint: hints[step], action, secondary };
   })();
 
   return (
@@ -344,6 +453,7 @@ function Workspace({
       <IssueBar
         issues={issues}
         issue={issue}
+        closedIssue={closedIssue}
         choice={choice}
         open={pickerOpen}
         onOpenChange={setPickerOpen}
@@ -366,6 +476,11 @@ function Workspace({
       </ol>
       <div className="w-flow-hint">
         <p className="hint">{flow.hint}</p>
+        {flow.secondary && (
+          <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={flow.secondary.run}>
+            {flow.secondary.label}
+          </button>
+        )}
         {flow.action && (
           <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={flow.action.run}>
             {flow.action.label}
@@ -489,6 +604,8 @@ function Workspace({
 interface IssueBarProps {
   issues: GitHubIssue[];
   issue: GitHubIssue | null;
+  /** 選んでいた Issue が閉じられたとき（プルリクのマージで閉じたなど） */
+  closedIssue: GitHubIssue | null;
   choice: IssueChoice;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -497,7 +614,7 @@ interface IssueBarProps {
   onStartIssue: (n: number) => Promise<void>;
 }
 
-function IssueBar({ issues, issue, choice, open, onOpenChange, onChoose, onOpenIssue, onStartIssue }: IssueBarProps) {
+function IssueBar({ issues, issue, closedIssue, choice, open, onOpenChange, onChoose, onOpenIssue, onStartIssue }: IssueBarProps) {
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
@@ -514,7 +631,7 @@ function IssueBar({ issues, issue, choice, open, onOpenChange, onChoose, onOpenI
     .sort((a, b) => Number(inProgress(b)) - Number(inProgress(a)) || b.number - a.number)
     .filter((i) => !q || String(i.number).startsWith(q) || i.title.toLowerCase().includes(q));
 
-  const missing = typeof choice === "number" && !issue;
+  const missing = typeof choice === "number" && !issue && !closedIssue;
 
   return (
     <div className="w-issue">
@@ -526,9 +643,17 @@ function IssueBar({ issues, issue, choice, open, onOpenChange, onChoose, onOpenI
           title={issue ? issueMeta(issue) : ""}
           onClick={() => onOpenChange(!open)}
         >
-          <span className="wi-num">{issue ? `#${issue.number}` : missing ? `#${choice}` : "—"}</span>
+          <span className="wi-num">{issue ? `#${issue.number}` : closedIssue ? `#${closedIssue.number}` : missing ? `#${choice}` : "—"}</span>
           <span className="wi-title">
-            {issue ? issue.title : missing ? "（閉じられたか、見つかりません）" : choice === "none" ? "Issue なしで作業中" : "Issue を選んでください"}
+            {issue
+              ? issue.title
+              : closedIssue
+                ? `${closedIssue.title}（閉じました）`
+                : missing
+                  ? "（閉じられたか、見つかりません）"
+                  : choice === "none"
+                    ? "Issue なしで作業中"
+                    : "Issue を選んでください"}
           </span>
           <span className="wi-caret">▾</span>
         </button>

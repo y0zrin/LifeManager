@@ -15,6 +15,11 @@ pub fn is_network_error(message: &str) -> bool {
     return message.starts_with(NETWORK_ERROR);
 }
 
+/// ブランチの名前を URL に入れる形にする（feature/x の / はそのまま。# ? % や空白などだけを変える）
+fn encode_ref(name: &str) -> String {
+    return urlencoding::encode(name).replace("%2F", "/");
+}
+
 #[derive(Clone)]
 pub struct GitHubClient {
     http: reqwest::Client,
@@ -784,6 +789,167 @@ impl GitHubClient {
     pub async fn remove_collaborator(&self, owner: &str, repo: &str, username: &str) -> Result<(), String> {
         self.delete(&format!("{}/repos/{}/{}/collaborators/{}", BASE_URL, owner, repo, urlencoding::encode(username))).await?;
         Ok(())
+    }
+
+    // --- プルリク ---
+
+    /// プルリクの一覧（開いている・閉じた・マージした、すべて。更新の新しい順）
+    pub async fn list_pulls(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/pulls?state=all&sort=updated&direction=desc&per_page=100",
+            BASE_URL, owner, repo
+        );
+        return self.get_all_pages(&url).await;
+    }
+
+    /// このリポジトリのブランチから出したプルリク（すべての状態。新しい順）
+    pub async fn list_pulls_from(&self, owner: &str, repo: &str, branch: &str) -> Result<String, String> {
+        let head = format!("{}:{}", owner, branch);
+        let url = format!(
+            "{}/repos/{}/{}/pulls?state=all&head={}&per_page=20",
+            BASE_URL,
+            owner,
+            repo,
+            urlencoding::encode(&head)
+        );
+        return self.get(&url).await;
+    }
+
+    pub async fn get_pull(&self, owner: &str, repo: &str, number: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}", BASE_URL, owner, repo, number);
+        return self.get(&url).await;
+    }
+
+    /// 変更したファイル（ファイルごとの差分つき。大きいファイルは GitHub が差分を省く）
+    pub async fn list_pull_files(&self, owner: &str, repo: &str, number: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/files?per_page=100", BASE_URL, owner, repo, number);
+        return self.get_all_pages(&url).await;
+    }
+
+    pub async fn list_pull_commits(&self, owner: &str, repo: &str, number: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/commits?per_page=100", BASE_URL, owner, repo, number);
+        return self.get_all_pages(&url).await;
+    }
+
+    /// レビュー（承認・修正の依頼・コメント）を古い順に
+    pub async fn list_pull_reviews(&self, owner: &str, repo: &str, number: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/reviews?per_page=100", BASE_URL, owner, repo, number);
+        return self.get_all_pages(&url).await;
+    }
+
+    /// 行に付けたコメント（レビューのコメント）
+    pub async fn list_pull_review_comments(&self, owner: &str, repo: &str, number: u64) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/comments?per_page=100", BASE_URL, owner, repo, number);
+        return self.get_all_pages(&url).await;
+    }
+
+    pub async fn create_pull(
+        &self,
+        owner: &str,
+        repo: &str,
+        title: &str,
+        head: &str,
+        base: &str,
+        body: &str,
+        draft: bool,
+    ) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls", BASE_URL, owner, repo);
+        let payload = serde_json::json!({ "title": title, "head": head, "base": base, "body": body, "draft": draft });
+        return self.post(&url, &payload).await;
+    }
+
+    /// 題名・本文・状態（open / closed）を変える
+    pub async fn update_pull(&self, owner: &str, repo: &str, number: u64, payload: &serde_json::Value) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}", BASE_URL, owner, repo, number);
+        return self.patch_json(&url, payload).await;
+    }
+
+    /// マージする。method は merge / squash / rebase。sha は見ていたときのブランチの先頭（そのあいだに変わっていたら GitHub が断る）
+    pub async fn merge_pull(&self, owner: &str, repo: &str, number: u64, method: &str, sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/merge", BASE_URL, owner, repo, number);
+        let payload = serde_json::json!({ "merge_method": method, "sha": sha });
+        return self.put(&url, &payload).await;
+    }
+
+    /// レビューを送る。event は APPROVE / REQUEST_CHANGES / COMMENT
+    pub async fn create_review(&self, owner: &str, repo: &str, number: u64, event: &str, body: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/reviews", BASE_URL, owner, repo, number);
+        let payload = serde_json::json!({ "event": event, "body": body });
+        return self.post(&url, &payload).await;
+    }
+
+    /// 差分の行にコメントを付ける。side は RIGHT（変えたあとの行）/ LEFT（消した行）
+    pub async fn create_review_comment(
+        &self,
+        owner: &str,
+        repo: &str,
+        number: u64,
+        commit_id: &str,
+        path: &str,
+        line: u64,
+        side: &str,
+        body: &str,
+    ) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/comments", BASE_URL, owner, repo, number);
+        let payload = serde_json::json!({ "body": body, "commit_id": commit_id, "path": path, "line": line, "side": side });
+        return self.post(&url, &payload).await;
+    }
+
+    pub async fn request_reviewers(&self, owner: &str, repo: &str, number: u64, reviewers: &[String]) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/requested_reviewers", BASE_URL, owner, repo, number);
+        return self.post(&url, &serde_json::json!({ "reviewers": reviewers })).await;
+    }
+
+    pub async fn remove_reviewers(&self, owner: &str, repo: &str, number: u64, reviewers: &[String]) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/requested_reviewers", BASE_URL, owner, repo, number);
+        return self.delete_json(&url, &serde_json::json!({ "reviewers": reviewers })).await;
+    }
+
+    /// 入れる先のブランチの新しいコミットを、プルリクのブランチに取り込む（GitHub の「Update branch」）
+    pub async fn update_pull_branch(&self, owner: &str, repo: &str, number: u64, head_sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/pulls/{}/update-branch", BASE_URL, owner, repo, number);
+        return self.put(&url, &serde_json::json!({ "expected_head_sha": head_sha })).await;
+    }
+
+    /// 2 つのブランチの違い（base に無くて head にあるコミットと、変更したファイル）
+    pub async fn compare(&self, owner: &str, repo: &str, base: &str, head: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/compare/{}...{}", BASE_URL, owner, repo, encode_ref(base), encode_ref(head));
+        return self.get(&url).await;
+    }
+
+    /// GitHub のブランチを消す（マージしたあとの片づけ）
+    pub async fn delete_branch_ref(&self, owner: &str, repo: &str, branch: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/git/refs/heads/{}", BASE_URL, owner, repo, encode_ref(branch));
+        return self.delete(&url).await;
+    }
+
+    /// GitHub にブランチを作る（消したブランチを戻す）
+    pub async fn create_branch_ref(&self, owner: &str, repo: &str, branch: &str, sha: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/git/refs", BASE_URL, owner, repo);
+        let payload = serde_json::json!({ "ref": format!("refs/heads/{}", branch), "sha": sha });
+        return self.post(&url, &payload).await;
+    }
+
+    /// GitHub にこのブランチがあるか
+    pub async fn branch_exists(&self, owner: &str, repo: &str, branch: &str) -> Result<bool, String> {
+        let (status, _, body) = self.get_raw(&format!("/repos/{}/{}/branches/{}", owner, repo, encode_ref(branch))).await?;
+        match status {
+            200 => Ok(true),
+            404 => Ok(false),
+            _ => Err(format!("HTTP {}: {}", status, body)),
+        }
+    }
+
+    /// GraphQL（REST にない操作: 下書きとレビューのお願いの切り替え）。GitHub のエラーは Err にする
+    pub async fn graphql(&self, query: &str, variables: serde_json::Value) -> Result<serde_json::Value, String> {
+        let url = format!("{}/graphql", BASE_URL);
+        let text = self.post(&url, &serde_json::json!({ "query": query, "variables": variables })).await?;
+        let json: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("JSONパースエラー: {}", e))?;
+        if let Some(errors) = json["errors"].as_array() {
+            let messages: Vec<&str> = errors.iter().filter_map(|e| e["message"].as_str()).collect();
+            return Err(format!("GraphQL: {}", messages.join(" / ")));
+        }
+        return Ok(json["data"].clone());
     }
 
     // --- HTTP共通メソッド ---

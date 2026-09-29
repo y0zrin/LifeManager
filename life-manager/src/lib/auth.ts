@@ -225,9 +225,10 @@ export function tokenCreateUrl(owner?: string): string {
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
   const params = new URLSearchParams({
     name: `Life Manager ${stamp}`,
-    description: "Life Manager で Issue とファイル（設定・日誌）を読み書きする",
+    description: "Life Manager で Issue・プルリクとファイル（設定・日誌）を読み書きする",
     expires_in: "90",
     issues: "write",
+    pull_requests: "write",
     contents: "write",
     metadata: "read",
   });

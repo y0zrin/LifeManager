@@ -102,7 +102,7 @@ export function Celebration({ motion }: CelebrationProps) {
       }
       // 完了の知らせ（下のまんなか）
       const toastId = ++seq.current;
-      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.label} を完了しました　${pick(PHRASES)}` }]);
+      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.text ?? `${detail.label} を完了しました`}　${pick(PHRASES)}` }]);
       window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== toastId)), 2800);
       if (!effects) return;
       // 押したところ（なければ知らせのすこし上）から、キラキラとスタンプ

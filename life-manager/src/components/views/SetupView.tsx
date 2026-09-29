@@ -6,8 +6,8 @@ import { TokenReportView } from "../common/TokenReportView";
 import { RepoAccess } from "../common/RepoAccess";
 import { CreateRepoFlow } from "../common/CreateRepoFlow";
 import {
-  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, markSetupPending,
-  setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type TokenReport, type UserRepo,
+  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listAccounts, listInstallations, listUserRepos, markSetupPending,
+  setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type SavedAccount, type TokenReport, type UserRepo,
 } from "../../lib/auth";
 import { listMyInvitations, SIGNUP_URL } from "../../lib/team";
 
@@ -17,6 +17,12 @@ interface SetupViewProps {
   onDone: (owner: string, repo: string, inviteNext?: boolean, folder?: string) => Promise<void>;
   /** セットアップの途中で閉じて、開き直した。ログインが生きていれば 2.（使い方を選ぶ）から */
   resume?: boolean;
+  /** 別のアカウントを足しているところ（足す前のアカウントの名前）。上に「やめる（…に戻る）」を出す */
+  adding?: string | null;
+  /** この PC にしまってあるアカウントに戻る（足すのをやめた・ほかのアカウントで続ける） */
+  onRestoreAccount?: (login: string) => Promise<void>;
+  /** ログインできた。前にこの PC で使っていたアカウントで、そのまま続けられるなら true（セットアップはここで終わる） */
+  onLoggedIn?: (report: TokenReport) => Promise<boolean>;
 }
 
 /** ログインのあとに選ぶ使い方: チームを作る（リーダー）／招待を受ける（メンバー）／個人で使う */
@@ -55,7 +61,7 @@ type Signup = "none" | "opened" | "login";
  * 招待を受ける: 自分の GitHub の名前を大きく出す。招待はメール（か招待のページ）で受け、使えるようになったらアプリが気づいて
  * 「このリポジトリではじめる」を出す。どの道も、最後のボタンでそのままはじめる
  */
-export function SetupView({ onDone, resume = false }: SetupViewProps) {
+export function SetupView({ onDone, resume = false, adding = null, onRestoreAccount, onLoggedIn }: SetupViewProps) {
   const [step, setStep] = useState(0);
   const [path, setPath] = useState<Path | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
@@ -88,6 +94,9 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [joinTextCopied, setJoinTextCopied] = useState(false);
   // 最初に出す知らせ（この PC の期限が来た・ログアウトした）
   const [notice, setNotice] = useState<{ kind: "expired" } | { kind: "signed-out"; login: boolean } | null>(null);
+  // この PC にしまってあるアカウント（ログインの画面から、そのアカウントに戻れる）
+  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   useEffect(() => {
     // セットアップの途中という印（使うリポジトリを選ぶ前に閉じても、次は続きから）
@@ -96,6 +105,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
       .then(setClientId)
       .catch(() => setClientId(""));
     authInstallUrl().then(setInstallUrl).catch(() => {});
+    listAccounts().then(setSavedAccounts).catch(() => {});
     takeLoginNotice()
       .then((expired) => {
         if (expired) setNotice({ kind: "expired" });
@@ -139,13 +149,28 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     };
   }, [resume]);
 
-  // ログインできた・トークンを入れた → だれのトークンかを出す
+  // ログインできた・トークンを入れた → だれのトークンかを出す（前にこの PC で使っていたアカウントなら、そのまま続きから）
   async function loggedIn() {
     setError(null);
     try {
-      signedIn(await checkToken({ repos: [] }));
+      const report = await checkToken({ repos: [] });
+      if (onLoggedIn && (await onLoggedIn(report))) return;
+      signedIn(report);
     } catch (e) {
       setError(String(e));
+    }
+  }
+
+  // しまってあるアカウントに戻る
+  async function restore(login: string) {
+    if (!onRestoreAccount) return;
+    setRestoring(login);
+    setError(null);
+    try {
+      await onRestoreAccount(login);
+    } catch (e) {
+      setError(String(e));
+      setRestoring(null);
     }
   }
 
@@ -376,6 +401,37 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
             </li>
           ))}
         </ol>
+
+        {/* 別のアカウントを足しているところ: ブラウザの GitHub を切り替えてからログインする。やめると前のアカウントに戻る */}
+        {adding && (
+          <div className="setup-adding">
+            <div>
+              <b>別のアカウントを追加しています</b>（{adding} はしまってあります）。
+              {step === 0 && (
+                <>
+                  先に、<b>ブラウザの GitHub を、追加したいアカウントに切り替えて</b>ください（GitHub の右上のアイコン →「Switch account」か「Add account」）。
+                  今のアカウントのままだと、同じアカウントが入ります。
+                </>
+              )}
+            </div>
+            <button type="button" className="btn-sm" disabled={restoring !== null} onClick={() => restore(adding)}>
+              {restoring === adding ? "戻っています…" : `やめる（${adding} に戻る）`}
+            </button>
+          </div>
+        )}
+
+        {/* この PC にしまってあるアカウント（足している途中で閉じた・ログアウトしたあとなど）に戻れる */}
+        {step === 0 && !adding && onRestoreAccount && savedAccounts.length > 0 && (
+          <div className="setup-saved">
+            <span>この PC でログインしたアカウントで続ける:</span>
+            {savedAccounts.map((a) => (
+              <button key={a.login} type="button" className="btn-sm setup-saved-account" disabled={restoring !== null} onClick={() => restore(a.login)}>
+                {a.avatar_url ? <img src={a.avatar_url} alt="" /> : <span aria-hidden="true">👤</span>}
+                {restoring === a.login ? "戻っています…" : a.login}
+              </button>
+            ))}
+          </div>
+        )}
 
         {step === 0 && notice && (
           <div className="setup-notice">

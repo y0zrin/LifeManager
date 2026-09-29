@@ -42,7 +42,7 @@ import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
 import { InsightsView } from "./components/views/InsightsView";
 import { useMediaQuery } from "./hooks/useMediaQuery";
-import { isSetupPending, markSetupPending } from "./lib/auth";
+import { adoptLogin, forgetAccount, isSetupPending, listAccounts, markSetupPending, restoreAccount, SIGNED_OUT_STORE, stashAccount, switchAccount, type TokenReport } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
 import { RepoSwitcher } from "./components/common/RepoSwitcher";
@@ -263,6 +263,8 @@ function App() {
   const [initializing, setInitializing] = useState(true);
   // セットアップの途中で閉じた → 前のプロジェクトは開かず、セットアップの続きから
   const [resumeSetup, setResumeSetup] = useState(false);
+  // 別のアカウントを足しているところ（足す前のアカウントの名前。やめたら、そのアカウントに戻る）
+  const [addingAccount, setAddingAccount] = useState<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -353,12 +355,94 @@ function App() {
     await gh.addProject(owner, repo, `${owner}/${repo}`);
     // 新しく作って、この PC にクローンしたとき
     if (folder) await localFolders.setFolder(owner, repo, folder);
-    await gh.loadToken();
+    // 別のアカウントを足したときは、前のアカウントのデータを捨てて読み直す
+    if (addingAccount) await gh.reloadAccount();
+    else await gh.loadToken();
     markSetupPending(false);
     setResumeSetup(false);
+    setAddingAccount(null);
     // 「はじめて、メンバーを招待する」なら 設定 → 接続 を開く
     if (inviteNext) setSettingsPane("connection");
     setView(inviteNext ? "settings" : "dashboard");
+  }
+
+  // --- アカウントの切り替え ---
+
+  // 今のアカウントを切り替えた・戻したあと: 開いていた詳細を閉じ、そのアカウントのリポジトリを読み直す
+  async function afterAccountChange(message: string) {
+    setSelectedIssue(null);
+    markSetupPending(false);
+    setResumeSetup(false);
+    setAddingAccount(null);
+    await gh.reloadAccount();
+    gh.setStatus(message);
+  }
+
+  // 送っていない変更があるあいだは切り替えない（前のアカウントの変更を、次のアカウントで送ってしまわないように）
+  const accountSwitchBlocked = offline.status.pending.length > 0
+    ? `まだ GitHub に送っていない変更が ${offline.status.pending.length} 件あります。送ってから切り替えてください`
+    : undefined;
+
+  async function handleSwitchAccount(target: string, currentAvatar?: string | null) {
+    const from = gh.currentUser;
+    try {
+      await switchAccount(from, currentAvatar, target);
+      await afterAccountChange(`${target} に切り替えました（${from} は左下のメニューから戻れます）`);
+    } catch (e) {
+      gh.setStatus(`切り替えられませんでした: ${e}`);
+    }
+  }
+
+  // 別のアカウントを足す: 今のアカウントをしまって、ログインの画面へ
+  async function handleAddAccount(currentAvatar?: string | null) {
+    const from = gh.currentUser;
+    try {
+      await stashAccount(from, currentAvatar);
+      setSelectedIssue(null);
+      setAddingAccount(from);
+    } catch (e) {
+      gh.setStatus(`アカウントを足せませんでした: ${e}`);
+    }
+  }
+
+  // ログインの画面から、しまってあるアカウントに戻る（足すのをやめた・ほかのアカウントで続ける）
+  async function handleRestoreAccount(login: string) {
+    await restoreAccount(login);
+    try {
+      sessionStorage.removeItem(SIGNED_OUT_STORE);
+    } catch {
+      // 知らせの印が残っても、使うのに困らない
+    }
+    await afterAccountChange(`${login} に戻りました`);
+  }
+
+  // ログインできた: 前にこの PC で使っていたアカウントなら、そのリポジトリの一覧に戻して、セットアップを飛ばす
+  async function handleLoggedIn(report: TokenReport): Promise<boolean> {
+    const restored = await adoptLogin(report.login);
+    if (!restored) return false;
+    const same = addingAccount && addingAccount.toLowerCase() === report.login.toLowerCase();
+    await afterAccountChange(
+      same
+        ? `${report.login} のままでした。別のアカウントを足すときは、ブラウザの GitHub を切り替えてからログインしてください`
+        : `${report.login} でログインしました`,
+    );
+    return true;
+  }
+
+  async function handleForgetAccount(login: string) {
+    await forgetAccount(login);
+    gh.setStatus(`${login} を、この PC から外しました`);
+  }
+
+  // ログアウト: 今のアカウントだけ。ほかにしまってあるアカウントがあれば、そちらに切り替える
+  async function handleSignOut() {
+    const from = gh.currentUser;
+    const others = await listAccounts().catch(() => []);
+    await gh.signOut();
+    if (others.length > 0) {
+      await handleRestoreAccount(others[0].login);
+      gh.setStatus(`${from} からログアウトしました。${others[0].login} に切り替えました`);
+    }
   }
 
   // アカウントのメニューの「ログインとトークン」・トークンの期限のお知らせ: 設定 → トークン を開く
@@ -528,8 +612,16 @@ function App() {
   }
 
   // 未接続・セットアップの途中 → セットアップ画面
-  if (!gh.connected || resumeSetup) {
-    return <SetupView onDone={handleSetupDone} resume={resumeSetup} />;
+  if (!gh.connected || resumeSetup || addingAccount) {
+    return (
+      <SetupView
+        onDone={handleSetupDone}
+        resume={resumeSetup}
+        adding={addingAccount}
+        onRestoreAccount={handleRestoreAccount}
+        onLoggedIn={handleLoggedIn}
+      />
+    );
   }
 
   // Issue の詳細。重ねて出す（ほかの画面・スマホ）か、タスクの右の欄に出す（inline）
@@ -618,7 +710,15 @@ function App() {
           </button>
         </div>
         {/* 一番下: ログインしているアカウント（押すとメニュー） */}
-        <AccountMenu login={gh.currentUser} onOpenTokens={openTokens} onSignOut={gh.signOut} />
+        <AccountMenu
+          login={gh.currentUser}
+          onOpenTokens={openTokens}
+          onSignOut={handleSignOut}
+          onSwitchAccount={handleSwitchAccount}
+          onAddAccount={handleAddAccount}
+          onForgetAccount={handleForgetAccount}
+          switchBlocked={accountSwitchBlocked}
+        />
       </aside>
 
       <div className="app-main">
@@ -880,7 +980,7 @@ function App() {
               projects={gh.projects}
               onOpenAddRepo={() => setAddRepoOpen(true)}
               onTokensChanged={gh.loadAll}
-              onSignOut={gh.signOut}
+              onSignOut={handleSignOut}
               displaySettings={display.settings}
               onChangeDisplaySettings={display.update}
               estimateUnit={gh.estimateUnit}

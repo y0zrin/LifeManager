@@ -372,7 +372,8 @@ body {
 
 .account-menu {
   position: fixed;
-  z-index: 70;
+  /* メモのボタン（85）・git のお知らせ（90）より上。重ねて出す画面（100）より下 */
+  z-index: 95;
   width: 260px;
   padding: var(--space-xs);
   border: 1px solid var(--border-default);
@@ -451,6 +452,143 @@ body {
 .account-confirm-actions {
   display: flex;
   gap: var(--space-sm);
+}
+
+/* アカウントを切り替える（期限のすぐ下）と、この PC でログインしたアカウントの一覧 */
+.account-switch {
+  justify-content: space-between;
+  color: var(--accent-blue);
+}
+
+.account-switch-count {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.account-pane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+  padding: 2px var(--space-xs) var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+}
+
+.account-back {
+  min-height: 0;
+  padding: 0 var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-lg);
+}
+
+.account-back:hover {
+  color: var(--text-primary);
+}
+
+.account-blocked {
+  margin: 0 var(--space-xs) var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--accent-yellow-bg);
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-md);
+}
+
+.account-row.current {
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+}
+
+.account-row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  min-height: 0;
+  padding: 6px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+}
+
+.account-row-main:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.account-row-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.account-row-who b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row-who small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-row-mark {
+  color: var(--accent-green-hover);
+}
+
+/* 外す（マウスを乗せた行だけに出す） */
+.account-row-forget {
+  flex: none;
+  min-height: 0;
+  margin-right: var(--space-xs);
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  opacity: 0;
+}
+
+.account-row:hover .account-row-forget,
+.account-row-forget:focus-visible {
+  opacity: 1;
+}
+
+.account-row-forget:hover {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.account-add {
+  color: var(--accent-blue);
+}
+
+.account-row-note {
+  margin: var(--space-xs) var(--space-sm) 2px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.5;
 }
 
 /* これから作る画面（押せない） */
@@ -2774,6 +2912,49 @@ button:hover {
   color: var(--text-muted);
   font-size: var(--font-xs);
   line-height: 1.5;
+}
+
+/* 別のアカウントを足しているところ（上に出して、やめると前のアカウントに戻る） */
+.setup-adding {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  background: var(--accent-blue-bg);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.setup-adding > div {
+  flex: 1;
+}
+
+.setup-adding > button {
+  flex: none;
+}
+
+/* この PC でログインしたアカウントで続ける */
+.setup-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.setup-saved-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setup-saved-account img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
 }
 
 /* 最初の画面の知らせ（期限が来た・ログアウトした） */
@@ -5564,7 +5745,7 @@ button:hover {
 
 .repo-pop {
   position: fixed;
-  z-index: 70;
+  z-index: 95;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);

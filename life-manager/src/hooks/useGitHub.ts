@@ -46,7 +46,8 @@ export function useGitHub() {
     await Promise.all([loadIssues(), loadClosedIssues(), loadLabels(), loadMilestones(), loadRoutines(), loadNotificationSchedules(), loadReminders(), loadCollaborators(), loadBoardConfig(), loadSavedViews(), loadEstimateConfig(), loadEventNotifConfig(), loadCurrentUser()]);
   }, [loadIssues, loadClosedIssues, loadLabels, loadMilestones, loadRoutines, loadNotificationSchedules, loadReminders, loadCollaborators, loadBoardConfig, loadSavedViews, loadEstimateConfig, loadEventNotifConfig, loadCurrentUser]);
 
-  // connected + owner/repo が揃ったらデータをロード（初期化時・プロジェクト切り替え時共通）
+  // connected + owner/repo が揃ったらデータをロード（初期化時・プロジェクト切り替え時・アカウントの切り替え時）
+  const { reloadNonce } = session;
   useEffect(() => {
     if (connected && owner && repo) {
       loadAll().then(() => {
@@ -56,7 +57,7 @@ export function useGitHub() {
         }
       });
     }
-  }, [connected, owner, repo, loadAll]);
+  }, [connected, owner, repo, loadAll, reloadNonce]);
 
   // --- プロジェクトの切り替え ---
 
@@ -81,13 +82,26 @@ export function useGitHub() {
 
   // --- 認証 ---
 
-  /** ログアウト（この PC からトークンを消す）。最初のセットアップの画面に戻る */
+  /** ログアウト（この PC からトークンを消す）。使うリポジトリの一覧は、今のアカウントの分としてしまう。最初のセットアップの画面に戻る */
   async function signOut() {
-    await invoke("sign_out");
+    await invoke("sign_out", { login: session.currentUser || null });
     session.setConnected(false);
     session.setCurrentUser("");
     issueOps.clear();
     setStatus("ログアウトしました");
+  }
+
+  /** アカウントを切り替えた・足したあと: 前のアカウントのデータを捨てて、今のアカウントのリポジトリを読み直す */
+  async function reloadAccount() {
+    issueOps.clear();
+    meta.clear();
+    settings.clear();
+    // 開くリポジトリは、今のアカウントのものを読み直す（同じリポジトリでも、読み直すように一度空にする）
+    session.setOwner("");
+    session.setRepo("");
+    session.setCurrentUser("");
+    await session.loadToken();
+    session.bumpReload();
   }
 
   async function setToken(token: string) {
@@ -124,7 +138,7 @@ export function useGitHub() {
     // ジャーナル
     generateJournal: journal.generateJournal, getJournal: journal.getJournal, saveJournalNotes: journal.saveJournalNotes,
     // 認証・設定
-    setToken, signOut, setupLabels: meta.setupLabels, createLabel: meta.createLabel, updateLabel: meta.updateLabel, deleteLabel: meta.deleteLabel,
+    setToken, signOut, reloadAccount, setupLabels: meta.setupLabels, createLabel: meta.createLabel, updateLabel: meta.updateLabel, deleteLabel: meta.deleteLabel,
     // リポジトリ設定
     owner, repo, setRepoConfig: session.setRepoConfig,
     // 通知

@@ -11,6 +11,9 @@ export function useSession() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [needsReload, setNeedsReload] = useState(false);
   const [currentUser, setCurrentUser] = useState("");
+  // 読み直しの合図（アカウントを切り替えたとき。開くリポジトリが前と同じでも、全部を読み直す）
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const bumpReload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   // --- エラーメッセージ変換 ---
 
@@ -109,7 +112,7 @@ export function useSession() {
 
   return {
     connected, setConnected, status, setStatus, owner, setOwner, repo, setRepo,
-    projects, needsReload, setNeedsReload, currentUser, setCurrentUser,
+    projects, needsReload, setNeedsReload, currentUser, setCurrentUser, reloadNonce, bumpReload,
     friendlyError, loadCurrentUser, loadProjects, addProject, removeProject, setProjectToken,
     setRepoConfig, loadToken,
   };

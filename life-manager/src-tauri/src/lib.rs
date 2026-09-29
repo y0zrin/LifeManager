@@ -339,9 +339,13 @@ async fn auth_poll(
 }
 
 /// ログアウト（学校の PC などで使い終わったとき）。この PC から、いつものトークンもプロジェクト専用のトークンも消す
-/// （どれも、だれかの合鍵なので）。使うリポジトリの一覧は残すので、次にログインすれば続きから使える
+/// （どれも、だれかの合鍵なので）。使うリポジトリの一覧は、login のアカウントの分としてしまうので、
+/// 次に同じアカウントでログインすれば続きから使え、別の人には前の人の一覧が出ない
 #[tauri::command]
-async fn sign_out(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
+async fn sign_out(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, login: Option<String>) -> Result<String, String> {
+    if let Some(login) = login.as_deref() {
+        tokens::put_away_projects(login)?;
+    }
     tokens::clear_default();
     for (owner, repo) in project_list() {
         tokens::clear_project(&owner, &repo);
@@ -349,6 +353,83 @@ async fn sign_out(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Resul
     let mut guard = state.lock().await;
     *guard = None;
     Ok("ログアウトしました".to_string())
+}
+
+// --- アカウントの切り替え（この PC でログインしたアカウントをしまっておき、入れ替える） ---
+
+/// 切り替えの一覧に出す、しまってあるアカウント
+#[derive(serde::Serialize)]
+struct AccountSummary {
+    login: String,
+    avatar_url: Option<String>,
+    /// 使うリポジトリ（owner/repo。見出しに出す）
+    projects: Vec<String>,
+}
+
+#[tauri::command]
+fn list_accounts() -> Vec<AccountSummary> {
+    tokens::saved_accounts()
+        .into_iter()
+        .map(|a| AccountSummary {
+            projects: tokens::saved_projects_of(&a.login).into_iter().map(|(o, r)| format!("{}/{}", o, r)).collect(),
+            login: a.login,
+            avatar_url: a.avatar_url,
+        })
+        .collect()
+}
+
+/// 今のアカウントをしまう（別のアカウントを足すとき。そのあとログインの画面になる）
+#[tauri::command]
+async fn stash_account(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    login: String,
+    avatar_url: Option<String>,
+) -> Result<(), String> {
+    tokens::stash_active(&login, avatar_url)?;
+    reload_active_client(&state).await;
+    Ok(())
+}
+
+/// しまってあるアカウントに切り替える（今のアカウントはしまう）
+#[tauri::command]
+async fn switch_account(
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    current: String,
+    current_avatar: Option<String>,
+    target: String,
+) -> Result<(), String> {
+    if !tokens::has_saved_keys(&target) {
+        return Err(format!("{} の鍵が、この PC にありません。「別のアカウントを追加」からログインしてください", target));
+    }
+    tokens::stash_active(&current, current_avatar)?;
+    if let Err(e) = tokens::restore(&target) {
+        // 切り替えられなければ、元のアカウントに戻す
+        let _ = tokens::restore(&current);
+        reload_active_client(&state).await;
+        return Err(e);
+    }
+    reload_active_client(&state).await;
+    Ok(())
+}
+
+/// しまってあるアカウントを、今のアカウントにする（今のアカウントがないとき: 足すのをやめた・ログアウトした）
+#[tauri::command]
+async fn restore_account(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, login: String) -> Result<(), String> {
+    tokens::restore(&login)?;
+    reload_active_client(&state).await;
+    Ok(())
+}
+
+/// ログインしたばかりのアカウントが前にこの PC で使っていたものなら、使うリポジトリの一覧を戻す（戻して、開くリポジトリもあれば true）
+#[tauri::command]
+fn adopt_login(login: String) -> Result<bool, String> {
+    tokens::adopt(&login)
+}
+
+/// しまってあるアカウントを、この PC から外す（そのアカウントの鍵を消す）
+#[tauri::command]
+fn forget_account(login: String) -> Result<(), String> {
+    tokens::forget(&login)
 }
 
 /// トークンを確かめる。token を渡せばそれを、渡さなければ owner/repo のプロジェクトで使うトークン（なければいつもの）を確かめる
@@ -1334,6 +1415,12 @@ pub fn run() {
             auth_start,
             auth_poll,
             sign_out,
+            list_accounts,
+            stash_account,
+            switch_account,
+            restore_account,
+            adopt_login,
+            forget_account,
             check_token,
             token_overview,
             clear_project_token,

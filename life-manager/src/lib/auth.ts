@@ -26,7 +26,31 @@ export const authInstallUrl = () => invoke<string>("auth_install_url");
 export const authStart = () => invoke<DeviceCode>("auth_start");
 /** days: この PC で使う日数（過ぎたら、鍵を消してログインし直してもらう） */
 export const authPoll = (deviceCode: string, days: number) => invoke<Poll>("auth_poll", { deviceCode, days });
-export const signOut = () => invoke<string>("sign_out");
+/** ログアウト。login を渡すと、使うリポジトリの一覧をそのアカウントの分としてしまう（次に同じアカウントでログインすれば続きから） */
+export const signOut = (login?: string) => invoke<string>("sign_out", { login: login || null });
+
+// --- アカウントの切り替え（この PC でログインしたアカウントをしまっておき、入れ替える） ---
+
+/** しまってあるアカウント（切り替えの一覧に出す） */
+export interface SavedAccount {
+  login: string;
+  avatar_url: string | null;
+  /** 使うリポジトリ（owner/repo） */
+  projects: string[];
+}
+
+export const listAccounts = () => invoke<SavedAccount[]>("list_accounts");
+/** 今のアカウントをしまう（別のアカウントを足すとき） */
+export const stashAccount = (login: string, avatarUrl?: string | null) => invoke<void>("stash_account", { login, avatarUrl: avatarUrl ?? null });
+/** しまってあるアカウントに切り替える（今のアカウントはしまう） */
+export const switchAccount = (current: string, currentAvatar: string | null | undefined, target: string) =>
+  invoke<void>("switch_account", { current, currentAvatar: currentAvatar ?? null, target });
+/** しまってあるアカウントを、今のアカウントにする（今のアカウントがないとき） */
+export const restoreAccount = (login: string) => invoke<void>("restore_account", { login });
+/** ログインしたばかりのアカウントが、前にこの PC で使っていたものなら一覧を戻す（開くリポジトリまで戻ったら true） */
+export const adoptLogin = (login: string) => invoke<boolean>("adopt_login", { login });
+/** しまってあるアカウントを、この PC から外す */
+export const forgetAccount = (login: string) => invoke<void>("forget_account", { login });
 /** この PC で使う期限が来て、ログインの鍵を消したか（1 回だけ true） */
 export const takeLoginNotice = () => invoke<boolean>("take_login_notice");
 

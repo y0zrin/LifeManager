@@ -259,6 +259,180 @@ pub fn kind_of(token: &str) -> &'static str {
     }
 }
 
+// --- アカウントの切り替え ---
+// 今のアカウントは、今までどおりの場所（いつものトークン・ログインの記録・使うリポジトリの一覧・開いているリポジトリ）に置く。
+// ほかのアカウントは、アカウントごとに「鍵」と「使うリポジトリ」に分けてしまっておき、切り替えるときに入れ替える
+// （Windows の資格情報は 1 つにしまえる大きさに限りがあるので、まとめて 1 つにはしない）。
+// 鍵は、今のアカウントの場所かしまってある場所の、どちらか 1 か所にだけ置く（更新の鍵は使うたびに変わるので、写しを残さない）
+
+/// しまってあるアカウント（切り替えの一覧に出す。鍵そのものは入れない）
+const ACCOUNTS_KEY: &str = "accounts";
+const PROJECTS_KEY: &str = "projects";
+const OWNER_KEY: &str = "github-owner";
+const REPO_KEY: &str = "github-repo";
+
+/// GitHub の名前は大文字・小文字を区別しないので、しまう場所の名前は小文字にそろえる
+fn account_token_key(login: &str) -> String {
+    format!("account-token-{}", login.to_lowercase())
+}
+
+fn account_projects_key(login: &str) -> String {
+    format!("account-projects-{}", login.to_lowercase())
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavedAccount {
+    pub login: String,
+    pub avatar_url: Option<String>,
+}
+
+/// しまってある鍵（いつものトークンと、ログインの記録そのまま）
+#[derive(Serialize, Deserialize)]
+struct SavedKeys {
+    token: String,
+    login: Option<String>,
+}
+
+/// しまってある、使うリポジトリの一覧と、開いていたリポジトリ（ログアウトしても残す。もう一度ログインすれば続きから）
+#[derive(Serialize, Deserialize, Default)]
+struct SavedProjects {
+    projects: Option<serde_json::Value>,
+    owner: Option<String>,
+    repo: Option<String>,
+}
+
+/// 切り替えの一覧（しまってあるアカウント）
+pub fn saved_accounts() -> Vec<SavedAccount> {
+    read(ACCOUNTS_KEY).and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default()
+}
+
+fn save_accounts(list: &[SavedAccount]) -> Result<(), String> {
+    if list.is_empty() {
+        delete(ACCOUNTS_KEY);
+        return Ok(());
+    }
+    write(ACCOUNTS_KEY, &serde_json::to_string(list).map_err(|e| e.to_string())?)
+}
+
+fn drop_from_accounts(login: &str) -> Result<(), String> {
+    let list: Vec<SavedAccount> = saved_accounts().into_iter().filter(|a| !a.login.eq_ignore_ascii_case(login)).collect();
+    save_accounts(&list)
+}
+
+/// しまってあるアカウントの、使うリポジトリ（名前だけ。一覧の見出しに出す）
+pub fn saved_projects_of(login: &str) -> Vec<(String, String)> {
+    let saved: SavedProjects = read(&account_projects_key(login)).and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+    saved
+        .projects
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|p| Some((p["owner"].as_str()?.to_string(), p["repo"].as_str()?.to_string())))
+        .collect()
+}
+
+/// 今の場所の、使うリポジトリの一覧と開いているリポジトリを、login の分としてしまい、今の場所は空にする
+fn put_away_projects_of(login: &str) -> Result<(), String> {
+    let projects = read(PROJECTS_KEY).and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok());
+    let saved = SavedProjects { projects, owner: read(OWNER_KEY), repo: read(REPO_KEY) };
+    write(&account_projects_key(login), &serde_json::to_string(&saved).map_err(|e| e.to_string())?)?;
+    delete(PROJECTS_KEY);
+    delete(OWNER_KEY);
+    delete(REPO_KEY);
+    Ok(())
+}
+
+/// login の分としてしまってある一覧を、今の場所に戻す（なければ空にする）
+fn bring_back_projects_of(login: &str) -> Result<(), String> {
+    let key = account_projects_key(login);
+    let saved: SavedProjects = read(&key).and_then(|json| serde_json::from_str(&json).ok()).unwrap_or_default();
+    match saved.projects {
+        Some(p) => write(PROJECTS_KEY, &p.to_string())?,
+        None => delete(PROJECTS_KEY),
+    }
+    match saved.owner {
+        Some(o) => write(OWNER_KEY, &o)?,
+        None => delete(OWNER_KEY),
+    }
+    match saved.repo {
+        Some(r) => write(REPO_KEY, &r)?,
+        None => delete(REPO_KEY),
+    }
+    delete(&key);
+    Ok(())
+}
+
+/// 今のアカウントをしまう（鍵・使うリポジトリの一覧・開いていたリポジトリ）。今の場所は空になる
+pub fn stash_active(login: &str, avatar_url: Option<String>) -> Result<(), String> {
+    let login = login.trim();
+    if login.is_empty() {
+        return Err("今のアカウントの名前が分かりません。少し待ってから、もう一度試してください".into());
+    }
+    if let Some(token) = default_token() {
+        let keys = SavedKeys { token, login: read(LOGIN_KEY) };
+        write(&account_token_key(login), &serde_json::to_string(&keys).map_err(|e| e.to_string())?)?;
+        let mut list: Vec<SavedAccount> = saved_accounts().into_iter().filter(|a| !a.login.eq_ignore_ascii_case(login)).collect();
+        list.insert(0, SavedAccount { login: login.to_string(), avatar_url });
+        save_accounts(&list)?;
+    }
+    put_away_projects_of(login)?;
+    delete(DEFAULT_KEY);
+    delete(LOGIN_KEY);
+    Ok(())
+}
+
+/// しまってあるアカウントか（鍵がある）
+pub fn has_saved_keys(login: &str) -> bool {
+    read(&account_token_key(login)).is_some()
+}
+
+/// しまってあるアカウントを、今のアカウントにする
+pub fn restore(login: &str) -> Result<(), String> {
+    let key = account_token_key(login);
+    let keys: SavedKeys = read(&key)
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .ok_or_else(|| format!("{} の鍵が、この PC にありません。もう一度ログインしてください", login))?;
+    write(DEFAULT_KEY, &keys.token)?;
+    match keys.login {
+        Some(record) => write(LOGIN_KEY, &record)?,
+        None => delete(LOGIN_KEY),
+    }
+    delete(&key);
+    bring_back_projects_of(login)?;
+    drop_from_accounts(login)
+}
+
+/// ログインしたばかりのアカウントが、前にこの PC で使っていたものなら、使うリポジトリの一覧を戻す（しまってあった古い鍵は捨てる）。
+/// 戻したら true
+pub fn adopt(login: &str) -> Result<bool, String> {
+    delete(&account_token_key(login));
+    drop_from_accounts(login)?;
+    if read(&account_projects_key(login)).is_none() {
+        return Ok(false);
+    }
+    // 今の場所に一覧があれば（前の版で使っていた PC）、そちらを使う（しまってある一覧は消さずに残す）
+    let active_empty = read(PROJECTS_KEY).is_none_or(|json| serde_json::from_str::<Vec<serde_json::Value>>(&json).map(|v| v.is_empty()).unwrap_or(true));
+    if !active_empty {
+        return Ok(false);
+    }
+    bring_back_projects_of(login)?;
+    Ok(read(OWNER_KEY).is_some() && read(REPO_KEY).is_some())
+}
+
+/// しまってあるアカウントを、この PC から外す（鍵を消す。使うリポジトリの一覧は残すので、もう一度ログインすれば続きから）
+pub fn forget(login: &str) -> Result<(), String> {
+    delete(&account_token_key(login));
+    drop_from_accounts(login)
+}
+
+/// ログアウトのとき: 使うリポジトリの一覧を、そのアカウントの分としてしまう（次にログインした別の人に、前の人の一覧を出さない）
+pub fn put_away_projects(login: &str) -> Result<(), String> {
+    if login.trim().is_empty() {
+        return Ok(());
+    }
+    put_away_projects_of(login.trim())
+}
+
 /// 前のセットアップは、いつものトークンを最初のプロジェクト専用にも入れていた。
 /// そのままだと、いつものトークンを入れ替えても専用（古いほう）が使われ続けるので、同じものは専用から外す
 pub fn drop_duplicate_project_tokens(projects: &[(String, String)]) {

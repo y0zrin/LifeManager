@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineEvent } from "../../lib/types";
 import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
@@ -17,8 +17,11 @@ import { EstimatePicker } from "./EstimateChip";
 import { Avatar } from "./Avatar";
 import { relatedOf } from "../../lib/related";
 
-/** 詳細のタブ: 内容（本文とチェックリスト）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）・履歴（コメントと変更） */
-type DetailTab = "body" | "settings" | "links" | "history";
+/** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
+type DetailTab = "history" | "settings" | "links";
+
+/** 内容をたたんだときの高さ（3 行ほど） */
+const CONTENT_CLAMP_PX = 88;
 
 /** 設定の表で開いている編集の欄（一度に一つ） */
 type EditRow = "labels" | "assignees" | "dates" | "deps" | "progress" | "reminder";
@@ -75,7 +78,11 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const [editingBody, setEditingBody] = useState(false);
   // 本文を直す欄には、アプリの印（ガントの日程・関連など）を出さない。保存するときに戻す
   const [editBody, setEditBody] = useState(() => splitAppMarks(issue.body).text);
-  const [tab, setTab] = useState<DetailTab>("body");
+  const [tab, setTab] = useState<DetailTab>("history");
+  // 内容が長いときは、たたんでおく（「すべて表示」で全部）
+  const [contentOpen, setContentOpen] = useState(false);
+  const [contentLong, setContentLong] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   // 履歴の並び（はじめは新しい順。この PC に覚える）
   const [historyOrder, setHistoryOrder] = useHistoryOrder();
   const [openRow, setOpenRow] = useState<EditRow | null>(null);
@@ -111,8 +118,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
 
   useEffect(() => {
     loadComments();
-    // 別の Issue に移ったら、内容のタブから
-    setTab("body");
+    // 別の Issue に移ったら、履歴のタブから（内容はたたんで）
+    setTab("history");
+    setContentOpen(false);
     setOpenRow(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.number]);
@@ -270,6 +278,17 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, inline]);
 
+  // 内容がたたむ高さを超えるか（本文が変わったとき・幅が変わって折り返しが変わったときに測り直す）
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => setContentLong(el.scrollHeight > CONTENT_CLAMP_PX + 4);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [issue.body, editingBody]);
+
   const todoMatch = issue.body?.match(/- \[[ x]\]/g);
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
@@ -278,10 +297,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const linkCount = (issue.sub_issues_summary?.total ?? 0) + (issue.number > 0 ? relatedOf(issue, allIssues).length : 0);
   const commentCount = Math.max(issue.comments ?? 0, comments.length);
   const TABS: { key: DetailTab; label: string; count?: number }[] = [
-    { key: "body", label: "内容" },
+    { key: "history", label: "履歴", count: commentCount },
     { key: "settings", label: "設定" },
     { key: "links", label: "つながり", count: linkCount },
-    { key: "history", label: "履歴", count: commentCount },
   ];
 
   // 設定の表に出す値
@@ -418,27 +436,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           </button>
         </div>
 
-        {/* タブ */}
-        <div className="idm-tabs" role="tablist" aria-label="Issue の詳細">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`idm-tab${tab === t.key ? " on" : ""}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-              {!!t.count && <span className="idm-tab-n">{t.count}</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* === 内容: 本文とチェックリスト === */}
-        {tab === "body" && <>
+        {/* 内容（本文とチェックリスト）。どのタブでも見える。長いときは 3 行ほどでたたみ、「すべて表示」で全部 */}
         {editingBody ? (
-          <div style={{ marginBottom: "16px" }}>
+          <div className="idm-content-edit">
             <textarea
               ref={editBodyRef}
               autoFocus
@@ -472,39 +472,62 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 }}>+ タスク項目</button>
             </div>
           </div>
-        ) : issue.body && todoTotal > 0 ? (
-          /* タスクリストがある場合はTaskListBodyでレンダリング */
-          <div style={{ position: "relative" }}>
-            <TaskListBody
-              body={issue.body}
-              issueNumber={issue.number}
-              onToggle={onToggleTodo}
-            />
-            {/* 編集ボタン（右上に小さく配置） */}
-            <button
-              className="btn-sm idm-body-edit"
-              onClick={() => setEditingBody(true)}
-              title="本文を編集"
-            >
-              ✏️
-            </button>
-          </div>
         ) : (
-          <div onClick={() => setEditingBody(true)} className="idm-body" title="クリックして編集">
-            {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（クリックで追加）</span>}
-          </div>
+          <>
+            <div ref={contentRef} className={`idm-content${contentLong && !contentOpen ? " clamped" : ""}`}>
+              {issue.body && todoTotal > 0 ? (
+                /* タスクリストがある場合はTaskListBodyでレンダリング（たたんでいても、見えている所のチェックは付けられる） */
+                <TaskListBody
+                  body={issue.body}
+                  issueNumber={issue.number}
+                  onToggle={onToggleTodo}
+                />
+              ) : (
+                <div onClick={() => setEditingBody(true)} className="idm-body" title="クリックして編集">
+                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（クリックで追加）</span>}
+                </div>
+              )}
+              {/* 編集ボタン（右上に小さく配置） */}
+              <button className="btn-sm idm-body-edit" onClick={() => setEditingBody(true)} title="本文を編集">
+                ✏️
+              </button>
+            </div>
+            {(contentLong || todoTotal > 0) && (
+              <div className="idm-content-foot">
+                {contentLong && (
+                  <button type="button" className="link-button" onClick={() => setContentOpen(!contentOpen)} aria-expanded={contentOpen}>
+                    {contentOpen ? "たたむ ▴" : "すべて表示 ▾"}
+                  </button>
+                )}
+                {todoTotal > 0 && (
+                  <>
+                    <span className="idm-none">チェック {todoDone}/{todoTotal}</span>
+                    <span className="idm-content-bar" aria-hidden="true">
+                      <i style={{ width: `${(todoDone / todoTotal) * 100}%` }} />
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+          </>
         )}
 
-        {/* タスク進捗 */}
-        {todoTotal > 0 && (
-          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px" }}>
-            タスク進捗: {todoDone}/{todoTotal}
-            <div style={{ width: "100%", height: "6px", background: "var(--bg-tertiary)", borderRadius: "3px", marginTop: "4px" }}>
-              <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "var(--accent-green)", borderRadius: "3px" }} />
-            </div>
-          </div>
-        )}
-        </>}
+        {/* タブ */}
+        <div className="idm-tabs" role="tablist" aria-label="Issue の詳細">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`idm-tab${tab === t.key ? " on" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              {!!t.count && <span className="idm-tab-n">{t.count}</span>}
+            </button>
+          ))}
+        </div>
 
         {/* === 設定: ラベル・見積もり・担当・マイルストーン・ガント・リマインダー === */}
         {tab === "settings" && (

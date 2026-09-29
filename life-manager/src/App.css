@@ -1982,7 +1982,66 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   font-size: var(--font-xs);
 }
 
-/* 内容 */
+/* 内容（いつも見える。長いときはたたむ） */
+.idm-content {
+  position: relative;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.idm-content .task-list-body,
+.idm-content .idm-body {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.idm-content.clamped {
+  max-height: 88px;
+  overflow: hidden;
+}
+
+/* たたんだとき、下を薄くして続きがあることを見せる */
+.idm-content.clamped::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30px;
+  background: linear-gradient(transparent, var(--bg-secondary));
+  pointer-events: none;
+}
+
+.idm-content-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.idm-content-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+}
+
+.idm-content-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-green-hover);
+}
+
+.idm-content-edit {
+  margin-bottom: var(--space-sm);
+}
+
 .idm-body {
   min-height: 40px;
   margin-bottom: var(--space-md);

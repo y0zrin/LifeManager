@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { celebrateDone } from "../../lib/celebrate";
 import type { CloseReason, GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { useDismiss } from "../../hooks/useDismiss";
@@ -28,10 +29,13 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
   // 元にできるのは、GitHub にある（id のある）ほかの Issue
   const candidates = dup ? findIssues(allIssues.filter((i) => i.number !== issue.number && !!i.id), query) : [];
 
-  async function choose(reason: CloseReason, original?: GitHubIssue) {
+  async function choose(reason: CloseReason, original?: GitHubIssue, from?: HTMLElement) {
+    // 完了のお祝いは、押したところから（閉じたあとは、メニューがなくなるので先に場所を取っておく）
+    const origin = from?.getBoundingClientRect();
     setBusy(true);
     try {
       await onClose(reason, original);
+      if (reason === "completed") celebrateDone(`#${issue.number}`, origin);
       reset();
     } finally {
       setBusy(false);
@@ -47,7 +51,7 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
         <div className="close-menu-pop" role="menu">
           {!dup ? (
             <>
-              <button type="button" role="menuitem" disabled={busy} onClick={() => choose("completed")}>
+              <button type="button" role="menuitem" disabled={busy} onClick={(e) => choose("completed", undefined, e.currentTarget)}>
                 ✅ 完了として閉じる<small>やり終えた（いつもの閉じ方）</small>
               </button>
               <button type="button" role="menuitem" disabled={busy} onClick={() => choose("not_planned")}>

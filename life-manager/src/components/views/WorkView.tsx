@@ -8,6 +8,7 @@ import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { DiffView } from "../git/DiffView";
 import { MergeTool } from "../git/MergeTool";
 import { withTransition } from "../../lib/motion";
+import { celebrateDone } from "../../lib/celebrate";
 import { isEnter } from "../../lib/keys";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
@@ -330,6 +331,7 @@ function Workspace({
         label: `#${issue.number} を完了にする`,
         run: async () => {
           await onCloseIssue(issue.number);
+          celebrateDone(`#${issue.number}`);
           setChoice(null);
         },
       };

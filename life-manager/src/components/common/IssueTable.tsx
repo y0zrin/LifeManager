@@ -14,6 +14,8 @@ interface IssueTableProps {
   picking: boolean;
   picked: Set<number>;
   onTogglePick: (n: number) => void;
+  /** 新しく入った行（メモを投入したときなど）。上から入って、緑に光り、「NEW」を付ける */
+  fresh?: Set<number>;
 }
 
 /** ラベル（状態・優先）を、頭の「状態:」を外して色つきの丸い札で出す */
@@ -28,7 +30,7 @@ function LabelPill({ issue, prefix }: { issue: GitHubIssue; prefix: string }) {
 }
 
 /** タスク一覧の「表」。1 行に 1 件。まとめたときは、まとまりごとに見出しの行を入れる */
-export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: IssueTableProps) {
+export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fresh }: IssueTableProps) {
   const columns = picking ? 9 : 8;
   const unit = useEstimateUnit();
   return (
@@ -60,13 +62,14 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
             ) : null,
             ...g.rows.map(({ issue, depth }) => {
               const isPicked = picked.has(issue.number);
+              const isFresh = !!fresh?.has(issue.number);
               const assignee = issue.assignees?.[0];
               const more = (issue.assignees?.length ?? 0) - 1;
               return (
                 <tr
                   key={issue.number}
                   data-issue={issue.number}
-                  className={`task-row${isPicked ? " task-row--picked" : ""}${issue.state === "closed" ? " task-row--closed" : ""}`}
+                  className={`task-row${isPicked ? " task-row--picked" : ""}${issue.state === "closed" ? " task-row--closed" : ""}${isFresh ? " task-row--fresh" : ""}`}
                   onClick={() => (picking ? onTogglePick(issue.number) : onSelect(issue.number))}
                 >
                   {picking && (
@@ -79,6 +82,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick }: 
                   <td className="tt-title" style={depth > 0 ? { paddingLeft: `calc(var(--space-sm) + ${Math.min(depth, 3) * 18}px)` } : undefined}>
                     {depth > 0 && <span className="tt-child">└ </span>}
                     {issue.title}
+                    {isFresh && <span className="task-row-new">NEW</span>}
                     <SubIssueBadge issue={issue} />
                     {issue._pending && <PendingChip />}
                   </td>

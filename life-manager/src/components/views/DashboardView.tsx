@@ -13,6 +13,7 @@ import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEscape } from "../../lib/keys";
 import { stepDirection, withTransition } from "../../lib/motion";
+import { celebrateDone, sparkleNew } from "../../lib/celebrate";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
 import { ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
 import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
@@ -359,6 +360,9 @@ export function DashboardView({
   // 新しく入ったカード（メモを投入したときなど。いちどに 3 件まで。プロジェクトを切り替えたときは光らせない）
   const seenIssues = useRef<Set<number> | null>(null);
   const [freshIssues, setFreshIssues] = useState<Set<number>>(new Set());
+  // 一覧はすぐに続けて読み直されることがあるので、キラキラと「NEW」を外すのは、読み直しで取り消さない（消えるのは画面を離れたときだけ）
+  const freshTimers = useRef<number[]>([]);
+  useEffect(() => () => freshTimers.current.forEach((t) => window.clearTimeout(t)), []);
   useEffect(() => {
     const now = new Set(issues.map((i) => i.number));
     const before = seenIssues.current;
@@ -366,9 +370,18 @@ export function DashboardView({
     if (!before) return;
     const added = [...now].filter((n) => !before.has(n));
     if (added.length === 0 || added.length > 3) return;
-    setFreshIssues(new Set(added));
-    const timer = window.setTimeout(() => setFreshIssues(new Set()), 1800);
-    return () => window.clearTimeout(timer);
+    setFreshIssues((prev) => new Set([...prev, ...added]));
+    // 入ったところ（カードか表の行）から、少しキラキラ
+    freshTimers.current.push(window.setTimeout(() => {
+      for (const n of added) sparkleNew(document.querySelector(`.issue-card[data-issue="${n}"], .task-row[data-issue="${n}"]`));
+    }, 120));
+    freshTimers.current.push(window.setTimeout(() => {
+      setFreshIssues((prev) => {
+        const next = new Set(prev);
+        for (const n of added) next.delete(n);
+        return next;
+      });
+    }, 1800));
   }, [issues]);
 
   // ↑↓ で上下のタスクへ（文字を打つ欄にいるときは使わない）
@@ -490,6 +503,7 @@ export function DashboardView({
     setBulkBusy(null);
     setPicked(new Set());
     setBulkDone(bulkMessage(action, done) + (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""));
+    if (action.kind === "close" && done > 0) celebrateDone(`${done} 件`);
   }
 
   async function applyBulk(action: BulkAction, issue: GitHubIssue) {
@@ -525,7 +539,7 @@ export function DashboardView({
   const list = (
     <>
       {mode === "table" && rows.length > 0 ? (
-        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} />
+        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} fresh={freshIssues} />
       ) : (
         groups.map((g) => (
           <Fragment key={g.title || "all"}>

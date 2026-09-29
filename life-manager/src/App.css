@@ -116,6 +116,20 @@
   --view-overview: #a5d6ff;
   --view-settings: #d29922;
 
+  /* お祝いの色（完了のキラキラ・スタンプ・完了の知らせ） */
+  --spark-1: #ff7b72;
+  --spark-2: #ffa657;
+  --spark-3: #ffd33d;
+  --spark-4: #3fb950;
+  --spark-5: #39c5cf;
+  --spark-6: #58a6ff;
+  --spark-7: #bc8cff;
+  --spark-8: #f778ba;
+  --stamp-red: #e5534b;
+  --stamp-pink: #f778ba;
+  --celebrate-text: #7ee787;
+  --shadow-color: #01040999;
+
   /* Motion（画面遷移には基本的にイージングを入れる） */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-leave: 0.2s;
@@ -1227,6 +1241,233 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 @keyframes fresh-glow {
   from { box-shadow: 0 0 0 2px var(--accent-green-hover); }
   to { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* 表のとき、新しく入った行: 上から入って、緑に光り、「NEW」 */
+.motion-normal .task-row--fresh {
+  animation: row-in 0.5s var(--ease-spring) both;
+}
+
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(-10px); }
+}
+
+.task-row--fresh > td {
+  animation: row-glow 1.6s ease-out both;
+}
+
+.task-row--fresh > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-green-hover);
+}
+
+@keyframes row-glow {
+  from { background-color: var(--accent-green-bg); }
+  to { background-color: transparent; }
+}
+
+.task-row-new {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--spark-4), var(--spark-5));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--spark-4) 55%, transparent);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  vertical-align: middle;
+  animation: new-pop 0.4s var(--ease-spring) 0.15s both;
+}
+
+@keyframes new-pop {
+  from { opacity: 0; transform: scale(0.4); }
+}
+
+/* --- お祝い（完了したとき・新しく入ったとき）。いちばん上に重ね、クリックは下に通す --- */
+
+.cel-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cel-burst {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* キラキラ: 色とりどりの ✦ と光の粒が、押したところから散る */
+.cel-spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  line-height: 1;
+  animation-name: cel-spark;
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+}
+
+.cel-spark--star {
+  text-shadow: 0 0 8px currentColor, 0 0 2px var(--text-on-accent);
+}
+
+.cel-spark--dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px 2px currentColor;
+}
+
+@keyframes cel-spark {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(0deg); }
+  15% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(var(--s)) rotate(var(--r)); }
+}
+
+/* スタンプ: ぽんと押されて、少しして上へ消える */
+.cel-stamp-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: cel-stamp-out 0.4s ease 1.3s forwards;
+}
+
+@keyframes cel-stamp-out {
+  to { opacity: 0; transform: translateY(-14px); }
+}
+
+.cel-stamp {
+  transform: translate(-50%, -50%) rotate(-10deg);
+  animation: cel-stamp-in 0.46s var(--ease-spring) both;
+}
+
+@keyframes cel-stamp-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(2.2) rotate(-32deg); }
+}
+
+/* はんこ（朱肉の赤。済・完了・OK） */
+.cel-hanko {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  width: 86px;
+  height: 86px;
+  border: 5px solid var(--stamp-red);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--stamp-red) 10%, transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--stamp-red) 30%, transparent);
+  color: var(--stamp-red);
+  font-family: 'Yu Mincho', 'MS Mincho', serif;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.cel-hanko .cel-hanko-long {
+  font-size: 24px;
+}
+
+.cel-hanko small {
+  margin-top: 3px;
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* 先生のはんこ（花の形の枠。たいへんよくできました など） */
+.cel-sensei {
+  width: 118px;
+  height: 118px;
+  transform: translate(-50%, -50%) rotate(8deg);
+}
+
+.cel-sensei-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.cel-sensei-petals,
+.cel-sensei-ring {
+  fill: var(--stamp-pink);
+}
+
+.cel-sensei-face {
+  fill: var(--bg-primary);
+  stroke: var(--stamp-pink);
+  stroke-width: 2;
+}
+
+.cel-sensei-text {
+  fill: var(--stamp-pink);
+  font-family: 'Yu Gothic', 'Meiryo', sans-serif;
+  font-weight: 900;
+}
+
+/* 英語のバッジ */
+.cel-badge {
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--spark-7), var(--spark-6) 50%, var(--spark-5));
+  box-shadow: var(--shadow-popover), 0 0 26px color-mix(in srgb, var(--spark-6) 40%, transparent);
+  color: var(--text-on-accent);
+  font-size: 24px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+/* 絵文字のスタンプ */
+.cel-emoji {
+  font-size: 72px;
+  line-height: 1;
+  filter: drop-shadow(0 6px 14px var(--shadow-color));
+}
+
+/* 完了の知らせ（下のまんなか） */
+.cel-toasts {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--edge-bottom, 0px) + var(--space-xl));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.cel-toast {
+  padding: 6px 16px;
+  border: 1px solid var(--accent-green-hover);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-green) 22%, var(--bg-secondary));
+  box-shadow: var(--shadow-popover), 0 0 18px var(--accent-green-bg);
+  color: var(--celebrate-text);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  animation: cel-toast 2.8s var(--ease-out) both;
+}
+
+@keyframes cel-toast {
+  0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+  12% { opacity: 1; transform: none; }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* OS で動きを減らしているとき: 知らせは動かさずに出す（消すのは画面の側） */
+@media (prefers-reduced-motion: reduce) {
+  .cel-toast {
+    animation: none;
+  }
 }
 
 .coming-soon {

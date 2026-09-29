@@ -27,6 +27,7 @@ import { OverviewView } from "./components/views/OverviewView";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
 import { ConflictNotice } from "./components/git/ConflictNotice";
+import { Celebration } from "./components/common/Celebration";
 import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
@@ -1066,6 +1067,8 @@ function App() {
 
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
+      {/* お祝い（完了のキラキラ・スタンプ・完了の知らせ、新しく入ったもののキラキラ） */}
+      <Celebration motion={display.settings.motion === "normal"} />
       {conflictNotice && folder && git.status?.conflicted && (
         <ConflictNotice
           folder={folder}

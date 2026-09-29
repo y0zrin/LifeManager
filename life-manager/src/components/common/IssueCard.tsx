@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties } from "react";
 import type { GitHubIssue } from "../../lib/types";
 import { motionOn } from "../../lib/motion";
+import { celebrateDone } from "../../lib/celebrate";
 import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
@@ -43,11 +44,12 @@ export function IssueCard({
   /** 新しく入った（メモを投入したときなど）。上から入って少し光る */
   fresh?: boolean;
 }) {
-  // 完了を押したあと: はんこ（✓）→ しぼんで消える → 閉じる（動きを使わないときは、すぐ閉じる）
+  // 完了を押したあと: キラキラとスタンプ（重ねの側）→ しぼんで消える → 閉じる（動きを使わないときは、すぐ閉じる）
   const [leaving, setLeaving] = useState<"none" | "stamp" | "shrink">("none");
   const cardRef = useRef<HTMLDivElement>(null);
-  function finish() {
+  function finish(button: HTMLElement) {
     if (leaving !== "none") return;
+    celebrateDone(`#${issue.number}`, button);
     if (!motionOn()) {
       onClose(issue.number);
       return;
@@ -89,7 +91,6 @@ export function IssueCard({
         "--i": index,
         "--vt-name": `issue-${issue.number}`,
       } as CSSProperties}>
-      {leaving !== "none" && <span className="issue-card-stamp" aria-hidden="true">✓</span>}
       {depth === 0 && <ParentMark issue={issue} />}
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
@@ -143,7 +144,7 @@ export function IssueCard({
 
       {!picking && <div className="issue-card-actions">
         {issue.state === "open" ? (
-          <button className="btn-sm" onClick={finish} disabled={leaving !== "none"}>完了</button>
+          <button className="btn-sm" onClick={(e) => finish(e.currentTarget)} disabled={leaving !== "none"}>完了</button>
         ) : (
           <button className="btn-sm" onClick={() => onReopen(issue.number)}>再開</button>
         )}

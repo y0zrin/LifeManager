@@ -1886,7 +1886,19 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 
 /* --- Modal --- */
 
-/* --- Issue の詳細: 見出し・タブ（内容・設定・つながり・履歴）・設定の表 --- */
+/* --- Issue の詳細を重ねて出すとき: 横はほかのダイアログと同じで、縦は前の 1.44 倍（上下のまんなか。画面からはみ出さない） --- */
+.palette-overlay.issue-overlay {
+  align-items: center;
+  padding-top: 0;
+}
+
+.modal-content.issue-modal {
+  height: min(calc((80vh - 120px) * 1.44), calc(100vh - 48px));
+  max-height: none;
+  margin: 0 auto;
+}
+
+/* --- Issue の詳細: 見出し・内容・タブ（履歴・設定・つながり）・設定の表 --- */
 .idm-head {
   margin-bottom: var(--space-xs);
 }

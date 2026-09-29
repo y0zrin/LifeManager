@@ -363,7 +363,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const none = (text = "なし") => <span className="idm-none">{text}</span>;
 
   const body = (
-      <div onClick={(e) => e.stopPropagation()} className={inline ? "modal-content issue-detail-inline" : "modal-content"}>
+      <div onClick={(e) => e.stopPropagation()} className={inline ? "modal-content issue-detail-inline" : "modal-content issue-modal"}>
         {inline && (
           <button type="button" onClick={onClose} className="issue-detail-close" title="閉じる">×</button>
         )}
@@ -901,7 +901,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
       </div>
   );
   return inline ? body : (
-    <div className="palette-overlay" onClick={onClose}>
+    <div className="palette-overlay issue-overlay" onClick={onClose}>
       <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
       {body}
     </div>

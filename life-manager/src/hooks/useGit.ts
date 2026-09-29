@@ -9,6 +9,8 @@ export interface GitNotice {
   text: string;
   /** 実行したコマンド（どんな操作だったのかを見せる） */
   command?: string;
+  /** 競合で止まった知らせ（直し終えたら・やめたら、自動で消す） */
+  conflict?: boolean;
 }
 
 export type GitResult = { ok: true; run: GitRun } | { ok: false; message: string; command?: string };
@@ -101,9 +103,9 @@ export function useGit(folder: string | undefined, active: boolean) {
     return () => window.clearInterval(timer);
   }, [folder, active, refresh]);
 
-  const notify = useCallback((kind: GitNotice["kind"], text: string, command?: string) => {
+  const notify = useCallback((kind: GitNotice["kind"], text: string, command?: string, conflict?: boolean) => {
     const id = ++noticeSeq.current;
-    setNotices((prev) => [...prev.slice(-(MAX_NOTICES - 1)), { id, kind, text, command }]);
+    setNotices((prev) => [...prev.slice(-(MAX_NOTICES - 1)), { id, kind, text, command, conflict }]);
     // 失敗は読み終わるまで残す（×で閉じる）
     if (kind === "ok") {
       window.setTimeout(() => setNotices((prev) => prev.filter((n) => n.id !== id)), NOTICE_MS);
@@ -113,6 +115,15 @@ export function useGit(folder: string | undefined, active: boolean) {
   const dismissNotice = useCallback((id: number) => {
     setNotices((prev) => prev.filter((n) => n.id !== id));
   }, []);
+
+  // 競合を直し終えた・やめた（マージなどの途中 → 途中でない）ら、「競合で止まりました」の知らせは消す（古いまま残さない）
+  const operation = status ? status.operation : undefined;
+  const lastOperation = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (operation === undefined) return;
+    if (lastOperation.current && operation === null) setNotices((prev) => prev.filter((n) => !n.conflict));
+    lastOperation.current = operation;
+  }, [operation]);
 
   /** git の操作を実行して、結果を知らせ、状態を読み直す */
   const exec = useCallback(
@@ -139,7 +150,7 @@ export function useGit(folder: string | undefined, active: boolean) {
           const shown = conflicted.length > 0
             ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを、作業タブで選びます`
             : message;
-          if (!options.inlineError) notify("error", shown, command);
+          if (!options.inlineError) notify("error", shown, command, conflicted.length > 0);
           return { ok: false, message, command };
         } finally {
           await refresh();

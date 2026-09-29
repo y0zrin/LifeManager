@@ -360,15 +360,18 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
 
 /// もう一度動かして止めた実行（取り消し・2 回目以降）は、前の回の結果を previous_conclusion・previous_attempt に入れる。
 /// GitHub は実行の結果を最後の回で返すが、取り消しでは直っていないので、山は前の回の結果のままにする。
-/// 調べるのは、ワークフロー × ブランチごとの最新の実行だけ（多くても 5 件）
+/// 調べるのは、ワークフロー × ブランチごとの新しい 3 つまで（直ったあとも「失敗 → 成功」と分かるように。多くても 5 件）
 async fn fill_previous_results(client: &GitHubClient, owner: &str, repo: &str, runs: &mut [Value]) {
-    let mut seen = std::collections::HashSet::new();
+    let mut count = std::collections::HashMap::new();
     let targets: Vec<usize> = runs
         .iter()
         .enumerate()
-        // GitHub は新しい順に返すので、はじめて出てきたものが最新
-        .filter(|(_, r)| seen.insert(format!("{}|{}", r["workflow_id"], r["branch"])))
-        .filter(|(_, r)| cancelled_rerun(r))
+        // GitHub は新しい順に返す
+        .filter(|(_, r)| {
+            let n = count.entry(format!("{}|{}", r["workflow_id"], r["branch"])).or_insert(0);
+            *n += 1;
+            *n <= 3 && cancelled_rerun(r)
+        })
         .map(|(i, _)| i)
         .take(5)
         .collect();

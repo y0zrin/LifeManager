@@ -221,8 +221,10 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
   }, [picked]);
 
   const pickedOk = !!check && check.repos[0]?.ok;
-  // 「GitHub でログイン」は、Life Manager App をどこかに入れてからでないと作れない
-  const canCreate = !byLogin || !!installations?.length;
+  // 自分のアカウントに Life Manager App が入っているか（参加しているリポジトリの持ち主の分は数えない）
+  const ownInstall = !!me && !!installations?.some((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
+  // 「GitHub でログイン」は、自分のアカウントに Life Manager App を入れてからでないと作れない
+  const canCreate = !byLogin || ownInstall;
   const startReady = mode === "new" ? !!newName.trim() && canCreate : mode === "existing" && !!picked && pickedOk;
   const team = path === "team";
   const startLabel = mode === "new"
@@ -547,7 +549,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
             <ol className="setup-path-steps">
               {byLogin && me && installUrl && (
                 <li>
-                  <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!installations?.length}
+                  <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!ownInstall}
                     onChanged={async (added) => {
                       await loadInstallations();
                       await loadRepos(added.length === 1 ? added[0] : undefined);

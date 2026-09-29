@@ -8,7 +8,7 @@ import { PendingChip } from "./PendingChip";
 import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
 import { CloseMenu, closeReasonText } from "./CloseMenu";
 import { RelatedIssues } from "./RelatedIssues";
-import { IssueTimeline } from "./IssueTimeline";
+import { HistoryOrderToggle, IssueTimeline, useHistoryOrder } from "./IssueTimeline";
 import { issueRef } from "../../lib/issueRef";
 import { splitAppMarks, visibleBody, withAppMarks } from "../../lib/bodyMarks";
 import { isEnter, isEscape } from "../../lib/keys";
@@ -76,6 +76,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   // 本文を直す欄には、アプリの印（ガントの日程・関連など）を出さない。保存するときに戻す
   const [editBody, setEditBody] = useState(() => splitAppMarks(issue.body).text);
   const [tab, setTab] = useState<DetailTab>("body");
+  // 履歴の並び（はじめは新しい順。この PC に覚える）
+  const [historyOrder, setHistoryOrder] = useHistoryOrder();
   const [openRow, setOpenRow] = useState<EditRow | null>(null);
   const [editLabels, setEditLabels] = useState<string[]>(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
   const [editAssignees, setEditAssignees] = useState<string[]>(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
@@ -802,65 +804,77 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           </>
         )}
 
-        {/* === 履歴: コメントと変更の履歴 === */}
-        {tab === "history" && <>
-        {listTimeline && onOpenIssue ? (
-          <IssueTimeline
-            issue={issue}
-            comments={comments}
-            loadingComments={loading}
-            listTimeline={listTimeline}
-            onOpenIssue={onOpenIssue}
-            onShowCommit={onShowCommit}
-          />
-        ) : (
-        <>
-        <h3 className="section-header">
-          💬 コメント ({comments.length})
-        </h3>
-
-        {loading ? (
-          <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>読み込み中...</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
-            {comments.map((c) => (
-              <div key={c.id} style={{ padding: "10px", background: "var(--bg-secondary)", borderRadius: "6px", border: "1px solid var(--border-default)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--accent-blue)" }}>
-                    {c.user?.login ?? "unknown"}
-                    {c._pending && <PendingChip />}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                    {new Date(c.created_at).toLocaleString("ja-JP")}
-                  </span>
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                  {c.body}
-                </div>
+        {/* === 履歴: コメントと変更の履歴（新しい順なら書く欄が上、古い順なら下） === */}
+        {tab === "history" && (() => {
+          const composer = (
+            <>
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
+                placeholder="コメントを追加... (Ctrl+Enter で送信)"
+                className="textarea-full"
+                style={{ minHeight: "60px" }}
+              />
+              <button onClick={handleSubmit} className="btn-primary" disabled={!newComment.trim()}
+                style={{ marginTop: "6px" }}>
+                コメント追加
+              </button>
+            </>
+          );
+          if (listTimeline && onOpenIssue) {
+            return (
+              <IssueTimeline
+                issue={issue}
+                comments={comments}
+                loadingComments={loading}
+                listTimeline={listTimeline}
+                onOpenIssue={onOpenIssue}
+                onShowCommit={onShowCommit}
+                order={historyOrder}
+                onOrderChange={setHistoryOrder}
+                composer={composer}
+              />
+            );
+          }
+          // 変更の履歴を読めないときは、コメントだけ
+          const sorted = [...comments].sort((x, y) => (historyOrder === "newest" ? y.created_at.localeCompare(x.created_at) : x.created_at.localeCompare(y.created_at)));
+          return (
+            <>
+              <div className="issue-timeline-head">
+                <h3 className="section-header">💬 コメント ({comments.length})</h3>
+                <HistoryOrderToggle order={historyOrder} onChange={setHistoryOrder} />
               </div>
-            ))}
-            {comments.length === 0 && (
-              <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
-            )}
-          </div>
-        )}
-        </>
-        )}
-
-        {/* コメント入力 */}
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
-          placeholder="コメントを追加... (Ctrl+Enter で送信)"
-          className="textarea-full"
-          style={{ minHeight: "60px" }}
-        />
-        <button onClick={handleSubmit} className="btn-primary" disabled={!newComment.trim()}
-          style={{ marginTop: "6px" }}>
-          コメント追加
-        </button>
-        </>}
+              {historyOrder === "newest" && <div className="issue-timeline-composer">{composer}</div>}
+              {loading ? (
+                <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>読み込み中...</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+                  {sorted.map((c) => (
+                    <div key={c.id} style={{ padding: "10px", background: "var(--bg-secondary)", borderRadius: "6px", border: "1px solid var(--border-default)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--accent-blue)" }}>
+                          {c.user?.login ?? "unknown"}
+                          {c._pending && <PendingChip />}
+                        </span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          {new Date(c.created_at).toLocaleString("ja-JP")}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                        {c.body}
+                      </div>
+                    </div>
+                  ))}
+                  {comments.length === 0 && (
+                    <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
+                  )}
+                </div>
+              )}
+              {historyOrder === "oldest" && <div className="issue-timeline-composer">{composer}</div>}
+            </>
+          );
+        })()}
       </div>
   );
   return inline ? body : (

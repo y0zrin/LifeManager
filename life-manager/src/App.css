@@ -5119,8 +5119,9 @@ button:hover {
 /* 💬 コメントと変更の履歴 */
 .issue-timeline-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs) var(--space-sm);
 }
 
 .issue-timeline-filter {
@@ -5145,6 +5146,15 @@ button:hover {
 .issue-timeline-filter button.on {
   background: var(--accent-blue-bg);
   color: var(--accent-blue);
+}
+
+.issue-timeline-filter + .issue-timeline-filter {
+  margin-left: 0;
+}
+
+/* コメントを書く欄（新しい順なら一覧の上、古い順なら下） */
+.issue-timeline-composer {
+  margin: 6px 0 var(--space-md);
 }
 
 .timeline {

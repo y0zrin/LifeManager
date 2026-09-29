@@ -17,6 +17,50 @@ interface IssueTimelineProps {
   onOpenIssue: (n: number) => void;
   /** コミットの「変更内容を見る」を開く */
   onShowCommit?: (hash: string, actor: string, date: string) => void;
+  /** 並び（新しい順・古い順） */
+  order: HistoryOrder;
+  onOrderChange: (order: HistoryOrder) => void;
+  /** コメントを書く欄。新しい順なら一覧の上、古い順なら一覧の下に出す */
+  composer?: ReactNode;
+}
+
+/** コメントと変更の履歴の並び。はじめは新しい順 */
+export type HistoryOrder = "newest" | "oldest";
+
+const ORDER_KEY = "issue-history-order";
+
+/** 履歴の並び（この PC に覚える） */
+export function useHistoryOrder(): [HistoryOrder, (order: HistoryOrder) => void] {
+  const [order, setOrder] = useState<HistoryOrder>(() => {
+    try {
+      return localStorage.getItem(ORDER_KEY) === "oldest" ? "oldest" : "newest";
+    } catch {
+      return "newest";
+    }
+  });
+  function change(next: HistoryOrder) {
+    setOrder(next);
+    try {
+      localStorage.setItem(ORDER_KEY, next);
+    } catch {
+      // 覚えられなくても、今は並べ替える
+    }
+  }
+  return [order, change];
+}
+
+/** 並びの切り替え（見出しの右） */
+export function HistoryOrderToggle({ order, onChange }: { order: HistoryOrder; onChange: (order: HistoryOrder) => void }) {
+  return (
+    <span className="issue-timeline-filter" role="group" aria-label="並び">
+      <button type="button" className={order === "newest" ? "on" : ""} aria-pressed={order === "newest"} onClick={() => onChange("newest")}>
+        新しい順
+      </button>
+      <button type="button" className={order === "oldest" ? "on" : ""} aria-pressed={order === "oldest"} onClick={() => onChange("oldest")}>
+        古い順
+      </button>
+    </span>
+  );
 }
 
 /** 並べる 1 件（コメント・出来事・続けて付け外ししたラベルのまとまり） */
@@ -59,7 +103,7 @@ function buildItems(issue: GitHubIssue, comments: GitHubComment[], events: Timel
 }
 
 /** 詳細の「💬 コメントと変更の履歴」。コメントのあいだに、ラベル・担当・閉じた・ほかの Issue やコミットから触れられた などを時間の順に出す */
-export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit }: IssueTimelineProps) {
+export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer }: IssueTimelineProps) {
   const index = useContext(IssueIndexContext);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +126,9 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.number, issue.updated_at, issue.state]);
 
-  const items = buildItems(issue, comments, events).filter((i) => filter === "all" || i.kind === "comment");
+  // 時間の順にまとめてから、新しい順なら逆にする
+  const chrono = buildItems(issue, comments, events).filter((i) => filter === "all" || i.kind === "comment");
+  const items = order === "newest" ? [...chrono].reverse() : chrono;
 
   // ほかの Issue（同じリポジトリなら詳細を開く、ほかは GitHub で開く）
   const issueLink = (ref: { number: number; title: string; html_url?: string; repository_url?: string; pull_request?: unknown }) => {
@@ -159,7 +205,9 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
           <button type="button" className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>すべて</button>
           <button type="button" className={filter === "comments" ? "on" : ""} onClick={() => setFilter("comments")}>コメントだけ</button>
         </span>
+        <HistoryOrderToggle order={order} onChange={onOrderChange} />
       </div>
+      {order === "newest" && composer && <div className="issue-timeline-composer">{composer}</div>}
       {loadingComments ? (
         <p className="issue-timeline-note">読み込み中...</p>
       ) : (
@@ -219,6 +267,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
         </ul>
       )}
       {error && filter === "all" && <p className="issue-timeline-note">変更の履歴は出せませんでした（{error}）</p>}
+      {order === "oldest" && composer && <div className="issue-timeline-composer">{composer}</div>}
     </div>
   );
 }

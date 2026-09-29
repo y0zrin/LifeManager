@@ -3,8 +3,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { authPoll, authStart, loadLoginDays, LOGIN_PERIODS, storeLoginDays, type DeviceCode } from "../../lib/auth";
 
 interface GitHubLoginProps {
-  /** ログインできた（トークンはアプリの中にしまってある） */
-  onDone: () => void;
+  /** ログインできた（トークンはアプリの中にしまってある）。Promise を返すと、終わるまで「準備しています」を出す */
+  onDone: () => void | Promise<unknown>;
   /** ボタンの文字（「GitHub でログイン」「ログインし直す」など） */
   label?: string;
   /** すぐに始める（アカウントを作ったあとの「作れた・ログインへ」で、もう一度押さなくてよいように） */
@@ -24,6 +24,8 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
   const [message, setMessage] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [copied, setCopied] = useState(false);
+  // 許可されたあと、呼んだ側の準備（アカウントを読むなど）が終わるまで。最初のボタンに戻して見せない（失敗に見える・もう一度押せてしまう）
+  const [finishing, setFinishing] = useState(false);
   // 画面を離れたら、確かめに行くのをやめる
   const alive = useRef(true);
   const attempt = useRef(0);
@@ -62,7 +64,12 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
         }
         setCode(null);
         if (r.status === "done") {
-          onDone();
+          setFinishing(true);
+          try {
+            await onDone();
+          } finally {
+            if (alive.current) setFinishing(false);
+          }
         } else if (r.status === "expired") {
           setMessage("コードの期限（15 分）が切れました。もう一度「" + label + "」を押してください");
         } else if (r.status === "denied") {
@@ -110,6 +117,16 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
     start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
+
+  if (finishing) {
+    return (
+      <div className="gh-login">
+        <p className="gh-login-wait">
+          <i className="spinner" aria-hidden="true" /> ログインできました。準備しています…
+        </p>
+      </div>
+    );
+  }
 
   if (code) {
     return (

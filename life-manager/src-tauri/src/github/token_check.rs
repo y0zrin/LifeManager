@@ -56,9 +56,19 @@ pub async fn check(token: &str, repos: &[RepoRef]) -> Result<TokenReport, String
     let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let kind = tokens::kind_of(token).to_string();
     let scopes = header("x-oauth-scopes").map(|s| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect());
+    // ログインの鍵なら、Life Manager App を入れたリポジトリか（入れていない公開リポジトリは、見えても書けない）
+    let installed: Option<std::collections::HashSet<String>> = if kind == "app" && !repos.is_empty() {
+        client
+            .list_installed_repos()
+            .await
+            .ok()
+            .map(|list| list.iter().filter_map(|r| r["full_name"].as_str().map(|s| s.to_lowercase())).collect())
+    } else {
+        None
+    };
     let mut checks = Vec::new();
     for r in repos {
-        checks.push(check_repo(&client, &kind, r).await);
+        checks.push(check_repo(&client, &kind, r, installed.as_ref()).await);
     }
     let expires_at = if kind == "app" {
         tokens::login_valid_until().and_then(format_time)
@@ -82,7 +92,7 @@ fn format_time(secs: i64) -> Option<String> {
     chrono::Local.timestamp_opt(secs, 0).single().map(|t| t.format("%Y-%m-%d %H:%M:%S %z").to_string())
 }
 
-async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef) -> RepoCheck {
+async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: Option<&std::collections::HashSet<String>>) -> RepoCheck {
     let full = format!("{}/{}", r.owner, r.repo);
     let mut out = RepoCheck { owner: r.owner.clone(), repo: r.repo.clone(), ok: false, can_push: false, private: false, problem: None, message: None };
     let fail = |mut out: RepoCheck, problem: &str, message: String| {
@@ -120,6 +130,16 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef) -> RepoCheck
     }
     if status >= 400 {
         return fail(out, "error", format!("HTTP {}: {}", status, body));
+    }
+    if installed.is_some_and(|set| !set.contains(&full.to_lowercase())) {
+        return fail(
+            out,
+            "not_installed",
+            format!(
+                "{} には、まだ Life Manager が入っていません（見ることはできても、書き込めません）。自分のリポジトリなら「使うリポジトリを選ぶ・足す」で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください",
+                full
+            ),
+        );
     }
     let repo: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
     out.private = repo["private"].as_bool().unwrap_or(false);

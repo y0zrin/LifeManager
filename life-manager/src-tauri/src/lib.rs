@@ -410,10 +410,16 @@ fn token_overview() -> TokenOverview {
     }
 }
 
-/// ログインした人が使えるリポジトリ（最初のセットアップで選ぶため）
+/// ログインした人が使えるリポジトリ（最初のセットアップで選ぶため）。
+/// 「GitHub でログイン」なら、Life Manager App を入れたリポジトリだけ（更新の新しい順）
 #[tauri::command]
 async fn list_user_repos(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
     let client = current_client(&state).await?;
+    if tokens::default_token().is_some_and(|t| tokens::kind_of(&t) == "app") {
+        let mut repos = client.list_installed_repos().await?;
+        repos.sort_by(|a, b| b["updated_at"].as_str().unwrap_or("").cmp(a["updated_at"].as_str().unwrap_or("")));
+        return Ok(serde_json::Value::Array(repos).to_string());
+    }
     client.list_user_repos().await
 }
 

@@ -666,6 +666,37 @@ impl GitHubClient {
         return self.get_all_pages(&url).await;
     }
 
+    /// 「GitHub でログイン」の鍵で使えるリポジトリ（Life Manager App を入れたリポジトリのうち、自分が触れるもの）。
+    /// /user/repos は、入れていない公開リポジトリも返す（読めるが書けない）ので、入れた先から数える
+    pub async fn list_installed_repos(&self) -> Result<Vec<serde_json::Value>, String> {
+        let mut repos = Vec::new();
+        for installation in self.get_list_pages("/user/installations?per_page=100", "installations").await? {
+            let Some(id) = installation["id"].as_u64() else { continue };
+            let path = format!("/user/installations/{}/repositories?per_page=100", id);
+            repos.extend(self.get_list_pages(&path, "repositories").await?);
+        }
+        return Ok(repos);
+    }
+
+    /// {"total_count": n, "<key>": [...]} の形の返事を、ページをたどってつなぐ（最大 10 ページ）
+    async fn get_list_pages(&self, path: &str, key: &str) -> Result<Vec<serde_json::Value>, String> {
+        let mut items = Vec::new();
+        for page in 1..=10 {
+            let (status, _, body) = self.get_raw(&format!("{}&page={}", path, page)).await?;
+            if status >= 400 {
+                return Err(format!("HTTP {}: {}", status, body));
+            }
+            let json: serde_json::Value = serde_json::from_str(&body).map_err(|e| format!("JSONパースエラー: {}", e))?;
+            let list = json[key].as_array().cloned().unwrap_or_default();
+            let done = list.len() < 100;
+            items.extend(list);
+            if done {
+                break;
+            }
+        }
+        return Ok(items);
+    }
+
     // --- チーム（招待・メンバー）。最初のセットアップの「チームに入る」と、設定 → チーム ---
 
     /// 状態と本文をそのまま返す（招待の結果を、状態で見分けるため）。path は /repos/... などの API のパス

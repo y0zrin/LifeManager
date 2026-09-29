@@ -7,7 +7,9 @@ GitHub Issues/Milestones/Labels をバックエンドストレージとして利
 ## 現在のバージョンと次の作業
 - **公開済み**: v0.3.3（2026-04-22）
 - **公開の準備中**: v0.9.0 — 0.4〜0.9 のロードマップ（タスク管理・リポジトリ管理・プルリク・Actions・リリース・アクティビティ）をまとめて出す。ブランチ `0.9.0` に保存してある（リリースノートは `docs/release-notes/0.9.0.md`）
-  - 残り: GitHub App（life-manager-app）に権限を足して承認（Pull requests: Read and write・Actions: Read and write・Checks / Commit statuses / Dependabot alerts / Code scanning alerts: Read-only）→ 本物のアプリで確かめる（`docs/test/manual-check.md` の W・X・Y）→ main にまとめてタグ 0.9.0 → Release に setup と latest.json（手順は `docs/04_keys_and_tokens.md`）
+  - 済み（2026-09-29）: GitHub App に権限を足して承認。本物のアプリ（非公開の y0zrin/lm-test）で W・X・Y を確かめ、見つかった 11 件の不具合を直した
+    （X15・X16・X11・X2・X3・X6・X8・X10、W7・W8・W9・W10、Y2・Y3・Y4・Y6 は本物で動いた）
+  - 残り: 人が確かめること（W5 行コメント・W6 別のアカウントでのレビュー・W11 下書き・Y3 のファイルを添える・X9/X12 Dependabot・X13 Unity）→ main にまとめてタグ 0.9.0 → Release に setup と latest.json（手順は `docs/04_keys_and_tokens.md`）
 - **次回**: v1.0 "Foundation" — 画面側のテスト・E2E、状態管理、API キャッシュ、git ターミナル
 - **ロードマップ詳細**: メモリの `next_tasks.md` を参照
 

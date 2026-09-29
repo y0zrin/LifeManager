@@ -10,8 +10,10 @@ import {
   canManageActions,
   enableDependabot,
   isPermissionError,
+  loadSetupHidden,
   monthMinutes,
   saveActionsChoice,
+  saveSetupHidden,
   setActionsEnabled,
   duration,
   eventLabel,
@@ -57,15 +59,6 @@ interface ActionsViewProps {
   onPlacedWorkflow: (file: string) => void;
 }
 
-/** はじめる準備の「今は使わない」を、リポジトリごとにこの PC に覚える */
-function loadHidden(key: string): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? "[]") as string[];
-  } catch {
-    return [];
-  }
-}
-
 /** Actions: 直す順に積んだ山（解決する順）・すべての実行・ワークフロー。右に中身 */
 export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHandled, currentUser, folder, onPlacedWorkflow }: ActionsViewProps) {
   const { overview, stack, error, loading, reload } = actions;
@@ -81,20 +74,15 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const [filters, setFilters] = useState({ workflow: "", branch: "", result: "" });
   const [notice, setNotice] = useState<string | null>(null);
   const [starter, setStarter] = useState(false);
-  const hiddenKey = `actions-setup-hidden:${owner}/${repo}`;
-  const [hidden, setHidden] = useState<string[]>(() => loadHidden(hiddenKey));
+  const [hidden, setHidden] = useState<string[]>(() => loadSetupHidden(owner, repo));
   const [setupBusy, setSetupBusy] = useState(false);
   const [confirmToggle, setConfirmToggle] = useState<"on" | "off" | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
-  useEffect(() => setHidden(loadHidden(hiddenKey)), [hiddenKey]);
+  useEffect(() => setHidden(loadSetupHidden(owner, repo)), [owner, repo]);
   function hide(item: string) {
     const next = [...hidden, item];
     setHidden(next);
-    try {
-      localStorage.setItem(hiddenKey, JSON.stringify(next));
-    } catch {
-      // 覚えられなくても、今は隠れる
-    }
+    saveSetupHidden(owner, repo, next);
   }
 
   useEffect(() => {
@@ -553,7 +541,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                       {setup.map((item) => (
                         <div key={item.key} className="ac-setup-item">
                           {item.node}
-                          <button type="button" className="link-button ac-setup-hide" onClick={() => hide(item.key)} title="このリポジトリでは、もう出さない">
+                          <button type="button" className="link-button ac-setup-hide" onClick={() => hide(item.key)} title="このリポジトリでは、もう出さない（設定 → その他 で戻せます）">
                             今は使わない
                           </button>
                         </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { resolveResource } from "@tauri-apps/api/path";
-import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
+import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType, BoardConfig } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, MemoButtonPosition, SidebarPosition } from "../../hooks/useDisplaySettings";
@@ -11,6 +11,10 @@ import { LabelBadge } from "../common/LabelBadge";
 import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
+import { BoardColumnsSetting } from "../common/BoardColumnsSetting";
+import { BOARD_LOOKS, type BoardLook } from "../../lib/board";
+import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
+import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
 
 interface SettingsViewProps {
@@ -45,9 +49,21 @@ interface SettingsViewProps {
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
   /** GitHub にログインしている人 */
   login: string;
+  /** ボードの区画（config/board.yaml。チームで一つ） */
+  boardConfig: BoardConfig | null;
+  onSaveBoardConfig: (config: BoardConfig) => Promise<void>;
+  /** 新しいバージョン（起動したときにも確かめる）。available は見つかった新しいバージョン */
+  update: { available: { version: string } | null; updating: boolean };
+  onCheckUpdate: () => Promise<UpdateCheck>;
+  onRunUpdate: () => void;
   /** 開いたときに出すペイン（セットアップのあと「メンバーを招待する」で 接続 を、アカウントのメニューから トークン を開く） */
   initialPane?: SettingsPane;
+  /** 開いたときに見せる区切り（ボードの「⚙ 区画の設定」・ガントの「⚙ 色の設定」から） */
+  initialSection?: string;
 }
+
+/** 新しいバージョンを確かめた結果 */
+export type UpdateCheck = "latest" | "available" | "error";
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const weekdayLabels: Record<string, string> = {
@@ -60,11 +76,11 @@ const notifyTypes: Record<string, string> = {
   custom: "カスタムメッセージ",
 };
 
-export type SettingsPane = "connection" | "labels" | "notifications" | "display" | "tokens" | "other";
+export type SettingsPane = "connection" | "tasks" | "notifications" | "display" | "tokens" | "other";
 // 接続（チーム）がいちばん前。トークンは、ふだんは触らないので後ろのほう
 const PANES: { key: SettingsPane; label: string }[] = [
   { key: "connection", label: "接続" },
-  { key: "labels", label: "ラベル" },
+  { key: "tasks", label: "タスク" },
   { key: "notifications", label: "通知" },
   { key: "display", label: "表示" },
   { key: "tokens", label: "トークン" },
@@ -79,6 +95,32 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
+// ボードの見た目の見本の絵（板の色・付箋の色は、ボードの画面と同じ）
+function BoardLookPreview({ look }: { look: BoardLook }) {
+  return (
+    <svg className="display-preview" width="46" height="34" aria-hidden="true">
+      {look === "quest" ? (
+        <>
+          <rect x="2" y="2" width="42" height="30" rx="3" className="pv-quest-frame" />
+          <rect x="5" y="5" width="36" height="24" rx="1.5" className="pv-quest-board" />
+          <rect x="9" y="9" width="11" height="15" className="pv-quest-paper" transform="rotate(-4 14 16)" />
+          <rect x="25" y="10" width="11" height="14" className="pv-quest-paper" transform="rotate(3 30 17)" />
+          <circle cx="14.5" cy="10" r="1.3" className="pv-pin" />
+          <circle cx="30.5" cy="11" r="1.3" className="pv-pin" />
+        </>
+      ) : (
+        <>
+          <rect x="2" y="2" width="42" height="30" rx="3" className={look === "white" ? "pv-white-frame" : "pv-chalk-frame"} />
+          <rect x="5" y="5" width="36" height="24" rx="1.5" className={look === "white" ? "pv-white-board" : "pv-chalk-board"} />
+          <path d="M8,9 H22" className={look === "white" ? "pv-white-ink" : "pv-chalk-ink"} />
+          <rect x="9" y="13" width="10" height="10" className="pv-note-yellow" transform="rotate(-4 14 18)" />
+          <rect x="24" y="12" width="10" height="10" className="pv-note-pink" transform="rotate(3 29 17)" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
 const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
   { value: "top-right", label: "右上", note: "", dot: { cx: 36, cy: 10 } },
@@ -88,7 +130,7 @@ const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: str
   { value: "hidden", label: "隠す", note: "Ctrl+M だけで開きます", dot: null },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
   // 区分を切り替える（横に並んだタブなので、右の区分へは右から・左へは左から入れ替わる）
   function changePane(next: SettingsPane) {
@@ -97,6 +139,30 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
     withTransition(() => setActivePane(next), ["vt-tab", dir]);
   }
   const [appVersion, setAppVersion] = useState("");
+  // Actions の「はじめる準備」で隠したもの（今のリポジトリ・この PC）
+  const [setupHidden, setSetupHidden] = useState<string[]>(() => loadSetupHidden(owner, repo));
+  useEffect(() => setSetupHidden(loadSetupHidden(owner, repo)), [owner, repo]);
+  function toggleSetupItem(key: string, show: boolean) {
+    const next = show ? setupHidden.filter((k) => k !== key) : [...setupHidden, key];
+    setSetupHidden(next);
+    saveSetupHidden(owner, repo, next);
+  }
+  // 新しいバージョンを確かめる
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheck | "checking" | null>(null);
+  async function checkUpdate() {
+    setUpdateCheck("checking");
+    setUpdateCheck(await onCheckUpdate());
+  }
+  // ボード・ガントから開いたときは、その区切りまで動かして、少しのあいだ光らせる
+  useEffect(() => {
+    if (!initialSection) return;
+    const el = document.getElementById(initialSection);
+    if (!el) return;
+    el.scrollIntoView({ block: "start" });
+    el.classList.add("settings-flash");
+    const t = window.setTimeout(() => el.classList.remove("settings-flash"), 1600);
+    return () => window.clearTimeout(t);
+  }, [initialSection]);
   const [discordWebhookInput, setDiscordWebhookInput] = useState("");
   const [discordConfigured, setDiscordConfigured] = useState(false);
   const [discordTesting, setDiscordTesting] = useState(false);
@@ -274,8 +340,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* === トークンペイン（いつものトークン・プロジェクトごとのトークン・ログアウト） === */}
       {activePane === "tokens" && <TokenSettings projects={projects} onChanged={onTokensChanged} onSignOut={onSignOut} />}
 
-      {/* === ラベルペイン === */}
-      {activePane === "labels" && <>
+      {/* === タスクペイン（見積もりの単位・ボードの区画・ラベル。どれもチームで一つ） === */}
+      {activePane === "tasks" && <>
 
       {/* 見積もりの単位（ラベル「見積:3pt」などの単位。チームで一つ） */}
       <div className="form-card">
@@ -298,6 +364,9 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ポイントと時間の単位は換算しません。
         </p>
       </div>
+
+      {/* ボードの区画（config/board.yaml） */}
+      <BoardColumnsSetting boardConfig={boardConfig} labels={labels} onSave={onSaveBoardConfig} />
 
       {/* ラベル管理 */}
       <div className="form-card">
@@ -766,6 +835,49 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </div>
       </div>
 
+      <div className="form-card" id="settings-board-look">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>ボードの見た目</h3>
+        <div className="display-opts">
+          {BOARD_LOOKS.map((l) => (
+            <label key={l.key} className="display-opt">
+              <input type="radio" name="board-look" checked={displaySettings.boardLook === l.key}
+                onChange={() => onChangeDisplaySettings({ boardLook: l.key })} />
+              <BoardLookPreview look={l.key} />
+              <span>
+                <b>{l.label}</b>
+                <small>{l.about}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          ボードの上の「クエスト・ホワイトボード・黒板」でも切り替えられます。
+        </p>
+      </div>
+
+      <div className="form-card" id="settings-gantt-colors">
+        <div className="settings-section-header">
+          <h3 className="settings-section-title">ガントの帯の色</h3>
+          <button type="button" className="btn-sm"
+            disabled={JSON.stringify(displaySettings.ganttColors) === JSON.stringify(DEFAULT_BAR_COLORS)}
+            onClick={() => onChangeDisplaySettings({ ganttColors: DEFAULT_BAR_COLORS })}>
+            はじめの色に戻す
+          </button>
+        </div>
+        <div className="gantt-colors">
+          {(Object.keys(BAR_COLOR_LABELS) as (keyof GanttBarColors)[]).map((key) => (
+            <label key={key} className="gantt-color">
+              <input type="color" value={displaySettings.ganttColors[key]}
+                onChange={(e) => onChangeDisplaySettings({ ganttColors: { ...displaySettings.ganttColors, [key]: e.target.value } })} />
+              <span>{BAR_COLOR_LABELS[key]}</span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          完了・クリティカルパス（遅れると全体が遅れるタスク）・優先:高・状態（進行中・ブロック）の順に効きます。どれでもない帯は デフォルト の色です。
+        </p>
+      </div>
+
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>サイドバーの位置</h3>
         <div className="display-opts pos-opts">
@@ -842,6 +954,56 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* この PC の git（PC のみ） */}
       {!isMobile && <GitInfoCard onOpenSetup={onOpenSetup} setupVersion={setupVersion} />}
 
+      {/* Actions の「はじめる準備」に出すもの（今のリポジトリ・この PC） */}
+      {owner && repo && (
+        <div className="form-card" id="settings-actions-setup">
+          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>Actions の「はじめる準備」に出すもの</h3>
+          <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
+            {owner}/{repo} の Actions の画面に出す勧めです。そこで「今は使わない」を押すと、ここのチェックが外れます。チェックしてあっても、要るときだけ出ます。
+          </p>
+          <div className="display-opts">
+            {SETUP_ITEMS.map((item) => (
+              <label key={item.key} className="display-opt">
+                <input type="checkbox" checked={!setupHidden.includes(item.key)}
+                  onChange={(e) => toggleSetupItem(item.key, e.target.checked)} />
+                <span>
+                  <b>{item.label}</b>
+                  <small>{item.about}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* バージョン（新しいバージョンを確かめる。PC のみ） */}
+      {!isMobile && (
+        <div className="form-card" id="settings-update">
+          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>バージョン</h3>
+          <div className="update-row">
+            <span>Life Manager <b>{appVersion ? `v${appVersion}` : "…"}</b></span>
+            <button type="button" className="btn-sm" onClick={checkUpdate} disabled={updateCheck === "checking" || update.updating}>
+              {updateCheck === "checking" ? "確かめています…" : "新しいバージョンを確かめる"}
+            </button>
+          </div>
+          {update.available ? (
+            <div className="update-result update-result--new">
+              <span>新しいバージョン <b>v{update.available.version}</b> があります</span>
+              <button type="button" className="btn-primary" onClick={onRunUpdate} disabled={update.updating}>
+                {update.updating ? "更新しています…" : "今すぐ更新"}
+              </button>
+            </div>
+          ) : updateCheck === "latest" ? (
+            <p className="update-result">✔ 今のバージョンが最新です</p>
+          ) : updateCheck === "error" ? (
+            <p className="update-result update-result--error">確かめられませんでした。インターネットにつながっているか確かめて、もう一度押してください</p>
+          ) : null}
+          <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+            起動したときにも確かめます。新しいバージョンがあると、画面の上にお知らせが出ます。
+          </p>
+        </div>
+      )}
+
       {/* フィードバック */}
       <div className="form-card">
           <div className="settings-section-header">
@@ -892,7 +1054,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         >
           マニュアルを開く
         </button>
-        {appVersion && (
+        {appVersion && isMobile && (
           <p style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)", marginTop: "var(--space-sm)" }}>
             Life Manager v{appVersion}
           </p>

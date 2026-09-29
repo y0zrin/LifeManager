@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
-import { TIME_SCALE_CONFIG, DEFAULT_BAR_COLORS, BAR_COLOR_LABELS } from "../../lib/ganttTypes";
+import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
 import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
@@ -17,6 +17,10 @@ interface GanttViewProps {
   currentUser: string;
   onSelectIssue: (n: number) => void;
   onUpdateIssueBody: (issueNumber: number, newBody: string) => Promise<void>;
+  /** 帯の色（設定 → 表示） */
+  barColors: GanttBarColors;
+  /** 設定 → 表示 の「ガントの帯の色」を開く */
+  onOpenColorSettings: () => void;
 }
 
 const ROW_HEIGHT = 36;
@@ -31,7 +35,7 @@ function formatDate(d: Date): string {
 }
 
 export function GanttView({
-  issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody,
+  issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody, barColors, onOpenColorSettings,
 }: GanttViewProps) {
   const [selectedMilestone, setSelectedMilestone] = useState<number | null>(() => {
     const saved = localStorage.getItem("gantt-selected-milestone");
@@ -39,18 +43,6 @@ export function GanttView({
   });
   const [timeScale, setTimeScale] = useState<TimeScale>("week");
   const [showCriticalPath, setShowCriticalPath] = useState(false);
-  const [showColorSettings, setShowColorSettings] = useState(false);
-  const [barColors, setBarColors] = useState<GanttBarColors>(() => {
-    try {
-      const saved = localStorage.getItem("gantt-bar-colors");
-      return saved ? { ...DEFAULT_BAR_COLORS, ...JSON.parse(saved) } : DEFAULT_BAR_COLORS;
-    } catch { return DEFAULT_BAR_COLORS; }
-  });
-  const updateBarColor = (key: keyof GanttBarColors, value: string) => {
-    const next = { ...barColors, [key]: value };
-    setBarColors(next);
-    localStorage.setItem("gantt-bar-colors", JSON.stringify(next));
-  };
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const [filterAssignee, setFilterAssignee] = useState<string>("");
@@ -491,9 +483,9 @@ export function GanttView({
               }}>
               CP
             </button>
-            <button className="btn-sm" onClick={() => setShowColorSettings(!showColorSettings)}
+            <button className="btn-sm" onClick={onOpenColorSettings} title="設定 → 表示 の「ガントの帯の色」を開きます"
               style={{ fontSize: "var(--font-xs)" }}>
-              {showColorSettings ? "×" : "色設定"}
+              ⚙ 色の設定
             </button>
             <label className="chk gantt-tentative-toggle" title="日程のないタスクに、見積もりから仮の帯（点線）を置きます">
               <input type="checkbox" checked={showTentative}
@@ -513,24 +505,6 @@ export function GanttView({
           </>
         )}
       </div>
-
-      {/* 色設定パネル */}
-      {showColorSettings && (
-        <div className="form-card" style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap", alignItems: "center", padding: "var(--space-sm) var(--space-md)" }}>
-          {(Object.keys(BAR_COLOR_LABELS) as (keyof GanttBarColors)[]).map((key) => (
-            <label key={key} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
-              <input type="color" value={barColors[key]}
-                onChange={(e) => updateBarColor(key, e.target.value)}
-                style={{ width: "20px", height: "20px", border: "none", padding: 0, cursor: "pointer" }} />
-              {BAR_COLOR_LABELS[key]}
-            </label>
-          ))}
-          <button className="btn-sm" style={{ fontSize: "var(--font-xs)" }}
-            onClick={() => { setBarColors(DEFAULT_BAR_COLORS); localStorage.removeItem("gantt-bar-colors"); }}>
-            リセット
-          </button>
-        </div>
-      )}
 
       {/* Main area */}
       {selectedMilestone === null ? (

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
 import { PendingChip } from "../common/PendingChip";
-import { DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import { BOARD_GENRES, BOARD_LOOKS, DEFAULT_COLUMNS, genreOf, type BoardLook } from "../../lib/board";
 import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
 import { daysUntil, dueOf } from "../../lib/due";
 import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
@@ -24,21 +24,13 @@ interface KanbanViewProps {
   onStatusChange: (n: number, status: string) => void;
   onSelectIssue: (n: number) => void;
   onOpenPull: (n: number) => void;
-  onSaveBoardConfig: (config: BoardConfig) => Promise<void>;
+  /** 見た目（設定 → 表示 と同じ） */
+  look: BoardLook;
+  onLookChange: (look: BoardLook) => void;
+  /** 設定 → タスク の「ボードの区画」を開く */
+  onOpenBoardSettings: () => void;
 }
 
-/** ボードの見た目 */
-type Look = "quest" | "white" | "chalk";
-const LOOKS: { key: Look; label: string }[] = [
-  { key: "quest", label: "クエスト" },
-  { key: "white", label: "ホワイトボード" },
-  { key: "chalk", label: "黒板" },
-];
-const GENRES: { key: BoardGenre; label: string; icon: string; about: string }[] = [
-  { key: "triage", label: "未整理", icon: "📥", about: "整理して、やることを決める" },
-  { key: "doing", label: "着手済み", icon: "🔥", about: "やっていることを追う" },
-];
-const LOOK_KEY = "board-look";
 const GENRE_KEY = "board-genre";
 const MINE_KEY = "board-mine-only";
 
@@ -103,7 +95,7 @@ interface PullMark {
 
 interface NoteProps {
   issue: GitHubIssue;
-  look: Look;
+  look: BoardLook;
   me: string;
   working: boolean;
   pull: PullMark | null;
@@ -176,16 +168,14 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   );
 }
 
-export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, onSaveBoardConfig }: KanbanViewProps) {
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onLookChange, onOpenBoardSettings }: KanbanViewProps) {
   const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
 
-  // 見た目・ジャンル・自分の担当だけ（この PC に覚えておく）
-  const [look, setLookState] = useState<Look>(() => loadPref(LOOK_KEY, ["quest", "white", "chalk"] as const, "chalk"));
+  // ジャンル・自分の担当だけ（この PC に覚えておく。見た目は 設定 → 表示 と同じもの）
   const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing"] as const, "doing"));
   const [mineOnly, setMineOnlyState] = useState(() => loadPref(MINE_KEY, ["1", "0"] as const, "0") === "1");
-  const setLook = (v: Look) => { setLookState(v); savePref(LOOK_KEY, v); };
   const setGenre = (v: BoardGenre) => { setGenreState(v); savePref(GENRE_KEY, v); };
   const setMineOnly = (v: boolean) => { setMineOnlyState(v); savePref(MINE_KEY, v ? "1" : "0"); };
 
@@ -333,37 +323,6 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   // --- スマホ: 「移動」で区画を選ぶ ---
   const [moving, setMoving] = useState<number | null>(null);
 
-  // --- 区画の設定（どの状態を、どちらのボードに置くか） ---
-  const [showSettings, setShowSettings] = useState(false);
-  const [editColumns, setEditColumns] = useState<BoardColumn[]>(baseColumns);
-  const [newKey, setNewKey] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [newEmoji, setNewEmoji] = useState("");
-  const statusLabels = labels.filter((l) => l.name.startsWith("状態:"));
-
-  function openSettings() {
-    setEditColumns(baseColumns.map((c) => ({ ...c, genre: genreOf(c) })));
-    setShowSettings(true);
-  }
-  function moveColumn(index: number, dir: -1 | 1) {
-    const next = [...editColumns];
-    const to = index + dir;
-    if (to < 0 || to >= next.length) return;
-    [next[index], next[to]] = [next[to], next[index]];
-    setEditColumns(next);
-  }
-  function addColumn() {
-    if (!newKey.trim() || !newTitle.trim()) return;
-    setEditColumns([...editColumns, { key: newKey.trim(), title: newTitle.trim(), emoji: newEmoji || "📋", genre: "doing" }]);
-    setNewKey("");
-    setNewTitle("");
-    setNewEmoji("");
-  }
-  async function saveColumns() {
-    await onSaveBoardConfig({ columns: editColumns });
-    setShowSettings(false);
-  }
-
   const draggedIssue = dragging !== null ? issues.find((i) => i.number === dragging) ?? null : null;
   const cols = columnsOf(genre);
 
@@ -388,20 +347,20 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         </button>
         <span className="grow" />
         <span className="bd-looks" role="group" aria-label="ボードの見た目">
-          {LOOKS.map((l) => (
-            <button key={l.key} type="button" className={look === l.key ? "on" : ""} aria-pressed={look === l.key} onClick={() => setLook(l.key)}>
+          {BOARD_LOOKS.map((l) => (
+            <button key={l.key} type="button" className={look === l.key ? "on" : ""} aria-pressed={look === l.key} onClick={() => onLookChange(l.key)}>
               {l.label}
             </button>
           ))}
         </span>
-        <button className="btn-sm" onClick={openSettings}>
+        <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
           ⚙ 区画の設定
         </button>
       </div>
       <TaskFilterChips {...filterProps} />
 
       <div className="bd-tabs" role="tablist" aria-label="ボード">
-        {GENRES.map((g) => (
+        {BOARD_GENRES.map((g) => (
           <button
             key={g.key}
             ref={target(`@genre:${g.key}`)}
@@ -485,77 +444,6 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
       {draggedIssue && isDraggingRef.current && (
         <div className={`bd-float look-${look}`} style={{ left: mousePos.x - offsetRef.current.x, top: mousePos.y - offsetRef.current.y }}>
           {note(draggedIssue)}
-        </div>
-      )}
-
-      {/* 区画の設定 */}
-      {showSettings && (
-        <div className="palette-overlay" onClick={() => setShowSettings(false)}>
-          <div className="modal-content bd-settings" onClick={(e) => e.stopPropagation()}>
-            <h3>区画の設定</h3>
-            <p className="bd-settings-note">状態ごとの区画を、どちらのボード（未整理・着手済み）に置くかと、並びを決めます。</p>
-            {editColumns.map((col, index) => (
-              <div key={col.key} className="bd-settings-row">
-                <span className="bd-settings-emoji">{col.emoji}</span>
-                <span className="bd-settings-title">{col.title}</span>
-                <select
-                  className="select-sm"
-                  value={genreOf(col)}
-                  aria-label={`${col.title} を置くボード`}
-                  onChange={(e) => setEditColumns(editColumns.map((c, i) => (i === index ? { ...c, genre: e.target.value as BoardGenre } : c)))}
-                >
-                  {GENRES.map((g) => (
-                    <option key={g.key} value={g.key}>
-                      {g.label}
-                    </option>
-                  ))}
-                </select>
-                <button className="btn-sm" onClick={() => moveColumn(index, -1)} disabled={index === 0}>
-                  ↑
-                </button>
-                <button className="btn-sm" onClick={() => moveColumn(index, 1)} disabled={index === editColumns.length - 1}>
-                  ↓
-                </button>
-                <button className="btn-sm bd-settings-remove" onClick={() => setEditColumns(editColumns.filter((_, i) => i !== index))}>
-                  ×
-                </button>
-              </div>
-            ))}
-            <div className="bd-settings-add">
-              <p>区画を足す</p>
-              <div className="bd-settings-row">
-                <select
-                  className="select-sm"
-                  value={newKey}
-                  onChange={(e) => {
-                    setNewKey(e.target.value);
-                    if (e.target.value && !newTitle) setNewTitle(e.target.value === "none" ? "未分類" : e.target.value.split(":")[1] || "");
-                  }}
-                >
-                  <option value="">状態のラベルを選ぶ…</option>
-                  <option value="none">未分類（状態のラベルなし）</option>
-                  {statusLabels.map((l) => (
-                    <option key={l.name} value={l.name}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-                <input value={newEmoji} onChange={(e) => setNewEmoji(e.target.value)} placeholder="絵文字" className="input-full bd-settings-emoji-input" />
-                <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="表示名" className="input-full" />
-                <button className="btn-primary" onClick={addColumn} disabled={!newKey || !newTitle}>
-                  足す
-                </button>
-              </div>
-            </div>
-            <div className="bd-settings-actions">
-              <button className="btn-sm" onClick={() => setShowSettings(false)}>
-                やめる
-              </button>
-              <button className="btn-primary" onClick={saveColumns}>
-                保存
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

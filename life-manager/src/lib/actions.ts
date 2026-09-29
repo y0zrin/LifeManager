@@ -249,6 +249,35 @@ export function canManageActions(ov: Pick<ActionsOverview, "owner_type" | "can_a
   return !!me && owner.toLowerCase() === me.toLowerCase();
 }
 
+/** Actions の「はじめる準備」に出すもの。「今は使わない」で隠したものは、設定 → その他 で戻す */
+export type SetupItem = "workflow" | "dependabot" | "code";
+
+export const SETUP_ITEMS: { key: SetupItem; label: string; about: string }[] = [
+  { key: "workflow", label: "ワークフローを置く", about: "ワークフローがないとき、ひな形から置くのを勧めます" },
+  { key: "dependabot", label: "Dependabot のお知らせ", about: "止まっているとき、有効にするのを勧めます" },
+  { key: "code", label: "コードスキャン", about: "公開のリポジトリで使っていないとき、勧めます" },
+];
+
+const setupHiddenKey = (owner: string, repo: string) => `actions-setup-hidden:${owner}/${repo}`;
+
+/** 「今は使わない」で隠したもの（リポジトリごとに、この PC に覚える） */
+export function loadSetupHidden(owner: string, repo: string): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(setupHiddenKey(owner, repo)) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveSetupHidden(owner: string, repo: string, hidden: string[]) {
+  try {
+    localStorage.setItem(setupHiddenKey(owner, repo), JSON.stringify(hidden));
+  } catch {
+    // 覚えられなくても、今は選んだとおりに出す
+  }
+}
+
 /** 非公開のリポジトリで Actions を「既定でオフ」にしたか・持ち主が確かめて使うことにしたか（リポジトリごとに、この PC に覚える） */
 export type ActionsChoice = "auto-off" | "consented";
 

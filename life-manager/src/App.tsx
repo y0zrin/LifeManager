@@ -17,7 +17,7 @@ import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
 import { MilestoneView } from "./components/views/MilestoneView";
-import { SettingsView, type SettingsPane } from "./components/views/SettingsView";
+import { SettingsView, type SettingsPane, type UpdateCheck } from "./components/views/SettingsView";
 import { RoutinesView } from "./components/views/RoutinesView";
 import { TimelineView } from "./components/views/TimelineView";
 import { GanttView } from "./components/views/GanttView";
@@ -131,14 +131,18 @@ function App() {
   useEffect(() => {
     setMotionEnabled(display.settings.motion === "normal");
   }, [display.settings.motion]);
-  // 設定を開いたときに出すペイン（セットアップのあとの「メンバーを招待する」だけ。設定を離れたら元に戻す）
+  // 設定を開いたときに出すペインと区切り（「メンバーを招待する」・ログインとトークン・ボードの区画・ガントの色。設定を離れたら元に戻す）
   const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
+  const [settingsSection, setSettingsSection] = useState<string | null>(null);
   // 設定を、決めた区分で開き直す（設定を開いたまま、アカウントのメニューから「ログインとトークン」を選んだときも）
   const [settingsNonce, setSettingsNonce] = useState(0);
   // リポジトリを追加（左上のリポジトリの一覧・設定 → 接続 から）
   const [addRepoOpen, setAddRepoOpen] = useState(false);
   useEffect(() => {
-    if (view !== "settings") setSettingsPane(null);
+    if (view !== "settings") {
+      setSettingsPane(null);
+      setSettingsSection(null);
+    }
   }, [view]);
   // git の操作は PC だけ。作業・ブランチ・全体図を開いているあいだは、状態をこまめに読み直す
   const folder = isMobile ? undefined : localFolders.folders[`${gh.owner}/${gh.repo}`];
@@ -324,16 +328,21 @@ function App() {
   const toldConflict = useRef<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
+  // 上のお知らせの「後で」（設定 → その他 の バージョン には出したまま）
+  const [updateBannerHidden, setUpdateBannerHidden] = useState(false);
 
-  // アップデートチェック
-  const checkForUpdate = useCallback(async () => {
+  // アップデートチェック（起動したときと、設定 → その他 の「新しいバージョンを確かめる」）
+  const checkForUpdate = useCallback(async (): Promise<UpdateCheck> => {
     try {
       const update = await check();
       if (update) {
         setUpdateAvailable({ version: update.version, body: update.body || "" });
+        return "available";
       }
+      return "latest";
     } catch {
-      // アップデートチェック失敗は無視
+      // 起動したときの失敗は知らせない（設定から確かめたときだけ出す）
+      return "error";
     }
   }, []);
 
@@ -515,11 +524,16 @@ function App() {
     setConflictNotice(true);
   }, [folder, git.status]);
 
-  // アカウントのメニューの「ログインとトークン」・トークンの期限のお知らせ: 設定 → トークン を開く
-  function openTokens() {
-    setSettingsPane("tokens");
+  // 設定を、決めた区分（と区切り）で開く
+  function openSettings(pane: SettingsPane, section?: string) {
+    setSettingsPane(pane);
+    setSettingsSection(section ?? null);
     setSettingsNonce((n) => n + 1);
     setView("settings");
+  }
+  // アカウントのメニューの「ログインとトークン」・トークンの期限のお知らせ: 設定 → トークン を開く
+  function openTokens() {
+    openSettings("tokens");
   }
 
   async function handleSwitchProject(projOwner: string, projRepo: string) {
@@ -881,13 +895,13 @@ function App() {
         </header>
 
         {/* アップデート通知バナー */}
-        {updateAvailable && (
+        {updateAvailable && !updateBannerHidden && (
           <div className="update-banner">
             <span>新しいバージョン {updateAvailable.version} が利用可能です</span>
             <button className="btn-primary" onClick={performUpdate} disabled={updating} style={{ fontSize: "var(--font-sm)", padding: "4px 12px" }}>
               {updating ? "更新中..." : "今すぐ更新"}
             </button>
-            <button className="btn-sm" onClick={() => setUpdateAvailable(null)} style={{ padding: "4px 8px" }}>
+            <button className="btn-sm" onClick={() => setUpdateBannerHidden(true)} style={{ padding: "4px 8px" }}>
               後で
             </button>
           </div>
@@ -1109,7 +1123,9 @@ function App() {
               currentUser={gh.currentUser}
               onStatusChange={gh.changeIssueStatus}
               onSelectIssue={setSelectedIssue}
-              onSaveBoardConfig={gh.saveBoardConfig}
+              look={display.settings.boardLook}
+              onLookChange={(look) => display.update({ boardLook: look })}
+              onOpenBoardSettings={() => openSettings("tasks", "settings-board")}
             />
           )}
 
@@ -1158,6 +1174,8 @@ function App() {
               currentUser={gh.currentUser}
               onSelectIssue={setSelectedIssue}
               onUpdateIssueBody={gh.updateIssueBody}
+              barColors={display.settings.ganttColors}
+              onOpenColorSettings={() => openSettings("display", "settings-gantt-colors")}
             />
           )}
 
@@ -1190,7 +1208,13 @@ function App() {
               eventNotifConfig={gh.eventNotifConfig}
               onSaveEventNotifConfig={gh.saveEventNotifConfig}
               login={gh.currentUser}
+              boardConfig={gh.boardConfig}
+              onSaveBoardConfig={gh.saveBoardConfig}
+              update={{ available: updateAvailable, updating }}
+              onCheckUpdate={checkForUpdate}
+              onRunUpdate={performUpdate}
               initialPane={settingsPane ?? undefined}
+              initialSection={settingsSection ?? undefined}
             />
           )}
         </div>

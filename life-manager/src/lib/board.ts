@@ -18,3 +18,18 @@ const TRIAGE_KEYS = new Set(["状態:未整理", "状態:未着手", "状態:い
 export function genreOf(col: BoardColumn): BoardGenre {
   return col.genre ?? (TRIAGE_KEYS.has(col.key) ? "triage" : "doing");
 }
+
+/** ボードのジャンル（タブ）。区画をどちらに置くかの選び方にも使う */
+export const BOARD_GENRES: { key: BoardGenre; label: string; icon: string; about: string }[] = [
+  { key: "triage", label: "未整理", icon: "📥", about: "整理して、やることを決める" },
+  { key: "doing", label: "着手済み", icon: "🔥", about: "やっていることを追う" },
+];
+
+/** ボードの見た目（ボードの上と、設定 → 表示 で選ぶ） */
+export type BoardLook = "quest" | "white" | "chalk";
+
+export const BOARD_LOOKS: { key: BoardLook; label: string; about: string }[] = [
+  { key: "quest", label: "クエスト", about: "木とコルクの板に依頼書。見積もりは報酬と難しさの星、自分の担当は「受注」の判" },
+  { key: "white", label: "ホワイトボード", about: "会議のホワイトボードに付箋。種別で付箋の色が変わります" },
+  { key: "chalk", label: "黒板", about: "ホワイトボードの暗い版。はじめはこれ" },
+];

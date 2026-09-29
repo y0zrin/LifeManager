@@ -57,9 +57,9 @@ src/
 │   └── ...
 └── components/views/
     ├── DashboardView.tsx     # タスク一覧（検索、サジェスト、ガント日程入力）
-    ├── KanbanView.tsx        # カンバンボード
-    ├── GanttView.tsx         # ガントチャート（ドラッグ移動/リサイズ、CP、色設定、遅延表示）
-    ├── SettingsView.tsx      # 設定（ペイン化: 接続/ラベル/通知/その他）
+    ├── KanbanView.tsx        # ボード（未整理・着手済みのボード、状態ごとの板と付箋）
+    ├── GanttView.tsx         # ガントチャート（ドラッグ移動/リサイズ、CP、遅延表示。帯の色は 設定 → 表示）
+    ├── SettingsView.tsx      # 設定（接続/タスク/通知/表示/トークン/その他。ボードの区画・見た目・ガントの色・バージョンも）
     ├── TimelineView.tsx      # 日誌（Issue参照リンク付き）
     └── ...
 

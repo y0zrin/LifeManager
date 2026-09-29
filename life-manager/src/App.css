@@ -9214,6 +9214,219 @@ button.lh:hover {
   text-anchor: middle;
 }
 
+/* ボードの見た目の見本（板と付箋の色は、ボードの画面と同じ） */
+.pv-quest-frame {
+  fill: #54331a;
+}
+
+.pv-quest-board {
+  fill: #c69a62;
+}
+
+.pv-quest-paper {
+  fill: #f0dcae;
+  stroke: #b8904d;
+  stroke-width: 0.6;
+}
+
+.pv-pin {
+  fill: #b3261e;
+}
+
+.pv-white-frame {
+  fill: #b9c0c8;
+}
+
+.pv-white-board {
+  fill: #f7f9fa;
+}
+
+.pv-white-ink {
+  stroke: #1b3a8c;
+  stroke-width: 1.6;
+}
+
+.pv-chalk-frame {
+  fill: #6b4a2b;
+}
+
+.pv-chalk-board {
+  fill: #2a4435;
+}
+
+.pv-chalk-ink {
+  stroke: #f4f1e8;
+  stroke-width: 1.6;
+}
+
+.pv-note-yellow {
+  fill: #fff176;
+}
+
+.pv-note-pink {
+  fill: #ffb3c1;
+}
+
+/* ガントの帯の色: 色と名前を並べる */
+.gantt-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.gantt-color {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.gantt-color input[type="color"] {
+  flex: none;
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+/* ボードの区画（設定 → タスク） */
+.board-cols {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.board-col-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.board-col-name {
+  flex: 1 1 140px;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+}
+
+/* 狭くて折り返したときも、選ぶ欄の下の右に並べる */
+.board-col-moves {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.board-col-remove {
+  color: var(--accent-red);
+}
+
+.board-col-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.board-col-add-title {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* 足す欄の入力（選ぶ欄と同じ高さ） */
+.board-col-add .input-full {
+  min-height: 32px;
+  margin-bottom: 0;
+  padding: 3px 8px;
+  font-size: var(--font-sm);
+}
+
+.board-col-add .board-col-emoji {
+  flex: none;
+  width: 64px;
+}
+
+.board-col-add .board-col-title {
+  flex: 1 1 120px;
+  width: auto;
+  min-width: 0;
+}
+
+.board-col-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.board-col-dirty {
+  margin-right: auto;
+  color: var(--accent-yellow);
+  font-size: var(--font-sm);
+}
+
+/* バージョン（設定 → その他） */
+.update-row,
+.update-result--new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.update-row > span {
+  color: var(--text-secondary);
+}
+
+.update-result {
+  margin: var(--space-sm) 0 0;
+  color: var(--accent-green);
+  font-size: var(--font-sm);
+}
+
+.update-result--new {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  background: var(--accent-blue-bg);
+  color: var(--text-primary);
+}
+
+.update-result--error {
+  color: var(--accent-red);
+}
+
+/* ボード・ガントから開いたときに、その区切りまで動かして（上の帯に隠れないように）、少し光らせる */
+.form-card[id^="settings-"] {
+  scroll-margin-top: calc(var(--header-height) + var(--space-md));
+}
+
+.form-card.settings-flash {
+  animation: settings-flash 1.6s ease-out;
+}
+
+@keyframes settings-flash {
+  from { box-shadow: 0 0 0 3px var(--accent-blue); }
+  to { box-shadow: 0 0 0 0 transparent; }
+}
+
 /* --- Bottom Navigation (mobile) --- */
 
 .bottom-nav {

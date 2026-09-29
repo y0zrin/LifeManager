@@ -2,7 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { ago, pullRepoInfo, type PullRepoInfo } from "../../lib/pulls";
-import { formatSize, listReleases, updateRelease, uploadReleaseAsset, type Release } from "../../lib/releases";
+import {
+  closeMilestone,
+  formatSize,
+  listReleases,
+  releaseMilestones,
+  updateRelease,
+  uploadReleaseAsset,
+  type Release,
+  type ReleaseMilestone,
+} from "../../lib/releases";
 import { isPermissionError } from "../../lib/actions";
 import { withTransition } from "../../lib/motion";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -35,6 +44,9 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 下書きを公開するとき、同じ版の名前の開いているマイルストーンも閉じる（作るときの「マイルストーンを閉じる」と同じ）
+  const [milestones, setMilestones] = useState<ReleaseMilestone[] | null>(null);
+  const [closeMs, setCloseMs] = useState(true);
   const wide = useMediaQuery("(min-width: 901px)");
 
   const load = useCallback(async () => {
@@ -65,7 +77,19 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
   useEffect(() => {
     setEditing(null);
     setActionError(null);
+    setCloseMs(true);
   }, [selected?.id]);
+
+  // 下書きを選んだら、同じ版の名前のマイルストーンがあるかを見る
+  const draftSelected = !!selected?.draft;
+  useEffect(() => {
+    if (draftSelected && milestones === null) releaseMilestones(owner, repo).then(setMilestones).catch(() => setMilestones([]));
+  }, [draftSelected, milestones, owner, repo]);
+  useEffect(() => setMilestones(null), [owner, repo]);
+  const draftMilestone =
+    selected?.draft && milestones
+      ? milestones.find((m) => m.state === "open" && (m.title === selected.tag_name || m.title === selected.tag_name.replace(/^v/i, ""))) ?? null
+      : null;
 
   function pick(id: number | null) {
     const from = list.findIndex((r) => r.id === selected?.id);
@@ -181,10 +205,27 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
                   type="button"
                   className="btn-sm primary"
                   disabled={busy !== null}
-                  onClick={() => act("公開しています…", async () => { await updateRelease(owner, repo, selected.id, { draft: false }); setNotice(`${selected.tag_name} を公開しました`); await load(); })}
+                  onClick={() =>
+                    act("公開しています…", async () => {
+                      await updateRelease(owner, repo, selected.id, { draft: false });
+                      const ms = closeMs ? draftMilestone : null;
+                      if (ms) {
+                        await closeMilestone(owner, repo, ms.number);
+                        setMilestones(null);
+                        onMilestonesChanged();
+                      }
+                      setNotice(`${selected.tag_name} を公開しました${ms ? `（マイルストーン ${ms.title} も閉じました）` : ""}`);
+                      await load();
+                    })
+                  }
                 >
                   公開する
                 </button>
+              )}
+              {canPush && selected.draft && !editing && draftMilestone && (
+                <label className="rl-publish-ms">
+                  <input type="checkbox" checked={closeMs} onChange={(e) => setCloseMs(e.target.checked)} /> マイルストーン {draftMilestone.title} も閉じる
+                </label>
               )}
               {canPush && !editing && (
                 <button type="button" className="btn-sm" onClick={() => setEditing({ name: selected.name ?? "", body: selected.body })}>

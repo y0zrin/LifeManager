@@ -3704,6 +3704,14 @@ button:hover {
   font-size: var(--font-sm);
 }
 
+.rl-publish-ms {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
 .token-card-sub--warn {
   color: var(--accent-yellow);
 }

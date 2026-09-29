@@ -499,8 +499,8 @@
   <h2>初期セットアップ</h2>
   <p>はじめて起動すると、セットアップの画面が出ます。3 つのステップで終わります。<b>トークンを自分で作る必要はありません。</b></p>
 
-  <h3>ステップ 1: GitHub のアカウント</h3>
-  <p>「アカウントを持っている」と「持っていない」の 2 つが並びます。</p>
+  <h3>ステップ 1: GitHub にログイン</h3>
+  <p>起動すると、まず GitHub へのログインです。「アカウントを持っている」と「持っていない」の 2 つが並びます。</p>
   <ol>
     <li><b>持っている</b>: <span class="ui">この PC で使う期限</span>（30 日・90 日・半年）を選んで <span class="ui">GitHub でログイン</span> を押すと、アプリに 8 文字のコード（例 <code>WDJB-MJHT</code>）が出て、<b>コピーされた状態で</b>ブラウザに GitHub が開きます。</li>
     <li>ブラウザで貼り付け（<kbd>Ctrl</kbd>+<kbd>V</kbd>）、<span class="ui">Continue</span> → <span class="ui">Authorize</span> を押します（GitHub にログインしていなければ、先にログインします）。</li>
@@ -527,13 +527,12 @@
     <p>鍵は 8 時間ごとに自動で新しくなり、選んだ期限が来ると、もう一度ログインします（半年使わないと、GitHub 側でも切れます）。やめたいときは、GitHub の Settings → Applications → <b>Authorized GitHub Apps</b> から <b>Life Manager App</b> を取り消せます（GitHub の画面では、この名前で出ます）。</p>
   </div>
 
-  <h3>ステップ 2: チームに入る・選ぶ</h3>
-  <p>自分が使えるリポジトリ（自分のもの・招待されたもの・入っている組織のもの）が、新しく使った順に出ます。選ぶと、使えるかをその場で確かめます。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。<span class="ui">読み直す</span> で一覧を読み直します。</p>
+  <h3>ステップ 2: チームに入る・作る</h3>
+  <p>ログインすると、<b>あなたの GitHub の名前</b>が大きく出ます。チームに入るときは、この名前をリーダーに伝えます（<span class="ui">コピー</span> でコピーもできます）。その下に、2 つの道が並びます。</p>
   <ul>
-    <li><b>届いている招待</b>: リポジトリへの招待が届いていると、上に出ます。<span class="ui">参加する</span> を押すと、メールを開かずに参加でき、そのリポジトリが選ばれます。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。</li>
-    <li><b>チームで使う（まだ招待が来ていない）</b>: <span class="ui">名前をコピー</span> で自分の GitHub の名前をコピーして、リーダーに伝えます。招待が届くと、30 秒ほどで自動で出てきます。</li>
-    <li><b>1 人で使う</b>: <span class="ui">自分用のリポジトリを作る</span> で、名前を決めて作れます（はじめは非公開）。</li>
-    <li><b>使うリポジトリを選ぶ・足す</b>: 持っているリポジトリを使うときは、<span class="ui">＋ 使うリポジトリを選ぶ・足す</span> を押します。GitHub が開くので、自分のアカウントを選び、<span class="ui">Only select repositories</span> で使うリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押し、アプリに戻って <span class="ui">読み直す</span> を押します。</li>
+    <li><b>チームに入る（メンバー）</b>: リーダーが招待すると、ここに出ます（30 秒ごとに確かめます）。<span class="ui">参加してはじめる</span> を 1 回押すと、招待を受けて、そのリポジトリでタスクの画面が開きます。GitHub から届く招待のメールは、開かなくてかまいません。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。</li>
+    <li><b>チームを作る・1 人で使う（リーダー）</b>: ① <span class="ui">使用するリポジトリを選ぶ</span> を押すと、GitHub の Life Manager App を入れる画面が、<b>あなたのアカウントを選んだ状態</b>で開きます。「すべてのリポジトリ」か、使うリポジトリを選んで <span class="ui">Install</span> を押すと、アプリが自分で気づいて「Life Manager が入っています」になります。② 名前を決めて <span class="ui">作ってはじめる</span> を押すと、リポジトリを作って、そのままはじまります。</li>
+    <li><b>もうあるリポジトリを使う</b>: 下の「使えるリポジトリ」から選んで <span class="ui">次へ</span>。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。2 つ目からのリポジトリは <span class="ui">リポジトリを追加する</span>（GitHub で足して <span class="ui">Save</span>）で出てきます。</li>
   </ul>
   <div class="box warn">
     <span class="label">チームのリポジトリが出てこない</span>
@@ -1354,7 +1353,7 @@ labels: ["種別:バグ", "状態:未整理"]
     <li><b>GitHub トークン</b>: いつものトークン（だれとしてつながっているか・種類・期限・使えるか）と、<b>プロジェクトごとに、どのトークンを使っていて使えるか</b>が見えます。
       <ul>
         <li><span class="ui">ログインし直す（期限を延ばす）</span> / <span class="ui">トークンを入れる…</span>: いつものトークンを入れ替えます（ログインし直すと、この PC で使う期限も今日から数え直します）。<span class="ui">確かめる</span>: もう一度確かめます。</li>
-        <li><span class="ui">使うリポジトリを選び直す</span>（ログインしているとき）: GitHub が開き、Life Manager に使わせるリポジトリを足したり外したりできます。</li>
+        <li><span class="ui">使用するリポジトリを選ぶ</span> / <span class="ui">リポジトリを追加する</span>（ログインしているとき）: GitHub が開き、Life Manager に使わせるリポジトリを選ぶ・足すことができます。足すと、アプリが自分で気づきます。「すべてのリポジトリ」に入れてあるときは、ボタンは出ません。</li>
         <li>プロジェクトの行の <span class="ui">専用のトークンにする…</span>: そのプロジェクトだけ別のトークンを使います（別のアカウントのリポジトリなど）。<span class="ui">いつものに戻す</span> で外せます。使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。</li>
         <li>🔴 や 🟡 のときは <span class="ui">直し方</span> を押すと、何をすれば直るかと、そのページを開くボタンが出ます。</li>
         <li><span class="ui">ログアウト</span>: この PC から、あなたのトークンをすべて消します（学校の PC などで使い終わったとき）。次に開くと、最初のセットアップの画面になり、GitHub での許可も取り消すときの案内が出ます。</li>
@@ -1367,6 +1366,7 @@ labels: ["種別:バグ", "状態:未整理"]
   <h3>チーム</h3>
   <ul>
     <li><b>あなた宛ての招待</b>: 届いているリポジトリへの招待に <span class="ui">参加する</span>・<span class="ui">断る</span>。組織への招待は <span class="ui">GitHub で参加</span>。</li>
+    <li><b>参加の案内</b>（管理者）: メンバーに送る文（ダウンロード先・ログイン・名前を伝える・「参加してはじめる」）を <span class="ui">案内をコピー</span> でコピーして、チャットなどに貼ります。</li>
     <li><b>招待する</b>（今のリポジトリの管理者だけ）: メンバーから届いた GitHub の名前を、改行・カンマ・空白で区切って何人でも貼り、<span class="ui">招待を送る</span>。1 人ずつ「招待しました」「もうこのリポジトリを使えます」「その名前の人は GitHub にいません」などの結果が出ます。うまくいかなかった名前は欄に残るので、直して送り直せます。組織のリポジトリでは権限（書き込み・運営・整理・読むだけ・管理）を選べます。</li>
     <li><b>送った招待</b>（管理者だけ）: まだ受けていない招待。<span class="ui">リンクをコピー</span>（招待を受けるページの URL。チャットで送る用）・<span class="ui">取り消す</span>。招待は 7 日で切れ、切れたものは <span class="ui">送り直す</span>。</li>
     <li><b>メンバー</b>: このリポジトリを使える人と権限。外すのは、間違えないよう GitHub の画面（リポジトリの Settings → Collaborators）で行います。</li>
@@ -1405,7 +1405,7 @@ labels: ["種別:バグ", "状態:未整理"]
       <td><b>メンバー</b><br>（生徒など）</td>
       <td>① GitHub のアカウントを自分で作る（自分のメールで）<br>
         ② <span class="ui">GitHub でログイン</span>（自分のアカウントで）<br>
-        ③ <span class="ui">名前をコピー</span> してリーダーに送り、届いた招待に <span class="ui">参加する</span><br>
+        ③ 画面に出る自分の GitHub の名前をリーダーに伝え、届いた招待で <span class="ui">参加してはじめる</span><br>
         ④ チームのリポジトリが出てこないときは、リーダーに「Life Manager を入れて」と伝える<br>
         ⑤ 共用の PC で使い終わったら <span class="ui">ログアウト</span></td>
       <td>トークンやパスワードを人に渡す・もらう・チャットに貼る</td>
@@ -1453,16 +1453,17 @@ labels: ["種別:バグ", "状態:未整理"]
   </div>
   <h3>リーダー: メンバーを招待する</h3>
   <ol>
-    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。設定 → 接続 の <span class="ui">使うリポジトリを選び直す</span>（セットアップでは <span class="ui">＋ 使うリポジトリを選ぶ・足す</span>）で GitHub が開くので（画面の名前は「Life Manager App」）、リポジトリの持ち主のアカウントを選び、そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。入れていないリポジトリは、メンバーの一覧に出てきません。</li>
-    <li>メンバーに、GitHub の名前を送ってもらいます（メンバーはセットアップの <span class="ui">名前をコピー</span> で送れます）。</li>
+    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。セットアップの <span class="ui">使用するリポジトリを選ぶ</span>（入れてあれば 設定 → 接続 の <span class="ui">リポジトリを追加する</span>）で GitHub が開きます（画面の名前は「Life Manager App」。あなたのアカウントを選んだ状態）。そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。セットアップの <span class="ui">作ってはじめる</span> で作ったリポジトリは、そのまま使えます。入れていないリポジトリは、メンバーが参加しても使えません。</li>
+    <li>設定 → チーム の <span class="ui">案内をコピー</span> で「参加の案内」をコピーして、メンバーに送ります（チャット・メール・授業のページなど）。</li>
+    <li>メンバーから、GitHub の名前が届きます（メンバーのアプリの画面に大きく出ています）。</li>
     <li>設定 → チーム の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
     <li>「送った招待」で、まだ受けていない人が分かります。7 日で切れたら <span class="ui">送り直す</span>。</li>
   </ol>
   <h3>メンバーとして参加する</h3>
   <ol>
     <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
-    <li>ログインしたら、<span class="ui">名前をコピー</span> で GitHub の名前をリーダーに送ります。</li>
-    <li>招待が届くと、セットアップ（または 設定 → チーム）に出るので、<span class="ui">参加する</span> を押します。メールの「View invitation」→「Accept invitation」から参加しても同じです。</li>
+    <li>ログインしたら、画面に出る「あなたの GitHub の名前」をリーダーに伝えます。</li>
+    <li>招待が届くと、セットアップに出るので、<span class="ui">参加してはじめる</span> を押します（使い始めたあとなら 設定 → チーム の <span class="ui">参加する</span>）。メールの「View invitation」→「Accept invitation」から参加しても同じです。</li>
     <li>チームのリポジトリが出てこないときは、リーダー（組織なら組織の持ち主）に、そのリポジトリへ Life Manager を入れてもらいます（最初の一度だけ）。</li>
   </ol>
   <h3>Organization を使う（おすすめ）</h3>
@@ -1471,7 +1472,7 @@ labels: ["種別:バグ", "状態:未整理"]
     <li>Organization を作ります（Settings → Organizations → New organization、Free プランで可）。</li>
     <li>Organization の中にリポジトリを作ります（Private がおすすめ）。</li>
     <li>メンバーを招待し（Organization Settings → Members → Invite member）、Write 以上の役割を付けます。</li>
-    <li><b>Life Manager を組織に入れます（一度だけ）。</b>組織の持ち主が、アプリの <span class="ui">使うリポジトリを選び直す</span> で GitHub を開き、組織を選んで、使うリポジトリを選び <span class="ui">Install</span> します。メンバーはログインするだけで使えます。</li>
+    <li><b>Life Manager を組織に入れます（一度だけ）。</b>組織の持ち主が、アプリの <span class="ui">使用するリポジトリを選ぶ</span> の下の「組織に入れるときは こちら」で GitHub を開き、組織を選んで、使うリポジトリを選び <span class="ui">Install</span> します。メンバーはログインするだけで使えます。</li>
   </ol>
   <p>個人のリポジトリで使うときは、持ち主が自分のアカウントに Life Manager を入れてリポジトリを選び、設定 → チーム から招待します（GitHub の Settings → Collaborators → Add people でも同じです）。</p>
   <h3>トークンで使うときの注意</h3>

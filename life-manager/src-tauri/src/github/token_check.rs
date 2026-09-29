@@ -28,6 +28,8 @@ pub struct RepoCheck {
 #[derive(Debug, Clone, Serialize)]
 pub struct TokenReport {
     pub login: String,
+    /// GitHub のアカウントの番号（Life Manager App を入れる画面を、このアカウントを選んだ状態で開くのに使う）
+    pub id: u64,
     pub name: Option<String>,
     pub avatar_url: String,
     /// oauth（GitHub でログイン）/ fine-grained / classic / app / unknown
@@ -77,6 +79,7 @@ pub async fn check(token: &str, repos: &[RepoRef]) -> Result<TokenReport, String
     };
     Ok(TokenReport {
         login: user["login"].as_str().unwrap_or("").to_string(),
+        id: user["id"].as_u64().unwrap_or(0),
         name: user["name"].as_str().map(String::from),
         avatar_url: user["avatar_url"].as_str().unwrap_or("").to_string(),
         kind,
@@ -115,7 +118,7 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: O
             out,
             "not_installed",
             format!(
-                "{} には、まだ Life Manager が入っていません。自分のリポジトリなら「使うリポジトリを選ぶ・足す」で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください（名前の打ち間違いや、まだ招待を受けていないときも、こう見えます）",
+                "{} には、まだ Life Manager が入っていません。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください（名前の打ち間違いや、まだ招待を受けていないときも、こう見えます）",
                 full
             ),
         );
@@ -136,7 +139,7 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: O
             out,
             "not_installed",
             format!(
-                "{} には、まだ Life Manager が入っていません（見ることはできても、書き込めません）。自分のリポジトリなら「使うリポジトリを選ぶ・足す」で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください",
+                "{} には、まだ Life Manager が入っていません（見ることはできても、書き込めません）。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください",
                 full
             ),
         );

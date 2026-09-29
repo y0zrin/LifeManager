@@ -4,9 +4,10 @@ import { GitHubLogin } from "../common/GitHubLogin";
 import { TokenEntry } from "../common/TokenEntry";
 import { TokenReportView } from "../common/TokenReportView";
 import { InvitesForMe } from "../common/InvitesForMe";
+import { RepoAccess } from "../common/RepoAccess";
 import {
-  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listUserRepos, setDefaultToken, SIGNED_OUT_STORE,
-  takeLoginNotice, type TokenReport, type UserRepo,
+  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, setDefaultToken,
+  SIGNED_OUT_STORE, takeLoginNotice, type Installation, type TokenReport, type UserRepo,
 } from "../../lib/auth";
 import { createMyRepo, SIGNUP_URL } from "../../lib/team";
 import { parseGitHub } from "../../lib/git";
@@ -17,7 +18,9 @@ interface SetupViewProps {
   onDone: (owner: string, repo: string, inviteNext?: boolean) => Promise<void>;
 }
 
-const STEPS = ["GitHub のアカウント", "チームに入る・選ぶ", "できあがり"];
+const STEPS = ["GitHub にログイン", "チームに入る・作る", "できあがり"];
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** アカウントを作る流れ: 作っていない → 登録のページを開いた → 作れたのでログインする */
 type Signup = "none" | "opened" | "login";
@@ -31,8 +34,9 @@ function ago(iso: string): string {
 }
 
 /**
- * 最初のセットアップ。① GitHub のアカウント（持っている → ログイン、持っていない → 作ってからログイン。「トークンで入る」もできる）
- * → ② チームに入る・選ぶ（届いた招待に参加する・自分用のリポジトリを作る・一覧から選ぶ・URL を貼る）→ ③ できあがり
+ * 最初のセットアップ。① GitHub にログイン（アカウントがなければ、ここで作ってからログイン。「トークンで入る」もできる）
+ * → ② チームに入る・作る（自分の GitHub の名前を大きく出す。メンバーは届いた招待で「参加してはじめる」、
+ * リーダー・1 人で使う人は「使用するリポジトリを選ぶ」→「作ってはじめる」。一覧から選ぶ・URL を貼るもできる）→ ③ できあがり
  */
 export function SetupView({ onDone }: SetupViewProps) {
   const [step, setStep] = useState(0);
@@ -50,12 +54,15 @@ export function SetupView({ onDone }: SetupViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [nameCopied, setNameCopied] = useState(false);
   // 自分用のリポジトリを作る
-  const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("my-tasks");
   const [newPrivate, setNewPrivate] = useState(true);
   const [createBusy, setCreateBusy] = useState(false);
-  // 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる）
+  // Life Manager App を入れる画面（使用するリポジトリを選ぶ・リポジトリを追加する）と、入れてある先
   const [installUrl, setInstallUrl] = useState("");
+  const [installations, setInstallations] = useState<Installation[] | null>(null);
+  // 招待に参加したが、まだ使えない（リーダーが Life Manager を入れていない）
+  const [joinProblem, setJoinProblem] = useState<{ fullName: string; message: string } | null>(null);
+  const [joinTextCopied, setJoinTextCopied] = useState(false);
   // 最初に出す知らせ（この PC の期限が来た・ログアウトした）
   const [notice, setNotice] = useState<{ kind: "expired" } | { kind: "signed-out"; login: boolean } | null>(null);
 
@@ -113,10 +120,20 @@ export function SetupView({ onDone }: SetupViewProps) {
     }
   }, []);
 
+  // Life Manager App を入れてある先（ログインのときだけ。初回は「使用するリポジトリを選ぶ」、あれば「リポジトリを追加する」）
+  const loadInstallations = useCallback(async () => {
+    try {
+      setInstallations(await listInstallations());
+    } catch {
+      setInstallations([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (step !== 1 || repos !== null) return;
     loadRepos();
-  }, [step, repos, loadRepos]);
+    if (byLogin) loadInstallations();
+  }, [step, repos, loadRepos, byLogin, loadInstallations]);
 
   // 選んだリポジトリを使えるか確かめる
   useEffect(() => {
@@ -148,14 +165,14 @@ export function SetupView({ onDone }: SetupViewProps) {
     }
   }
 
+  // 作ってはじめる（作ったリポジトリで、そのままはじめる）
   async function createRepo() {
     if (!newName.trim() || createBusy) return;
     setCreateBusy(true);
     setError(null);
     try {
       const repo = await createMyRepo(newName.trim(), newPrivate);
-      setCreating(false);
-      await loadRepos(repo.full_name);
+      await startWith(repo.owner.login, repo.name);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -165,13 +182,52 @@ export function SetupView({ onDone }: SetupViewProps) {
 
   async function finish(inviteNext = false) {
     if (!picked) return;
+    await startWith(picked.owner, picked.repo, inviteNext);
+  }
+
+  async function startWith(owner: string, repo: string, inviteNext = false) {
     setFinishing(true);
     setError(null);
     try {
-      await onDone(picked.owner, picked.repo, inviteNext);
+      await onDone(owner, repo, inviteNext);
     } catch (e) {
       setError(String(e));
       setFinishing(false);
+    }
+  }
+
+  // 参加してはじめる: 招待を受けたら、使えるのを確かめて、そのままはじめる。
+  // 参加したばかりは使えるようになるまで少しかかることがあるので、何度か確かめる
+  async function joinAndStart(fullName: string) {
+    setJoinProblem(null);
+    const [owner, repo] = fullName.split("/");
+    let message = "";
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const r = await checkToken({ repos: [{ owner, repo }] });
+        if (r.repos[0]?.ok) {
+          await startWith(owner, repo);
+          return;
+        }
+        message = r.repos[0]?.message ?? "";
+      } catch (e) {
+        message = String(e);
+      }
+      await sleep(2000);
+    }
+    setJoinProblem({ fullName, message });
+    await loadRepos(fullName);
+  }
+
+  async function copyJoinText() {
+    if (!joinProblem) return;
+    const [, repo] = joinProblem.fullName.split("/");
+    const text = `${joinProblem.fullName} に参加しました。Life Manager で使えるように、このリポジトリに Life Manager App を入れてください（Life Manager の「使用するリポジトリを選ぶ」か「リポジトリを追加する」で ${repo} を選びます）。`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setJoinTextCopied(true);
+    } catch {
+      // コピーできなくても、文は画面に出ている
     }
   }
 
@@ -303,52 +359,86 @@ export function SetupView({ onDone }: SetupViewProps) {
         {step === 1 && (
           <>
             {me && (
-              <div className="setup-me">
-                {me.avatar_url && <img src={me.avatar_url} alt="" />}
-                <span>
-                  <b>{me.login}</b> としてログインしています
-                  {meExpiry && <span className="setup-me-expiry"> ・ 期限 {meExpiry.date}（あと {meExpiry.days} 日）</span>}
-                </span>
-                <button type="button" className="btn-sm" onClick={copyName} title="チームのリーダーに伝えて、リポジトリに招待してもらいます">
-                  {nameCopied ? "✔ 名前をコピーしました" : "名前をコピー"}
-                </button>
-              </div>
+              <>
+                <div className="setup-name">
+                  {me.avatar_url && <img src={me.avatar_url} alt="" />}
+                  <div className="setup-name-body">
+                    <div className="setup-name-k">あなたの GitHub の名前</div>
+                    <div className="setup-name-v">{me.login}</div>
+                  </div>
+                  {meExpiry && <span className="setup-me-expiry">期限 {meExpiry.date}（あと {meExpiry.days} 日）</span>}
+                  <button type="button" className="btn-sm" onClick={copyName} title="チームのリーダーに伝えて、リポジトリに招待してもらいます">
+                    {nameCopied ? "✔ コピーしました" : "コピー"}
+                  </button>
+                </div>
+                <p className="setup-name-hint">チームに入るときは、この名前をリーダーに伝えてください。</p>
+              </>
             )}
-            <InvitesForMe poll onJoined={(fullName) => loadRepos(fullName)} onOrgsChanged={() => loadRepos()} />
-            {repos !== null && repos.length === 0 && !reposError && (
-              <div className="setup-join">
-                <p className="setup-lead">まだ使えるリポジトリがありません。</p>
-                <ul>
+
+            <div className="setup-paths">
+              <section className="setup-path">
+                <h3>チームに入る</h3>
+                <InvitesForMe poll joinLabel="参加してはじめる" onJoined={(fullName) => joinAndStart(fullName)} onOrgsChanged={() => loadRepos()}
+                  empty={
+                    <p className="setup-note">
+                      招待が届くと、ここに出ます（30 秒ごとに確かめます）。<br />
+                      <i className="spinner" aria-hidden="true" /> 招待を待っています…
+                    </p>
+                  } />
+                {joinProblem && (
+                  <div className="setup-note setup-note--warn">
+                    <b>{joinProblem.fullName} に参加しましたが、まだ使えません。</b>
+                    {joinProblem.message && <div>{joinProblem.message}</div>}
+                    <div className="setup-install">
+                      <button type="button" className="btn-sm" onClick={copyJoinText}>{joinTextCopied ? "✔ コピーしました" : "リーダーに送る文をコピー"}</button>
+                      <button type="button" className="link-button" onClick={() => joinAndStart(joinProblem.fullName)}>もう一度確かめる</button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="setup-path">
+                <h3>チームを作る・1 人で使う</h3>
+                <ol className="setup-path-steps">
+                  {byLogin && me && installUrl && (
+                    <li>
+                      <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!installations?.length}
+                        onChanged={async (added) => { await loadInstallations(); await loadRepos(added.length === 1 ? added[0] : undefined); }} />
+                    </li>
+                  )}
                   <li>
-                    <b>チームで使う</b>: 上の名前をリーダーに伝えて、リポジトリに招待してもらいます。招待が届くと、ここに出ます（30 秒ごとに確かめます）。
-                  </li>
-                  <li>
-                    <b>1 人で使う</b>: 自分用のリポジトリを作ります（下の「自分用のリポジトリを作る」）。
-                    {byLogin && installUrl && (
-                      <>
-                        持っているリポジトリを使うときは、
-                        <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})}>
-                          Life Manager に使わせるリポジトリを選ぶ
-                        </button>
-                        （GitHub が開きます）。
-                      </>
+                    <div className="setup-create">
+                      <span className="setup-create-label">リポジトリを作る</span>
+                      <span className="setup-create-owner">{me?.login ?? ""} /</span>
+                      <input className="setup-create-name" value={newName} onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => { if (isEnter(e)) createRepo(); }} disabled={createBusy || (byLogin && !installations?.length)} aria-label="リポジトリの名前" />
+                      <label className="chk">
+                        <input type="checkbox" checked={newPrivate} onChange={(e) => setNewPrivate(e.target.checked)} disabled={createBusy} />
+                        非公開
+                      </label>
+                      <button type="button" className="btn-primary" onClick={createRepo}
+                        disabled={!newName.trim() || createBusy || finishing || (byLogin && !installations?.length)}>
+                        {createBusy ? "作っています…" : "作ってはじめる"}
+                      </button>
+                    </div>
+                    {byLogin && installations !== null && installations.length === 0 && (
+                      <p className="setup-note">先に「使用するリポジトリを選ぶ」で、Life Manager を入れてください。</p>
                     )}
+                    <p className="setup-note">もうあるリポジトリを使うときは、下の一覧から選びます（手元のフォルダを上げるときは、あとで 設定 → 接続 → プロジェクト管理 → ＋ 追加 から）。</p>
                   </li>
-                </ul>
-                <p className="setup-note">
-                  <i className="spinner" aria-hidden="true" /> 招待を待っています…
-                </p>
-              </div>
-            )}
+                </ol>
+              </section>
+            </div>
+
+            <h4 className="setup-list-h">使えるリポジトリ{repos && repos.length > 0 ? `（${repos.length}）` : ""}</h4>
             <div className="setup-search">
               <input
                 className="input-full"
                 value={query}
-                autoFocus
                 placeholder="名前で探す、または URL を貼る（https://github.com/持ち主/名前）"
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button type="button" className="btn-sm" onClick={() => loadRepos()} title="招待を受けたあとなど、使えるリポジトリをもう一度読みます">
+              <button type="button" className="btn-sm" onClick={() => { loadRepos(); if (byLogin) loadInstallations(); }} title="招待を受けたあとなど、使えるリポジトリをもう一度読みます">
                 読み直す
               </button>
             </div>
@@ -380,53 +470,12 @@ export function SetupView({ onDone }: SetupViewProps) {
               {repos !== null && repos.length > 0 && shown.length === 0 && !pasted && <p className="setup-note">見つかりません。URL を貼っても選べます。</p>}
             </div>
             )}
-            {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）。URL を貼って選んでください</p>}
-
-            {creating ? (
-              <div className="setup-create">
-                <span className="setup-create-label">自分用のリポジトリ</span>
-                <span className="setup-create-owner">{me?.login ?? ""} /</span>
-                <input className="setup-create-name" value={newName} onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => { if (isEnter(e)) createRepo(); }} disabled={createBusy} aria-label="リポジトリの名前" />
-                <label className="chk">
-                  <input type="checkbox" checked={newPrivate} onChange={(e) => setNewPrivate(e.target.checked)} disabled={createBusy} />
-                  非公開
-                </label>
-                <button type="button" className="btn-primary" onClick={createRepo} disabled={!newName.trim() || createBusy}>
-                  {createBusy ? "作っています…" : "作る"}
-                </button>
-                <button type="button" className="link-button" onClick={() => setCreating(false)} disabled={createBusy}>
-                  やめる
-                </button>
-              </div>
-            ) : (
+            {repos !== null && repos.length === 0 && !pasted && (
               <p className="setup-note">
-                1 人で使う:{" "}
-                <button type="button" className="link-button" onClick={() => setCreating(true)}>
-                  自分用のリポジトリを作る
-                </button>
-                （手元のフォルダを上げるときは、あとで 設定 → 接続 → プロジェクト管理 → ＋ 追加 から）
+                {byLogin ? "まだありません。チームに入るか、上の「チームを作る・1 人で使う」から始めます。" : "まだありません。チームに入るか、リポジトリを作ります。"}
               </p>
             )}
-
-            {byLogin && installUrl ? (
-              <>
-                <div className="setup-install">
-                  <button type="button" className="btn-sm" onClick={() => openUrl(installUrl).catch(() => {})}
-                    title="GitHub の画面で、Life Manager に使わせるリポジトリを選びます。選んだら「読み直す」を押します">
-                    ＋ 使うリポジトリを選ぶ・足す（GitHub が開きます）
-                  </button>
-                  <button type="button" className="link-button" onClick={() => loadRepos()}>
-                    読み直す
-                  </button>
-                </div>
-                <p className="setup-note setup-note--warn">
-                  招待されたチームのリポジトリが出ないときは、リーダーがそのリポジトリに Life Manager を入れていません。リーダーに「Life Manager を入れて」と伝えてください（招待への参加は、ここでもメールからでもできます）。
-                </p>
-              </>
-            ) : (
-              <p className="setup-note">チームのリポジトリが出てこないときは、まだ招待を受けていないかもしれません。</p>
-            )}
+            {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）。URL を貼って選んでください</p>}
             {checking && (
               <p className="setup-note">
                 <i className="spinner" aria-hidden="true" /> 使えるか確かめています…

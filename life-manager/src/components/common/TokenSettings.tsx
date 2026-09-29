@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Project } from "../../lib/types";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   authClientId,
   authInstallUrl,
   checkToken,
+  listInstallations,
   clearProjectToken,
   expiryOf,
   EXPIRY_WARN_DAYS,
@@ -14,11 +14,13 @@ import {
   setProjectToken,
   SIGNED_OUT_STORE,
   tokenOverview,
+  type Installation,
   type TokenOverview,
   type TokenReport,
 } from "../../lib/auth";
 import { isEscape } from "../../lib/keys";
 import { GitHubLogin } from "./GitHubLogin";
+import { RepoAccess } from "./RepoAccess";
 import { TokenEntry } from "./TokenEntry";
 import { TokenReportView } from "./TokenReportView";
 
@@ -58,6 +60,7 @@ const ICON = { ok: "🟢", warn: "🟡", ng: "🔴", wait: "⚪" };
 export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsProps) {
   const [clientId, setClientId] = useState("");
   const [installUrl, setInstallUrl] = useState("");
+  const [installations, setInstallations] = useState<Installation[] | null>(null);
   const [overview, setOverview] = useState<TokenOverview | null>(null);
   const [mine, setMine] = useState<Check>({ loading: true });
   const [checks, setChecks] = useState<Record<string, Check>>({});
@@ -125,6 +128,18 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
   // 「GitHub でログイン」（選んだリポジトリだけ・鍵は 8 時間ごとに新しくなる）
   const byLogin = mine.report?.kind === "app";
 
+  // Life Manager App を入れてある先（初回は「使用するリポジトリを選ぶ」、あれば「リポジトリを追加する」）
+  const loadInstallations = useCallback(async () => {
+    try {
+      setInstallations(await listInstallations());
+    } catch {
+      setInstallations([]);
+    }
+  }, []);
+  useEffect(() => {
+    if (byLogin) loadInstallations();
+  }, [byLogin, loadInstallations]);
+
   async function signOutNow() {
     try {
       // 最初の画面で、GitHub での許可の取り消し方を出すため
@@ -167,13 +182,13 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
             {checkedAt && ` ・ 確かめた日時 ${checkedAt.getMonth() + 1}/${checkedAt.getDate()} ${String(checkedAt.getHours()).padStart(2, "0")}:${String(checkedAt.getMinutes()).padStart(2, "0")}`}
           </div>
         )}
+        {byLogin && installUrl && mine.report && (
+          <div className="token-card-row token-card-access">
+            <RepoAccess me={{ login: mine.report.login, id: mine.report.id }} installUrl={installUrl} installations={installations}
+              onChanged={async (added) => { await loadInstallations(); await changed(`使えるリポジトリが増えました（${added.join("、")}）。プロジェクト管理の「＋ 追加」で登録できます`); }} />
+          </div>
+        )}
         <div className="token-card-actions">
-          {byLogin && installUrl && (
-            <button type="button" className="btn-sm" onClick={() => openUrl(installUrl).catch(() => {})}
-              title="GitHub の画面で、Life Manager に使わせるリポジトリを足す・外す">
-              使うリポジトリを選び直す
-            </button>
-          )}
           {clientId && (
             <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "login" })}>
               {byLogin ? "ログインし直す（期限を延ばす）" : "GitHub でログインし直す"}

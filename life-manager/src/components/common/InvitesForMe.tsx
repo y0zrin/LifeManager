@@ -19,13 +19,15 @@ interface InvitesForMeProps {
   poll?: boolean;
   /** 招待がないときに出すもの（なければ何も出さない） */
   empty?: ReactNode;
+  /** 「参加する」の文字（最初のセットアップでは「参加してはじめる」） */
+  joinLabel?: string;
 }
 
 /**
  * 自分宛ての招待。リポジトリへの招待は、メールを開かずにここで「参加する」。
  * 組織への招待は、アプリに組織の権限（write:org）がないので、GitHub の画面を開いて参加する
  */
-export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty }: InvitesForMeProps) {
+export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty, joinLabel = "参加する" }: InvitesForMeProps) {
   const [data, setData] = useState<MyInvitations | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [declining, setDeclining] = useState<number | null>(null);
@@ -90,7 +92,7 @@ export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty }: I
           ) : (
             <>
               <button type="button" className="btn-primary" disabled={busy !== null} onClick={() => answer(inv, true)}>
-                {busy === inv.id ? "参加しています…" : "参加する"}
+                {busy === inv.id ? "参加しています…" : joinLabel}
               </button>
               <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => setDeclining(inv.id)}>断る</button>
             </>

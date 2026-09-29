@@ -16,7 +16,7 @@ pub fn available() -> bool {
     !CLIENT_ID.is_empty()
 }
 
-/// 使うリポジトリを選ぶ・足す画面（Life Manager を入れる。もう入れてあるアカウントでは、選び直す画面に進める）
+/// Life Manager App を入れる画面（「使用するリポジトリを選ぶ」。もう入れてあるアカウントでは、リポジトリを足す画面に進める）
 pub fn install_url() -> String {
     format!("https://github.com/apps/{}/installations/new", APP_SLUG)
 }

@@ -21,7 +21,7 @@ export type Poll =
 
 /** 「GitHub でログイン」に使う GitHub App の Client ID。空ならログインは使えない（トークンで入る） */
 export const authClientId = () => invoke<string>("auth_client_id");
-/** 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる。入れてあれば、選び直す画面に進める） */
+/** Life Manager App を入れる画面（GitHub。入れてあれば、リポジトリを足す画面に進める） */
 export const authInstallUrl = () => invoke<string>("auth_install_url");
 export const authStart = () => invoke<DeviceCode>("auth_start");
 /** days: この PC で使う日数（過ぎたら、鍵を消してログインし直してもらう） */
@@ -56,6 +56,34 @@ export function storeLoginDays(days: number) {
   }
 }
 
+/** Life Manager App を入れてある先（自分のアカウント・組織） */
+export interface Installation {
+  id: number;
+  account: { login: string; type: string; id: number };
+  /** all: すべてのリポジトリ / selected: 選んだリポジトリだけ */
+  repository_selection: "all" | "selected";
+  /** 入れた先の設定の画面（リポジトリを足す・外す） */
+  html_url: string;
+}
+
+export const listInstallations = async () => JSON.parse(await invoke<string>("list_installations")) as Installation[];
+
+/**
+ * Life Manager App を入れる画面を、このアカウントを選んだ状態で開く URL（GitHub の決まりの suggested_target_id）。
+ * リポジトリを指定しないと、はじめは「すべてのリポジトリ」が選ばれている（その画面で「選んだものだけ」に変えられる）
+ */
+export const installUrlFor = (installUrl: string, targetId: number) =>
+  targetId ? `${installUrl}/permissions?suggested_target_id=${targetId}` : installUrl;
+
+/**
+ * 「使用するリポジトリを選ぶ」（まだ入れていない）・「リポジトリを追加する」（もう入れてある）で開く画面。
+ * 自分のアカウントに入れてあれば、その設定の画面（足して Save）。なければ、自分のアカウントを選んだ状態の Install の画面
+ */
+export function repoAccessUrl(installUrl: string, me: { login: string; id: number }, installations: Installation[]): string {
+  const mine = installations.find((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
+  return mine?.html_url || installUrlFor(installUrl, me.id);
+}
+
 /** GitHub で許可したアプリの一覧（Life Manager の許可を取り消すとき） */
 export const APP_AUTHORIZATIONS_PAGE = "https://github.com/settings/apps/authorizations";
 
@@ -79,6 +107,8 @@ export interface RepoCheck extends RepoRef {
 
 export interface TokenReport {
   login: string;
+  /** GitHub のアカウントの番号（Life Manager App を入れる画面を、このアカウントを選んだ状態で開くのに使う） */
+  id: number;
   name: string | null;
   avatar_url: string;
   kind: "oauth" | "fine-grained" | "classic" | "app" | "unknown";

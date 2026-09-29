@@ -3,7 +3,7 @@ import { expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, TOKENS_PAGE, type TokenReport 
 
 interface TokenReportViewProps {
   report: TokenReport;
-  /** 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる。空なら出さない） */
+  /** Life Manager App を入れる画面（「使用するリポジトリを選ぶ」・「リポジトリを追加する」。空なら出さない） */
   installUrl?: string;
 }
 
@@ -35,7 +35,7 @@ export function TokenReportView({ report, installUrl }: TokenReportViewProps) {
           )}
           {r.problem === "not_installed" && installUrl && (
             <button type="button" className="btn-sm token-check-action" onClick={() => openUrl(installUrl)}>
-              使うリポジトリを選ぶ・足す（GitHub が開きます）
+              使用するリポジトリを選ぶ・追加する（GitHub が開きます）
             </button>
           )}
         </li>

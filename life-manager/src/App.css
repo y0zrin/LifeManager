@@ -1899,6 +1899,135 @@ button:hover {
   font-size: var(--font-md);
 }
 
+/* ログインしたら、自分の GitHub の名前を大きく（メンバーは、この名前をリーダーに伝える） */
+.setup-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-green-bg);
+  border-radius: var(--radius-md);
+  background: var(--accent-green-bg);
+}
+
+.setup-name img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.setup-name-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.setup-name-k {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.setup-name-v {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.setup-name-hint {
+  margin: calc(var(--space-xs) * -1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* チームに入る ／ チームを作る・1 人で使う */
+.setup-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-sm);
+}
+
+.setup-path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.setup-path h3 {
+  margin: 0;
+  font-size: var(--font-md);
+}
+
+.setup-path-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.setup-path .invites {
+  margin: 0;
+}
+
+/* 狭い欄では、招待の名前を 1 行にし、ボタンは下の行に */
+.setup-path .invite-row {
+  flex-wrap: wrap;
+}
+
+.setup-path .invite-main {
+  flex: 1 1 calc(100% - 40px);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.setup-path .setup-create-label {
+  flex-basis: 100%;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.setup-path .setup-create-name {
+  width: 140px;
+}
+
+.repo-access-note .link-button {
+  display: inline;
+  padding: 0;
+}
+
+.setup-list-h {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+/* 使用するリポジトリを選ぶ・リポジトリを追加する（GitHub の画面を開いて、入れたら自分で気づく） */
+.repo-access {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.repo-access-state,
+.repo-access-done {
+  margin: 0;
+  color: var(--accent-green-hover);
+  font-size: var(--font-sm);
+}
+
+.repo-access-wait,
+.repo-access-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
 .setup-me img,
 .setup-repo img,
 .token-avatar {
@@ -2208,6 +2337,42 @@ button:hover {
   margin-bottom: var(--space-sm);
 }
 
+/* メンバーに送る「参加の案内」 */
+.team-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.team-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+.team-guide-text {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.token-card-access {
+  margin-top: var(--space-xs);
+}
+
 .team-names {
   width: 100%;
   min-height: 72px;
@@ -2413,7 +2578,7 @@ button:hover {
   font-size: var(--font-sm);
 }
 
-/* 使うリポジトリを選ぶ・足す（GitHub で Life Manager を入れる） */
+/* Life Manager App を入れた先（「使用するリポジトリを選ぶ」の案内の行） */
 .setup-install {
   display: flex;
   align-items: center;

@@ -304,7 +304,7 @@ fn auth_client_id() -> String {
     github::auth::CLIENT_ID.to_string()
 }
 
-/// 使うリポジトリを選ぶ・足す画面（GitHub で Life Manager を入れる）
+/// Life Manager App を入れる画面（初回の「使用するリポジトリを選ぶ」・2 つ目からの「リポジトリを追加する」）
 #[tauri::command]
 fn auth_install_url() -> String {
     github::auth::install_url()
@@ -423,6 +423,27 @@ async fn list_user_repos(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -
     client.list_user_repos().await
 }
 
+/// Life Manager App を入れてある先（初回の「使用するリポジトリを選ぶ」と、2 つ目からの「リポジトリを追加する」を分けるため）。
+/// [{ id, account: { login, type, id }, repository_selection: "all" | "selected", html_url }]
+#[tauri::command]
+async fn list_installations(state: tauri::State<'_, Mutex<Option<GitHubClient>>>) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    let list: Vec<serde_json::Value> = client
+        .list_installations()
+        .await?
+        .iter()
+        .map(|i| {
+            serde_json::json!({
+                "id": i["id"],
+                "account": { "login": i["account"]["login"], "type": i["account"]["type"], "id": i["account"]["id"] },
+                "repository_selection": i["repository_selection"],
+                "html_url": i["html_url"],
+            })
+        })
+        .collect();
+    Ok(serde_json::Value::Array(list).to_string())
+}
+
 // --- チーム（招待・メンバー）。最初のセットアップの「チームに入る」と、設定 → チーム ---
 
 fn parse_json(text: &str) -> Result<serde_json::Value, String> {
@@ -484,7 +505,7 @@ async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, na
             format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
         } else if e.contains("not accessible by integration") {
             // GitHub でログインしたとき: 自分のアカウントに Life Manager が入っていない（入れたリポジトリにしか触れない）
-            "Life Manager が、あなたのアカウントにまだ入っていないため、ここでは作れません。GitHub の画面（github.com/new）で作ってから、「使うリポジトリを選ぶ・足す」で Life Manager に選んでください".to_string()
+            "Life Manager が、あなたのアカウントにまだ入っていないため、ここでは作れません。先に「使用するリポジトリを選ぶ」で Life Manager を入れてください（入れたあとは、ここで作れます）".to_string()
         } else if e.contains("not accessible by personal access token") {
             format!("{}（GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです）", token_permission_message(&e, "リポジトリを作ること"))
         } else {
@@ -1294,6 +1315,7 @@ pub fn run() {
             load_token,
             auth_client_id,
             auth_install_url,
+            list_installations,
             take_login_notice,
             auth_start,
             auth_poll,

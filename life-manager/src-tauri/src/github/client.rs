@@ -670,12 +670,17 @@ impl GitHubClient {
     /// /user/repos は、入れていない公開リポジトリも返す（読めるが書けない）ので、入れた先から数える
     pub async fn list_installed_repos(&self) -> Result<Vec<serde_json::Value>, String> {
         let mut repos = Vec::new();
-        for installation in self.get_list_pages("/user/installations?per_page=100", "installations").await? {
+        for installation in self.list_installations().await? {
             let Some(id) = installation["id"].as_u64() else { continue };
             let path = format!("/user/installations/{}/repositories?per_page=100", id);
             repos.extend(self.get_list_pages(&path, "repositories").await?);
         }
         return Ok(repos);
+    }
+
+    /// Life Manager App を入れてある先（自分のアカウント・組織）のうち、自分が触れるもの
+    pub async fn list_installations(&self) -> Result<Vec<serde_json::Value>, String> {
+        return self.get_list_pages("/user/installations?per_page=100", "installations").await;
     }
 
     /// {"total_count": n, "<key>": [...]} の形の返事を、ページをたどってつなぐ（最大 10 ページ）

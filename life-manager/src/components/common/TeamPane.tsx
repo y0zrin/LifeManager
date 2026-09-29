@@ -5,6 +5,9 @@ import {
 } from "../../lib/team";
 import { InvitesForMe } from "./InvitesForMe";
 
+/** アプリのダウンロード先（参加の案内に書く） */
+const DOWNLOAD_URL = "https://github.com/y0zrin/LifeManager/releases/latest";
+
 interface TeamPaneProps {
   /** 今のプロジェクト（リポジトリ） */
   owner: string;
@@ -75,6 +78,16 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
   }
 
   const parsed = parseNames(text);
+
+  // メンバーに送る「参加の案内」（チャット・メール・授業のページなどに貼る）
+  const joinGuide = [
+    `Life Manager で「${owner}/${repo}」を使います。`,
+    `① アプリを入れる：${DOWNLOAD_URL}`,
+    "② アプリを開いて「GitHub でログイン」（アカウントがなければ「GitHub で作る」）",
+    `③ 画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
+    "④ 招待が届くとアプリに出るので「参加してはじめる」を押す",
+    "　（GitHub から届く招待のメールは、開かなくてかまいません）",
+  ].join("\n");
 
   async function send() {
     if (parsed.names.length === 0 || sending) return;
@@ -150,6 +163,16 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                 {owner}/{repo} に招待する <small>あなたはこのリポジトリの管理者です</small>
               </h3>
               {overview.invitations_error && <p className="token-error team-error">{overview.invitations_error}</p>}
+              <div className="team-guide">
+                <div className="team-guide-head">
+                  <b>メンバーに送る「参加の案内」</b>
+                  <button type="button" className="btn-sm" onClick={() => copy(joinGuide, "guide")}>
+                    {copied === "guide" ? "✔ コピーしました" : "案内をコピー"}
+                  </button>
+                </div>
+                <pre className="team-guide-text">{joinGuide}</pre>
+                <p className="team-note">チャット・メール・授業のページなどに貼ります。届いた名前を、下に貼って招待します。</p>
+              </div>
               <textarea
                 className="team-names"
                 value={text}

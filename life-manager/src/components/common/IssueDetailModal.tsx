@@ -10,6 +10,7 @@ import { CloseMenu, closeReasonText } from "./CloseMenu";
 import { RelatedIssues } from "./RelatedIssues";
 import { IssueTimeline } from "./IssueTimeline";
 import { issueRef } from "../../lib/issueRef";
+import { splitAppMarks, visibleBody, withAppMarks } from "../../lib/bodyMarks";
 import { isEnter, isEscape } from "../../lib/keys";
 import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
 import { EstimatePicker } from "./EstimateChip";
@@ -55,7 +56,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(issue.title);
   const [editingBody, setEditingBody] = useState(false);
-  const [editBody, setEditBody] = useState(issue.body || "");
+  // 本文を直す欄には、アプリの印（ガントの日程・関連など）を出さない。保存するときに戻す
+  const [editBody, setEditBody] = useState(() => splitAppMarks(issue.body).text);
   const [editingLabels, setEditingLabels] = useState(false);
   const [editLabels, setEditLabels] = useState<string[]>(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
   const [editingAssignees, setEditingAssignees] = useState(false);
@@ -97,7 +99,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   // issue が外部で更新された場合に編集状態をリセット
   useEffect(() => {
     setEditTitle(issue.title ?? "");
-    setEditBody(issue.body || "");
+    setEditBody(splitAppMarks(issue.body).text);
     setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
     setEditAssignees(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
     const d = parseGanttDates(issue.body);
@@ -143,11 +145,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
 
   // --- 本文保存 ---
   async function handleBodySave() {
-    if (editBody === (issue.body || "")) {
+    // 印は、今の本文のもの（直しているあいだにガントの日程を変えても、消さない）
+    const { text, marks } = splitAppMarks(issue.body);
+    if (editBody.trimEnd() === text) {
       setEditingBody(false);
       return;
     }
-    await updateIssue(issue.number, { body: editBody });
+    await updateIssue(issue.number, { body: withAppMarks(editBody, marks) });
     setEditingBody(false);
   }
 
@@ -427,7 +431,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               autoFocus
               value={editBody}
               onChange={(e) => setEditBody(e.target.value)}
-              onKeyDown={(e) => { if (isEscape(e)) { setEditBody(issue.body || ""); setEditingBody(false); } }}
+              onKeyDown={(e) => { if (isEscape(e)) { setEditBody(splitAppMarks(issue.body).text); setEditingBody(false); } }}
               style={{
                 width: "100%",
                 minHeight: "120px",
@@ -447,7 +451,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               <button className="btn-primary" onClick={handleBodySave} style={{ fontSize: "12px", padding: "3px 10px" }}>
                 保存
               </button>
-              <button className="btn-sm" onClick={() => { setEditBody(issue.body || ""); setEditingBody(false); }} style={{ fontSize: "12px" }}>
+              <button className="btn-sm" onClick={() => { setEditBody(splitAppMarks(issue.body).text); setEditingBody(false); }} style={{ fontSize: "12px" }}>
                 キャンセル
               </button>
               <button className="btn-sm" style={{ fontSize: "11px", marginLeft: "auto" }}
@@ -515,7 +519,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30363d")}
             title="クリックして編集"
           >
-            {issue.body || <span style={{ color: "#484f58" }}>本文なし（クリックで追加）</span>}
+            {visibleBody(issue.body) || <span style={{ color: "#484f58" }}>本文なし（クリックで追加）</span>}
           </div>
         )}
 

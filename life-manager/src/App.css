@@ -4855,80 +4855,49 @@ button:hover {
   border-top: none;
 }
 
-/* --- メモの投入（画面の下の角の 📝・Ctrl+M） --- */
+/* --- メモの投入（📝・Ctrl+M。置く角は 設定 → 表示） --- */
 
+/* 画面の端から、本体（サイドバー・上のバーをのぞいた所）までの幅。メモのボタンと git のお知らせは、この内側の角に置く。
+   たたんだサイドバーが端から出てきたときも、その分だけ内側へ押し出す（サイドバーと同じ速さで動く） */
 .app-shell {
   --fab-size: 48px;
-  --fab-bottom: var(--space-lg);
+  --fab-gap: var(--space-lg);
+  --edge-left: 0px;
+  --edge-right: 0px;
+  --edge-top: var(--header-height);
+  --edge-bottom: 0px;
 }
 
-.memo-fab-wrap {
-  position: fixed;
-  bottom: var(--fab-bottom);
-  z-index: 85;
-  width: var(--fab-size);
-  height: var(--fab-size);
-  transition: translate var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard);
-}
-
-/* 置く角はサイドバーの側: 左 → 左下（サイドバーのすぐ右）、右 → 右下（サイドバーのすぐ左）、上・下の帯 → 左下。たたんだときは画面の角 */
 @media (min-width: 640px) {
-  .memo-fab-wrap {
-    left: calc(var(--sidebar-width) + var(--space-lg));
+  .sb-left:not(.sb-hidden),
+  .sb-left.sb-hidden:has(> .sidebar.peek) {
+    --edge-left: var(--sidebar-width);
   }
 
-  .sb-hidden .memo-fab-wrap,
-  .sb-top .memo-fab-wrap,
-  .sb-bottom .memo-fab-wrap {
-    left: var(--space-lg);
+  .sb-right:not(.sb-hidden),
+  .sb-right.sb-hidden:has(> .sidebar.peek) {
+    --edge-right: var(--sidebar-width);
   }
 
-  .sb-bottom:not(.sb-hidden) {
-    --fab-bottom: calc(var(--hbar-height) + var(--space-lg));
+  .sb-top:not(.sb-hidden),
+  .sb-top.sb-hidden:has(> .sidebar.peek) {
+    --edge-top: calc(var(--hbar-height) + var(--header-height));
   }
 
-  .sb-right .memo-fab-wrap {
-    left: auto;
-    right: calc(var(--sidebar-width) + var(--space-lg));
-  }
-
-  .sb-right.sb-hidden .memo-fab-wrap {
-    right: var(--space-lg);
-  }
-
-  .sb-right .memo-pop {
-    left: auto;
-    right: 0;
-  }
-
-  .sb-right .memo-fab-tip {
-    left: auto;
-    right: calc(100% + 14px);
-  }
-
-  /* git のお知らせ（右下）: メモのボタンが右下にあるときは、その上に。下の帯を出しているときは、帯の上に */
-  .sb-right .git-notices {
-    bottom: calc(var(--fab-bottom) + var(--fab-size) + var(--space-md));
-  }
-
-  .sb-bottom:not(.sb-hidden) .git-notices {
-    bottom: calc(var(--hbar-height) + var(--space-lg));
+  .sb-bottom:not(.sb-hidden),
+  .sb-bottom.sb-hidden:has(> .sidebar.peek) {
+    --edge-bottom: var(--hbar-height);
   }
 }
 
-/* スマホ: 右下（下のナビの上） */
+/* スマホ: 下のナビの上まで */
 @media (max-width: 639px) {
   .app-shell {
-    --fab-bottom: calc(var(--bottom-nav-height) + var(--space-md));
-  }
-
-  .memo-fab-wrap {
-    right: var(--space-md);
+    --fab-gap: var(--space-md);
+    --edge-bottom: var(--bottom-nav-height);
   }
 
   .memo-fab-wrap .memo-pop {
-    left: auto;
-    right: 0;
     width: calc(100vw - 2 * var(--space-md));
   }
 
@@ -4937,12 +4906,98 @@ button:hover {
   }
 }
 
-/* ほかの欄で文字を打っているあいだと、選んでまとめて変えている（下の帯が出ている）あいだは、画面の下へよける */
-.memo-fab-wrap.away,
-.app-shell:has(.bulk-bar) .memo-fab-wrap:not(.open) {
-  translate: 0 calc(100% + var(--fab-bottom) + 24px);
+.memo-fab-wrap {
+  position: fixed;
+  z-index: 85;
+  width: var(--fab-size);
+  height: var(--fab-size);
+  transition:
+    left var(--dur-base) var(--ease-standard),
+    right var(--dur-base) var(--ease-standard),
+    top var(--dur-base) var(--ease-standard),
+    bottom var(--dur-base) var(--ease-standard),
+    translate var(--dur-base) var(--ease-standard),
+    opacity var(--dur-base) var(--ease-standard);
+}
+
+.memo-fab-wrap.at-top-left,
+.memo-fab-wrap.at-bottom-left {
+  left: calc(var(--edge-left) + var(--fab-gap));
+}
+
+.memo-fab-wrap.at-top-right,
+.memo-fab-wrap.at-bottom-right {
+  right: calc(var(--edge-right) + var(--fab-gap));
+}
+
+.memo-fab-wrap.at-top-left,
+.memo-fab-wrap.at-top-right {
+  top: calc(var(--edge-top) + var(--space-md));
+}
+
+.memo-fab-wrap.at-bottom-left,
+.memo-fab-wrap.at-bottom-right {
+  bottom: calc(var(--edge-bottom) + var(--fab-gap));
+}
+
+/* 隠す: ボタンは出さず、Ctrl+M で本体の上のほうの真ん中に欄を開く */
+.memo-fab-wrap.at-hidden {
+  top: calc(var(--edge-top) + 12vh);
+  left: calc((100vw + var(--edge-left) - var(--edge-right)) / 2);
+  width: 0;
+  height: 0;
+}
+
+/* ほかの欄で文字を打っているあいだは、近いほうの画面の端（上か下）へよける。
+   選んでまとめて変えている（下の帯が出ている）あいだは、下の角のボタンもよける */
+.memo-fab-wrap.away.at-bottom-left,
+.memo-fab-wrap.away.at-bottom-right,
+.app-shell:has(.bulk-bar) .memo-fab-wrap.at-bottom-left:not(.open),
+.app-shell:has(.bulk-bar) .memo-fab-wrap.at-bottom-right:not(.open) {
+  translate: 0 calc(100% + var(--edge-bottom) + var(--fab-gap) + 24px);
   opacity: 0;
   pointer-events: none;
+}
+
+.memo-fab-wrap.away.at-top-left,
+.memo-fab-wrap.away.at-top-right {
+  translate: 0 calc(-100% - var(--edge-top) - var(--space-md) - 24px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 開いた欄: 下の角ならボタンの上、上の角ならボタンの下。右の角なら右にそろえる */
+.at-bottom-left .memo-pop,
+.at-bottom-right .memo-pop {
+  bottom: calc(100% + 12px);
+}
+
+.at-top-left .memo-pop,
+.at-top-right .memo-pop {
+  top: calc(100% + 12px);
+}
+
+.at-top-left .memo-pop,
+.at-bottom-left .memo-pop {
+  left: 0;
+}
+
+.at-top-right .memo-pop,
+.at-bottom-right .memo-pop {
+  right: 0;
+}
+
+.at-hidden .memo-pop {
+  top: 0;
+  left: 0;
+  translate: -50% 0;
+}
+
+/* 名前は、右の角ならボタンの左に */
+.at-top-right .memo-fab-tip,
+.at-bottom-right .memo-fab-tip {
+  left: auto;
+  right: calc(100% + 14px);
 }
 
 .memo-fab {
@@ -4995,11 +5050,9 @@ button:hover {
   opacity: 1;
 }
 
-/* 開いた欄（ボタンの上） */
+/* 開いた欄（置く場所は上の at-… で決める） */
 .memo-pop {
   position: absolute;
-  left: 0;
-  bottom: calc(100% + 12px);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -5075,15 +5128,21 @@ button:hover {
 
 /* --- git: 操作の結果（右下） --- */
 
+.app-shell:has(.memo-fab-wrap.at-bottom-right) .git-notices {
+  bottom: calc(var(--edge-bottom) + var(--fab-gap) + var(--fab-size) + var(--space-md));
+}
+
+/* 本体の右下の角（サイドバー・下の帯にかぶらない。メモのボタンが右下にあるときは、その上） */
 .git-notices {
   position: fixed;
-  right: var(--space-lg);
-  bottom: var(--space-lg);
+  right: calc(var(--edge-right) + var(--space-lg));
+  bottom: calc(var(--edge-bottom) + var(--space-lg));
   z-index: 90;
   display: flex;
   flex-direction: column;
   gap: 6px;
   pointer-events: none;
+  transition: right var(--dur-base) var(--ease-standard), bottom var(--dur-base) var(--ease-standard);
 }
 
 .git-notice {
@@ -7492,6 +7551,16 @@ button.lh:hover {
 
 .pv-bar {
   fill: var(--accent-blue);
+}
+
+.pv-fab {
+  fill: var(--accent-green-hover);
+}
+
+.pv-key {
+  fill: var(--text-muted);
+  font-size: 8px;
+  text-anchor: middle;
 }
 
 /* --- Bottom Navigation (mobile) --- */

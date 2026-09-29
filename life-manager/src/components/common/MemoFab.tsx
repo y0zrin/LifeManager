@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GitHubLabel } from "../../lib/types";
+import type { MemoButtonPosition } from "../../hooks/useDisplaySettings";
 import { isComposing, isEnter, isEscape } from "../../lib/keys";
 
 interface MemoFabProps {
+  /** ボタンを置く角（hidden ならボタンを出さず、Ctrl+M で画面の上のほうに欄を開く） */
+  position: MemoButtonPosition;
   /** このリポジトリのラベル（「分野:」のものを、メモの分野の候補にする） */
   labels: GitHubLabel[];
   /** 送り先のリポジトリ（owner/repo。見出しに出す） */
@@ -37,10 +40,10 @@ function loadTheme(): string {
 type Result = { kind: "sending" | "ok" | "error"; text: string };
 
 /**
- * メモの投入（どの画面からでも）。画面の下の角の 📝 を押すか Ctrl+M で、小さな欄を開く。
- * 置く角はサイドバーの側（CSS で決める）。ほかの欄で文字を打っているあいだは、画面の外へよける
+ * メモの投入（どの画面からでも）。画面の角の 📝 を押すか Ctrl+M で、小さな欄を開く。
+ * 角は 設定 → 表示 で選ぶ（サイドバー・上のバーにかぶらない所。CSS で決める）。ほかの欄で文字を打っているあいだは、画面の外へよける
  */
-export function MemoFab({ labels, repoName, onCreateMemo }: MemoFabProps) {
+export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabProps) {
   const themes = useMemo(() => labels.filter((l) => l.name.startsWith(THEME_PREFIX)).map((l) => l.name), [labels]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -136,7 +139,7 @@ export function MemoFab({ labels, repoName, onCreateMemo }: MemoFabProps) {
   }
 
   return (
-    <div ref={wrapRef} className={`memo-fab-wrap${open ? " open" : away ? " away" : ""}`}>
+    <div ref={wrapRef} className={`memo-fab-wrap at-${position}${open ? " open" : away ? " away" : ""}`}>
       {open && (
         <div className="memo-pop" role="dialog" aria-label="メモを投入"
           onKeyDown={(e) => {
@@ -177,11 +180,13 @@ export function MemoFab({ labels, repoName, onCreateMemo }: MemoFabProps) {
           )}
         </div>
       )}
-      <button type="button" className="memo-fab" aria-label="メモを投入（Ctrl+M）" aria-expanded={open}
-        onClick={() => (open ? hide(false) : show())}>
-        <span aria-hidden="true">📝</span>
-      </button>
-      {!open && <span className="memo-fab-tip" aria-hidden="true">メモ（Ctrl+M）</span>}
+      {position !== "hidden" && (
+        <button type="button" className="memo-fab" aria-label="メモを投入（Ctrl+M）" aria-expanded={open}
+          onClick={() => (open ? hide(false) : show())}>
+          <span aria-hidden="true">📝</span>
+        </button>
+      )}
+      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">メモ（Ctrl+M）</span>}
     </div>
   );
 }

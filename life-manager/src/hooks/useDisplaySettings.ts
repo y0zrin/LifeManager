@@ -8,15 +8,21 @@ export type SidebarPosition = "left" | "right" | "top" | "bottom";
 
 export const SIDEBAR_POSITIONS: SidebarPosition[] = ["left", "right", "top", "bottom"];
 
+/** メモのボタン（📝）を置く角。hidden はボタンを出さない（Ctrl+M だけで開く） */
+export type MemoButtonPosition = "top-right" | "bottom-right" | "top-left" | "bottom-left" | "hidden";
+
+export const MEMO_BUTTON_POSITIONS: MemoButtonPosition[] = ["top-right", "bottom-right", "top-left", "bottom-left", "hidden"];
+
 export interface DisplaySettings {
   /** 学習の補助: ステージ・コミット・退避などの意味と、対応する git コマンドを画面に添える */
   hints: boolean;
   branchStyle: BranchStyle;
   sidebarPosition: SidebarPosition;
+  memoButton: MemoButtonPosition;
 }
 
 const STORAGE_KEY = "display-settings";
-const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label", sidebarPosition: "left" };
+const DEFAULTS: DisplaySettings = { hints: true, branchStyle: "label", sidebarPosition: "left", memoButton: "bottom-left" };
 
 function load(): DisplaySettings {
   try {
@@ -25,6 +31,7 @@ function load(): DisplaySettings {
       hints: typeof saved.hints === "boolean" ? saved.hints : DEFAULTS.hints,
       branchStyle: saved.branchStyle === "line" ? "line" : DEFAULTS.branchStyle,
       sidebarPosition: SIDEBAR_POSITIONS.includes(saved.sidebarPosition) ? saved.sidebarPosition : DEFAULTS.sidebarPosition,
+      memoButton: MEMO_BUTTON_POSITIONS.includes(saved.memoButton) ? saved.memoButton : DEFAULTS.memoButton,
     };
   } catch {
     return DEFAULTS;

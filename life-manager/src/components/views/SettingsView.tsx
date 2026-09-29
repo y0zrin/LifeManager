@@ -5,7 +5,7 @@ import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { isMobile } from "../../lib/platform";
-import type { DisplaySettings, SidebarPosition } from "../../hooks/useDisplaySettings";
+import type { DisplaySettings, MemoButtonPosition, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
 import { LabelBadge } from "../common/LabelBadge";
 import { GitInfoCard } from "../common/GitInfoCard";
@@ -76,6 +76,15 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "right", label: "右", note: "", bar: { x: 32, y: 5, width: 9, height: 24 } },
   { value: "top", label: "上", note: "横に並んだ帯になります", bar: { x: 5, y: 5, width: 36, height: 7 } },
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
+];
+
+// メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
+const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
+  { value: "top-right", label: "右上", note: "", dot: { cx: 36, cy: 10 } },
+  { value: "bottom-right", label: "右下", note: "", dot: { cx: 36, cy: 24 } },
+  { value: "top-left", label: "左上", note: "", dot: { cx: 10, cy: 10 } },
+  { value: "bottom-left", label: "左下", note: "はじめはこれ", dot: { cx: 10, cy: 24 } },
+  { value: "hidden", label: "隠す", note: "Ctrl+M だけで開きます", dot: null },
 ];
 
 export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
@@ -766,6 +775,29 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
           サイドバーの「たたむ」（Ctrl+B）で隠すと、その端にマウスを寄せたときだけ出てきます。
+        </p>
+      </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>メモのボタン（📝）</h3>
+        <div className="display-opts pos-opts">
+          {MEMO_BUTTON_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="memo-button" checked={displaySettings.memoButton === opt.value}
+                onChange={() => onChangeDisplaySettings({ memoButton: opt.value })} />
+              <svg className="display-preview" width="46" height="34" aria-hidden="true">
+                <rect x="2" y="2" width="42" height="30" rx="4" className="pv-win" />
+                {opt.dot ? <circle {...opt.dot} r="4.5" className="pv-fab" /> : <text x="23" y="21" className="pv-key">Ctrl+M</text>}
+              </svg>
+              <span>
+                <b>{opt.label}</b>
+                {opt.note && <small>{opt.note}</small>}
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          どの場所でも、Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
         </p>
       </div>
 

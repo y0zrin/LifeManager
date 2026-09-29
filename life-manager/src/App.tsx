@@ -898,8 +898,10 @@ function App() {
 
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
-      {/* メモの投入（画面の下の角の 📝・Ctrl+M。置く角はサイドバーの側） */}
-      {gh.connected && <MemoFab labels={gh.customLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />}
+      {/* メモの投入（📝・Ctrl+M。置く角は 設定 → 表示 で選ぶ） */}
+      {gh.connected && (
+        <MemoFab position={display.settings.memoButton} labels={gh.customLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />
+      )}
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {addRepoOpen && (
         <AddRepoWizard

@@ -40,6 +40,7 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
+import { isSetupPending, markSetupPending } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
 import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
@@ -222,6 +223,8 @@ function App() {
     setTimelineCommit({ hash, parents: [], author: actor, date, subject: "" });
   }, []);
   const [initializing, setInitializing] = useState(true);
+  // セットアップの途中で閉じた → 前のプロジェクトは開かず、セットアップの続きから
+  const [resumeSetup, setResumeSetup] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -255,10 +258,15 @@ function App() {
   // 起動時: トークン読み込み + 通知パーミッション要求 + アップデートチェック
   useEffect(() => {
     async function init() {
-      try {
-        await gh.loadToken();
-      } catch {
-        // トークン未設定 → セットアップ画面を表示
+      if (isSetupPending()) {
+        // セットアップの途中で閉じた（別のアカウントでログインし直したところかもしれない）→ 続きから
+        setResumeSetup(true);
+      } else {
+        try {
+          await gh.loadToken();
+        } catch {
+          // トークン未設定 → セットアップ画面を表示
+        }
       }
       // Android 13+ 通知パーミッション
       try {
@@ -306,6 +314,8 @@ function App() {
     await gh.setRepoConfig(owner, repo);
     await gh.addProject(owner, repo, `${owner}/${repo}`);
     await gh.loadToken();
+    markSetupPending(false);
+    setResumeSetup(false);
     // 「はじめて、メンバーを招待する」なら 設定 → チーム を開く
     if (inviteNext) setSettingsPane("team");
     setView(inviteNext ? "settings" : "dashboard");
@@ -474,9 +484,9 @@ function App() {
     );
   }
 
-  // 未接続 → セットアップ画面
-  if (!gh.connected) {
-    return <SetupView onDone={handleSetupDone} />;
+  // 未接続・セットアップの途中 → セットアップ画面
+  if (!gh.connected || resumeSetup) {
+    return <SetupView onDone={handleSetupDone} resume={resumeSetup} />;
   }
 
   const shell = (

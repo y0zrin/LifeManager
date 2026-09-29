@@ -87,6 +87,29 @@ export function repoAccessUrl(installUrl: string, me: { login: string; id: numbe
 /** GitHub で許可したアプリの一覧（Life Manager の許可を取り消すとき） */
 export const APP_AUTHORIZATIONS_PAGE = "https://github.com/settings/apps/authorizations";
 
+/**
+ * セットアップの途中（最初の画面を出してから、使うリポジトリを選ぶまで）。
+ * このあいだに閉じたら、次に開いたときは前のプロジェクトを開かず、セットアップの続きから
+ */
+const SETUP_PENDING_STORE = "setup-pending";
+
+export function markSetupPending(pending: boolean) {
+  try {
+    if (pending) localStorage.setItem(SETUP_PENDING_STORE, "1");
+    else localStorage.removeItem(SETUP_PENDING_STORE);
+  } catch {
+    // 覚えられなくても、今のセットアップは続けられる
+  }
+}
+
+export function isSetupPending(): boolean {
+  try {
+    return localStorage.getItem(SETUP_PENDING_STORE) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** ログアウトしたことを、最初の画面に伝える（GitHub での許可の取り消し方を出すため） */
 export const SIGNED_OUT_STORE = "signed-out";
 

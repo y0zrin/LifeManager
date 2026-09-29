@@ -6,8 +6,8 @@ import { TokenReportView } from "../common/TokenReportView";
 import { InvitesForMe } from "../common/InvitesForMe";
 import { RepoAccess } from "../common/RepoAccess";
 import {
-  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, setDefaultToken,
-  SIGNED_OUT_STORE, takeLoginNotice, type Installation, type TokenReport, type UserRepo,
+  APP_AUTHORIZATIONS_PAGE, authClientId, authInstallUrl, checkToken, expiryOf, listInstallations, listUserRepos, markSetupPending,
+  setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type TokenReport, type UserRepo,
 } from "../../lib/auth";
 import { createMyRepo, SIGNUP_URL } from "../../lib/team";
 import { parseGitHub } from "../../lib/git";
@@ -16,6 +16,8 @@ import { isEnter } from "../../lib/keys";
 interface SetupViewProps {
   /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → チーム を開く */
   onDone: (owner: string, repo: string, inviteNext?: boolean) => Promise<void>;
+  /** セットアップの途中で閉じて、開き直した。ログインが生きていれば 2.（チームに入る・作る）から */
+  resume?: boolean;
 }
 
 const STEPS = ["GitHub にログイン", "チームに入る・作る", "できあがり"];
@@ -38,7 +40,7 @@ function ago(iso: string): string {
  * → ② チームに入る・作る（自分の GitHub の名前を大きく出す。メンバーは届いた招待で「参加してはじめる」、
  * リーダー・1 人で使う人は「使用するリポジトリを選ぶ」→「作ってはじめる」。一覧から選ぶ・URL を貼るもできる）→ ③ できあがり
  */
-export function SetupView({ onDone }: SetupViewProps) {
+export function SetupView({ onDone, resume = false }: SetupViewProps) {
   const [step, setStep] = useState(0);
   const [clientId, setClientId] = useState<string | null>(null);
   const [useToken, setUseToken] = useState(false);
@@ -67,6 +69,8 @@ export function SetupView({ onDone }: SetupViewProps) {
   const [notice, setNotice] = useState<{ kind: "expired" } | { kind: "signed-out"; login: boolean } | null>(null);
 
   useEffect(() => {
+    // セットアップの途中という印（使うリポジトリを選ぶ前に閉じても、次は続きから）
+    markSetupPending(true);
     authClientId()
       .then(setClientId)
       .catch(() => setClientId(""));
@@ -89,6 +93,22 @@ export function SetupView({ onDone }: SetupViewProps) {
   const canLogin = !!clientId;
   const byLogin = me?.kind === "app";
   const meExpiry = me && byLogin ? expiryOf(me) : null;
+
+  // 続きから: ログインが生きていれば、だれかを出して 2. へ（切れていれば 1. のまま。知らせは出さない）
+  useEffect(() => {
+    if (!resume) return;
+    let alive = true;
+    checkToken({ repos: [] })
+      .then((r) => {
+        if (!alive) return;
+        setMe(r);
+        setStep(1);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [resume]);
 
   // ログインできた・トークンを入れた → だれのトークンかを出す
   async function loggedIn() {

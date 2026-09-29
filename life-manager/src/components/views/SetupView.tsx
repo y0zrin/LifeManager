@@ -12,7 +12,7 @@ import { createMyRepo, listMyInvitations, SIGNUP_URL } from "../../lib/team";
 import { isEnter } from "../../lib/keys";
 
 interface SetupViewProps {
-  /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → チーム を開く */
+  /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → 接続 を開く */
   onDone: (owner: string, repo: string, inviteNext?: boolean) => Promise<void>;
   /** セットアップの途中で閉じて、開き直した。ログインが生きていれば 2.（使い方を選ぶ）から */
   resume?: boolean;
@@ -300,7 +300,7 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
     }
   }
 
-  // チームを作る・個人で使う: 新しく作るなら作ってから、はじめる（チームなら、はじめたあと 設定 → チーム を開く）
+  // チームを作る・個人で使う: 新しく作るなら作ってから、はじめる（チームなら、はじめたあと 設定 → 接続 を開く）
   async function start() {
     if (!startReady || createBusy || finishing) return;
     if (mode === "existing" && picked) {
@@ -680,8 +680,8 @@ export function SetupView({ onDone, resume = false }: SetupViewProps) {
             {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）</p>}
             <p className="setup-note">
               {team
-                ? "はじめると 設定 → チーム が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。"
-                : "あとから 設定 → チーム でメンバーを招待すれば、チームで使えます。"}
+                ? "はじめると 設定 → 接続 が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。"
+                : "あとから 設定 → 接続 でメンバーを招待すれば、チームで使えます。"}
             </p>
           </>
         )}

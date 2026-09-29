@@ -38,7 +38,7 @@ function resultText({ name, outcome }: Result): { mark: string; tone: string; te
 }
 
 /**
- * 設定 → チーム。自分宛ての招待（参加する）、今のリポジトリへの招待（管理者だけ。名前をまとめて貼って送る）、
+ * 設定 → 接続。自分宛ての招待（参加する）、今のリポジトリへの招待（管理者だけ。名前をまとめて貼って送る）、
  * 送った招待（取り消す・送り直す）、メンバーの一覧（管理者は、その行で確かめてから外せる）
  */
 export function TeamPane({ owner, repo, login }: TeamPaneProps) {
@@ -171,12 +171,6 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
 
   return (
     <div className="team-pane">
-      <div className="form-card team-card">
-        <h3 className="team-h">
-          あなた宛ての招待 <small>招待は GitHub から届くメールの「View invitation」で受けます</small>
-        </h3>
-        <InvitesForMe empty={<p className="team-note">「GitHub でログイン」では、まだ参加していないリポジトリの招待は、ここには出ません（GitHub の決まり）。</p>} />
-      </div>
 
       {!owner || !repo ? (
         <p className="team-note">プロジェクト（リポジトリ）を選ぶと、ここでメンバーを招待できます。</p>
@@ -352,6 +346,14 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
           <p className="team-note">組織そのものへの招待（組織のメンバーにする）は、GitHub の組織の画面（People）で行います。</p>
         </>
       )}
+
+      {/* あなた宛ての招待（トークンで入ったときなど。GitHub でログインでは、参加する前の招待はここに出ない） */}
+      <div className="form-card team-card">
+        <h3 className="team-h">
+          あなた宛ての招待 <small>招待は GitHub から届くメールの「View invitation」で受けます</small>
+        </h3>
+        <InvitesForMe empty={<p className="team-note">「GitHub でログイン」では、まだ参加していないリポジトリの招待は、ここには出ません（GitHub の決まり）。</p>} />
+      </div>
     </div>
   );
 }

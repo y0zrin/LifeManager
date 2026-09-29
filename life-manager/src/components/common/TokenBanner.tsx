@@ -45,7 +45,7 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
     <div className="token-banner" role="status">
       <span>⚠ {text}</span>
       <button type="button" className="btn-sm" onClick={onOpenSettings}>
-        設定 → 接続 を開く
+        設定 → トークン を開く
       </button>
       <button type="button" className="btn-sm" onClick={() => setClosed(true)}>
         あとで

@@ -7,6 +7,8 @@ import { isEscape } from "../../lib/keys";
 interface PublishDialogProps {
   /** GitHub にログインしている人（リポジトリの持ち主の候補） */
   login: string;
+  /** もう選んであるフォルダ（リポジトリを追加 → この PC にある、で選んだもの） */
+  initialFolder?: string;
   /** 「プロジェクトを追加」に戻る */
   onBack: () => void;
   /** 上げ終わった（プロジェクトに登録し、作業フォルダにする） */
@@ -31,7 +33,7 @@ function repoNameOf(path: string): string {
 }
 
 /** 手元のフォルダを GitHub に上げる（記録を始める → GitHub に空のリポジトリを作る → つないで送る） */
-export function PublishDialog({ login, onBack, onDone }: PublishDialogProps) {
+export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishDialogProps) {
   const [step, setStep] = useState(0);
   const [folder, setFolder] = useState("");
   const [state, setState] = useState<git.FolderState | null>(null);
@@ -67,14 +69,23 @@ export function PublishDialog({ login, onBack, onDone }: PublishDialogProps) {
     }
   }
 
+  async function useFolder(path: string) {
+    setFolder(path);
+    setName(repoNameOf(path));
+    setDone(null);
+    await run(async () => setState(await git.folderState(path)));
+  }
+
   async function pickFolder() {
     const picked = await open({ directory: true, title: "GitHub に上げるフォルダを選ぶ" });
-    if (typeof picked !== "string") return;
-    setFolder(picked);
-    setName(repoNameOf(picked));
-    setDone(null);
-    await run(async () => setState(await git.folderState(picked)));
+    if (typeof picked === "string") await useFolder(picked);
   }
+
+  // 選んであるフォルダがあれば、そこから始める
+  useEffect(() => {
+    if (initialFolder) useFolder(initialFolder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFolder]);
 
   // 1 つ目の手順で実行するコマンド（フォルダの様子で変わる）
   const prepareCommands: string[] = [];
@@ -259,7 +270,7 @@ export function PublishDialog({ login, onBack, onDone }: PublishDialogProps) {
               「プロジェクトに追加して閉じる」で、{owner.trim()}/{name.trim()} をプロジェクトに登録し、このフォルダを作業フォルダにします。
             </p>
             <p className="git-dialog-note">
-              Issue やタスクも使うときは、トークンがこのリポジトリを使えるようにしてください（設定 → 接続）。
+              Issue やタスクも使うときは、ログイン（トークン）がこのリポジトリを使えるようにしてください（設定 → トークン）。
             </p>
             <div className="publish-open">
               <button type="button" className="btn-sm" onClick={() => openUrl(`https://github.com/${owner.trim()}/${name.trim()}`)}>

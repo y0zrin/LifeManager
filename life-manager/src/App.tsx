@@ -43,6 +43,8 @@ import { SetupView } from "./components/views/SetupView";
 import { isSetupPending, markSetupPending } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
+import { RepoSwitcher } from "./components/common/RepoSwitcher";
+import { AddRepoWizard } from "./components/common/AddRepoWizard";
 import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
@@ -98,8 +100,10 @@ function App() {
   const [view, setView] = useState<ViewType>("dashboard");
   // 設定を開いたときに出すペイン（セットアップのあとの「メンバーを招待する」だけ。設定を離れたら元に戻す）
   const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
-  // 設定を、決めた区分で開き直す（設定を開いたまま、アカウントのメニューから「ログインと接続」を選んだときも）
+  // 設定を、決めた区分で開き直す（設定を開いたまま、アカウントのメニューから「ログインとトークン」を選んだときも）
   const [settingsNonce, setSettingsNonce] = useState(0);
+  // リポジトリを追加（左上のリポジトリの一覧・設定 → 接続 から）
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
   useEffect(() => {
     if (view !== "settings") setSettingsPane(null);
   }, [view]);
@@ -319,14 +323,14 @@ function App() {
     await gh.loadToken();
     markSetupPending(false);
     setResumeSetup(false);
-    // 「はじめて、メンバーを招待する」なら 設定 → チーム を開く
-    if (inviteNext) setSettingsPane("team");
+    // 「はじめて、メンバーを招待する」なら 設定 → 接続 を開く
+    if (inviteNext) setSettingsPane("connection");
     setView(inviteNext ? "settings" : "dashboard");
   }
 
-  // アカウントのメニューの「ログインと接続」: 設定 → 接続 を開く
-  function openConnection() {
-    setSettingsPane("connection");
+  // アカウントのメニューの「ログインとトークン」・トークンの期限のお知らせ: 設定 → トークン を開く
+  function openTokens() {
+    setSettingsPane("tokens");
     setSettingsNonce((n) => n + 1);
     setView("settings");
   }
@@ -467,22 +471,18 @@ function App() {
 
   const currentLabel = ALL_NAV_ITEMS.find((item) => item.key === view)?.label ?? "";
 
-  const projectSelect = gh.projects.length > 0 && (
-    <select
-      className="select-sm project-select"
-      value={`${gh.owner}/${gh.repo}`}
-      onChange={(e) => {
-        const [o, r] = e.target.value.split("/");
-        if (o && r) handleSwitchProject(o, r);
-      }}
-      style={{ fontSize: "var(--font-sm)" }}
-    >
-      {gh.projects.map((p) => (
-        <option key={`${p.owner}/${p.repo}`} value={`${p.owner}/${p.repo}`}>
-          {p.name || `${p.owner}/${p.repo}`}
-        </option>
-      ))}
-    </select>
+  // 左上のリポジトリ（押すと一覧。切り替え・この PC のフォルダ・一覧から外す・リポジトリを追加）
+  const projectSelect = (
+    <RepoSwitcher
+      projects={gh.projects}
+      owner={gh.owner}
+      repo={gh.repo}
+      folders={localFolders.folders}
+      onSwitch={handleSwitchProject}
+      onRemove={gh.removeProject}
+      onSetFolder={localFolders.setFolder}
+      onAdd={() => setAddRepoOpen(true)}
+    />
   );
 
   // 初期化中
@@ -549,7 +549,7 @@ function App() {
           </button>
         </div>
         {/* 一番下: ログインしているアカウント（押すとメニュー） */}
-        <AccountMenu login={gh.currentUser} onOpenConnection={openConnection} onSignOut={gh.signOut} />
+        <AccountMenu login={gh.currentUser} onOpenTokens={openTokens} onSignOut={gh.signOut} />
       </aside>
 
       <div className="app-main">
@@ -590,7 +590,7 @@ function App() {
         )}
 
         {/* トークンの期限が近い・切れた・使えないときのお知らせ */}
-        <TokenBanner owner={gh.owner} repo={gh.repo} onOpenSettings={() => setView("settings")} />
+        <TokenBanner owner={gh.owner} repo={gh.repo} onOpenSettings={openTokens} />
 
         {/* 画面（切り替えるたびにイージング付きで表示。作業・ブランチ・全体図のあいだは寄る・引く動き） */}
         <div key={view} className={`view-enter${viewAnim.current.anim}`}>
@@ -784,7 +784,6 @@ function App() {
               owner={gh.owner}
               repo={gh.repo}
               onSetupLabels={gh.setupLabels}
-              onSetRepoConfig={gh.setRepoConfig}
               onUpdateLabel={gh.updateLabel}
               onDeleteLabel={gh.deleteLabel}
               onCreateLabel={gh.createLabel}
@@ -794,12 +793,9 @@ function App() {
               onLoadDiscordWebhook={gh.loadDiscordWebhook}
               onTestDiscordWebhook={gh.testDiscordWebhook}
               projects={gh.projects}
-              onAddProject={gh.addProject}
-              onRemoveProject={gh.removeProject}
+              onOpenAddRepo={() => setAddRepoOpen(true)}
               onTokensChanged={gh.loadAll}
               onSignOut={gh.signOut}
-              localFolders={localFolders.folders}
-              onSetLocalFolder={localFolders.setFolder}
               displaySettings={display.settings}
               onChangeDisplaySettings={display.update}
               estimateUnit={gh.estimateUnit}
@@ -818,6 +814,17 @@ function App() {
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
+      {addRepoOpen && (
+        <AddRepoWizard
+          login={gh.currentUser}
+          projects={gh.projects}
+          onAddProject={gh.addProject}
+          onSetLocalFolder={localFolders.setFolder}
+          onSwitch={handleSwitchProject}
+          onNotify={gh.setStatus}
+          onClose={() => setAddRepoOpen(false)}
+        />
+      )}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}
       {gitignoreOpen && folder && <GitignoreEditor folder={folder} onSave={gitActions.saveGitignore} onClose={closeGitignore} />}
       {commitDetail && (folder || gh.owner) && (

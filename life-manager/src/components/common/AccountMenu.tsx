@@ -6,8 +6,8 @@ import { isEscape } from "../../lib/keys";
 interface AccountMenuProps {
   /** ログインしている人の名前（トークンを読めない・つながっていないときは、これだけを出す） */
   login: string;
-  /** 設定 → 接続 を開く */
-  onOpenConnection: () => void;
+  /** 設定 → トークン を開く */
+  onOpenTokens: () => void;
   /** ログアウト（この PC から鍵を消して、最初の画面に戻る） */
   onSignOut: () => Promise<void>;
 }
@@ -25,9 +25,9 @@ function Avatar({ url, name }: { url?: string; name: string }) {
 
 /**
  * サイドバーの一番下の、ログインしているアカウント（Claude Desktop のように）。アイコン・名前・期限を出し、
- * 押すとメニュー: だれがどの方法で入っているか、名前をコピー、GitHub のページ、ログインと接続（設定 → 接続）、ログアウト（その場で確かめる）
+ * 押すとメニュー: だれがどの方法で入っているか、名前をコピー、GitHub のページ、ログインとトークン（設定 → トークン）、ログアウト（その場で確かめる）
  */
-export function AccountMenu({ login, onOpenConnection, onSignOut }: AccountMenuProps) {
+export function AccountMenu({ login, onOpenTokens, onSignOut }: AccountMenuProps) {
   const [report, setReport] = useState<TokenReport | null>(null);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties>({});
@@ -152,8 +152,8 @@ export function AccountMenu({ login, onOpenConnection, onSignOut }: AccountMenuP
             onClick={() => { openUrl(`https://github.com/${encodeURIComponent(name)}`).catch(() => {}); setOpen(false); }}>
             ↗ GitHub のページを開く
           </button>
-          <button type="button" role="menuitem" className="account-item" onClick={() => { setOpen(false); onOpenConnection(); }}>
-            🔑 ログインと接続…
+          <button type="button" role="menuitem" className="account-item" onClick={() => { setOpen(false); onOpenTokens(); }}>
+            🔑 ログインとトークン…
           </button>
           <div className="account-sep" />
           {!confirmOut ? (

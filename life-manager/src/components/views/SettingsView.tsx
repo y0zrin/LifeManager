@@ -8,8 +8,7 @@ import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
 import { LabelBadge } from "../common/LabelBadge";
-import { LocalFolderSetting } from "../common/LocalFolderSetting";
-import { AddProjectDialog } from "../common/AddProjectDialog";
+import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
 
@@ -18,7 +17,6 @@ interface SettingsViewProps {
   owner: string;
   repo: string;
   onSetupLabels: () => Promise<void>;
-  onSetRepoConfig: (owner: string, repo: string) => Promise<void>;
   onUpdateLabel: (currentName: string, newName: string, color: string, description: string) => Promise<void>;
   onDeleteLabel: (name: string) => Promise<void>;
   onCreateLabel: (name: string, color: string, description: string) => Promise<void>;
@@ -28,15 +26,12 @@ interface SettingsViewProps {
   onLoadDiscordWebhook: () => Promise<string>;
   onTestDiscordWebhook: (webhookUrl: string) => Promise<void>;
   projects: Project[];
-  onAddProject: (owner: string, repo: string, name: string, token?: string) => Promise<void>;
-  onRemoveProject: (owner: string, repo: string) => Promise<void>;
+  /** リポジトリを追加（左上のリポジトリの一覧と同じウィザード）を開く */
+  onOpenAddRepo: () => void;
   /** トークンを変えたあと（今のプロジェクトを読み直す） */
   onTokensChanged: () => Promise<void>;
   /** ログアウト（この PC からトークンを消して、最初のセットアップに戻る） */
   onSignOut: () => Promise<void>;
-  /** この PC の作業フォルダ（キーは "owner/repo"） */
-  localFolders: Record<string, string>;
-  onSetLocalFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
   displaySettings: DisplaySettings;
   onChangeDisplaySettings: (patch: Partial<DisplaySettings>) => void;
   /** 見積もりの単位（config/estimate.yaml。チームで一つ） */
@@ -47,9 +42,9 @@ interface SettingsViewProps {
   setupVersion: number;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
-  /** GitHub にログインしている人（手元のフォルダを GitHub に上げるときの、持ち主の候補） */
+  /** GitHub にログインしている人 */
   login: string;
-  /** 開いたときに出すペイン（セットアップのあと「メンバーを招待する」で チーム を開く） */
+  /** 開いたときに出すペイン（セットアップのあと「メンバーを招待する」で 接続 を、アカウントのメニューから トークン を開く） */
   initialPane?: SettingsPane;
 }
 
@@ -64,13 +59,14 @@ const notifyTypes: Record<string, string> = {
   custom: "カスタムメッセージ",
 };
 
-export type SettingsPane = "connection" | "team" | "labels" | "notifications" | "display" | "other";
+export type SettingsPane = "connection" | "labels" | "notifications" | "display" | "tokens" | "other";
+// 接続（チーム）がいちばん前。トークンは、ふだんは触らないので後ろのほう
 const PANES: { key: SettingsPane; label: string }[] = [
   { key: "connection", label: "接続" },
-  { key: "team", label: "チーム" },
   { key: "labels", label: "ラベル" },
   { key: "notifications", label: "通知" },
   { key: "display", label: "表示" },
+  { key: "tokens", label: "トークン" },
   { key: "other", label: "その他" },
 ];
 
@@ -82,11 +78,9 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConfig, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onAddProject, onRemoveProject, onTokensChanged, onSignOut, localFolders, onSetLocalFolder, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, initialPane }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
   const [appVersion, setAppVersion] = useState("");
-  const [ownerInput, setOwnerInput] = useState(owner);
-  const [repoInput, setRepoInput] = useState(repo);
   const [discordWebhookInput, setDiscordWebhookInput] = useState("");
   const [discordConfigured, setDiscordConfigured] = useState(false);
   const [discordTesting, setDiscordTesting] = useState(false);
@@ -104,9 +98,6 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
   const [newLabelColor, setNewLabelColor] = useState("#0E8A16");
   const [newLabelDesc, setNewLabelDesc] = useState("");
 
-  // プロジェクト管理
-  const [showAddProject, setShowAddProject] = useState(false);
-  const [projectNotice, setProjectNotice] = useState<string | null>(null);
 
   useEffect(() => {
     invoke("get_app_version").then((v) => setAppVersion(v as string)).catch(() => {});
@@ -233,10 +224,6 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
     setFeedbackBody("");
   }
 
-  async function handleSetRepoConfig() {
-    if (!ownerInput.trim() || !repoInput.trim()) return;
-    await onSetRepoConfig(ownerInput.trim(), repoInput.trim());
-  }
 
   return (
     <div className="content">
@@ -253,96 +240,19 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
         ))}
       </div>
 
-      {/* === チームペイン（招待・メンバー） === */}
-      {activePane === "team" && <TeamPane owner={owner} repo={repo} login={login} />}
-
-      {/* === 接続ペイン === */}
+      {/* === 接続ペイン（チーム。リポジトリの追加・切り替え・この PC のフォルダは左上のリポジトリから） === */}
       {activePane === "connection" && <>
-
-      {/* GitHub トークン（いつものトークンと、プロジェクトごとに使うトークン） */}
-      <TokenSettings projects={projects} onChanged={onTokensChanged} onSignOut={onSignOut} />
-
-      {/* リポジトリ設定 */}
-      <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>リポジトリ設定</h3>
-        <div className="flex-row">
-          <input type="text" value={ownerInput} onChange={(e) => setOwnerInput(e.target.value)}
-            placeholder="Owner" className="input-full" />
-          <span style={{ color: "var(--text-muted)" }}>/</span>
-          <input type="text" value={repoInput} onChange={(e) => setRepoInput(e.target.value)}
-            placeholder="Repo" className="input-full" />
-          <button onClick={handleSetRepoConfig} className="btn-primary">保存</button>
-        </div>
-        <p className="settings-hint">
-          現在: {owner}/{repo}（Keychainに保存）
-        </p>
+      <div className="settings-repo-note">
+        <span>
+          リポジトリの追加・切り替え・この PC のフォルダは、左上の <b>{owner && repo ? `${owner}/${repo}` : "リポジトリ"}</b> から行います。
+        </span>
+        <button type="button" className="btn-sm" onClick={onOpenAddRepo}>＋ リポジトリを追加…</button>
       </div>
-
-      {/* 作業フォルダ（git の操作は PC だけ） */}
-      {!isMobile && owner && repo && (
-        <LocalFolderSetting
-          owner={owner}
-          repo={repo}
-          folder={localFolders[`${owner}/${repo}`]}
-          onSetFolder={(path) => onSetLocalFolder(owner, repo, path)}
-          onOpenSetup={onOpenSetup}
-          setupVersion={setupVersion}
-        />
-      )}
-
-      {/* プロジェクト管理 */}
-      <div className="form-card">
-        <div className="settings-section-header">
-          <h3 className="settings-section-title">プロジェクト管理</h3>
-          <button onClick={() => { setProjectNotice(null); setShowAddProject(true); }} className="btn-sm">
-            + 追加
-          </button>
-        </div>
-        <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-          複数のリポジトリをプロジェクトとして登録し、ヘッダーから切り替えできます。
-        </p>
-
-        {/* プロジェクトを追加（GitHub の URL を貼る・クローン・手元のフォルダを GitHub に上げる） */}
-        {showAddProject && (
-          <AddProjectDialog
-            login={login}
-            onAddProject={onAddProject}
-            onSetLocalFolder={(o, r, path) => { void onSetLocalFolder(o, r, path); }}
-            onClose={() => setShowAddProject(false)}
-            onNotify={setProjectNotice}
-          />
-        )}
-        {projectNotice && <p className="local-folder-message local-folder-message--ok">{projectNotice}</p>}
-        {/* プロジェクト一覧 */}
-        <div className="settings-list">
-          {projects.map((p) => (
-            <div key={`${p.owner}/${p.repo}`}>
-              <div className="settings-list-item">
-                <span style={{ flex: 1, minWidth: 0, fontSize: "var(--font-md)", color: "var(--text-primary)" }}>
-                  {p.name || `${p.owner}/${p.repo}`}
-                  {!isMobile && localFolders[`${p.owner}/${p.repo}`] && (
-                    <span className="project-folder" title={localFolders[`${p.owner}/${p.repo}`]}>
-                      📁 {localFolders[`${p.owner}/${p.repo}`]}
-                    </span>
-                  )}
-                </span>
-                <span className="settings-hint--subtle">
-                  {p.owner}/{p.repo}
-                </span>
-                <button className="btn-sm" style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}
-                  onClick={() => onRemoveProject(p.owner, p.repo)}>
-                  削除
-                </button>
-              </div>
-            </div>
-          ))}
-          {projects.length === 0 && (
-            <p className="settings-hint--subtle">プロジェクトが登録されていません</p>
-          )}
-        </div>
-      </div>
-
+      <TeamPane owner={owner} repo={repo} login={login} />
       </>}
+
+      {/* === トークンペイン（いつものトークン・プロジェクトごとのトークン・ログアウト） === */}
+      {activePane === "tokens" && <TokenSettings projects={projects} onChanged={onTokensChanged} onSignOut={onSignOut} />}
 
       {/* === ラベルペイン === */}
       {activePane === "labels" && <>
@@ -863,6 +773,9 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onSetRepoConf
 
       {/* === その他ペイン === */}
       {activePane === "other" && <>
+
+      {/* この PC の git（PC のみ） */}
+      {!isMobile && <GitInfoCard onOpenSetup={onOpenSetup} setupVersion={setupVersion} />}
 
       {/* フィードバック */}
       <div className="form-card">

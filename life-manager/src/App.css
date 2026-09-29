@@ -216,7 +216,8 @@ body {
   white-space: nowrap;
 }
 
-.sidebar-top .project-select {
+.sidebar-top .project-select,
+.sidebar-top .repo-switcher {
   width: 100%;
 }
 
@@ -545,6 +546,11 @@ body {
 .sb-bottom .sidebar-top .project-select {
   width: auto;
   max-width: 180px;
+}
+
+.sb-top .sidebar-top .repo-switcher,
+.sb-bottom .sidebar-top .repo-switcher {
+  width: 200px;
 }
 
 /* 横の帯では、アプリの名前は出さない（ウィンドウの題にある） */
@@ -2439,7 +2445,7 @@ button:hover {
   outline: none;
 }
 
-/* 自分宛ての招待（セットアップ・設定 → チーム）。メールを開かずに、ここで参加する */
+/* 自分宛ての招待（設定 → 接続。トークンで入ったときなど） */
 .invites {
   display: flex;
   flex-direction: column;
@@ -2478,7 +2484,7 @@ button:hover {
   font-size: var(--font-xs);
 }
 
-/* 設定 → チーム（招待・送った招待・メンバー） */
+/* 設定 → 接続 のチーム（招待・送った招待・メンバー） */
 .team-pane {
   display: flex;
   flex-direction: column;
@@ -4925,12 +4931,13 @@ button:hover {
 
 /* プロジェクトを追加（URL を貼る・クローン）・手元のフォルダを GitHub に上げる */
 .add-project,
+.add-repo,
 .publish-dialog {
   width: 540px;
 }
 
 /* 背の高いダイアログなので、上の余白を詰め、下まで見えるようにする */
-.palette-overlay:has(> .add-project, > .publish-dialog) {
+.palette-overlay:has(> .add-project, > .add-repo, > .publish-dialog) {
   padding-top: 10vh;
   padding-bottom: var(--space-lg);
 }
@@ -4968,6 +4975,396 @@ button:hover {
 
 .add-project-actions .link-button {
   margin-right: auto;
+}
+
+/* リポジトリを追加（ウィザード）: GitHub にある／この PC にある／新しく作る */
+.wizard-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.wizard-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wizard-choice:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-tertiary);
+}
+
+.wizard-choice-icon {
+  flex: none;
+  width: 30px;
+  font-size: 22px;
+  text-align: center;
+}
+
+.wizard-choice-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wizard-choice-body b {
+  font-size: var(--font-lg);
+}
+
+.wizard-choice-body span {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.wizard-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.wizard-list .git-dialog-note {
+  margin: var(--space-sm) var(--space-md);
+}
+
+.wizard-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 0;
+  padding: 6px var(--space-md);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wizard-item:last-child {
+  border-bottom: none;
+}
+
+.wizard-item:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.wizard-item.on {
+  background: var(--accent-blue-bg);
+  outline: 1px solid var(--accent-blue);
+  outline-offset: -1px;
+}
+
+.wizard-item:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.wizard-item-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.wizard-item-when {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.wizard-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.wizard-case {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.wizard-case--ok b {
+  color: var(--accent-green-hover);
+}
+
+.wizard-case--warn b {
+  color: var(--accent-yellow);
+}
+
+/* 左上のリポジトリ（押すと一覧が開く。GitHub Desktop のように） */
+.repo-switcher {
+  position: relative;
+  min-width: 0;
+}
+
+.repo-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-height: 32px;
+  padding: 4px var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-switch:hover,
+.repo-switch.open {
+  border-color: var(--accent-blue);
+}
+
+.repo-switch-icon,
+.repo-switch-chev {
+  flex: none;
+}
+
+.repo-switch-chev {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.repo-switch-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-pop {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: min(70vh, 540px);
+  padding: var(--space-xs);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-popover);
+}
+
+.repo-pop-search {
+  flex: none;
+}
+
+.repo-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.repo-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+
+.repo-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.repo-row.on {
+  background: var(--accent-blue-bg);
+}
+
+.repo-row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  min-height: 0;
+  padding: 5px var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-row-check {
+  flex: none;
+  width: 12px;
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+.repo-row-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.repo-row-name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.repo-row-sub {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-row-more {
+  flex: none;
+  min-height: 0;
+  margin-right: var(--space-xs);
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  cursor: pointer;
+}
+
+.repo-row-more:hover,
+.repo-row-more.on {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.repo-row-menu {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 var(--space-xs) 28px;
+  padding: var(--space-xs);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.repo-row-menu > button {
+  min-height: 0;
+  padding: 4px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-row-menu > button:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.repo-row-menu > .repo-row-menu-red,
+.repo-row-menu > .repo-row-menu-red:hover {
+  color: var(--accent-red);
+}
+
+.repo-row-menu > .repo-row-menu-red:hover {
+  background: var(--accent-red-bg);
+}
+
+.repo-row-menu-note {
+  padding: 4px var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.repo-row-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 4px var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.repo-row-confirm-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.repo-note {
+  margin: 2px var(--space-sm) var(--space-xs) 28px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.repo-note--ok {
+  color: var(--accent-green-hover);
+}
+
+.repo-note--error {
+  color: var(--accent-red);
+}
+
+.repo-note code {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.repo-add {
+  flex: none;
+  min-height: 0;
+  padding: 6px;
+  border: 1px dashed var(--accent-blue);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.repo-add:hover {
+  background: var(--accent-blue-bg);
+}
+
+/* 設定 → 接続 の上の一行（リポジトリの追加・切り替えは左上から） */
+.settings-repo-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .link-button {
@@ -6803,7 +7200,8 @@ button.lh:hover {
     font-size: var(--font-lg);
   }
 
-  .header .project-select {
+  .header .project-select,
+  .header .repo-switcher {
     flex: 1;
     min-width: 0;
   }

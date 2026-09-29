@@ -54,7 +54,7 @@ function statusOf(check: Check | undefined, repoIndex = 0): { tone: "ok" | "warn
 const ICON = { ok: "🟢", warn: "🟡", ng: "🔴", wait: "⚪" };
 
 /**
- * 設定 → 接続 の「GitHub トークン」。いつものトークン（だれ・種類・期限）と、プロジェクトごとにどのトークンを使っていて使えるかを 1 か所で見せ、
+ * 設定 → トークン。いつものトークン（だれ・種類・期限）と、プロジェクトごとにどのトークンを使っていて使えるかを 1 か所で見せ、
  * 入れ替える（GitHub でログインし直す・トークンを入れる）、プロジェクト専用にする・いつものに戻す、ログアウトができる
  */
 export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsProps) {
@@ -185,7 +185,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         {byLogin && installUrl && mine.report && (
           <div className="token-card-row token-card-access">
             <RepoAccess me={{ login: mine.report.login, id: mine.report.id }} installUrl={installUrl} installations={installations}
-              onChanged={async (added) => { await loadInstallations(); await changed(`使えるリポジトリが増えました（${added.join("、")}）。プロジェクト管理の「＋ 追加」で登録できます`); }} />
+              onChanged={async (added) => { await loadInstallations(); await changed(`使えるリポジトリが増えました（${added.join("、")}）。左上のリポジトリの「＋ リポジトリを追加」で登録できます`); }} />
           </div>
         )}
         <div className="token-card-actions">

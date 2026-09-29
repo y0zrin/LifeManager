@@ -3,3 +3,4 @@ life-manager/github_token.txt
 life-manager/release.bat
 life-manager/scripts/release.ps1
 /.claude/
+/docs/design/v0.9_repo_gui_prototype.html

@@ -26,6 +26,7 @@ import { BranchesView } from "./components/views/BranchesView";
 import { OverviewView } from "./components/views/OverviewView";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
+import { ConflictNotice } from "./components/git/ConflictNotice";
 import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
@@ -265,6 +266,9 @@ function App() {
   const [resumeSetup, setResumeSetup] = useState(false);
   // 別のアカウントを足しているところ（足す前のアカウントの名前。やめたら、そのアカウントに戻る）
   const [addingAccount, setAddingAccount] = useState<string | null>(null);
+  // 競合（コンフリクト）の知らせ。同じ競合では 1 回だけ出す（競合がなくなったら、次の競合でまた出す）
+  const [conflictNotice, setConflictNotice] = useState(false);
+  const toldConflict = useRef<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -445,6 +449,19 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    const st = git.status;
+    if (!folder || !st) return;
+    if (!st.conflicted) {
+      toldConflict.current = null;
+      return;
+    }
+    const key = `${folder}|${st.operation ?? "-"}|${st.head ?? ""}`;
+    if (toldConflict.current === key) return;
+    toldConflict.current = key;
+    setConflictNotice(true);
+  }, [folder, git.status]);
+
   // アカウントのメニューの「ログインとトークン」・トークンの期限のお知らせ: 設定 → トークン を開く
   function openTokens() {
     setSettingsPane("tokens");
@@ -567,8 +584,9 @@ function App() {
   }
 
   function renderNavItem(item: NavItem) {
-    // 作業には、作業中の変更があるファイルの数を出す
+    // 作業には、作業中の変更があるファイルの数を出す（競合しているあいだは ⚠ を出す）
     const count = item.key === "work" ? git.status?.files.length ?? 0 : 0;
+    const conflicted = item.key === "work" && !!git.status?.conflicted;
     return (
       <button
         key={item.key}
@@ -577,11 +595,11 @@ function App() {
           setView(item.key);
           setSidebarPeek(false);
         }}
-        title={count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
+        title={conflicted ? `${item.label}（競合しています）` : count > 0 ? `${item.label}（作業中の変更 ${count}）` : item.label}
       >
         <span className="sidebar-icon">{item.icon}</span>
         <span className="sidebar-label">{item.label}</span>
-        {count > 0 && <span className="sidebar-count">{count}</span>}
+        {conflicted ? <span className="sidebar-conflict">⚠ 競合</span> : count > 0 && <span className="sidebar-count">{count}</span>}
       </button>
     );
   }
@@ -998,6 +1016,15 @@ function App() {
 
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
+      {conflictNotice && folder && git.status?.conflicted && (
+        <ConflictNotice
+          folder={folder}
+          status={git.status}
+          onFix={() => { setConflictNotice(false); setView("work"); }}
+          onAbort={() => { setConflictNotice(false); gitActions.abortOperation(); }}
+          onClose={() => setConflictNotice(false)}
+        />
+      )}
       {/* メモの投入（📝・Ctrl+M。置く角は 設定 → 表示 で選ぶ） */}
       {gh.connected && (
         <MemoFab position={display.settings.memoButton} labels={gh.customLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />

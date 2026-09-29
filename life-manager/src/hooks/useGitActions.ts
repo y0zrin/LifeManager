@@ -295,6 +295,38 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     });
   }
 
+  // --- 競合を直す（マージツール） ---
+
+  /** 選んだ内容を書いて、ステージする（「直した」という合図） */
+  function resolveConflict(file: string, text: string) {
+    return g.exec("書き込んでいます", (p) => git.resolveConflict(p, file, text), `${file} を直して、ステージしました`);
+  }
+
+  /** ファイルをまるごと片方の内容にする（か所ごとに選ばない。文字でないファイルはこれだけ）。捨てる側があるので確かめる */
+  function takeConflictSide(file: string, side: "ours" | "theirs" | "delete", sideLabel: string) {
+    const message =
+      side === "delete"
+        ? `${file} を消したままにします（片方で消されていたファイルです）。`
+        : `${file} を、まるごと「${sideLabel}」の内容にします。もう一方の変更は、このファイルには入りません（そのブランチ・コミットには残るので、あとで要るときは手で入れます）。`;
+    setDialog({
+      kind: "confirm",
+      title: side === "delete" ? "消したままにする" : `まるごと${sideLabel}にする`,
+      message,
+      okLabel: side === "delete" ? "消したままにする" : "この内容にする",
+      commandFor: () => (side === "delete" ? git.displayCommand(["rm", "--", file]) : `${git.displayCommand(["checkout", `--${side}`, "--", file])} && ${git.displayCommand(["add", "--", file])}`),
+      submit: () => g.exec("書き込んでいます", (p) => git.takeSide(p, file, side), side === "delete" ? `${file} を消したままにしました` : `${file} を${sideLabel}の内容にして、ステージしました`, { inlineError: true }),
+    });
+  }
+
+  async function openFile(file: string) {
+    if (!g.folder) return;
+    try {
+      await git.openFile(g.folder, file);
+    } catch (e) {
+      g.notify("error", String(e));
+    }
+  }
+
   /** 競合を直してステージしたあと、先へ進める（マージはコミットで完了するので対象外） */
   function continueOperation() {
     const op = st?.operation;
@@ -576,6 +608,9 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     discardAll,
     abortOperation,
     continueOperation,
+    resolveConflict,
+    takeConflictSide,
+    openFile,
     detach,
     cherryPick,
     revert,

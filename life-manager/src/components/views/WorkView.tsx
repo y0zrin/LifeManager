@@ -6,6 +6,7 @@ import { OPERATION_NAMES, type GitActions } from "../../hooks/useGitActions";
 import { useDismiss } from "../../hooks/useDismiss";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { DiffView } from "../git/DiffView";
+import { MergeTool } from "../git/MergeTool";
 import { isEnter } from "../../lib/keys";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
@@ -370,8 +371,8 @@ function Workspace({
             {st.operation && <b>{OPERATION_NAMES[st.operation]}の途中です。</b>}
             {st.conflicted ? (
               <>
-                ⚠ 競合（コンフリクト）しているファイルがあります。エディタで <code>{"<<<<<<<"}</code> と{" "}
-                <code>{">>>>>>>"}</code> の間を直して保存し、チェックを入れます（<code>git add</code>）。
+                ⚠ 競合（コンフリクト）しているファイルがあります。ファイルを選ぶと右に「競合を直す」が出るので、
+                か所ごとに使う方を選んで「直したので、ステージする」を押します（<code>git add</code>）。
               </>
             ) : (
               "競合はすべて直してあります。"
@@ -458,7 +459,12 @@ function Workspace({
 
         <div className="w-right">
           {current && currentFile ? (
-            <FileDiff folder={folder} file={currentFile} side={current.side} />
+            // 競合しているファイルは、差分の代わりにマージツール（か所ごとに使う方を選ぶ）
+            currentFile.staged === "U" ? (
+              <MergeTool folder={folder} file={currentFile.path} status={st} actions={actions} busy={g.busy !== null} />
+            ) : (
+              <FileDiff folder={folder} file={currentFile} side={current.side} />
+            )
           ) : (
             <div className="w-right-empty">表示する差分はありません</div>
           )}

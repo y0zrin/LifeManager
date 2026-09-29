@@ -609,6 +609,19 @@ body {
 }
 
 /* 作業中の変更の数 */
+/* 作業: 競合しているあいだ */
+.sidebar-conflict {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--accent-yellow-bg);
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
 .sidebar-count {
   margin-left: auto;
   padding: 0 6px;
@@ -6685,6 +6698,400 @@ button:hover {
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
+}
+
+/* --- 競合を直す（マージツール。作業タブの右） --- */
+/* 今のブランチの側は青、取り込む側は紫。使う側は太い枠と「✔ 使う」、捨てる側は薄く打ち消し線と「✖ 捨てる」で、はっきり分ける */
+
+.mt {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-md) var(--space-lg) calc(var(--fab-size, 48px) + 2 * var(--space-lg));
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.mt-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.mt-head b {
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+}
+
+.mt-progress {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.mt-progress.all {
+  color: var(--accent-green-hover);
+  font-weight: 700;
+}
+
+.mt-lead {
+  margin-bottom: var(--space-md);
+}
+
+.mt-name--ours {
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+.mt-name--theirs {
+  color: var(--accent-purple);
+  font-weight: 700;
+}
+
+.mt-hunk {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.mt-hunk.done {
+  border-color: var(--accent-green-hover);
+}
+
+.mt-hunk-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.mt-hunk-head b {
+  flex: none;
+  color: var(--text-primary);
+}
+
+.mt-ctx {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-done {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent-green-hover);
+  font-weight: 700;
+}
+
+.mt-redo {
+  flex: none;
+}
+
+.mt-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.mt-side {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  transition: opacity var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.mt-side-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px var(--space-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.mt-side--ours .mt-side-head {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+}
+
+.mt-side--theirs .mt-side-head {
+  background: var(--accent-purple-bg);
+  color: var(--accent-purple);
+}
+
+.mt-side-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mt-lines {
+  flex: 1;
+  margin: 0;
+  padding: 6px var(--space-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mt-empty {
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-style: italic;
+}
+
+/* 使う側: 太い枠と、光る縁 */
+.mt-side--ours.mt-side--use {
+  border: 3px solid var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-bg);
+}
+
+.mt-side--theirs.mt-side--use {
+  border: 3px solid var(--accent-purple);
+  box-shadow: 0 0 0 3px var(--accent-purple-bg);
+}
+
+/* 捨てる側: 薄く、打ち消し線 */
+.mt-side--drop {
+  border-style: dashed;
+  opacity: 0.45;
+}
+
+.mt-side--drop .mt-lines {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.mt-badge {
+  flex: none;
+  margin-left: auto;
+  padding: 0 8px;
+  border-radius: 9px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.mt-badge--use {
+  background: var(--accent-green);
+  color: var(--text-on-accent);
+}
+
+.mt-badge--drop {
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+}
+
+/* 使う側を選ぶボタン（それぞれの箱の下） */
+.mt-use {
+  min-height: 0;
+  margin: 0 var(--space-sm) var(--space-sm);
+  padding: 4px var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.mt-use--ours {
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.mt-use--theirs {
+  border: 1px solid var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.mt-use--ours:hover {
+  background: var(--accent-blue-bg);
+}
+
+.mt-use--theirs:hover {
+  background: var(--accent-purple-bg);
+}
+
+.mt-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
+.mt-drop-note {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.mt-result {
+  margin: 0;
+  padding: 6px var(--space-sm);
+  border: 3px solid var(--accent-green-hover);
+  border-radius: var(--radius-md);
+  background: var(--accent-green-bg);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  white-space: pre-wrap;
+}
+
+.mt-custom textarea {
+  width: 100%;
+  padding: 6px var(--space-sm);
+  border: 1px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.mt-custom-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.mt-hint {
+  margin: 4px 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.mt-error {
+  margin-bottom: var(--space-sm);
+  color: var(--accent-red);
+}
+
+.mt-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mt-cmd {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+}
+
+/* --- 競合が起きたときの知らせ（1 回だけ） --- */
+
+.conflict-notice {
+  width: 560px;
+  max-width: calc(100vw - 2 * var(--space-lg));
+  height: fit-content;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+  animation: rise-in var(--dur-base) var(--ease-out);
+}
+
+.conflict-notice h3 {
+  margin-bottom: var(--space-xs);
+  color: var(--text-primary);
+  font-size: var(--font-xl);
+}
+
+.conflict-notice-mark {
+  color: var(--accent-yellow);
+}
+
+.conflict-notice-files {
+  margin: var(--space-sm) 0;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.conflict-notice-files > div {
+  display: flex;
+  gap: var(--space-sm);
+  padding: 4px var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.conflict-notice-files > div:last-child {
+  border-bottom: none;
+}
+
+.conflict-notice-u {
+  color: var(--accent-yellow);
+  font-weight: 700;
+}
+
+.conflict-notice-ok {
+  color: var(--accent-green-hover);
+}
+
+.conflict-notice-note {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.conflict-notice ol {
+  margin: 4px 0 var(--space-sm);
+  padding-left: 20px;
+}
+
+.conflict-notice-sub {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.conflict-notice-sample {
+  margin: 4px 0 var(--space-sm);
+  padding: 6px var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.conflict-notice-sample .m {
+  color: var(--accent-yellow);
+}
+
+.conflict-notice-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.conflict-notice-abort {
+  margin-right: auto;
+  color: var(--accent-red);
 }
 
 .w-right-empty {

@@ -134,7 +134,12 @@ export function useGit(folder: string | undefined, active: boolean) {
         } catch (e) {
           const { command, message } = git.splitGitError(e);
           if (command) setLastCommand(command);
-          if (!options.inlineError) notify("error", message, command);
+          // 競合で止まったときは、git の英語のメッセージの代わりに、何が起きたかを日本語で出す（直し方は、別に出す知らせと作業タブで）
+          const conflicted = git.conflictFilesIn(message);
+          const shown = conflicted.length > 0
+            ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを、作業タブで選びます`
+            : message;
+          if (!options.inlineError) notify("error", shown, command);
           return { ok: false, message, command };
         } finally {
           await refresh();

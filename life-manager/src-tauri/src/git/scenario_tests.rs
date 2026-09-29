@@ -209,6 +209,39 @@ fn pull_fast_forwards_merges_without_editor_and_push_is_rejected_when_behind() {
 
 // ---------------------------------------------------------------- 競合
 
+#[test]
+fn merge_tool_reads_the_conflict_and_writes_the_chosen_side() {
+    let t = team("mergetool");
+    diverge_on_line_two(&t.a);
+    assert!(block(git_merge(s(&t.a), "feature".into())).is_err());
+
+    // 印の入った中身を読める（ファイルの外は読めない）
+    let file = block(git_conflict_file(s(&t.a), "shared.txt".into())).unwrap();
+    assert!(!file.binary && !file.missing);
+    assert!(file.text.contains("<<<<<<< HEAD") && file.text.contains(">>>>>>> feature"), "{}", file.text);
+    assert!(block(git_conflict_file(s(&t.a), "../outside.txt".into())).is_err());
+
+    // 画面で選んだ中身を書いて、ステージすると、競合が消える
+    block(git_resolve_conflict(s(&t.a), "shared.txt".into(), "一行目\nfeature で変えた\n三行目\n".into())).unwrap();
+    let st = status(&t.a);
+    assert!(!st.conflicted);
+    assert_eq!(read(&t.a, "shared.txt"), "一行目\nfeature で変えた\n三行目\n");
+    block(git_commit(s(&t.a), vec!["feature を取り込む".into()], false, false)).unwrap();
+    assert!(status(&t.a).operation.is_none());
+}
+
+#[test]
+fn merge_tool_can_take_one_side_for_the_whole_file() {
+    let t = team("takeside");
+    diverge_on_line_two(&t.a);
+    assert!(block(git_merge(s(&t.a), "feature".into())).is_err());
+    let run = block(git_take_side(s(&t.a), "shared.txt".into(), "theirs".into())).unwrap();
+    assert!(run.command.contains("checkout --theirs") && run.command.contains("add"), "{}", run.command);
+    assert!(!status(&t.a).conflicted);
+    assert_eq!(read(&t.a, "shared.txt"), "一行目\nfeature で変えた\n三行目\n");
+    assert!(block(git_take_side(s(&t.a), "shared.txt".into(), "both".into())).is_err());
+}
+
 /// main と feature で、shared.txt の 2 行目を別々に変える
 fn diverge_on_line_two(dir: &Path) {
     block(git_switch(s(dir), "feature".into(), true, None)).unwrap();

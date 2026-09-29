@@ -1,4 +1,5 @@
 //! 画面から呼ぶ git のコマンド。git の実行には時間がかかることがあるので、どれも別スレッドで動かす
+use super::conflict::{self, ConflictText};
 use super::history::{self, History};
 use super::ignore::{self, GitignoreText};
 use super::publish;
@@ -430,6 +431,32 @@ pub async fn git_rename_branch(path: String, from: String, to: String) -> Result
 pub async fn git_delete_branch(path: String, branch: String, force: bool) -> Result<GitRun, String> {
     check_name(&branch)?;
     blocking(move || run(Path::new(&path), &["branch", if force { "-D" } else { "-d" }, branch.trim()])).await
+}
+
+// --- 競合を直す（マージツール） ---
+
+/// 競合したファイルの中身（印の読み分けは画面の側）
+#[tauri::command]
+pub async fn git_conflict_file(path: String, file: String) -> Result<ConflictText, String> {
+    blocking(move || conflict::read(Path::new(&path), &file)).await
+}
+
+/// 直した中身を書いて、ステージする
+#[tauri::command]
+pub async fn git_resolve_conflict(path: String, file: String, text: String) -> Result<GitRun, String> {
+    blocking(move || conflict::resolve(Path::new(&path), &file, &text)).await
+}
+
+/// ファイルを片方の内容（ours・theirs）にするか、消したままにして（delete）、ステージする
+#[tauri::command]
+pub async fn git_take_side(path: String, file: String, side: String) -> Result<GitRun, String> {
+    blocking(move || conflict::take_side(Path::new(&path), &file, &side)).await
+}
+
+/// ファイルを、いつものアプリ（エディタなど）で開く
+#[tauri::command]
+pub async fn git_open_file(path: String, file: String) -> Result<(), String> {
+    blocking(move || conflict::open(Path::new(&path), &file)).await
 }
 
 // --- 途中で止まった操作（マージ・リベース・チェリーピック・リバート）---

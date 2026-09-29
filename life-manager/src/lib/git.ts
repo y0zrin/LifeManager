@@ -158,6 +158,32 @@ export const renameBranch = (path: string, from: string, to: string) =>
 export const deleteBranch = (path: string, branch: string, force: boolean) =>
   invoke<GitRun>("git_delete_branch", { path, branch, force });
 
+// --- 競合を直す（マージツール） ---
+export interface ConflictText {
+  text: string;
+  /** 文字でないファイル（画像など） */
+  binary: boolean;
+  /** 作業フォルダにない（片方で消されていた） */
+  missing: boolean;
+}
+export const conflictFile = (path: string, file: string) => invoke<ConflictText>("git_conflict_file", { path, file });
+/** 直した中身を書いて、ステージする */
+export const resolveConflict = (path: string, file: string, text: string) => invoke<GitRun>("git_resolve_conflict", { path, file, text });
+/** ファイルを片方の内容（ours・theirs）にするか、消したままにして（delete）、ステージする */
+export const takeSide = (path: string, file: string, side: "ours" | "theirs" | "delete") => invoke<GitRun>("git_take_side", { path, file, side });
+/** ファイルを、いつものアプリ（エディタなど）で開く */
+export const openFile = (path: string, file: string) => invoke<void>("git_open_file", { path, file });
+
+/** git のメッセージから、競合したファイルを読み取る（CONFLICT (content): Merge conflict in menu.txt など） */
+export function conflictFilesIn(message: string): string[] {
+  const files: string[] = [];
+  for (const line of message.split(/\r?\n/)) {
+    const m = /^CONFLICT \([^)]*\): (?:Merge conflict in )?(.+)$/.exec(line.trim());
+    if (m) files.push(m[1].replace(/ deleted in .*$/, "").trim());
+  }
+  return files;
+}
+
 // --- 途中で止まった操作 ---
 export const abortOperation = (path: string, operation: GitOperation) => invoke<GitRun>("git_abort", { path, operation });
 export const continueOperation = (path: string, operation: GitOperation) =>

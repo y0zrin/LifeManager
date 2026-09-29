@@ -1535,6 +1535,10 @@ pub fn run() {
             git::commands::git_rename_branch,
             git::commands::git_delete_branch,
             git::commands::git_abort,
+            git::commands::git_conflict_file,
+            git::commands::git_resolve_conflict,
+            git::commands::git_take_side,
+            git::commands::git_open_file,
             git::commands::git_continue,
         ])
         .run(tauri::generate_context!())

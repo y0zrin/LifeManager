@@ -12,6 +12,7 @@ import {
   keyNoteOf,
   KIND_LABELS,
   loginStatus,
+  refreshLoginNow,
   setDefaultToken,
   setProjectToken,
   SIGNED_OUT_STORE,
@@ -74,6 +75,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
   const [checkedAt, setCheckedAt] = useState<Date | null>(null);
   // ログインの鍵のようす（確かめるときに鍵を新しくすることがあるので、確かめたあとに読む）
   const [keyStatus, setKeyStatus] = useState<LoginStatus | null>(null);
+  const [keyBusy, setKeyBusy] = useState(false);
 
   useEffect(() => {
     authClientId().then(setClientId).catch(() => {});
@@ -148,6 +150,18 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
     if (byLogin) loadInstallations();
   }, [byLogin, loadInstallations]);
 
+  // 8 時間を待たずに、鍵を新しくできるかを確かめる（新しくできなくても、今の鍵は期限まで使える）
+  async function tryRefresh() {
+    setKeyBusy(true);
+    try {
+      await refreshLoginNow();
+    } catch (e) {
+      setMessage(String(e));
+    }
+    setKeyStatus(await loginStatus().catch(() => null));
+    setKeyBusy(false);
+  }
+
   async function signOutNow() {
     try {
       // 最初の画面で、GitHub での許可の取り消し方を出すため
@@ -193,6 +207,14 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
           <div className={`token-card-sub${keyNote.tone === "warn" ? " token-card-sub--warn" : ""}`} title={keyNote.detail}>
             {keyNote.tone === "warn" ? "⚠ " : "🔑 "}
             {keyNote.text}
+            {keyStatus?.login && keyStatus.can_refresh && (
+              <>
+                {" "}
+                <button type="button" className="link-button" onClick={tryRefresh} disabled={keyBusy}>
+                  {keyBusy ? "新しくしています…" : "今すぐ新しくしてみる"}
+                </button>
+              </>
+            )}
           </div>
         )}
         {byLogin && installUrl && mine.report && (

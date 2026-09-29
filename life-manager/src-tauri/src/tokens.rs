@@ -205,7 +205,7 @@ pub async fn fresh_default() -> Option<String> {
             expire_login();
             None
         }
-        Freshness::Refresh => match refresh_now(&record, "due").await {
+        Freshness::Refresh => match refresh_now(&record, "due", true).await {
             Refreshed::New(token) => Some(token),
             Refreshed::Rejected => None,
             // 通信できないときは今の鍵のまま（まだ切れていなければ使える。オフラインなら送信待ちになる）
@@ -234,10 +234,19 @@ pub async fn recover_rejected(used: &str) -> Option<String> {
     if last_refresh().is_some_and(|n| n.result == "ok" && now() - n.at < 60) {
         return None;
     }
-    match refresh_now(&record, "rejected").await {
+    match refresh_now(&record, "rejected", true).await {
         Refreshed::New(token) => Some(token),
         _ => None,
     }
+}
+
+/// 今すぐ鍵を新しくしてみる（設定 → トークン の「今すぐ新しくしてみる」。8 時間を待たずに、新しくできるかを確かめる）。
+/// 新しくできなくても、今の鍵は期限まで使えるので、ログインの鍵は消さない
+pub async fn refresh_login_now() -> Result<RefreshNote, String> {
+    let _guard = REFRESHING.lock().await;
+    let record = login_record().ok_or("「GitHub でログイン」の鍵ではないので、新しくできません")?;
+    refresh_now(&record, "manual", false).await;
+    last_refresh().ok_or_else(|| "結果を読めませんでした".to_string())
 }
 
 enum Refreshed {
@@ -250,8 +259,9 @@ enum Refreshed {
     Missing,
 }
 
-/// 更新の鍵で新しくして、しまう（REFRESHING を持っているときに呼ぶ）。why は、なぜ新しくするか（due: 期限が近い / rejected: 断られた）
-async fn refresh_now(record: &LoginRecord, why: &str) -> Refreshed {
+/// 更新の鍵で新しくして、しまう（REFRESHING を持っているときに呼ぶ）。why は、なぜ新しくするか（due: 期限が近い / rejected: 断られた / manual: 手で）。
+/// expire が true なら、更新の鍵も断られたときにログインの鍵を消す（ログインし直し）
+async fn refresh_now(record: &LoginRecord, why: &str, expire: bool) -> Refreshed {
     let Some(refresh_token) = record.refresh_token.clone() else {
         note_refresh(why, "no_refresh", None);
         return Refreshed::Missing;
@@ -263,7 +273,9 @@ async fn refresh_now(record: &LoginRecord, why: &str) -> Refreshed {
             Refreshed::New(tokens.access_token)
         }
         Err(auth::RefreshError::Rejected(message)) => {
-            expire_login();
+            if expire {
+                expire_login();
+            }
             note_refresh(why, "rejected", Some(message));
             Refreshed::Rejected
         }
@@ -279,7 +291,7 @@ async fn refresh_now(record: &LoginRecord, why: &str) -> Refreshed {
 pub struct RefreshNote {
     /// 時（UNIX 秒）
     pub at: i64,
-    /// なぜ新しくしたか: due（期限が近い）/ rejected（GitHub に断られた）
+    /// なぜ新しくしたか: due（期限が近い）/ rejected（GitHub に断られた）/ manual（手で）
     pub why: String,
     /// ok / rejected（更新の鍵も使えない。ログインし直し）/ network（届かなかった）/ no_refresh（更新の鍵がない）/ no_record（ログインの記録がない）
     pub result: String,

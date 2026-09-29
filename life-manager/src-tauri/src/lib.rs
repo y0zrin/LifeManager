@@ -471,6 +471,12 @@ fn login_status() -> tokens::LoginStatus {
     tokens::login_status()
 }
 
+/// 今すぐログインの鍵を新しくしてみる（新しくできなくても、今の鍵は期限まで使える）
+#[tauri::command]
+async fn refresh_login_now() -> Result<tokens::RefreshNote, String> {
+    tokens::refresh_login_now().await
+}
+
 #[derive(serde::Serialize)]
 struct ProjectTokenUse {
     owner: String,
@@ -1443,6 +1449,7 @@ pub fn run() {
             check_token,
             token_overview,
             login_status,
+            refresh_login_now,
             clear_project_token,
             list_user_repos,
             list_my_invitations,

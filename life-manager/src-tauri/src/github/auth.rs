@@ -168,7 +168,12 @@ fn read_refresh(json: &serde_json::Value) -> Result<Tokens, RefreshError> {
         return Ok(tokens);
     }
     let code = json["error"].as_str().unwrap_or("unknown");
-    Err(RefreshError::Rejected(describe_error(code, json["error_description"].as_str())))
+    let message = match code {
+        // 更新の鍵が取り消されたときも、こう返る（デバイスフローの鍵だと GitHub が確かめられず、Client secret を求めるため）
+        "incorrect_client_credentials" => "GitHub が鍵の更新を受け付けませんでした（更新の鍵が取り消されたか、使えなくなっています）。もう一度ログインしてください".into(),
+        _ => describe_error(code, json["error_description"].as_str()),
+    };
+    Err(RefreshError::Rejected(message))
 }
 
 fn describe_error(code: &str, description: Option<&str>) -> String {
@@ -219,6 +224,11 @@ mod tests {
         assert_eq!(ok.map(|t| t.refresh_token), Ok(Some("ghr_new".into())));
         match read_refresh(&json!({ "error": "bad_refresh_token", "error_description": "The refresh token passed is incorrect or expired." })) {
             Err(RefreshError::Rejected(message)) => assert!(message.contains("もう一度ログイン")),
+            other => panic!("{:?}", other),
+        }
+        // Client ID の打ち間違いではなく、更新の鍵が使えないときにも返る
+        match read_refresh(&json!({ "error": "incorrect_client_credentials", "error_description": "The client_id and/or client_secret passed are incorrect." })) {
+            Err(RefreshError::Rejected(message)) => assert!(message.contains("更新の鍵") && !message.contains("Client ID")),
             other => panic!("{:?}", other),
         }
     }

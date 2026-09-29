@@ -4,7 +4,6 @@ import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
 import { LabelFilterButton } from "../common/LabelFilterButton";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
-import { AnalyticsPanel } from "../common/AnalyticsPanel";
 import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
@@ -14,7 +13,7 @@ import { serializeGanttDates } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { isEnter, isEscape } from "../../lib/keys";
 import { isSameRepo, parseIssueApiUrl } from "../../lib/subIssues";
-import { describeMilestone, ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
+import { ME, type MilestoneFilter, type SavedView, type StateFilter, type ViewSettings } from "../../lib/savedViews";
 import { ESTIMATE_PREFIX, estimateOf, parseEstimateLabel, sumEstimates, withEstimate } from "../../lib/estimate";
 import {
   GROUP_LABELS, groupIssues, matchesLabelFilters, sortIssues, SORT_LABELS,
@@ -311,8 +310,6 @@ export function DashboardView({
   };
   const baseIssues = stateFilter === "open" ? issues : stateFilter === "closed" ? closedIssues : allIssues;
   const filteredIssues = baseIssues.filter(matchesFilters);
-  // 分析は、オープン／クローズの切り替えによらず、絞り込みに当てはまる全部の Issue で数える
-  const scopeIssues = stateFilter === "all" ? filteredIssues : allIssues.filter(matchesFilters);
 
   // マイルストーンの名前（閉じたマイルストーンは一覧にないので、Issue に付いている名前から引く）
   const milestoneTitle = (n: number) =>
@@ -369,13 +366,6 @@ export function DashboardView({
   const activeFilterCount =
     Object.values(filters).filter((f) => f?.values.length).length + (assigneeFilter ? 1 : 0) + (milestoneFilter !== null ? 1 : 0) + (searchQuery ? 1 : 0);
 
-  // 分析の見出しに出す、今の絞り込みの説明
-  const scopeText = [
-    ...(milestoneFilter !== null ? [describeMilestone(milestoneFilter, milestoneTitle)] : []),
-    ...Object.values(filters).filter((f) => f?.values.length).map((f) => f.values.join(f.mode === "all" ? "＋" : "・")),
-    ...(assigneeFilter ? [`担当:${assigneeFilter === currentUser ? "自分" : assigneeFilter}`] : []),
-    ...(searchQuery.trim() ? [`検索「${searchQuery.trim()}」`] : []),
-  ].join("／");
 
   const pickedIssues = allIssues.filter((i) => picked.has(i.number));
 
@@ -702,9 +692,6 @@ export function DashboardView({
           <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
         </span>
       </div>
-
-      {/* 分析（今の絞り込みの範囲の数字と図） */}
-      <AnalyticsPanel scope={scopeIssues} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} />
 
       {/* Issue一覧（表か、まとまりごとのカード） */}
       {mode === "table" && rows.length > 0 ? (

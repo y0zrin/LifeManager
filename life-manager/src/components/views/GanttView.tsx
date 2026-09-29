@@ -73,6 +73,14 @@ export function GanttView({
     }
   }, [milestones, selectedMilestone]);
 
+  // 選んでいなければ、いちばん近い開いたマイルストーン（期限の近い順。期限のないものは後ろ）を、はじめから出す
+  useEffect(() => {
+    if (selectedMilestone !== null || milestones.length === 0) return;
+    const open = milestones.filter((m) => m.state !== "closed");
+    const nearest = [...(open.length > 0 ? open : milestones)].sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"))[0];
+    if (nearest) setSelectedMilestone(nearest.number);
+  }, [milestones, selectedMilestone]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const taskListRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<GanttRenderer | null>(null);

@@ -39,19 +39,24 @@ interface AnalyticsPanelProps {
   /** 状態の順番（ボードの列の順）。色もこの順に決める */
   stateOrder: string[];
   onSelectIssue: (n: number) => void;
+  /** 見出し（はじめは「📈 分析」） */
+  title?: string;
+  /** たためるか（オーバービューでは、たたまない） */
+  foldable?: boolean;
 }
 
 /**
- * タスク画面の一覧の上の「分析」。今の絞り込みの範囲で、開いている数と見積もり・期限切れ・もうすぐ・担当なし、
+ * オーバービューの「いまの状況」。今の絞り込みの範囲で、開いている数と見積もり・期限切れ・もうすぐ・担当なし、
  * 状態ごとの割合、担当ごとの数、8 週の「作った数と閉じた数」を出す。たたむと数字の 1 行だけになる
  */
-export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue }: AnalyticsPanelProps) {
+export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, title = "📈 分析", foldable = true }: AnalyticsPanelProps) {
   const unit = useEstimateUnit();
-  const [folded, setFolded] = useState(loadFolded);
+  const [foldedStored, setFolded] = useState(loadFolded);
+  const folded = foldable && foldedStored;
   const a = analyze(scope, unit, stateOrder);
 
   function toggle() {
-    const next = !folded;
+    const next = !foldedStored;
     setFolded(next);
     try {
       localStorage.setItem(FOLD_STORE, next ? "folded" : "open");
@@ -103,7 +108,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue }: 
   return (
     <section className={`analytics${folded ? " analytics--folded" : ""}`} aria-label="分析">
       <div className="analytics-head">
-        <b>📈 分析</b>
+        <b>{title}</b>
         <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます（8 週の流れは閉じた Issue も入れます）">
           {scopeLabel}
         </span>
@@ -116,9 +121,11 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue }: 
             ・担当なし <b>{a.unassigned.length}</b>
           </span>
         )}
-        <button type="button" className="analytics-toggle" aria-expanded={!folded} onClick={toggle}>
-          {folded ? "ひらく ▾" : "たたむ ▴"}
-        </button>
+        {foldable && (
+          <button type="button" className="analytics-toggle" aria-expanded={!folded} onClick={toggle}>
+            {folded ? "ひらく ▾" : "たたむ ▴"}
+          </button>
+        )}
       </div>
 
       {!folded && (

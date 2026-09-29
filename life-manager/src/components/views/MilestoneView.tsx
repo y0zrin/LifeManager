@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import type { GitHubIssue, GitHubMilestone, TimelineEvent } from "../../lib/types";
+import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
 import { DatePickerButton } from "../common/DatePickerButton";
 import { Burndown } from "../common/Burndown";
-import { TeamPace } from "../common/TeamPace";
 import { estimateOf, formatEstimate, formatNumber, sumEstimates } from "../../lib/estimate";
 import { average, descriptionText, finishedMilestones, sprintRange, velocity, weightOf, withStartDate, writtenStartDate, type PaceMode } from "../../lib/sprint";
 import { useEstimateUnit } from "../common/EstimateChip";
@@ -12,15 +11,11 @@ interface MilestoneViewProps {
   milestones: GitHubMilestone[];
   issues: GitHubIssue[];
   closedIssues: GitHubIssue[];
-  /** 今のリポジトリ（サイクルタイムのために読んだ変更の履歴を、リポジトリごとに覚える） */
-  owner: string;
-  repo: string;
   onCreateMilestone: (title: string, description: string, dueOn: string | null) => Promise<void>;
   onUpdateMilestone: (milestoneNumber: number, updates: { title?: string; description?: string; dueOn?: string | null }) => Promise<void>;
   onCloseMilestone: (milestoneNumber: number) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
-  onListTimeline: (issueNumber: number) => Promise<TimelineEvent[]>;
 }
 
 /** 量の数え方（見積もり／件数）。次に開いたときも同じ */
@@ -32,7 +27,7 @@ function md(date: string): string {
   return `${m}/${d}`;
 }
 
-export function MilestoneView({ milestones, issues, closedIssues, owner, repo, onCreateMilestone, onUpdateMilestone, onCloseMilestone, onRefresh, onSelectIssue, onListTimeline }: MilestoneViewProps) {
+export function MilestoneView({ milestones, issues, closedIssues, onCreateMilestone, onUpdateMilestone, onCloseMilestone, onRefresh, onSelectIssue }: MilestoneViewProps) {
   const unit = useEstimateUnit();
   const [showForm, setShowForm] = useState(false);
   const [msTitle, setMsTitle] = useState("");
@@ -69,7 +64,7 @@ export function MilestoneView({ milestones, issues, closedIssues, owner, repo, o
   // 終わったマイルストーンごとの終えた量（ベロシティ）と、その平均（次のスプリントの目安）
   const entries = useMemo(() => velocity(issues, closedIssues, mode, unit), [issues, closedIssues, mode, unit]);
   const avg = average(entries.map((e) => (mode === "count" ? e.closedCount : e.done)));
-  // 終わったマイルストーン（目安と比べるのは、まだ終わっていないものだけ）
+  // 終わったマイルストーン（目安と比べるのは、まだ終わっていないものだけ。チームのペースはオーバービューに出す）
   const finished = useMemo(() => finishedMilestones(issues, closedIssues), [issues, closedIssues]);
   const fmt = (v: number) => (mode === "count" ? `${formatNumber(v)} 件` : formatEstimate(Math.round(v * 10) / 10, unit));
 
@@ -109,6 +104,15 @@ export function MilestoneView({ milestones, issues, closedIssues, owner, repo, o
           {showForm ? "×" : "+ マイルストーン"}
         </button>
         <button onClick={onRefresh} className="btn-sm">更新</button>
+        {(issues.length > 0 || closedIssues.length > 0) && (
+          <span className="pace-mode ms-mode" role="group" aria-label="数え方" title="バーンダウンと目安を、見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）">
+            {(["estimate", "count"] as PaceMode[]).map((m) => (
+              <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
+                {m === "estimate" ? "見積もり" : "件数"}
+              </button>
+            ))}
+          </span>
+        )}
       </div>
 
       {showForm && (
@@ -123,11 +127,6 @@ export function MilestoneView({ milestones, issues, closedIssues, owner, repo, o
           </div>
           <button onClick={handleCreate} className="btn-primary">作成</button>
         </div>
-      )}
-
-      {(issues.length > 0 || closedIssues.length > 0) && (
-        <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}
-          mode={mode} onModeChange={changeMode} onListTimeline={onListTimeline} onSelectIssue={onSelectIssue} />
       )}
 
       {milestones.map((ms) => {

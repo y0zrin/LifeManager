@@ -364,6 +364,6 @@ export interface GitFolderCheck {
 
 export type ViewType =
   | "work"
-  | "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "gantt"
+  | "insights" | "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "gantt"
   | "branches" | "overview"
   | "settings";

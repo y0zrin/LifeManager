@@ -40,6 +40,7 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
+import { InsightsView } from "./components/views/InsightsView";
 import { isSetupPending, markSetupPending } from "./lib/auth";
 import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
@@ -55,6 +56,7 @@ type NavItem = { key: ViewType; icon: string; label: string };
 // サイドバーの並び: 作業 → タスク系 → リポジトリ系。設定はいちばん下
 const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
 const TASK_ITEMS: NavItem[] = [
+  { key: "insights", icon: "📈", label: "オーバービュー" },
   { key: "dashboard", icon: "📋", label: "タスク" },
   { key: "kanban", icon: "📊", label: "ボード" },
   { key: "milestones", icon: "🎯", label: "マイルストーン" },
@@ -680,6 +682,22 @@ function App() {
             </div>
           )}
 
+          {/* オーバービュー（いまの状況・チームのペース） */}
+          {view === "insights" && gh.connected && (
+            <InsightsView
+              issues={gh.issues}
+              closedIssues={gh.closedIssues}
+              milestones={gh.milestones}
+              labels={gh.customLabels}
+              collaborators={gh.collaborators}
+              owner={gh.owner}
+              repo={gh.repo}
+              stateOrder={(gh.boardConfig?.columns ?? DEFAULT_COLUMNS).map((c) => c.key)}
+              onSelectIssue={setSelectedIssue}
+              onListTimeline={gh.listTimeline}
+            />
+          )}
+
           {/* ダッシュボード */}
           {view === "dashboard" && gh.connected && (
             <DashboardView
@@ -738,9 +756,6 @@ function App() {
               onCloseMilestone={gh.closeMilestone}
               onRefresh={gh.loadMilestones}
               onSelectIssue={setSelectedIssue}
-              owner={gh.owner}
-              repo={gh.repo}
-              onListTimeline={gh.listTimeline}
             />
           )}
 

@@ -106,6 +106,30 @@ function saveIssueChoice(owner: string, repo: string, choice: IssueChoice) {
   }
 }
 
+// --- 「今回はプルリクしない」: ブランチごとに、そのときの先頭のコミットを、この PC に覚えておく ---
+// （いくつかのコミットをまとめて 1 つのプルリクにするため。そのコミットまでは、プルリクの段に進まない）
+
+function noPullKey(owner: string, repo: string) {
+  return `work-nopull:${owner}/${repo}`;
+}
+
+function loadNoPull(owner: string, repo: string): Record<string, string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(noPullKey(owner, repo)) ?? "{}");
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveNoPull(owner: string, repo: string, map: Record<string, string>) {
+  try {
+    localStorage.setItem(noPullKey(owner, repo), JSON.stringify(map));
+  } catch {
+    // 覚えられなくても、今は完了にできる（次に開いたとき、またプルリクの段が出る）
+  }
+}
+
 // --- 表示の小物 ---
 
 const STATUS_TITLES: Record<string, string> = {
@@ -259,10 +283,13 @@ function Workspace({
   const summaryRef = useRef<HTMLInputElement>(null);
   // 見ている段（null なら今の段）。上の段を押すと、その段の画面を見られる
   const [viewStep, setViewStep] = useState<number | null>(null);
+  // 「今回はプルリクしない」にしたブランチと、そのときの先頭のコミット
+  const [noPull, setNoPull] = useState<Record<string, string>>(() => loadNoPull(owner, repo));
 
   useEffect(() => {
     setChoiceState(loadIssueChoice(owner, repo));
     setViewStep(null);
+    setNoPull(loadNoPull(owner, repo));
   }, [owner, repo]);
 
   function setChoice(c: IssueChoice) {
@@ -322,6 +349,7 @@ function Workspace({
   const sameHead = (a: string, b: string) => a !== "" && b !== "" && (a.startsWith(b) || b.startsWith(a));
   const hasOwnCommits = committedHere || (st.head !== "" && defaultHead !== "" && !sameHead(st.head, defaultHead));
   const onBranch = !!st.branch && !onDefault;
+  const noPullHere = onBranch && sameHead(noPull[st.branch] ?? "", st.head);
 
   // このブランチから出したプルリク（GitHub に聞く。画面に戻ったとき・1 分ごとにも読み直す）
   const [branchPr, setBranchPr] = useState<{ branch: string; pull: PullSummary | null; error: string | null } | null>(null);
@@ -358,7 +386,7 @@ function Workspace({
     else if (closedIssue) step = 8;
     // 既定のブランチで直接コミットしたときは、プルリク・マージの段はとばす
     else if (onDefault && issue && pushedAfterCommit) step = 8;
-    else if (onBranch && published && (pushedAfterCommit || hasOwnCommits)) step = 6;
+    else if (onBranch && published && (pushedAfterCommit || hasOwnCommits) && !noPullHere) step = 6;
     else if (issue && onDefault) step = 2;
     else step = 3;
     const direct = onDefault && step === 8;
@@ -370,7 +398,7 @@ function Workspace({
       changeCount ? `${changeCount} ファイル` : "なし",
       changeCount ? `ステージ ${staged.length}` : committedHere ? "済み" : "—",
       !published ? (st.unpushed > 0 ? "未公開" : "—") : st.ahead > 0 ? `↑${st.ahead}` : "済み",
-      direct ? "なし（直接）" : pr ? `#${pr.number}${pr.state === "closed" && !pr.merged ? " 閉じた" : ""}` : "—",
+      direct ? "なし（直接）" : pr ? `#${pr.number}${pr.state === "closed" && !pr.merged ? " 閉じた" : ""}` : noPullHere ? "今回はしない" : "—",
       direct ? "なし（直接）" : pr?.merged ? "済み" : pr?.state === "open" ? reviewLabel(pr) : "—",
       closedIssue ? "閉じました" : issue ? "Issue を閉じる" : "—",
     ];
@@ -403,6 +431,8 @@ function Workspace({
         <>
           GitHub に送れました。「プルリクを作る」で、この変更を <b>{defaultBranch}</b> に入れるお願いを出します。チームの人が変更を見て
           （レビュー）、よければマージします。
+          いくつかのコミットをまとめて 1 つのプルリクにするときは「今回はプルリクしない」で{issue ? `、#${issue.number} を完了にします` : "、次の作業に進みます"}
+          （このブランチに続けてコミット・プッシュすると、またここに来て、まとめてプルリクにできます）。
           {pr && pr.state === "closed" && !pr.merged && <> 前のプルリク #{pr.number} は、マージせずに閉じられています。</>}
           {prError && <span className="w-flow-warn">{prError}</span>}
         </>
@@ -463,7 +493,21 @@ function Workspace({
               if (switched.ok) await g.exec("プルしています", gitApi.pull, `${defaultBranch} を最新にしました`);
             },
           }
-        : step === 7 && pr
+        : step === 6
+          ? {
+              label: "今回はプルリクしない",
+              run: async () => {
+                const map = { ...noPull, [st.branch]: st.head };
+                setNoPull(map);
+                saveNoPull(owner, repo, map);
+                if (issue) {
+                  await onCloseIssue(issue.number);
+                  celebrateDone(`#${issue.number}`);
+                }
+                setChoice(null);
+              },
+            }
+          : step === 7 && pr
           ? { label: "もう一度読む", run: () => branchPull(owner, repo, st.branch).then((pull) => setBranchPr({ branch: st.branch, pull, error: null })).catch(() => {}) }
           : null;
     return { step, labels, hint: hints[step], action, secondary };

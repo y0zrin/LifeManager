@@ -364,7 +364,15 @@ function Workspace({
     ];
 
     const hints: Record<number, ReactNode> = {
-      1: <>最初に、何をするか（Issue）を選びます。タスク管理と git の作業が、ここでつながります。</>,
+      1:
+        onBranch && pr?.merged ? (
+          <>
+            このブランチ（<b>{st.branch}</b>）のプルリク <b>#{pr.number}</b> はマージ済みです。次の作業は <b>{defaultBranch}</b> に戻ってから始めます（
+            <code>git switch {defaultBranch}</code> → <code>git pull</code>）。そのあと、何をするか（Issue）を選びます。
+          </>
+        ) : (
+          <>最初に、何をするか（Issue）を選びます。タスク管理と git の作業が、ここでつながります。</>
+        ),
       2: (
         <>
           今は <b>{st.branch}</b> にいます。ブランチは作業する場所です。Issue ごとに分けると、ほかの作業と混ざりません（
@@ -434,9 +442,9 @@ function Workspace({
         },
       };
     } else if (step === 8) action = { label: "次の作業へ", run: () => setChoice(null) };
-    // マージしたあと: 既定のブランチに戻って、最新にする
+    // マージしたあと: 既定のブランチに戻って、最新にする（Issue を完了にしたあと・Issue を選んでいないときも、マージ済みのブランチにいれば出す）
     const secondary =
-      step === 8 && onBranch
+      (step === 8 || pr?.merged) && onBranch
         ? {
             label: `${defaultBranch} に戻って最新にする`,
             run: async () => {

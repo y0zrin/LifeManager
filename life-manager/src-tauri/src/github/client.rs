@@ -15,6 +15,13 @@ pub fn is_network_error(message: &str) -> bool {
     return message.starts_with(NETWORK_ERROR);
 }
 
+/// Issue の一覧から、プルリクを外す（GitHub の Issue の一覧は、プルリクも Issue として返す。タスクに混ぜない）
+fn only_issues(text: String) -> Result<String, String> {
+    let items: Vec<serde_json::Value> = serde_json::from_str(&text).map_err(|e| format!("JSONパースエラー: {}", e))?;
+    let issues: Vec<serde_json::Value> = items.into_iter().filter(|i| i.get("pull_request").is_none()).collect();
+    serde_json::to_string(&issues).map_err(|e| format!("JSONシリアライズエラー: {}", e))
+}
+
 /// ブランチの名前を URL に入れる形にする（feature/x の / はそのまま。# ? % や空白などだけを変える）
 fn encode_ref(name: &str) -> String {
     return urlencoding::encode(name).replace("%2F", "/");
@@ -78,7 +85,7 @@ impl GitHubClient {
             BASE_URL, owner, repo, state
         );
         // 100件超のIssueに対応するためページネーションで全件取得
-        return self.get_all_pages(&url).await;
+        return only_issues(self.get_all_pages(&url).await?);
     }
 
     /// 指定ラベル付きのIssueのみ取得
@@ -94,7 +101,7 @@ impl GitHubClient {
             "{}/repos/{}/{}/issues?state={}&labels={}&per_page=100",
             BASE_URL, owner, repo, state, encoded_label
         );
-        return self.get_all_pages(&url).await;
+        return only_issues(self.get_all_pages(&url).await?);
     }
 
     /// since(ISO 8601)以降に更新されたIssueのみ取得
@@ -109,7 +116,7 @@ impl GitHubClient {
             "{}/repos/{}/{}/issues?state={}&since={}&per_page=100",
             BASE_URL, owner, repo, state, since
         );
-        return self.get_all_pages(&url).await;
+        return only_issues(self.get_all_pages(&url).await?);
     }
 
     pub async fn create_issue(
@@ -1272,5 +1279,16 @@ impl GitHubClient {
             HeaderValue::from_static("application/vnd.github+json"),
         );
         return headers;
+    }
+}
+
+#[cfg(test)]
+mod issue_list_tests {
+    #[test]
+    fn leaves_pull_requests_out_of_issues() {
+        let text = r#"[{"number":1,"title":"Issue"},{"number":2,"title":"PR","pull_request":{"url":"x"}}]"#.to_string();
+        let kept: Vec<serde_json::Value> = serde_json::from_str(&super::only_issues(text).unwrap()).unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0]["number"], 1);
     }
 }

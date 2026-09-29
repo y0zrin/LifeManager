@@ -1,4 +1,4 @@
-// Actions のワークフローのひな形（リポジトリのファイルから、言語に合うものを選ぶ）。
+// Actions のワークフローのひな形（リポジトリのファイルとフォルダから、合うものを選ぶ。Unity・Unreal は先に見る）。
 // 学ぶ人が読めるよう、1 行ずつ日本語の説明を付けておく
 
 export interface WorkflowTemplate {
@@ -12,6 +12,12 @@ export interface WorkflowTemplate {
   file: string;
   /** dir は、プロジェクトのあるフォルダ（いちばん上なら "."） */
   yaml: (dir: string) => string;
+  /** GitHub の側で先に要る準備（秘密の登録・ランナーの登録など） */
+  prepare?: {
+    text: string;
+    warning?: string;
+    links: { label: string; url: (owner: string, repo: string) => string }[];
+  };
 }
 
 const HEADER = (title: string, what: string) =>
@@ -32,6 +38,115 @@ const has = (files: string[], ...names: string[]) => names.some((n) => files.som
 const ends = (files: string[], ...exts: string[]) => files.some((f) => exts.some((e) => f.toLowerCase().endsWith(e)));
 
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  {
+    id: "unity",
+    name: "Unity（Unity Test Framework）",
+    detail:
+      "Assets と ProjectSettings があるリポジトリ。EditMode・PlayMode のテストを、GitHub のパソコンで動かします（GameCI）。テストがなくても、スクリプトのコンパイルエラーに気づけます",
+    detect: (files) => has(files, "Assets/") && has(files, "ProjectSettings/"),
+    file: ".github/workflows/unity-test.yml",
+    prepare: {
+      text: "リポジトリの Settings → Secrets and variables → Actions に、秘密を 3 つ登録します: UNITY_LICENSE（Unity Hub で Personal のライセンスを有効にすると、その PC の C:\\ProgramData\\Unity\\Unity_lic.ulf にできます。その中身をまるごと）・UNITY_EMAIL・UNITY_PASSWORD（そのライセンスの Unity のアカウント）。1 回目は Unity を用意するのに時間がかかります（10〜20 分ほど）。非公開のリポジトリでは、Actions の無料の時間（月 2,000 分）を使います。",
+      warning: "チームのリポジトリでは、書き込める人はワークフローを通して秘密を取り出せます。テスト用に別の Unity のアカウントを作って登録するのがおすすめです。",
+      links: [{ label: "秘密を登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/secrets/actions` }],
+    },
+    yaml: (dir) => {
+      const p = dir && dir !== "." ? dir : ".";
+      const base = p === "." ? "" : `${p}/`;
+      return (
+        HEADER("Unity テスト", "EditMode・PlayMode のテストを動かす") +
+        `
+jobs:
+  test:
+    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす（Unity は GameCI が用意する）
+    permissions:
+      contents: read
+      checks: write          # テストの結果を、プルリクのチェックに出す
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true          # Git LFS で入れた画像・音も取ってくる
+      - uses: actions/cache@v4   # Library を残して、2 回目から速くする
+        with:
+          path: ${base}Library
+          key: Library-\${{ hashFiles('${base}Assets/**', '${base}Packages/**', '${base}ProjectSettings/**') }}
+          restore-keys: Library-
+      - uses: game-ci/unity-test-runner@v4   # Unity を入れて、テストを動かす（版は ProjectSettings/ProjectVersion.txt から）
+        env:
+          UNITY_LICENSE: \${{ secrets.UNITY_LICENSE }}     # ライセンス（.ulf の中身）
+          UNITY_EMAIL: \${{ secrets.UNITY_EMAIL }}         # Unity のアカウント（テスト用のものがおすすめ）
+          UNITY_PASSWORD: \${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${p}
+          testMode: all                                   # EditMode と PlayMode の両方
+          githubToken: \${{ secrets.GITHUB_TOKEN }}       # 結果をチェックに出す
+      - uses: actions/upload-artifact@v4   # テストの結果（XML）を残す
+        if: always()
+        with:
+          name: unity-test-results
+          path: artifacts
+`
+      );
+    },
+  },
+  {
+    id: "unreal",
+    name: "Unreal Engine（自動テスト）",
+    detail:
+      ".uproject があるリポジトリ。Automation のテストを、Unreal の入った PC（セルフホストランナー）で動かします。GitHub のパソコンには Unreal が入っていません",
+    detect: (files) => files.some((f) => f.toLowerCase().endsWith(".uproject")),
+    file: ".github/workflows/unreal-test.yml",
+    prepare: {
+      text: "Unreal の入った Windows の PC（学校の PC など）を、このリポジトリのランナーに登録します: Settings → Actions → Runners → New self-hosted runner → Windows。出てくるコマンドをその PC の PowerShell で順に動かし、ラベルに unreal を足します。その PC の環境変数 UE_ROOT に、Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）を入れておきます。",
+      warning: "公開のリポジトリでは、セルフホストランナーを使わないでください（だれでもプルリクを通して、その PC でコードを動かせてしまいます）。",
+      links: [{ label: "ランナーを登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/actions/runners/new?arch=x64&os=win` }],
+    },
+    yaml: (dir) => {
+      const p = dir && dir !== "." ? dir : ".";
+      const base = p === "." ? "" : `${p}/`;
+      return (
+        HEADER("Unreal テスト", "Automation のテストを、Unreal の入った PC で動かす") +
+        `
+jobs:
+  test:
+    # Unreal の入った PC（学校の PC など）で動かす。GitHub のパソコンには Unreal が入っていないので、
+    # その PC を「セルフホストランナー」として登録し、ラベル unreal を付けておく
+    runs-on: [self-hosted, Windows, unreal]
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ${p}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true          # Git LFS で入れたアセットも取ってくる
+      - name: C++ をビルドする（Source フォルダがあるとき）
+        run: |
+          $uproject = (Get-ChildItem -Filter *.uproject | Select-Object -First 1).FullName
+          if (Test-Path Source) {
+            $name = [IO.Path]::GetFileNameWithoutExtension($uproject)
+            & "$env:UE_ROOT\\Engine\\Build\\BatchFiles\\Build.bat" "$($name)Editor" Win64 Development "-Project=$uproject" -WaitMutex
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: 自動テストを動かす（Project. で始まるテスト。自分のテストの名前に合わせて変える）
+        run: |
+          $uproject = (Get-ChildItem -Filter *.uproject | Select-Object -First 1).FullName
+          # UE_ROOT は、その PC の Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）
+          & "$env:UE_ROOT\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe" $uproject \`
+            -ExecCmds="Automation RunTests Project" -TestExit="Automation Test Queue Empty" \`
+            -ReportExportPath="$PWD\\TestReport" -unattended -nullrhi -nosplash -nopause -nosound -log
+          $report = Get-Content "$PWD\\TestReport\\index.json" -Raw | ConvertFrom-Json
+          Write-Output "成功 $($report.succeeded)・失敗 $($report.failed)"
+          if ($report.failed -gt 0) { exit 1 }
+      - uses: actions/upload-artifact@v4   # テストの結果を残す
+        if: always()
+        with:
+          name: unreal-test-report
+          path: ${base}TestReport
+`
+      );
+    },
+  },
   {
     id: "node",
     name: "Node.js（npm test）",
@@ -98,6 +213,7 @@ ${inDir(dir)}    steps:
     id: "dotnet",
     name: "C#・.NET（dotnet test）",
     detail: ".sln・.csproj があるリポジトリ",
+    // Unity のプロジェクトも C# なので、Unity は先に見分ける（上の unity）
     detect: (files, lang) => ends(files, ".sln", ".csproj") || lang === "C#",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>

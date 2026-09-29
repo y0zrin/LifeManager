@@ -50,7 +50,7 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
     setError(null);
     try {
       await addNewFile(folder, template.file, yaml);
-      onPlaced(template.file);
+      onPlaced(template.prepare ? `${template.file}（先に GitHub で準備: ${template.id === "unity" ? "秘密の登録" : "ランナーの登録"}）` : template.file);
     } catch (e) {
       setError(String(e));
       setBusy(false);
@@ -100,6 +100,20 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
               置くファイル: <code>{template.file}</code>
             </div>
             <pre className="ac-yaml">{yaml}</pre>
+            {template.prepare && (
+              <div className="ac-setup">
+                <b className="ac-setup-title">先に GitHub で準備すること</b>
+                <p>{template.prepare.text}</p>
+                {template.prepare.warning && <p className="ac-setup-warning">⚠ {template.prepare.warning}</p>}
+                <div className="ac-setup-actions">
+                  {template.prepare.links.map((l) => (
+                    <button key={l.label} type="button" className="btn-sm" onClick={() => openUrl(l.url(owner, repo)).catch(() => {})}>
+                      {l.label} ↗
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
         {error && <p className="git-dialog-error">{error}</p>}

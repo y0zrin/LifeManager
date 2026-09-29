@@ -357,11 +357,11 @@ pub async fn enable_dependabot(state: ClientState<'_>, owner: String, repo: Stri
     Ok(())
 }
 
-/// ワークフローのひな形を選ぶための、リポジトリのいちばん上のファイルの名前
+/// ワークフローのひな形を選ぶための、リポジトリのいちばん上のファイルとフォルダの名前（フォルダは Assets/ のように / 付き）
 #[tauri::command]
 pub async fn repo_root_files(state: ClientState<'_>, owner: String, repo: String) -> Result<Vec<String>, String> {
     let client = client_of(&state).await?;
-    client.list_directory(&owner, &repo, "").await.map_err(|e| explain(&e, "ファイルの一覧を読むこと"))
+    client.list_entries(&owner, &repo, "").await.map_err(|e| explain(&e, "ファイルの一覧を読むこと"))
 }
 
 /// ワークフローの一覧。手で実行できるもの（workflow_dispatch）には、入力の一覧（dispatch）を付ける

@@ -130,6 +130,8 @@ export function RunDetail(props: RunDetailProps) {
   const failures = card?.failures ?? [];
   const failedStep = (jobs ?? []).flatMap((j) => j.steps.filter((s) => isFailed(s)).map((s) => s.name))[0] ?? null;
   const command = failedStep ? commandOf(failedStep) : null;
+  // ゲームエンジンのテストは、エディタの中で同じテストを動かして確かめる
+  const engine = failedStep && /unity-test-runner|unity-builder/i.test(failedStep) ? "unity" : failedStep && /UnrealEditor|自動テスト|Build\.bat|C\+\+ をビルド/.test(failedStep) ? "unreal" : null;
   const onDefault = run.branch === defaultBranch;
 
   let todo: ReactNode = null;
@@ -147,6 +149,14 @@ export function RunDetail(props: RunDetailProps) {
           <li>時間切れです。重すぎる処理や、終わらずに待ち続けている手順がないかを見ます。</li>
         ) : run.conclusion === "action_required" ? (
           <li>持ち主の承認がいる実行です（フォークからのプルリクなど）。GitHub の画面で承認します。</li>
+        ) : engine === "unity" ? (
+          <li>
+            この PC の Unity で <b>Window → General → Test Runner</b> を開き、同じテスト（EditMode・PlayMode）を動かして確かめます。コンパイルエラーなら、Console に同じエラーが出ます。
+          </li>
+        ) : engine === "unreal" ? (
+          <li>
+            この PC の Unreal で <b>Tools → Session Frontend → Automation</b> を開き、同じテストを動かして確かめます。C++ のビルドで失敗したときは、Visual Studio でビルドして同じエラーを見ます。
+          </li>
         ) : (
           <li>
             この PC の作業フォルダで{command ? <> <code>{command}</code> を動かして</> : "同じことをして"}、同じ失敗が出るかを確かめます。

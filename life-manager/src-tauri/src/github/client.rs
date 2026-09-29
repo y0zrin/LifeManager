@@ -377,6 +377,29 @@ impl GitHubClient {
         }
     }
 
+    /// フォルダの中のファイルとフォルダの名前（フォルダは名前の後ろに / を付ける。なければ空）
+    pub async fn list_entries(&self, owner: &str, repo: &str, path: &str) -> Result<Vec<String>, String> {
+        let url = format!("{}/repos/{}/{}/contents/{}", BASE_URL, owner, repo, path);
+        match self.get(&url).await {
+            Ok(resp) => {
+                let json: serde_json::Value = serde_json::from_str(&resp).map_err(|e| e.to_string())?;
+                Ok(json
+                    .as_array()
+                    .map(|xs| {
+                        xs.iter()
+                            .filter_map(|x| {
+                                let name = x["name"].as_str()?;
+                                Some(if x["type"].as_str() == Some("dir") { format!("{}/", name) } else { name.to_string() })
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default())
+            }
+            Err(e) if e.starts_with("HTTP 404") => Ok(Vec::new()),
+            Err(e) => Err(e),
+        }
+    }
+
     /// ファイルの中身（テキスト）
     pub async fn read_text(&self, owner: &str, repo: &str, path: &str) -> Result<String, String> {
         self.fetch_contents(owner, repo, path).await.map(|(content, _)| content)

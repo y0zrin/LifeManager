@@ -11617,6 +11617,7 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   gap: 6px;
 }
 .ac-setup-hide { font-size: var(--font-xs); }
+.ac-setup-warning { color: var(--accent-red); }
 .ac-setup-message {
   color: var(--text-muted);
   font-size: var(--font-xs);

@@ -1046,12 +1046,22 @@ git push -u origin main</div>
   <div class="table-wrap">
   <table>
     <tr><th>出るもの</th><th>すること</th></tr>
-    <tr><td>▶ ワークフローがありません</td><td><span class="ui">ひな形から置く…</span> で、リポジトリのファイルから合うもの（Node.js・Python・Rust・C#・Go・Java、どれでもない「はじめての見本」）を選び、1 行ずつ説明の付いたワークフローを <b>この PC の作業フォルダに置きます</b>（プロジェクトがフォルダの中にあるときは、そのフォルダも書けます）。作業タブでチェックを入れてコミット・プッシュすると動き始めます。作業フォルダがなければ、<span class="ui">GitHub の画面で作る</span>（名前と中身の入った作成の画面）か、中身をコピーします。</td></tr>
+    <tr><td>▶ ワークフローがありません</td><td><span class="ui">ひな形から置く…</span> で、リポジトリのファイルから合うもの（Node.js・Python・Rust・C#・Go・Java、どれでもない「はじめての見本」）を選び（Unity・Unreal のプロジェクトも見分けます）、1 行ずつ説明の付いたワークフローを <b>この PC の作業フォルダに置きます</b>（プロジェクトがフォルダの中にあるときは、そのフォルダも書けます）。作業タブでチェックを入れてコミット・プッシュすると動き始めます。作業フォルダがなければ、<span class="ui">GitHub の画面で作る</span>（名前と中身の入った作成の画面）か、中身をコピーします。</td></tr>
     <tr><td>🛡 Dependabot のお知らせが止まっています</td><td>管理者なら <span class="ui">有効にする</span>、そうでなければ設定の画面を開いて管理者に頼みます（無料）。</td></tr>
     <tr><td>🔍 コードスキャンを使っていません</td><td>設定の画面（Code security）を開きます。公開のリポジトリなら無料です（非公開のリポジトリでは出しません）。</td></tr>
     <tr><td>🔑 Life Manager の権限を足すと使えます</td><td>足りない権限の名前が出ます。持ち主なら <span class="ui">GitHub で承認する</span>（入れてある先の画面。上の Review request から承認）、メンバーなら <span class="ui">持ち主に送る文をコピー</span>、自分で作ったトークンなら <span class="ui">トークンの画面を開く</span>。承認したら <span class="ui">承認したので、もう一度読み込む</span>。プルリクの画面でも同じです。</td></tr>
   </table>
   </div>
+
+  <h3>Unity・Unreal のテスト</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th></th><th>どこで動くか</th><th>先に GitHub で準備すること</th></tr>
+    <tr><td>Unity（Unity Test Framework の EditMode・PlayMode）</td><td>GitHub のパソコン（GameCI の unity-test-runner）。テストがなくても、スクリプトのコンパイルエラーに気づけます。1 回目は Unity の用意に 10〜20 分ほど</td><td>リポジトリの Settings → Secrets and variables → Actions に <code>UNITY_LICENSE</code>（Unity Hub で Personal を有効にすると <code>C:\ProgramData\Unity\Unity_lic.ulf</code> にできる、その中身）・<code>UNITY_EMAIL</code>・<code>UNITY_PASSWORD</code>。<b>チームのリポジトリでは、書き込める人はワークフローを通して秘密を取り出せるので、テスト用に別の Unity のアカウントを作ります</b></td></tr>
+    <tr><td>Unreal Engine（Automation のテスト）</td><td>Unreal の入った PC（学校の PC など）。GitHub のパソコンには Unreal が入っていません（大きすぎる・決まり）</td><td>その PC をランナーに登録します（Settings → Actions → Runners → New self-hosted runner → Windows。ラベル <code>unreal</code>）。PC の環境変数 <code>UE_ROOT</code> に Unreal の場所。<b>公開のリポジトリでは使いません</b>（だれでもその PC でコードを動かせてしまう）</td></tr>
+  </table>
+  </div>
+  <p>失敗したときの「何をすればよいか」には、Unity なら Test Runner、Unreal なら Session Frontend の Automation で、手元で同じテストを動かす方法が出ます。</p>
 
   <h3>カードの中身</h3>
   <p>カードを押すと、右に中身が出ます（広い窓では、はじめからいちばん上のカード）。</p>

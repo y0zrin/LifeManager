@@ -190,12 +190,37 @@ fn strip_time(line: &str) -> &str {
     line
 }
 
-/// ログを行にする（時刻を外す。長すぎるときは後ろの max 行だけ。エラーはたいてい最後の方にある）
+/// 色などの指定（ESC [ … m）を外す。GitHub のログは、実行したコマンドの行などに入れてくる（そのままだと □[36;1m と見える）
+fn strip_ansi(line: &str) -> String {
+    if !line.contains('\u{1b}') {
+        return line.to_string();
+    }
+    let mut out = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            out.push(c);
+            continue;
+        }
+        if chars.peek() == Some(&'[') {
+            chars.next();
+            // 終わりの文字（@ から ~ まで）までを飛ばす
+            for c in chars.by_ref() {
+                if ('@'..='~').contains(&c) {
+                    break;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// ログを行にする（時刻・色の指定を外す。長すぎるときは後ろの max 行だけ。エラーはたいてい最後の方にある）
 fn clean_log(text: &str, max: usize) -> (Vec<String>, bool) {
     let text = text.trim_start_matches('\u{feff}');
     let lines: Vec<&str> = text.lines().collect();
     let start = lines.len().saturating_sub(max);
-    (lines[start..].iter().map(|l| strip_time(l).to_string()).collect(), start > 0)
+    (lines[start..].iter().map(|l| strip_ansi(strip_time(l))).collect(), start > 0)
 }
 
 fn scalar(v: &serde_yaml::Value) -> Option<String> {
@@ -548,6 +573,9 @@ mod tests {
         // 日本語が 40 バイト目にかかっても落ちない（本物のログで、ひな形の echo がこうなった）
         let (lines, _) = clean_log("2026-09-29T12:54:50.1234567Z こんにちは、Actions！\n2026-09-29T12:54:50.1Zおすすめがうどんか確かめる\n", 5000);
         assert_eq!(lines, vec!["こんにちは、Actions！", "2026-09-29T12:54:50.1Zおすすめがうどんか確かめる"]);
+        // 色の指定は外す（本物のログの、実行したコマンドの行）
+        let (lines, _) = clean_log("2026-09-29T12:54:50.1234567Z \u{1b}[36;1mgrep -q \"うどん\" menu.txt\u{1b}[0m\nplain \u{1b}[1;31merror\u{1b}[0m!\n", 5000);
+        assert_eq!(lines, vec!["grep -q \"うどん\" menu.txt", "plain error!"]);
     }
 
     #[test]

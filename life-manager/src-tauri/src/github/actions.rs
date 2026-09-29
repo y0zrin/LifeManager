@@ -182,7 +182,8 @@ fn security_state(result: Result<String, String>, compact: fn(&Value) -> Value, 
 fn strip_time(line: &str) -> &str {
     let b = line.as_bytes();
     if b.len() > 21 && b[4] == b'-' && b[7] == b'-' && b[10] == b'T' {
-        if let Some(pos) = line[..line.len().min(40)].find("Z ") {
+        // 時刻は ASCII なので、先頭 40 バイトをバイトのまま探す（文字列で切ると、日本語の途中で切れて落ちる）
+        if let Some(pos) = b[..b.len().min(40)].windows(2).position(|w| w == b"Z ") {
             return &line[pos + 2..];
         }
     }
@@ -544,6 +545,9 @@ mod tests {
         let (tail, cut) = clean_log("a\nb\nc\nd", 2);
         assert_eq!(tail, vec!["c", "d"]);
         assert!(cut);
+        // 日本語が 40 バイト目にかかっても落ちない（本物のログで、ひな形の echo がこうなった）
+        let (lines, _) = clean_log("2026-09-29T12:54:50.1234567Z こんにちは、Actions！\n2026-09-29T12:54:50.1Zおすすめがうどんか確かめる\n", 5000);
+        assert_eq!(lines, vec!["こんにちは、Actions！", "2026-09-29T12:54:50.1Zおすすめがうどんか確かめる"]);
     }
 
     #[test]

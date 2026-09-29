@@ -162,7 +162,7 @@ export interface UserRepo {
   owner: { login: string; type: string; avatar_url: string };
   private: boolean;
   updated_at: string;
-  permissions?: { push: boolean };
+  permissions?: { admin?: boolean; push: boolean };
 }
 
 /** ログインした人が使えるリポジトリ（更新の新しい順） */

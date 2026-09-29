@@ -1888,15 +1888,129 @@ button:hover {
   text-align: center;
 }
 
+/* ログイン中の人（使い方を選ぶ画面の上。名前を大きく出すのは「招待を受ける」だけ） */
 .setup-me {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+/* 使い方を選ぶ（チームを作る／招待を受ける／個人で使う） */
+.setup-ask {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+}
+
+.setup-picks {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-sm);
+}
+
+.setup-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
   padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--accent-green-bg);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.setup-pick:hover {
+  border-color: var(--accent-blue);
+  background: var(--bg-tertiary);
+}
+
+.setup-pick--hot {
+  border-color: var(--accent-green);
   background: var(--accent-green-bg);
-  font-size: var(--font-md);
+}
+
+.setup-pick-icon {
+  flex: none;
+  width: 28px;
+  font-size: 20px;
+  text-align: center;
+}
+
+.setup-pick-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.setup-pick-title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+}
+
+.setup-pick-badge {
+  margin-left: var(--space-sm);
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--accent-green);
+  color: var(--text-on-accent);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  vertical-align: 2px;
+}
+
+.setup-pick-desc {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.setup-pick-go {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+/* 使うリポジトリ: もうあるもの／新しく作る */
+.setup-radio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: var(--font-sm);
+}
+
+.setup-radio .chk {
+  min-width: 7em;
+}
+
+/* 招待を受ける: メールなどから先に参加したリポジトリ */
+.setup-joined {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.setup-joined-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.setup-joined-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 /* ログインしたら、自分の GitHub の名前を大きく（メンバーは、この名前をリーダーに伝える） */
@@ -1940,28 +2054,6 @@ button:hover {
   font-size: var(--font-sm);
 }
 
-/* チームに入る ／ チームを作る・1 人で使う */
-.setup-paths {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-sm);
-}
-
-.setup-path {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-}
-
-.setup-path h3 {
-  margin: 0;
-  font-size: var(--font-md);
-}
-
 .setup-path-steps {
   display: flex;
   flex-direction: column;
@@ -1970,40 +2062,9 @@ button:hover {
   padding-left: 1.4em;
 }
 
-.setup-path .invites {
-  margin: 0;
-}
-
-/* 狭い欄では、招待の名前を 1 行にし、ボタンは下の行に */
-.setup-path .invite-row {
-  flex-wrap: wrap;
-}
-
-.setup-path .invite-main {
-  flex: 1 1 calc(100% - 40px);
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.setup-path .setup-create-label {
-  flex-basis: 100%;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.setup-path .setup-create-name {
-  width: 140px;
-}
-
 .repo-access-note .link-button {
   display: inline;
   padding: 0;
-}
-
-.setup-list-h {
-  margin: var(--space-xs) 0 0;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
 }
 
 /* 使用するリポジトリを選ぶ・リポジトリを追加する（GitHub の画面を開いて、入れたら自分で気づく） */
@@ -2029,53 +2090,11 @@ button:hover {
 }
 
 .setup-me img,
-.setup-repo img,
+.setup-joined-row img,
 .token-avatar {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-}
-
-.setup-repos {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-}
-
-.setup-repo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  min-height: 0;
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
-  background: none;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.setup-repo:last-child {
-  border-bottom: none;
-}
-
-.setup-repo:hover {
-  background: var(--bg-tertiary);
-}
-
-.setup-repo.on {
-  background: var(--accent-blue-bg);
-  outline: 1px solid var(--accent-blue);
-  outline-offset: -1px;
-}
-
-.setup-repo-name {
-  font-weight: 600;
-  font-size: var(--font-md);
 }
 
 .setup-repo-badge,
@@ -2089,39 +2108,16 @@ button:hover {
   white-space: nowrap;
 }
 
-.setup-repo-when {
-  margin-left: auto;
-  color: var(--text-faint);
-  font-size: var(--font-xs);
-  white-space: nowrap;
-}
-
 .setup-note {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--font-sm);
 }
 
-.setup-done {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--font-md);
-}
-
-.setup-done li {
-  padding: 2px 0;
-}
-
 .setup-actions {
   display: flex;
   justify-content: space-between;
   margin-top: var(--space-sm);
-}
-
-.setup-actions-right {
-  display: flex;
-  gap: var(--space-sm);
 }
 
 /* ① アカウントを持っている／持っていない（持っていない人は、用意するものを見てから GitHub で作る） */
@@ -2206,42 +2202,6 @@ button:hover {
   padding-left: 1.2em;
   color: var(--text-muted);
   font-size: var(--font-sm);
-}
-
-/* ② チームに入る（新しいアカウントには、まだリポジトリがない） */
-.setup-join {
-  padding: var(--space-sm) var(--space-md);
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-md);
-}
-
-.setup-join ul {
-  margin: var(--space-xs) 0;
-  padding-left: 1.2em;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-}
-
-.setup-search {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.setup-search .btn-sm {
-  min-height: 36px;
-}
-
-.setup-create {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-sm);
-}
-
-.setup-create-label {
-  color: var(--text-muted);
 }
 
 .setup-create-owner {

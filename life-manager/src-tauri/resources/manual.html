@@ -527,20 +527,31 @@
     <p>鍵は 8 時間ごとに自動で新しくなり、選んだ期限が来ると、もう一度ログインします（半年使わないと、GitHub 側でも切れます）。やめたいときは、GitHub の Settings → Applications → <b>Authorized GitHub Apps</b> から <b>Life Manager App</b> を取り消せます（GitHub の画面では、この名前で出ます）。</p>
   </div>
 
-  <h3>ステップ 2: チームに入る・作る</h3>
-  <p>ログインすると、<b>あなたの GitHub の名前</b>が大きく出ます。チームに入るときは、この名前をリーダーに伝えます（<span class="ui">コピー</span> でコピーもできます）。その下に、2 つの道が並びます。</p>
-  <ul>
-    <li><b>チームに入る（メンバー）</b>: リーダーが招待すると、ここに出ます（30 秒ごとに確かめます）。<span class="ui">参加してはじめる</span> を 1 回押すと、招待を受けて、そのリポジトリでタスクの画面が開きます。GitHub から届く招待のメールは、開かなくてかまいません。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。</li>
-    <li><b>チームを作る・1 人で使う（リーダー）</b>: ① <span class="ui">使用するリポジトリを選ぶ</span> を押すと、GitHub の Life Manager App を入れる画面が、<b>あなたのアカウントを選んだ状態</b>で開きます。「すべてのリポジトリ」か、使うリポジトリを選んで <span class="ui">Install</span> を押すと、アプリが自分で気づいて「Life Manager が入っています」になります。② 名前を決めて <span class="ui">作ってはじめる</span> を押すと、リポジトリを作って、そのままはじまります。</li>
-    <li><b>もうあるリポジトリを使う</b>: 下の「使えるリポジトリ」から選んで <span class="ui">次へ</span>。一覧になければ、URL（<code>https://github.com/持ち主/名前</code>）を貼っても選べます。2 つ目からのリポジトリは <span class="ui">リポジトリを追加する</span>（GitHub で足して <span class="ui">Save</span>）で出てきます。</li>
-  </ul>
-  <div class="box warn">
-    <span class="label">チームのリポジトリが出てこない</span>
-    <p>チームのリポジトリは、持ち主（リーダー。組織のリポジトリなら組織の持ち主）が一度だけ Life Manager を入れて、そのリポジトリを選ぶと出てきます。リーダーに「Life Manager を入れて」と伝えてください（「<a href="#team">チームで使う</a>」）。招待をまだ受けていないときも出てきません。</p>
+  <h3>ステップ 2: 使い方を選ぶ</h3>
+  <p>ログインすると「どのように使いますか？」と出るので、3 つから選びます。招待が届いていれば、<span class="ui">招待を受ける</span> に「N 件届いています」と印が付きます。次の画面には、選んだものだけが出ます。選び直すときは <span class="ui">← 戻る</span>。</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>選ぶもの</th><th>だれが</th><th>次の画面ですること</th></tr>
+    <tr><td><span class="ui">チームを作る</span></td><td>リーダー</td><td>リポジトリを用意して、メンバーを招待します</td></tr>
+    <tr><td><span class="ui">招待を受ける</span></td><td>メンバー</td><td>自分の GitHub の名前をリーダーに伝えて、届いた招待で参加します</td></tr>
+    <tr><td><span class="ui">個人で使う</span></td><td>1 人で使う人</td><td>自分だけのリポジトリを用意します（あとからチームにもできます）</td></tr>
+  </table>
   </div>
 
-  <h3>ステップ 3: できあがり</h3>
-  <p><span class="ui">はじめる</span> を押すと、タスクの画面になります。PC では続けて、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。リーダーは <span class="ui">はじめて、メンバーを招待する</span> を押すと、設定 → チーム が開きます（「<a href="#team">チームで使う</a>」）。</p>
+  <h3>ステップ 3: チームを作る・個人で使う</h3>
+  <ol>
+    <li><span class="ui">使用するリポジトリを選ぶ</span> を押すと、GitHub の Life Manager App を入れる画面が、<b>あなたのアカウントを選んだ状態</b>で開きます。「すべてのリポジトリ」か、使うリポジトリを選んで <span class="ui">Install</span> を押すと、アプリが自分で気づいて「Life Manager が入っています」になります。2 つ目からは <span class="ui">リポジトリを追加する</span>（GitHub で足して <span class="ui">Save</span>）です。</li>
+    <li>「使うリポジトリ」で、<b>もうあるもの</b>（Life Manager を入れた、自分が管理者のリポジトリ）を選ぶか、<b>新しく作る</b>で名前を決めます（はじめは非公開）。</li>
+    <li>チームを作るときは <span class="ui">はじめて、メンバーを招待する</span>（新しく作るときは <span class="ui">作って、メンバーを招待する</span>）を押します。はじまると 設定 → チーム が開くので、メンバーを招待します（「<a href="#team">チームで使う</a>」）。個人で使うときは <span class="ui">はじめる</span>（新しく作るときは <span class="ui">作ってはじめる</span>）で、タスクの画面になります。</li>
+  </ol>
+
+  <h3>ステップ 3: 招待を受ける</h3>
+  <p><b>あなたの GitHub の名前</b>が大きく出ます。この名前をリーダーに伝えます（<span class="ui">コピー</span> でコピーもできます）。リーダーが招待すると、ここに出ます（30 秒ごとに確かめます）。<span class="ui">参加してはじめる</span> を 1 回押すと、招待を受けて、そのリポジトリでタスクの画面が開きます。GitHub から届く招待のメールは、開かなくてかまいません。組織への招待は <span class="ui">GitHub で参加</span> から、GitHub の画面で参加します。メールなどから先に参加したときは、下に出るリポジトリの <span class="ui">このリポジトリではじめる</span> を押します。</p>
+  <div class="box warn">
+    <span class="label">参加したのに「まだ使えません」と出る</span>
+    <p>チームのリポジトリは、持ち主（リーダー。組織のリポジトリなら組織の持ち主）が一度だけ Life Manager を入れて、そのリポジトリを選ぶと使えるようになります。<span class="ui">リーダーに送る文をコピー</span> で頼んでから、<span class="ui">もう一度確かめる</span> を押してください（「<a href="#team">チームで使う</a>」）。</p>
+  </div>
+  <p>はじめたあと、PC では続けて、git を使う準備（Git のインストール・コミットに使う名前）の案内が出ます。</p>
   <div class="box hint">
     <span class="label">ヒント</span>
     <p>接続したら、設定 → ラベル の <span class="ui">ラベル一括作成</span> を一度押しておくと、Life Manager で使うラベル（種別・分野・状態・優先）がリポジトリに作られます。</p>
@@ -1453,7 +1464,7 @@ labels: ["種別:バグ", "状態:未整理"]
   </div>
   <h3>リーダー: メンバーを招待する</h3>
   <ol>
-    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。セットアップの <span class="ui">使用するリポジトリを選ぶ</span>（入れてあれば 設定 → 接続 の <span class="ui">リポジトリを追加する</span>）で GitHub が開きます（画面の名前は「Life Manager App」。あなたのアカウントを選んだ状態）。そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。セットアップの <span class="ui">作ってはじめる</span> で作ったリポジトリは、そのまま使えます。入れていないリポジトリは、メンバーが参加しても使えません。</li>
+    <li>チームのリポジトリに Life Manager を入れます（一度だけ）。セットアップで <span class="ui">チームを作る</span> を選び、<span class="ui">使用するリポジトリを選ぶ</span>（入れてあれば 設定 → 接続 の <span class="ui">リポジトリを追加する</span>）で GitHub が開きます（画面の名前は「Life Manager App」。あなたのアカウントを選んだ状態）。そのリポジトリを選んで <span class="ui">Install</span>（2 回目からは <span class="ui">Save</span>）を押します。セットアップの <span class="ui">作って、メンバーを招待する</span> で作ったリポジトリは、そのまま使えます。入れていないリポジトリは、メンバーが参加しても使えません。</li>
     <li>設定 → チーム の <span class="ui">案内をコピー</span> で「参加の案内」をコピーして、メンバーに送ります（チャット・メール・授業のページなど）。</li>
     <li>メンバーから、GitHub の名前が届きます（メンバーのアプリの画面に大きく出ています）。</li>
     <li>設定 → チーム の「招待する」に、届いた名前をまとめて貼り、<span class="ui">招待を送る</span> を押します（「<a href="#settings">設定</a>」）。招待できるのは、リポジトリの管理者です。</li>
@@ -1462,7 +1473,7 @@ labels: ["種別:バグ", "状態:未整理"]
   <h3>メンバーとして参加する</h3>
   <ol>
     <li>GitHub のアカウントがなければ、セットアップの <span class="ui">GitHub で作る</span> から作ります（「<a href="#setup">初期セットアップ</a>」）。</li>
-    <li>ログインしたら、画面に出る「あなたの GitHub の名前」をリーダーに伝えます。</li>
+    <li>ログインしたら <span class="ui">招待を受ける</span> を選び、画面に出る「あなたの GitHub の名前」をリーダーに伝えます。</li>
     <li>招待が届くと、セットアップに出るので、<span class="ui">参加してはじめる</span> を押します（使い始めたあとなら 設定 → チーム の <span class="ui">参加する</span>）。メールの「View invitation」→「Accept invitation」から参加しても同じです。</li>
     <li>チームのリポジトリが出てこないときは、リーダー（組織なら組織の持ち主）に、そのリポジトリへ Life Manager を入れてもらいます（最初の一度だけ）。</li>
   </ol>

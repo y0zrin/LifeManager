@@ -84,7 +84,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
     `Life Manager で「${owner}/${repo}」を使います。`,
     `① アプリを入れる：${DOWNLOAD_URL}`,
     "② アプリを開いて「GitHub でログイン」（アカウントがなければ「GitHub で作る」）",
-    `③ 画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
+    `③「招待を受ける」を選び、画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
     "④ 招待が届くとアプリに出るので「参加してはじめる」を押す",
     "　（GitHub から届く招待のメールは、開かなくてかまいません）",
   ].join("\n");

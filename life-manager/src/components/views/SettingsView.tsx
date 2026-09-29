@@ -545,9 +545,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                 // エラーはuseGitHub側でsetStatusに反映
               }
             }}
-            className="btn-primary"
+            className={discordWebhookInput.trim() || !discordConfigured ? "btn-primary" : "btn-sm danger"}
+            disabled={!discordWebhookInput.trim() && !discordConfigured}
           >
-            {discordWebhookInput.trim() ? "保存" : "解除"}
+            {/* 空にして押すと解除（決めてあるときだけ）。決めていないのに空なら、押せない「保存」 */}
+            {discordWebhookInput.trim() || !discordConfigured ? "保存" : "解除"}
           </button>
           <button
             onClick={async () => {

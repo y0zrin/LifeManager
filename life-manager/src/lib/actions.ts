@@ -114,6 +114,8 @@ export interface ActionsOverview {
   language: string | null;
   /** ワークフローの数（読めなければ null）。0 なら、はじめる準備を促す */
   workflow_count: number | null;
+  /** このリポジトリで Actions を使うか（管理者でなければ読めないので null） */
+  actions_enabled: boolean | null;
   /** ブランチの一覧（読めなければ null） */
   branches: string[] | null;
   protected: string[];
@@ -229,6 +231,25 @@ export const dispatchWorkflow = (owner: string, repo: string, workflowId: number
 export const commitChecks = (owner: string, repo: string, sha: string) => invoke<CommitChecks>("commit_checks", { owner, repo, sha });
 export const installationPermissions = (owner: string) => invoke<InstallationInfo>("installation_permissions", { owner });
 export const enableDependabot = (owner: string, repo: string) => invoke<void>("enable_dependabot", { owner, repo });
+export const setActionsEnabled = (owner: string, repo: string, enabled: boolean) => invoke<void>("set_actions_enabled", { owner, repo, enabled });
+
+/** 非公開のリポジトリで、GitHub Free のアカウントに毎月ついてくる Actions の無料の時間（分） */
+export const FREE_MINUTES = 2000;
+
+/**
+ * 今月このリポジトリで動いた時間の目安（分）。最近の 100 回の実行の、始まりから終わりまでを 1 分単位で切り上げて足す。
+ * GitHub はジョブごと（並んで動いた分も別々に）・Windows は 2 倍で数えるので、本当の使った時間はこれより多い
+ */
+export function monthMinutes(runs: Run[], now = new Date()): number {
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return runs
+    .filter((r) => r.status === "completed" && r.started_at && !r.fork)
+    .filter((r) => {
+      const d = new Date(r.created_at);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` === month;
+    })
+    .reduce((sum, r) => sum + Math.max(1, Math.ceil((Date.parse(r.updated_at) - Date.parse(r.started_at!)) / 60000)), 0);
+}
 export const repoRootFiles = (owner: string, repo: string) => invoke<string[]>("repo_root_files", { owner, repo });
 export const commitsChecks = (owner: string, repo: string, shas: string[]) => invoke<Record<string, CheckSummary>>("commits_checks", { owner, repo, shas });
 

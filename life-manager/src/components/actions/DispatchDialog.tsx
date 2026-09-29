@@ -9,12 +9,14 @@ interface DispatchDialogProps {
   workflow: Workflow;
   branches: string[];
   defaultBranch: string;
+  /** 非公開のリポジトリ（無料の時間を使うことを知らせる） */
+  privateRepo?: boolean;
   onDone: () => void;
   onClose: () => void;
 }
 
 /** 手で実行（workflow_dispatch）: ブランチと、ワークフローに書いてある入力を決めて動かす */
-export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch, onDone, onClose }: DispatchDialogProps) {
+export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch, privateRepo, onDone, onClose }: DispatchDialogProps) {
   const inputs = workflow.dispatch ?? [];
   const [ref, setRef] = useState(defaultBranch);
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -93,6 +95,7 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
             )}
           </label>
         ))}
+        {privateRepo && <p className="muted">非公開のリポジトリなので、Actions の無料の時間（月 2,000 分・アカウントごと）を使います。</p>}
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm" disabled={busy} onClick={onClose}>

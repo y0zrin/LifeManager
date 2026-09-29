@@ -28,6 +28,11 @@ on:
   push:               # プッシュしたとき
   pull_request:       # プルリクを出した・コミットを足したとき
   workflow_dispatch:  # 手で動かすとき（Life Manager の「▶ 手で実行」）
+
+# 同じブランチに続けてプッシュしたら、前の実行は止める（非公開のリポジトリの、無料の時間の節約）
+concurrency:
+  group: \${{ github.workflow }}-\${{ github.ref }}
+  cancel-in-progress: true
 `;
 
 /** プロジェクトがいちばん上でないときは、そのフォルダで動かす */
@@ -59,6 +64,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす（Unity は GameCI が用意する）
+    timeout-minutes: 45   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
     permissions:
       contents: read
       checks: write          # テストの結果を、プルリクのチェックに出す
@@ -112,6 +118,7 @@ jobs:
     # Unreal の入った PC（学校の PC など）で動かす。GitHub のパソコンには Unreal が入っていないので、
     # その PC を「セルフホストランナー」として登録し、ラベル unreal を付けておく
     runs-on: [self-hosted, Windows, unreal]
+    timeout-minutes: 90   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
     defaults:
       run:
         shell: pwsh
@@ -159,6 +166,7 @@ jobs:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4      # リポジトリの中身を取ってくる
       - uses: actions/setup-node@v4    # Node.js を入れる
@@ -182,6 +190,7 @@ ${inDir(dir)}    steps:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4       # リポジトリの中身を取ってくる
       - uses: actions/setup-python@v5   # Python を入れる
@@ -204,6 +213,7 @@ ${inDir(dir)}    steps:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4   # リポジトリの中身を取ってくる
       - run: cargo test             # ビルドして、テストを動かす（Rust は入っています）
@@ -222,6 +232,7 @@ ${inDir(dir)}    steps:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4       # リポジトリの中身を取ってくる
       - uses: actions/setup-dotnet@v4   # .NET を入れる
@@ -242,6 +253,7 @@ ${inDir(dir)}    steps:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4   # リポジトリの中身を取ってくる
       - uses: actions/setup-go@v5   # Go を入れる
@@ -262,6 +274,7 @@ ${inDir(dir)}    steps:
 jobs:
   test:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4     # リポジトリの中身を取ってくる
       - uses: actions/setup-java@v4   # Java を入れる
@@ -284,6 +297,7 @@ ${inDir(dir)}    steps:
 jobs:
   hello:
     runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす
+    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
     steps:
       - uses: actions/checkout@v4          # リポジトリの中身を取ってくる
       - run: echo "こんにちは、Actions！"   # 文字を出す（ログに出ます）

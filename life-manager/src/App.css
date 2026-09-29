@@ -11620,6 +11620,32 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 }
 .ac-setup-hide { font-size: var(--font-xs); }
 .ac-setup-warning { color: var(--accent-red); }
+
+/* 無料の時間（非公開のリポジトリ）・Actions を止めてあるとき */
+.ac-cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: var(--space-md);
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+.ac-cost.stopped { border-color: var(--accent-yellow); background: var(--accent-yellow-bg); }
+.ac-cost b { color: var(--text-primary); }
+.ac-cost-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  color: var(--accent-yellow);
+}
 .ac-setup-message {
   color: var(--text-muted);
   font-size: var(--font-xs);

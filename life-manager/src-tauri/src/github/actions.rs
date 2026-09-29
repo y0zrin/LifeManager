@@ -282,7 +282,7 @@ fn compact_check(c: &Value) -> Value {
 pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: String) -> Result<Value, String> {
     let client = client_of(&state).await?;
     let full_name = format!("{}/{}", owner, repo);
-    let (runs, info, branches, protected, pulls, dependabot, code_scanning, workflows) = tokio::join!(
+    let (runs, info, branches, protected, pulls, dependabot, code_scanning, workflows, permissions) = tokio::join!(
         client.list_runs(&owner, &repo),
         client.get_repository(&owner, &repo),
         client.list_branches(&owner, &repo),
@@ -291,10 +291,13 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         client.dependabot_alerts(&owner, &repo),
         client.code_scanning_alerts(&owner, &repo),
         client.list_workflows(&owner, &repo),
+        client.actions_permissions(&owner, &repo),
     );
     let runs = parse(&runs.map_err(|e| explain(&e, "Actions の実行を読むこと"))?)?;
     // ワークフローがないとき（はじめる準備を促す）。読めなければ null
     let workflow_count = workflows.ok().and_then(|t| parse(&t).ok()).and_then(|v| v["total_count"].as_u64());
+    // Actions を使うか（管理者でなければ読めないので null）
+    let actions_enabled = permissions.ok().and_then(|t| parse(&t).ok()).and_then(|v| v["enabled"].as_bool());
     let info = parse(&info.map_err(|e| explain(&e, "リポジトリを読むこと"))?)?;
     let branches = branches.ok().and_then(|t| parse(&t).ok()).map(|v| names(&v));
     let protected = protected.ok().and_then(|t| parse(&t).ok()).map(|v| names(&v)).unwrap_or_default();
@@ -315,6 +318,7 @@ pub async fn actions_overview(state: ClientState<'_>, owner: String, repo: Strin
         "private": info["private"].as_bool().unwrap_or(true),
         "language": info["language"],
         "workflow_count": workflow_count,
+        "actions_enabled": actions_enabled,
         "branches": branches,
         "protected": protected,
         "pulls": pulls,
@@ -344,6 +348,22 @@ pub async fn installation_permissions(state: ClientState<'_>, owner: String) -> 
         Err(e) if e.starts_with("HTTP 403") || e.starts_with("HTTP 401") => Ok(json!({ "kind": "token" })),
         Err(e) => Err(e),
     }
+}
+
+/// このリポジトリで Actions を使う・止める（管理者だけ。止めると、プッシュしてもワークフローが動かない）
+#[tauri::command]
+pub async fn set_actions_enabled(state: ClientState<'_>, owner: String, repo: String, enabled: bool) -> Result<(), String> {
+    let client = client_of(&state).await?;
+    const ADMIN: Permission = Permission { name: "Administration", access: "Read and write" };
+    client.set_actions_enabled(&owner, &repo, enabled).await.map_err(|e| {
+        errors::explain(
+            &e,
+            if enabled { "Actions を使うようにすること" } else { "Actions を止めること" },
+            &ADMIN,
+            &[("admin", "Actions を止める・使うのは、このリポジトリの管理者だけです")],
+        )
+    })?;
+    Ok(())
 }
 
 /// Dependabot のお知らせを有効にする（管理者だけ）

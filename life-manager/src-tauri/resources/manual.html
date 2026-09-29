@@ -1056,6 +1056,21 @@ git push -u origin main</div>
   </table>
   </div>
 
+  <h3>無料の時間と、Actions を止める</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th></th><th>使う時間</th></tr>
+    <tr><td>公開のリポジトリ</td><td>無料です。</td></tr>
+    <tr><td>非公開のリポジトリ</td><td>アカウント（組織）ごとに、月 2,000 分の無料の時間を使います（Windows のパソコンは 2 倍・Mac は 10 倍で数えます）。<b>支払いの設定がなければ、使い切ると止まるだけで、請求はされません。</b>支払い方法を登録しているときは、GitHub の Billing の予算（Budgets）で上限を決めておきます。</td></tr>
+    <tr><td>この PC（セルフホストランナー）</td><td>時間は使いません。</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li>非公開のリポジトリでは、Actions の山のいちばん上に、今月このリポジトリで動いた時間の目安（最近の 100 回から。本当はこれより多めに数えられます）と、<span class="ui">使った時間を見る</span>（GitHub の Billing）が出ます。<span class="ui">もう一度</span>・<span class="ui">手で実行</span> にも、時間を使うことが出ます。</li>
+    <li>管理者は <span class="ui">⏸ Actions を止める…</span> で、そのリポジトリの Actions を止められます（プッシュやプルリクで、テストなどが動かなくなります）。<span class="ui">▶ 使う</span> で戻せます。</li>
+    <li>ひな形のワークフローには、節約の設定が入っています: <code>timeout-minutes</code>（ふつう 15 分でうち切る。書かないと 6 時間まで待ちます）と、<code>concurrency</code>（同じブランチに続けてプッシュしたら、前の実行を止める）。</li>
+  </ul>
+
   <h3>Unity・Unreal のテスト</h3>
   <div class="table-wrap">
   <table>

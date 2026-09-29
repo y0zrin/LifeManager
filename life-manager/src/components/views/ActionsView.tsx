@@ -6,8 +6,11 @@ import {
   SECURITY_PERMISSIONS,
   STALE_DAYS,
   actionsWorkflows,
+  FREE_MINUTES,
   enableDependabot,
   isPermissionError,
+  monthMinutes,
+  setActionsEnabled,
   duration,
   eventLabel,
   isActive,
@@ -79,6 +82,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const hiddenKey = `actions-setup-hidden:${owner}/${repo}`;
   const [hidden, setHidden] = useState<string[]>(() => loadHidden(hiddenKey));
   const [setupBusy, setSetupBusy] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
   useEffect(() => setHidden(loadHidden(hiddenKey)), [hiddenKey]);
   function hide(item: string) {
@@ -289,6 +293,69 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   }
   const setup = setupItems();
 
+  // 無料の時間（非公開のリポジトリ）と、Actions を止める・使う（管理者）
+  async function toggleActions(enabled: boolean) {
+    setSetupBusy(true);
+    setSetupError(null);
+    try {
+      await setActionsEnabled(owner, repo, enabled);
+      setConfirmStop(false);
+      setNotice(enabled ? "▶ このリポジトリで Actions を使うようにしました" : "⏸ このリポジトリの Actions を止めました。プッシュしても、ワークフローは動きません");
+      reload();
+    } catch (e) {
+      setSetupError(String(e));
+    } finally {
+      setSetupBusy(false);
+    }
+  }
+  const costBar = (() => {
+    if (!overview) return null;
+    const stopped = overview.actions_enabled === false;
+    if (!overview.private && !stopped) return null;
+    const used = monthMinutes(overview.runs);
+    return (
+      <div className={`ac-cost${stopped ? " stopped" : ""}`}>
+        {stopped ? (
+          <span className="ac-setup-text">
+            ⏸ <b>このリポジトリでは、Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
+          </span>
+        ) : (
+          <span className="ac-setup-text">
+            🔒 <b>非公開のリポジトリ:</b> Actions は、アカウントごとに月 {FREE_MINUTES.toLocaleString()} 分の無料の時間を使います（今月このリポジトリで約 {used} 分。目安で、本当はこれより多めに数えられます）。支払いの設定がなければ、使い切ると止まるだけで、請求はされません。
+          </span>
+        )}
+        <span className="ac-setup-actions">
+          {!stopped && (
+            <button type="button" className="btn-sm" onClick={() => openUrl("https://github.com/settings/billing").catch(() => {})}>
+              使った時間を見る ↗
+            </button>
+          )}
+          {overview.can_admin && stopped && (
+            <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={() => toggleActions(true)}>
+              ▶ 使う
+            </button>
+          )}
+          {overview.can_admin && !stopped && overview.actions_enabled !== null && !confirmStop && (
+            <button type="button" className="btn-sm" onClick={() => setConfirmStop(true)}>
+              ⏸ Actions を止める…
+            </button>
+          )}
+        </span>
+        {confirmStop && (
+          <span className="ac-cost-confirm">
+            このリポジトリで Actions を止めます。プッシュやプルリクで、テストなどが動かなくなります（あとで「使う」に戻せます）。
+            <button type="button" className="btn-sm" onClick={() => setConfirmStop(false)}>
+              やめる
+            </button>
+            <button type="button" className="btn-sm danger" disabled={setupBusy} onClick={() => toggleActions(false)}>
+              止める
+            </button>
+          </span>
+        )}
+      </div>
+    );
+  })();
+
   const detail = (() => {
     if (card?.kind === "run" && card.run) {
       return (
@@ -303,6 +370,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           focusJob={focusJob}
           onChanged={reload}
           onOpenPull={onOpenPull}
+          privateRepo={overview?.private ?? false}
         />
       );
     }
@@ -319,6 +387,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           focusJob={focusJob}
           onChanged={reload}
           onOpenPull={onOpenPull}
+          privateRepo={overview?.private ?? false}
         />
       );
     }
@@ -436,6 +505,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
             <div className="ac-items">
               {tab === "stack" && (
                 <>
+                  {costBar}
                   {setup.length > 0 && (
                     <div className="ac-setup ac-setup-list">
                       <b className="ac-setup-title">はじめる準備</b>
@@ -632,6 +702,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           workflow={dispatching}
           branches={overview.branches ?? []}
           defaultBranch={overview.default_branch}
+          privateRepo={overview.private}
           onClose={() => setDispatching(null)}
           onDone={() => {
             setNotice(`▶ ${dispatching.name} を動かしました。少しすると「すべての実行」に出ます`);

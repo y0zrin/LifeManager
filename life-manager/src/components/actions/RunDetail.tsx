@@ -30,6 +30,8 @@ interface RunDetailProps {
   focusJob?: number | null;
   onChanged: () => void;
   onOpenPull: (n: number) => void;
+  /** 非公開のリポジトリ（もう一度動かすと、無料の時間を使う） */
+  privateRepo?: boolean;
 }
 
 type LogState = { lines: string[]; truncated: boolean } | { error: string } | "loading";
@@ -42,7 +44,8 @@ function commandOf(step: string): string | null {
 
 /** 実行の中身: 何をすればよいか → ジョブ → ステップ → 失敗したステップのログ（エラーの行を赤く） */
 export function RunDetail(props: RunDetailProps) {
-  const { owner, repo, run, card, canPush, defaultBranch, focusJob, onChanged, onOpenPull } = props;
+  const { owner, repo, run, card, canPush, defaultBranch, focusJob, onChanged, onOpenPull, privateRepo } = props;
+  const cost = privateRepo ? "非公開のリポジトリなので、Actions の無料の時間を使います" : undefined;
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -187,12 +190,12 @@ export function RunDetail(props: RunDetailProps) {
         </h2>
         <span className="grow" />
         {canPush && failed && (
-          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, true), "失敗したジョブを、もう一度動かしました。少しすると動き始めます")}>
+          <button type="button" className="btn-sm" title={cost} disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, true), "失敗したジョブを、もう一度動かしました。少しすると動き始めます")}>
             ↻ 失敗したものをもう一度
           </button>
         )}
         {canPush && run.status === "completed" && (
-          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, false), "すべてのジョブを、もう一度動かしました。少しすると動き始めます")}>
+          <button type="button" className="btn-sm" title={cost} disabled={busy !== null} onClick={() => act("もう一度動かしています…", () => rerunRun(owner, repo, run.id, false), "すべてのジョブを、もう一度動かしました。少しすると動き始めます")}>
             ↻ すべてもう一度
           </button>
         )}

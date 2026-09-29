@@ -1024,6 +1024,18 @@ impl GitHubClient {
         return self.post(&url, &serde_json::json!({ "ref": git_ref, "inputs": inputs })).await;
     }
 
+    /// このリポジトリで Actions を使うか（管理者だけ読める）
+    pub async fn actions_permissions(&self, owner: &str, repo: &str) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/permissions", BASE_URL, owner, repo);
+        return self.get(&url).await;
+    }
+
+    /// このリポジトリで Actions を使う・止める（管理者だけ）
+    pub async fn set_actions_enabled(&self, owner: &str, repo: &str, enabled: bool) -> Result<String, String> {
+        let url = format!("{}/repos/{}/{}/actions/permissions", BASE_URL, owner, repo);
+        return self.put(&url, &serde_json::json!({ "enabled": enabled })).await;
+    }
+
     /// 保護ルールのあるブランチ
     pub async fn list_protected_branches(&self, owner: &str, repo: &str) -> Result<String, String> {
         let url = format!("{}/repos/{}/{}/branches?protected=true&per_page=100", BASE_URL, owner, repo);

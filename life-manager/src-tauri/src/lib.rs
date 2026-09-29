@@ -1502,6 +1502,7 @@ pub fn run() {
             github::actions::actions_overview,
             github::actions::installation_permissions,
             github::actions::enable_dependabot,
+            github::actions::set_actions_enabled,
             github::actions::repo_root_files,
             github::actions::actions_workflows,
             github::actions::run_jobs,

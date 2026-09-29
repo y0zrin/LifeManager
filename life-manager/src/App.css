@@ -1,7 +1,8 @@
 /* --- Design Tokens --- */
 
 :root {
-  /* 暗い見た目だけのアプリなので、スクロールバーなど、ブラウザが描く部品も暗くする（サイドバーの白いスクロールバーなど） */
+  /* はじめのテーマ（黒板）は暗い見た目なので、スクロールバーなど、ブラウザが描く部品も暗くする（サイドバーの白いスクロールバーなど）。
+     テーマ（ホワイトボード・クエスト）は、下の :root[data-theme] で色を入れ替える */
   color-scheme: dark;
 
   /* Colors - Background */
@@ -81,6 +82,7 @@
   /* Font */
   --font-family: 'Segoe UI', -apple-system, sans-serif;
   --font-mono: 'Cascadia Mono', Consolas, monospace;
+  --font-mincho: "Yu Mincho", "游明朝", "YuMincho", serif;
   --font-xs: 11px;
   --font-sm: 12px;
   --font-md: 13px;
@@ -160,6 +162,202 @@
   --dur-base: 0.28s;
 }
 
+/* --- テーマ: ホワイトボード（明るいオフィス）。ボードはホワイトボード、机はオフィスのデスク --- */
+:root[data-theme="white"] {
+  color-scheme: light;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
+  --border-default: #d0d7de;
+  --border-subtle: #e6ebf0;
+  --text-primary: #1f2328;
+  --text-secondary: #333a42;
+  --text-muted: #59636e;
+  --text-faint: #8c959f;
+  --accent-blue: #0969da;
+  --accent-blue-bg: #0969da1a;
+  --accent-teal: #1b7c83;
+  --accent-teal-bg: #1b7c831a;
+  --accent-teal-border: #1b7c8366;
+  --accent-green: #1f883d;
+  --accent-green-hover: #1a7f37;
+  --accent-red: #cf222e;
+  --accent-red-strong: #a40e26;
+  --accent-yellow: #9a6700;
+  --accent-purple: #8250df;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #1a7f371f;
+  --accent-red-bg: #cf222e1a;
+  --accent-yellow-bg: #d4a72c2e;
+  --accent-purple-bg: #8250df1a;
+  --diff-add-bg: #dafbe1;
+  --diff-del-bg: #ffebe9;
+  --diff-hunk-bg: #ddf4ff;
+  --shadow-popover: 0 8px 24px #8c959f40;
+  --chart-created: #0969da;
+  --chart-closed: #1a7f37;
+  --state-0: #8c959f;
+  --state-1: #0969da;
+  --state-2: #bf8700;
+  --state-3: #8250df;
+  --state-4: #1a7f37;
+  --state-5: #1b7c83;
+  --state-6: #bf3989;
+  --state-7: #bc4c00;
+  --lane-0: #0969da;
+  --lane-1: #1a7f37;
+  --lane-2: #8250df;
+  --lane-3: #bc4c00;
+  --lane-4: #cf222e;
+  --lane-5: #1b7c83;
+  --lane-6: #9a6700;
+  --lane-7: #bf3989;
+  --lane-8: #54aeff;
+  --lane-9: #4ac26b;
+  --view-work: #bc4c00;
+  --view-insights: #1b7c83;
+  --view-dashboard: #0969da;
+  --view-kanban: #1a7f37;
+  --view-milestones: #8250df;
+  --view-routines: #bf3989;
+  --view-timeline: #9a6700;
+  --view-gantt: #cf222e;
+  --view-branches: #2da44e;
+  --view-overview: #0550ae;
+  --view-pulls: #8250df;
+  --view-actions: #bc4c00;
+  --view-releases: #1b7c83;
+  --view-activity: #bf3989;
+  --view-settings: #9a6700;
+  --level-soon: #bc4c00;
+  --level-soon-strong: #953800;
+  --level-soon-bg: #fb8f441f;
+  --level-later: #9a6700;
+  --level-later-strong: #7d4e00;
+  --level-later-bg: #d4a72c26;
+  --accent-blue-strong: #0969da;
+  --log-error-text: #cf222e;
+  --merge-purple: #8250df;
+  --merge-purple-strong: #6639ba;
+  --merge-purple-bg: #8250df1a;
+  --merge-purple-text: #6639ba;
+  --spark-1: #cf222e;
+  --spark-2: #bc4c00;
+  --spark-3: #bf8700;
+  --spark-4: #1a7f37;
+  --spark-5: #1b7c83;
+  --spark-6: #0969da;
+  --spark-7: #8250df;
+  --spark-8: #bf3989;
+  --stamp-red: #cf222e;
+  --stamp-pink: #bf3989;
+  --celebrate-text: #1a7f37;
+  --shadow-color: #8c959f59;
+}
+
+/* --- テーマ: クエスト（木と羊皮紙）。ボードはクエストボード、机はギルドの受付 --- */
+:root[data-theme="quest"] {
+  --bg-primary: #1b120a;
+  --bg-secondary: #26190e;
+  --bg-tertiary: #342313;
+  --border-default: #5b3f24;
+  --border-subtle: #3a2816;
+  --text-primary: #f4e7c9;
+  --text-secondary: #e3d1a8;
+  --text-muted: #b59d74;
+  --text-faint: #7d6547;
+  --accent-blue: #e7b24a;
+  --accent-blue-bg: #e7b24a24;
+  --accent-teal: #6cc4b0;
+  --accent-teal-bg: #6cc4b01f;
+  --accent-teal-border: #6cc4b066;
+  --accent-green: #4f8a3a;
+  --accent-green-hover: #6aa84f;
+  --accent-red: #e0624f;
+  --accent-red-strong: #c2412d;
+  --accent-yellow: #e0a83a;
+  --accent-purple: #c197e8;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #6aa84f26;
+  --accent-red-bg: #e0624f26;
+  --accent-yellow-bg: #e0a83a26;
+  --accent-purple-bg: #c197e81f;
+  --diff-add-bg: #6aa84f26;
+  --diff-del-bg: #e0624f26;
+  --diff-hunk-bg: #e7b24a1a;
+  --shadow-popover: 0 8px 24px #000000a6;
+  --chart-created: #e7b24a;
+  --chart-closed: #8fc45a;
+  --state-0: #b59d74;
+  --state-1: #e7b24a;
+  --state-2: #e08a3a;
+  --state-3: #c197e8;
+  --state-4: #8fc45a;
+  --state-5: #6cc4b0;
+  --state-6: #e88fb0;
+  --state-7: #f0a868;
+  --lane-0: #e7b24a;
+  --lane-1: #8fc45a;
+  --lane-2: #c197e8;
+  --lane-3: #f0a868;
+  --lane-4: #e0624f;
+  --lane-5: #6cc4b0;
+  --lane-6: #d9c56a;
+  --lane-7: #e88fb0;
+  --lane-8: #9fc9e8;
+  --lane-9: #b5d98a;
+  --view-work: #f0a868;
+  --view-insights: #6cc4b0;
+  --view-dashboard: #e7b24a;
+  --view-kanban: #8fc45a;
+  --view-milestones: #c197e8;
+  --view-routines: #e88fb0;
+  --view-timeline: #d9c56a;
+  --view-gantt: #e0624f;
+  --view-branches: #b5d98a;
+  --view-overview: #9fc9e8;
+  --view-pulls: #c197e8;
+  --view-actions: #f0a868;
+  --view-releases: #6cc4b0;
+  --view-activity: #e88fb0;
+  --view-settings: #d9a441;
+  --level-soon: #f0a868;
+  --level-soon-strong: #c96f24;
+  --level-soon-bg: #f0a86826;
+  --level-later: #d9c56a;
+  --level-later-strong: #9e8a2a;
+  --level-later-bg: #d9c56a26;
+  --accent-blue-strong: #a86f14;
+  --log-error-text: #f0a898;
+  --merge-purple: #9b6fd0;
+  --merge-purple-strong: #c197e8;
+  --merge-purple-bg: #9b6fd026;
+  --merge-purple-text: #dcc2f5;
+  --spark-1: #e0624f;
+  --spark-2: #f0a868;
+  --spark-3: #ffd66b;
+  --spark-4: #8fc45a;
+  --spark-5: #6cc4b0;
+  --spark-6: #e7b24a;
+  --spark-7: #c197e8;
+  --spark-8: #e88fb0;
+  --stamp-red: #c62828;
+  --stamp-pink: #e88fb0;
+  --celebrate-text: #ffd66b;
+  --shadow-color: #000000a6;
+}
+
+/* クエスト: サイドバーは木目、アプリの名前と画面の題は明朝 */
+:root[data-theme="quest"] .sidebar {
+  background: repeating-linear-gradient(90deg, transparent 0 34px, #00000026 34px 36px), linear-gradient(180deg, #2e1e10, #22160b);
+}
+
+:root[data-theme="quest"] .sidebar-title,
+:root[data-theme="quest"] .topbar-title {
+  font-family: var(--font-mincho);
+  letter-spacing: 0.5px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -172,10 +370,14 @@ html {
   touch-action: manipulation;
 }
 
-/* 日付ピッカーのカレンダーアイコンを白くする */
+/* 日付ピッカーのカレンダーアイコンを白くする（明るいテーマでは、そのまま） */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   cursor: pointer;
+}
+
+:root[data-theme="white"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
 }
 
 /* タイムラインの日付ピッカー: テキストを隠してアイコンのみ表示 */
@@ -193,6 +395,10 @@ input[type="date"].date-icon-only {
 /* セレクトの矢印アイコンを見えるようにする */
 select {
   color-scheme: dark;
+}
+
+:root[data-theme="white"] select {
+  color-scheme: light;
 }
 
 
@@ -1855,7 +2061,7 @@ button:hover {
   font-size: var(--font-sm);
   background: var(--accent-green);
   border: 1px solid var(--accent-green-hover);
-  color: #fff;
+  color: var(--text-on-accent);
   border-radius: var(--radius-md);
   min-height: 32px;
 }
@@ -2153,33 +2359,6 @@ button:hover {
   font-weight: 600;
 }
 
-.bd-looks {
-  display: inline-flex;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.bd-looks button {
-  min-height: 0;
-  padding: 3px 10px;
-  border: none;
-  border-radius: 0;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-}
-
-.bd-looks button + button {
-  border-left: 1px solid var(--border-default);
-}
-
-.bd-looks button.on {
-  background: var(--accent-blue-bg);
-  color: var(--accent-blue);
-  font-weight: 600;
-}
-
 /* ジャンルのタブ（付箋を落とすと、そのボードへ移せる） */
 .bd-tabs {
   display: flex;
@@ -2301,6 +2480,27 @@ button:hover {
   z-index: 1000;
   pointer-events: none;
   transform: rotate(3deg) scale(1.03);
+}
+
+/* 机の上で、置けるか（付箋の上に出す） */
+.bd-float-tag {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: var(--accent-green);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-on-accent);
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-3deg);
+}
+
+.bd-float-tag.no {
+  background: var(--accent-red-strong);
 }
 
 .bd-move {
@@ -2511,9 +2711,9 @@ button:hover {
   color: #444;
 }
 
-/* ホワイトボード（会議の） */
+/* ホワイトボード（会議の。明るいテーマのボード） */
 .bd-wall.look-white {
-  background: #1c2128;
+  background: #e3e8ee;
 }
 
 .look-white .bd-board {
@@ -2521,7 +2721,7 @@ button:hover {
   border-bottom-width: 12px;
   border-radius: 6px;
   background: linear-gradient(160deg, #fbfcfd 0%, #eef1f4 55%, #f7f9fa 100%);
-  box-shadow: inset 0 0 30px #9aa4ae44, 0 4px 10px #0008;
+  box-shadow: inset 0 0 30px #9aa4ae44, 0 4px 10px #0003;
 }
 
 .look-white .bd-title {
@@ -2673,6 +2873,196 @@ button:hover {
   .bd-tab small {
     display: none;
   }
+}
+
+/* --- ボードの下の机（テーマごと: 黒板 = 勉強机、ホワイトボード = オフィスのデスク、クエスト = ギルドの受付）。付箋を置くと自分の担当に --- */
+.bd-desk {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  height: var(--bd-desk-height);
+  padding: 10px 16px 14px;
+}
+
+.bd-desk-name {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 124px;
+}
+
+.bd-desk-name b {
+  font-size: var(--font-lg);
+}
+
+.bd-desk-name small {
+  font-size: var(--font-xs);
+  opacity: 0.8;
+}
+
+.bd-desk-items {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 6px 2px;
+}
+
+.bd-desk-chip {
+  flex: none;
+  display: block;
+  max-width: 220px;
+  min-height: 0;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 1px;
+  box-shadow: 0 3px 5px #0005;
+  color: #262626;
+  font-family: var(--bd-hand);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: grab;
+  transform: rotate(-1deg);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.bd-desk-chip:nth-child(even) {
+  transform: rotate(1deg);
+}
+
+.bd-desk-chip:hover {
+  transform: translateY(-2px);
+}
+
+.bd-desk-chip.dragging {
+  opacity: 0.35;
+}
+
+.bd-desk-no {
+  margin-right: 4px;
+  opacity: 0.6;
+}
+
+.bd-desk-hanko {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  border: 1.5px solid #c62828;
+  border-radius: 50%;
+  color: #c62828;
+  font-size: 8px;
+  font-weight: 800;
+  vertical-align: middle;
+  transform: rotate(-12deg);
+}
+
+.bd-desk-empty {
+  font-size: var(--font-sm);
+  opacity: 0.8;
+}
+
+.bd-desk-deco {
+  flex: none;
+  font-size: 24px;
+  letter-spacing: 6px;
+}
+
+/* 付箋を持っているあいだ: 置けるか（置けないときは赤） */
+.bd-desk-drop {
+  position: absolute;
+  inset: 6px 10px 9px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.bd-desk.over .bd-desk-drop {
+  border-style: solid;
+  border-width: 3px;
+}
+
+.bd-desk-note {
+  position: absolute;
+  top: -36px;
+  right: 16px;
+  padding: 4px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+}
+
+/* 勉強机（黒板） */
+.desk-chalk {
+  border-top: 6px solid #8a8f94;
+  background: repeating-linear-gradient(0deg, transparent 0 7px, #00000010 7px 8px), linear-gradient(180deg, #d2ab72 0%, #c39a5f 70%, #9c7442 100%);
+  color: #3b2a14;
+}
+
+.desk-chalk .bd-desk-drop {
+  border-color: #f4f1e8;
+  background: #243a2ee6;
+  color: #ffffff;
+  font-family: var(--bd-hand);
+}
+
+/* オフィスのデスク（ホワイトボード） */
+.desk-white {
+  border-top: 6px solid #8f887d;
+  background: linear-gradient(180deg, #d9d4cc 0%, #cbc5bb 70%, #a39c90 100%);
+  color: #2d2a26;
+}
+
+.desk-white .bd-desk-drop {
+  border-color: #1b3a8c;
+  background: #ffffffcc;
+  color: #1b3a8c;
+}
+
+/* ギルドの受付（クエスト） */
+.desk-quest {
+  border-top: 7px solid #a8733f;
+  background: repeating-linear-gradient(90deg, transparent 0 60px, #00000022 60px 62px), linear-gradient(180deg, #7a4b24 0%, #5d3717 60%, #4a2d15 100%);
+  color: #fbe8c8;
+  font-family: var(--bd-mincho);
+}
+
+.desk-quest .bd-desk-chip {
+  background: linear-gradient(135deg, #f6e7c4 0%, #efdcae 55%, #e3c98f 100%);
+  color: #3b2412;
+  font-family: var(--bd-mincho);
+}
+
+.desk-quest .bd-desk-drop {
+  border-color: #fbe8c8;
+  background: #3a2210e6;
+  color: #fbe8c8;
+}
+
+.desk-white .bd-desk-drop.no {
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+.desk-chalk .bd-desk-drop.no,
+.desk-quest .bd-desk-drop.no {
+  border-color: #ff9e8f;
+  color: #ff9e8f;
 }
 
 .kanban-status-sheet {
@@ -6051,6 +6441,8 @@ button:hover {
 .app-shell {
   --fab-size: 48px;
   --fab-gap: var(--space-lg);
+  /* ボードの下の机の高さ（ボードでは、メモのボタンとお知らせを、机の上に出す） */
+  --bd-desk-height: 84px;
   --edge-left: 0px;
   --edge-right: 0px;
   --edge-top: var(--header-height);
@@ -6076,6 +6468,18 @@ button:hover {
   .sb-bottom:not(.sb-hidden),
   .sb-bottom.sb-hidden:has(> .sidebar.peek) {
     --edge-bottom: var(--hbar-height);
+  }
+}
+
+/* ボード（PC）: 下の机の上まで */
+@media (min-width: 640px) {
+  .app-shell[data-view="kanban"] {
+    --edge-bottom: var(--bd-desk-height);
+  }
+
+  .app-shell.sb-bottom[data-view="kanban"]:not(.sb-hidden),
+  .app-shell.sb-bottom.sb-hidden[data-view="kanban"]:has(> .sidebar.peek) {
+    --edge-bottom: calc(var(--hbar-height) + var(--bd-desk-height));
   }
 }
 
@@ -7396,7 +7800,7 @@ button:hover {
   padding: 0 7px;
   border-radius: 10px;
   background: var(--accent-blue);
-  color: var(--text-on-accent);
+  color: var(--bg-primary);
   font-size: var(--font-xs);
   font-weight: 600;
 }
@@ -9214,58 +9618,32 @@ button.lh:hover {
   text-anchor: middle;
 }
 
-/* ボードの見た目の見本（板と付箋の色は、ボードの画面と同じ） */
-.pv-quest-frame {
-  fill: #54331a;
+/* テーマの見本（画面・サイドバー・ボード・机を、そのテーマの色で描く） */
+.pv-t-win {
+  stroke-width: 1.5;
 }
 
-.pv-quest-board {
-  fill: #c69a62;
-}
-
-.pv-quest-paper {
-  fill: #f0dcae;
-  stroke: #b8904d;
-  stroke-width: 0.6;
-}
-
-.pv-pin {
-  fill: #b3261e;
-}
-
-.pv-white-frame {
-  fill: #b9c0c8;
-}
-
-.pv-white-board {
-  fill: #f7f9fa;
-}
-
-.pv-white-ink {
-  stroke: #1b3a8c;
-  stroke-width: 1.6;
-}
-
-.pv-chalk-frame {
-  fill: #6b4a2b;
-}
-
-.pv-chalk-board {
-  fill: #2a4435;
-}
-
-.pv-chalk-ink {
-  stroke: #f4f1e8;
-  stroke-width: 1.6;
-}
-
-.pv-note-yellow {
-  fill: #fff176;
-}
-
-.pv-note-pink {
-  fill: #ffb3c1;
-}
+.pv-theme-chalk .pv-t-win { fill: #0d1117; stroke: #30363d; }
+.pv-theme-chalk .pv-t-side { fill: #161b22; }
+.pv-theme-chalk .pv-t-frame { fill: #6b4a2b; }
+.pv-theme-chalk .pv-t-board { fill: #2a4435; }
+.pv-theme-chalk .pv-t-note { fill: #fff176; }
+.pv-theme-chalk .pv-t-note2 { fill: #a5d2fa; }
+.pv-theme-chalk .pv-t-desk { fill: #c39a5f; }
+.pv-theme-white .pv-t-win { fill: #ffffff; stroke: #d0d7de; }
+.pv-theme-white .pv-t-side { fill: #eaeef2; }
+.pv-theme-white .pv-t-frame { fill: #b9c0c8; }
+.pv-theme-white .pv-t-board { fill: #f7f9fa; }
+.pv-theme-white .pv-t-note { fill: #fff176; }
+.pv-theme-white .pv-t-note2 { fill: #ffb3c1; }
+.pv-theme-white .pv-t-desk { fill: #cbc5bb; }
+.pv-theme-quest .pv-t-win { fill: #1b120a; stroke: #5b3f24; }
+.pv-theme-quest .pv-t-side { fill: #2e1e10; }
+.pv-theme-quest .pv-t-frame { fill: #4a2d15; }
+.pv-theme-quest .pv-t-board { fill: #c69a62; }
+.pv-theme-quest .pv-t-note { fill: #f0dcae; }
+.pv-theme-quest .pv-t-note2 { fill: #efdcae; }
+.pv-theme-quest .pv-t-desk { fill: #5d3717; }
 
 /* ガントの帯の色: 色と名前を並べる */
 .gantt-colors {
@@ -11586,7 +11964,7 @@ html.vt-tab .pr-tab-body {
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent-blue);
-  color: var(--text-on-accent);
+  color: var(--bg-primary);
   font-size: 13px;
   line-height: 18px;
   transform: translateY(-50%);

@@ -14,9 +14,9 @@ interface TicketCardProps {
 export function TicketCard({ issue, onSelect }: TicketCardProps) {
   // Priority detection
   const priorityLabel = issue.labels.find((l) => l.name.startsWith("優先:"));
-  const priorityColor = priorityLabel?.name === "優先:高" ? "#f85149"
-    : priorityLabel?.name === "優先:中" ? "#d29922"
-    : priorityLabel?.name === "優先:低" ? "#3fb950"
+  const priorityColor = priorityLabel?.name === "優先:高" ? "var(--accent-red)"
+    : priorityLabel?.name === "優先:中" ? "var(--accent-yellow)"
+    : priorityLabel?.name === "優先:低" ? "var(--accent-green-hover)"
     : "transparent";
 
   // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)

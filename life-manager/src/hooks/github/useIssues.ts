@@ -165,7 +165,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       setIssues((prev) =>
         prev.map((i) =>
           i.number === n
-            ? { ...i, assignees: [...(i.assignees || []), { login: currentUser, avatar_url: "" }] }
+            ? { ...i, assignees: [...(i.assignees || []), { login: currentUser, avatar_url: `https://github.com/${encodeURIComponent(currentUser)}.png?size=40` }] }
             : i
         )
       );

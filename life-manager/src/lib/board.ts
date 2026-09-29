@@ -25,11 +25,3 @@ export const BOARD_GENRES: { key: BoardGenre; label: string; icon: string; about
   { key: "doing", label: "着手済み", icon: "🔥", about: "やっていることを追う" },
 ];
 
-/** ボードの見た目（ボードの上と、設定 → 表示 で選ぶ） */
-export type BoardLook = "quest" | "white" | "chalk";
-
-export const BOARD_LOOKS: { key: BoardLook; label: string; about: string }[] = [
-  { key: "quest", label: "クエスト", about: "木とコルクの板に依頼書。見積もりは報酬と難しさの星、自分の担当は「受注」の判" },
-  { key: "white", label: "ホワイトボード", about: "会議のホワイトボードに付箋。種別で付箋の色が変わります" },
-  { key: "chalk", label: "黒板", about: "ホワイトボードの暗い版。はじめはこれ" },
-];

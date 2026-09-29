@@ -12,7 +12,7 @@ import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
 import { BoardColumnsSetting } from "../common/BoardColumnsSetting";
-import { BOARD_LOOKS, type BoardLook } from "../../lib/board";
+import { THEMES, type Theme } from "../../lib/theme";
 import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
@@ -95,28 +95,17 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
 
-// ボードの見た目の見本の絵（板の色・付箋の色は、ボードの画面と同じ）
-function BoardLookPreview({ look }: { look: BoardLook }) {
+// テーマの見本の絵（画面・サイドバー・ボード・下の机の色は、そのテーマと同じ）
+function ThemePreview({ theme }: { theme: Theme }) {
   return (
-    <svg className="display-preview" width="46" height="34" aria-hidden="true">
-      {look === "quest" ? (
-        <>
-          <rect x="2" y="2" width="42" height="30" rx="3" className="pv-quest-frame" />
-          <rect x="5" y="5" width="36" height="24" rx="1.5" className="pv-quest-board" />
-          <rect x="9" y="9" width="11" height="15" className="pv-quest-paper" transform="rotate(-4 14 16)" />
-          <rect x="25" y="10" width="11" height="14" className="pv-quest-paper" transform="rotate(3 30 17)" />
-          <circle cx="14.5" cy="10" r="1.3" className="pv-pin" />
-          <circle cx="30.5" cy="11" r="1.3" className="pv-pin" />
-        </>
-      ) : (
-        <>
-          <rect x="2" y="2" width="42" height="30" rx="3" className={look === "white" ? "pv-white-frame" : "pv-chalk-frame"} />
-          <rect x="5" y="5" width="36" height="24" rx="1.5" className={look === "white" ? "pv-white-board" : "pv-chalk-board"} />
-          <path d="M8,9 H22" className={look === "white" ? "pv-white-ink" : "pv-chalk-ink"} />
-          <rect x="9" y="13" width="10" height="10" className="pv-note-yellow" transform="rotate(-4 14 18)" />
-          <rect x="24" y="12" width="10" height="10" className="pv-note-pink" transform="rotate(3 29 17)" />
-        </>
-      )}
+    <svg className={`display-preview pv-theme pv-theme-${theme}`} width="46" height="34" aria-hidden="true">
+      <rect x="1" y="1" width="44" height="32" rx="4" className="pv-t-win" />
+      <rect x="1" y="1" width="10" height="32" rx="2" className="pv-t-side" />
+      <rect x="14" y="5" width="28" height="18" rx="1.5" className="pv-t-frame" />
+      <rect x="16" y="7" width="24" height="14" className="pv-t-board" />
+      <rect x="19" y="10" width="7" height="7" className="pv-t-note" transform="rotate(-5 22.5 13.5)" />
+      <rect x="29" y="11" width="7" height="7" className="pv-t-note2" transform="rotate(4 32.5 14.5)" />
+      <rect x="11" y="26" width="34" height="7" className="pv-t-desk" />
     </svg>
   );
 }
@@ -787,6 +776,26 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* === 表示ペイン === */}
       {activePane === "display" && <>
 
+      <div className="form-card" id="settings-theme">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>テーマ</h3>
+        <div className="display-opts">
+          {THEMES.map((t) => (
+            <label key={t.key} className="display-opt">
+              <input type="radio" name="theme" checked={displaySettings.theme === t.key}
+                onChange={() => onChangeDisplaySettings({ theme: t.key })} />
+              <ThemePreview theme={t.key} />
+              <span>
+                <b>{t.label}</b>
+                <small>{t.about}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
+          アプリ全体の色が変わります。ボードと、ボードの下の机も、テーマのものになります。
+        </p>
+      </div>
+
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>学習の補助</h3>
         <label className="display-opt">
@@ -833,26 +842,6 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             </span>
           </label>
         </div>
-      </div>
-
-      <div className="form-card" id="settings-board-look">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>ボードの見た目</h3>
-        <div className="display-opts">
-          {BOARD_LOOKS.map((l) => (
-            <label key={l.key} className="display-opt">
-              <input type="radio" name="board-look" checked={displaySettings.boardLook === l.key}
-                onChange={() => onChangeDisplaySettings({ boardLook: l.key })} />
-              <BoardLookPreview look={l.key} />
-              <span>
-                <b>{l.label}</b>
-                <small>{l.about}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-        <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          ボードの上の「クエスト・ホワイトボード・黒板」でも切り替えられます。
-        </p>
       </div>
 
       <div className="form-card" id="settings-gantt-colors">

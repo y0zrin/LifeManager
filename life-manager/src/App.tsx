@@ -1123,8 +1123,8 @@ function App() {
               currentUser={gh.currentUser}
               onStatusChange={gh.changeIssueStatus}
               onSelectIssue={setSelectedIssue}
-              look={display.settings.boardLook}
-              onLookChange={(look) => display.update({ boardLook: look })}
+              look={display.settings.theme}
+              onAssignToMe={gh.assignToMe}
               onOpenBoardSettings={() => openSettings("tasks", "settings-board")}
             />
           )}

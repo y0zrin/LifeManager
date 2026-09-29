@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
 import { PendingChip } from "../common/PendingChip";
-import { BOARD_GENRES, BOARD_LOOKS, DEFAULT_COLUMNS, genreOf, type BoardLook } from "../../lib/board";
+import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import type { Theme } from "../../lib/theme";
 import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
 import { daysUntil, dueOf } from "../../lib/due";
 import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
@@ -24,9 +25,10 @@ interface KanbanViewProps {
   onStatusChange: (n: number, status: string) => void;
   onSelectIssue: (n: number) => void;
   onOpenPull: (n: number) => void;
-  /** 見た目（設定 → 表示 と同じ） */
-  look: BoardLook;
-  onLookChange: (look: BoardLook) => void;
+  /** 見た目（テーマのボード: 黒板・ホワイトボード・クエストボード） */
+  look: Theme;
+  /** 下の机に置いた付箋を、自分の担当にする */
+  onAssignToMe: (n: number) => void;
   /** 設定 → タスク の「ボードの区画」を開く */
   onOpenBoardSettings: () => void;
 }
@@ -69,6 +71,13 @@ const EMPTY_HINTS: Record<string, string> = {
   "状態:チェック待ち": "プルリクを作ると、ここに入ります",
 };
 
+/** ボードの下の机（テーマごと）。付箋を置くと、自分の担当になる */
+const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: string; deco: string }> = {
+  chalk: { name: "✏️ 自分の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "📓✏️" },
+  white: { name: "🖥 自分のデスク", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "⌨️☕" },
+  quest: { name: "🛎 ギルドの受付", count: "受注した依頼", drop: "受付に出すと、受注します（自分の担当になります）", empty: "受注した依頼はありません。依頼書をここへ持ってくると、受注します", deco: "🛎🪶" },
+};
+
 /** 付箋の色（ホワイトボード・黒板）: 種別で分ける */
 function noteColor(issue: GitHubIssue): string {
   const kind = issue.labels.find((l) => l.name.startsWith("種別:"))?.name;
@@ -95,7 +104,7 @@ interface PullMark {
 
 interface NoteProps {
   issue: GitHubIssue;
-  look: BoardLook;
+  look: Theme;
   me: string;
   working: boolean;
   pull: PullMark | null;
@@ -168,12 +177,12 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   );
 }
 
-export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onLookChange, onOpenBoardSettings }: KanbanViewProps) {
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings }: KanbanViewProps) {
   const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
 
-  // ジャンル・自分の担当だけ（この PC に覚えておく。見た目は 設定 → 表示 と同じもの）
+  // ジャンル・自分の担当だけ（この PC に覚えておく。見た目はテーマのもの）
   const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing"] as const, "doing"));
   const [mineOnly, setMineOnlyState] = useState(() => loadPref(MINE_KEY, ["1", "0"] as const, "0") === "1");
   const setGenre = (v: BoardGenre) => { setGenreState(v); savePref(GENRE_KEY, v); };
@@ -296,7 +305,9 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
       setOver(found);
     }
     function onUp() {
-      if (isDraggingRef.current && dragging !== null && over !== null) {
+      if (isDraggingRef.current && dragging !== null && over === "@desk") {
+        takeToDesk(dragging);
+      } else if (isDraggingRef.current && dragging !== null && over !== null) {
         const dest = over.startsWith("@genre:") ? landingOf(over.slice(7) as BoardGenre) : over;
         const status = dest === "none" || dest === null ? "" : dest;
         if (dest !== null && status !== dragFrom) onStatusChange(dragging, status);
@@ -324,6 +335,42 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const [moving, setMoving] = useState<number | null>(null);
 
   const draggedIssue = dragging !== null ? issues.find((i) => i.number === dragging) ?? null : null;
+
+  // --- 下の机（自分の担当。絞り込みにかかわらず、区画の並びの順） ---
+  const desk = DESKS[look];
+  const colIndex = (issue: GitHubIssue) => {
+    const i = baseColumns.findIndex((c) => c.key === (statusOf(issue) || "none"));
+    return i < 0 ? baseColumns.length : i;
+  };
+  const myIssues = issues
+    .filter((i) => i.state === "open" && !!currentUser && i.assignees?.some((a) => a.login === currentUser))
+    .sort((a, b) => colIndex(a) - colIndex(b) || a.number - b.number);
+  const [deskNote, setDeskNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!deskNote) return;
+    const t = window.setTimeout(() => setDeskNote(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [deskNote]);
+  /** 机に置いた付箋: 担当がなければ自分の担当に。ほかの人の担当は置けない */
+  function takeToDesk(n: number) {
+    const issue = issues.find((i) => i.number === n);
+    const names = (issue?.assignees ?? []).map((a) => a.login);
+    if (!issue || !currentUser || names.includes(currentUser)) return;
+    if (names.length > 0) {
+      setDeskNote(`#${n} は ${names.join("・")} の担当です（Issue の詳細で担当を変えられます）`);
+      return;
+    }
+    onAssignToMe(n);
+    setDeskNote(look === "quest" ? `#${n} を受注しました` : `#${n} を自分の担当にしました`);
+  }
+  // ドラッグ中に、机に置けるか
+  const deskHint = (() => {
+    if (!draggedIssue) return null;
+    const names = (draggedIssue.assignees ?? []).map((a) => a.login);
+    if (names.includes(currentUser)) return { ok: false, text: look === "quest" ? "もう受注しています" : "もう自分の担当です" };
+    if (names.length > 0) return { ok: false, text: `ほかの人（${names.join("・")}）の担当です` };
+    return { ok: true, text: desk.drop };
+  })();
   const cols = columnsOf(genre);
 
   const note = (issue: GitHubIssue) => (
@@ -346,13 +393,6 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           👤 自分の担当だけ{mineOnly ? " ✓" : ""}
         </button>
         <span className="grow" />
-        <span className="bd-looks" role="group" aria-label="ボードの見た目">
-          {BOARD_LOOKS.map((l) => (
-            <button key={l.key} type="button" className={look === l.key ? "on" : ""} aria-pressed={look === l.key} onClick={() => onLookChange(l.key)}>
-              {l.label}
-            </button>
-          ))}
-        </span>
         <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
           ⚙ 区画の設定
         </button>
@@ -415,6 +455,17 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                     )}
                     {isMobile && moving === issue.number && (
                       <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
+                        {currentUser && !issue.assignees?.length && (
+                          <button
+                            className="kanban-status-option"
+                            onClick={() => {
+                              onAssignToMe(issue.number);
+                              setMoving(null);
+                            }}
+                          >
+                            🙋 {look === "quest" ? "受注する（自分の担当にする）" : "自分の担当にする"}
+                          </button>
+                        )}
                         {baseColumns
                           .filter((c) => c.key !== (statusOf(issue) || "none"))
                           .map((c) => (
@@ -440,10 +491,57 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         })}
       </div>
 
+      {/* 下の机（PC）。付箋を置くと自分の担当に。机の上には自分の担当が並ぶ（押すと詳細・ドラッグで区画へ） */}
+      {!isMobile && currentUser && (
+        <div ref={target("@desk")} className={`bd-desk desk-${look}${over === "@desk" ? " over" : ""}`}>
+          <div className="bd-desk-name">
+            <b>{desk.name}</b>
+            <small>
+              {desk.count} {myIssues.length}
+            </small>
+          </div>
+          <div className="bd-desk-items">
+            {myIssues.length === 0 && <span className="bd-desk-empty">{desk.empty}</span>}
+            {myIssues.map((issue) => (
+              <button
+                key={issue.number}
+                type="button"
+                className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}`}
+                title={issue.title}
+                onMouseDown={(e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+                onClick={() => {
+                  if (!isDraggingRef.current) onSelectIssue(issue.number);
+                }}
+              >
+                {look === "quest" && <span className="bd-desk-hanko">受注</span>}
+                <span className="bd-desk-no">#{issue.number}</span>
+                {issue.title}
+              </button>
+            ))}
+          </div>
+          <span className="bd-desk-deco" aria-hidden="true">
+            {desk.deco}
+          </span>
+          {dragging !== null && deskHint && <div className={`bd-desk-drop${deskHint.ok ? "" : " no"}`}>{deskHint.text}</div>}
+          {deskNote && dragging === null && (
+            <div className="bd-desk-note" role="status">
+              {deskNote}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ドラッグ中の付箋（マウスについてくる） */}
       {draggedIssue && isDraggingRef.current && (
         <div className={`bd-float look-${look}`} style={{ left: mousePos.x - offsetRef.current.x, top: mousePos.y - offsetRef.current.y }}>
           {note(draggedIssue)}
+          {/* 机の上では、置けるかを付箋の上に出す（机の字は、持っている付箋に隠れるため） */}
+          {over === "@desk" && deskHint && (
+            <div className={`bd-float-tag${deskHint.ok ? "" : " no"}`}>
+              {deskHint.ok ? "🙋 " : "✋ "}
+              {deskHint.text}
+            </div>
+          )}
         </div>
       )}
     </div>

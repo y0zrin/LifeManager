@@ -246,9 +246,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   margin: "4px 0 8px",
                   fontSize: "18px",
                   fontWeight: 600,
-                  color: "#e6edf3",
-                  background: "#161b22",
-                  border: "1px solid #58a6ff",
+                  color: "var(--text-primary)",
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--accent-blue)",
                   borderRadius: "4px",
                   padding: "4px 8px",
                   outline: "none",
@@ -260,11 +260,11 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 style={{
                   margin: "4px 0 8px",
                   fontSize: "18px",
-                  color: "#e6edf3",
+                  color: "var(--text-primary)",
                   cursor: "pointer",
                   borderBottom: "1px dashed transparent",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = "#30363d")}
+                onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = "var(--border-default)")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = "transparent")}
                 title="クリックして編集"
               >
@@ -313,7 +313,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   <LabelBadge key={l.name} name={l.name} color={l.color} />
                 ))}
                 {(!issue.labels || issue.labels.length === 0) && (
-                  <span style={{ color: "#484f58", fontSize: "12px" }}>ラベルなし（クリックで追加）</span>
+                  <span style={{ color: "var(--text-faint)", fontSize: "12px" }}>ラベルなし（クリックで追加）</span>
                 )}
               </div>
             )}
@@ -338,13 +338,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                           fontSize: "var(--font-sm)",
                           fontWeight: 600,
                           cursor: "pointer",
-                          color: active ? "#fff" : "var(--text-muted)",
-                          backgroundColor: active ? "#1f6feb" : "var(--bg-primary)",
+                          color: active ? "var(--text-on-accent)" : "var(--text-muted)",
+                          backgroundColor: active ? "var(--accent-blue-strong)" : "var(--bg-primary)",
                           border: active ? "2px solid var(--accent-blue)" : "2px solid var(--border-default)",
                           transition: "all 0.15s",
                         }}
                       >
-                        <img src={c.avatar_url} alt={c.login} className="avatar-md" style={{ border: active ? "1px solid #fff" : "1px solid var(--border-default)" }} />
+                        <img src={c.avatar_url} alt={c.login} className="avatar-md" style={{ border: active ? "1px solid var(--text-on-accent)" : "1px solid var(--border-default)" }} />
                         {c.login}
                       </span>
                     );
@@ -361,22 +361,22 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               </div>
             ) : (
               <div
-                style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px", cursor: "pointer", alignItems: "center", padding: "6px 8px", borderRadius: "6px", border: "1px solid #21262d", background: "#161b2288" }}
+                style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px", cursor: "pointer", alignItems: "center", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-subtle)", background: "var(--bg-secondary)" }}
                 onClick={() => setEditingAssignees(true)}
                 title="クリックして担当者を編集"
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#21262d")}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-subtle)")}
               >
-                <span style={{ fontSize: "12px", color: "#8b949e", marginRight: "2px" }}>👥</span>
+                <span style={{ fontSize: "12px", color: "var(--text-muted)", marginRight: "2px" }}>👥</span>
                 {issue.assignees && issue.assignees.length > 0 ? (
                   issue.assignees.map((a) => (
-                    <span key={a.login} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "#e6edf3", padding: "2px 8px", background: "#1f6feb33", borderRadius: "12px", border: "1px solid #1f6feb55" }}>
-                      <img src={a.avatar_url} alt={a.login} style={{ width: "18px", height: "18px", borderRadius: "50%", border: "1px solid #58a6ff" }} />
+                    <span key={a.login} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--text-primary)", padding: "2px 8px", background: "var(--accent-blue-bg)", borderRadius: "12px", border: "1px solid color-mix(in srgb, var(--accent-blue) 35%, transparent)" }}>
+                      <img src={a.avatar_url} alt={a.login} style={{ width: "18px", height: "18px", borderRadius: "50%", border: "1px solid var(--accent-blue)" }} />
                       {a.login}
                     </span>
                   ))
                 ) : (
-                  <span style={{ color: "#484f58", fontSize: "12px" }}>未設定（クリックで追加）</span>
+                  <span style={{ color: "var(--text-faint)", fontSize: "12px" }}>未設定（クリックで追加）</span>
                 )}
               </div>
             )}
@@ -384,11 +384,11 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
 
             {/* マイルストーン */}
             <div
-              style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 8px", borderRadius: "6px", border: "1px solid #21262d", background: "#161b2288" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#21262d")}
+              style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-subtle)", background: "var(--bg-secondary)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-subtle)")}
             >
-              <span style={{ fontSize: "12px", color: "#8b949e" }}>🎯</span>
+              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>🎯</span>
               <select
                 value={issue.milestone?.number ?? ""}
                 onChange={async (e) => {
@@ -436,11 +436,11 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 width: "100%",
                 minHeight: "120px",
                 padding: "12px",
-                background: "#161b22",
+                background: "var(--bg-secondary)",
                 borderRadius: "6px",
                 fontSize: "13px",
-                color: "#c9d1d9",
-                border: "1px solid #58a6ff",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--accent-blue)",
                 lineHeight: 1.6,
                 resize: "vertical",
                 outline: "none",
@@ -504,22 +504,22 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             onClick={() => setEditingBody(true)}
             style={{
               padding: "12px",
-              background: "#161b22",
+              background: "var(--bg-secondary)",
               borderRadius: "6px",
               marginBottom: "16px",
               whiteSpace: "pre-wrap",
               fontSize: "13px",
-              color: "#c9d1d9",
-              border: "1px solid #30363d",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               lineHeight: 1.6,
               cursor: "pointer",
               minHeight: "40px",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30363d")}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-default)")}
             title="クリックして編集"
           >
-            {visibleBody(issue.body) || <span style={{ color: "#484f58" }}>本文なし（クリックで追加）</span>}
+            {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（クリックで追加）</span>}
           </div>
         )}
 
@@ -527,8 +527,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         {todoTotal > 0 && (
           <div style={{ fontSize: "12px", color: "#888", marginBottom: "16px" }}>
             タスク進捗: {todoDone}/{todoTotal}
-            <div style={{ width: "100%", height: "6px", background: "#21262d", borderRadius: "3px", marginTop: "4px" }}>
-              <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "#238636", borderRadius: "3px" }} />
+            <div style={{ width: "100%", height: "6px", background: "var(--bg-tertiary)", borderRadius: "3px", marginTop: "4px" }}>
+              <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "var(--accent-green)", borderRadius: "3px" }} />
             </div>
           </div>
         )}
@@ -644,7 +644,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             {ganttProgressMode === "manual" && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>%</span>}
             {ganttProgressMode === "binary" && (
               <button className={`btn-sm ${ganttProgressValue === "done" ? "active" : ""}`}
-                style={{ fontSize: "11px", backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "#fff" : undefined }}
+                style={{ fontSize: "11px", backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "var(--text-on-accent)" : undefined }}
                 onClick={() => setGanttProgressValue(ganttProgressValue === "done" ? "undone" : "done")}
               >
                 {ganttProgressValue === "done" ? "完了" : "未完了"}
@@ -734,7 +734,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             <div key={r.datetime} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#888", marginBottom: "4px" }}>
               <span>{new Date(r.datetime).toLocaleString("ja-JP")}</span>
               <span style={{ color: "#666" }}>[{r.channels.join(", ")}]</span>
-              <button className="btn-sm" style={{ fontSize: "10px", color: "#f85149", padding: "1px 4px" }}
+              <button className="btn-sm" style={{ fontSize: "10px", color: "var(--accent-red)", padding: "1px 4px" }}
                 onClick={() => onRemoveReminder(issue.number, r.datetime)}>
                 取消
               </button>
@@ -763,9 +763,9 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
             {comments.map((c) => (
-              <div key={c.id} style={{ padding: "10px", background: "#161b22", borderRadius: "6px", border: "1px solid #30363d" }}>
+              <div key={c.id} style={{ padding: "10px", background: "var(--bg-secondary)", borderRadius: "6px", border: "1px solid var(--border-default)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#58a6ff" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--accent-blue)" }}>
                     {c.user?.login ?? "unknown"}
                     {c._pending && <PendingChip />}
                   </span>
@@ -773,13 +773,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     {new Date(c.created_at).toLocaleString("ja-JP")}
                   </span>
                 </div>
-                <div style={{ fontSize: "13px", color: "#c9d1d9", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                   {c.body}
                 </div>
               </div>
             ))}
             {comments.length === 0 && (
-              <p style={{ color: "#484f58", fontSize: "12px" }}>コメントはまだありません</p>
+              <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
             )}
           </div>
         )}

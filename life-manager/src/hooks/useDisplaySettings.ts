@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { BOARD_LOOKS, type BoardLook } from "../lib/board";
+import { useCallback, useLayoutEffect, useState } from "react";
+import { applyTheme, isTheme, type Theme } from "../lib/theme";
 import { DEFAULT_BAR_COLORS, type GanttBarColors } from "../lib/ganttTypes";
 
 /** 全体図でのブランチの見せ方。線 = ブランチごとに 1 本、ラベル = Sourcetree と同じくコミットの横に名前を付ける */
@@ -25,8 +25,8 @@ export interface DisplaySettings {
   sidebarPosition: SidebarPosition;
   memoButton: MemoButtonPosition;
   motion: MotionLevel;
-  /** ボードの見た目（ボードの上でも切り替えられる） */
-  boardLook: BoardLook;
+  /** テーマ（黒板・ホワイトボード・クエスト）。ボードと、その下の机もテーマのものになる */
+  theme: Theme;
   /** ガントの帯の色 */
   ganttColors: GanttBarColors;
 }
@@ -38,16 +38,12 @@ const DEFAULTS: DisplaySettings = {
   sidebarPosition: "left",
   memoButton: "bottom-left",
   motion: "normal",
-  boardLook: "chalk",
+  theme: "chalk",
   ganttColors: DEFAULT_BAR_COLORS,
 };
-// 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ）
+// 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ。ボードの見た目は、そのままテーマになる）
 const OLD_BOARD_LOOK_KEY = "board-look";
 const OLD_GANTT_COLORS_KEY = "gantt-bar-colors";
-
-function isBoardLook(v: unknown): v is BoardLook {
-  return BOARD_LOOKS.some((l) => l.key === v);
-}
 
 /** 帯の色。#rrggbb でないものは、はじめの色にする */
 function loadGanttColors(saved: unknown): GanttBarColors {
@@ -68,7 +64,8 @@ function loadGanttColors(saved: unknown): GanttBarColors {
   return colors;
 }
 
-function load(): DisplaySettings {
+/** 保存してある表示の設定（起動のはじめにテーマを当てるのにも使う） */
+export function loadDisplaySettings(): DisplaySettings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
     return {
@@ -77,7 +74,7 @@ function load(): DisplaySettings {
       sidebarPosition: SIDEBAR_POSITIONS.includes(saved.sidebarPosition) ? saved.sidebarPosition : DEFAULTS.sidebarPosition,
       memoButton: MEMO_BUTTON_POSITIONS.includes(saved.memoButton) ? saved.memoButton : DEFAULTS.memoButton,
       motion: saved.motion === "reduced" ? "reduced" : DEFAULTS.motion,
-      boardLook: isBoardLook(saved.boardLook) ? saved.boardLook : [localStorage.getItem(OLD_BOARD_LOOK_KEY)].find(isBoardLook) ?? DEFAULTS.boardLook,
+      theme: [saved.theme, saved.boardLook, localStorage.getItem(OLD_BOARD_LOOK_KEY)].find(isTheme) ?? DEFAULTS.theme,
       ganttColors: loadGanttColors(saved.ganttColors),
     };
   } catch {
@@ -87,7 +84,12 @@ function load(): DisplaySettings {
 
 /** 表示の設定（この PC のこのアプリだけの好みなので、ブラウザの保存領域に置く） */
 export function useDisplaySettings() {
-  const [settings, setSettings] = useState<DisplaySettings>(load);
+  const [settings, setSettings] = useState<DisplaySettings>(loadDisplaySettings);
+
+  // テーマを画面全体に当てる（描く前に当てて、前のテーマの色が一瞬出ないようにする）
+  useLayoutEffect(() => {
+    applyTheme(settings.theme);
+  }, [settings.theme]);
 
   const update = useCallback((patch: Partial<DisplaySettings>) => {
     setSettings((prev) => {

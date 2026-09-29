@@ -466,7 +466,7 @@ export function GanttView({
                   onClick={() => setTimeScale(ts)}
                   style={{
                     backgroundColor: timeScale === ts ? "var(--accent-blue)" : undefined,
-                    color: timeScale === ts ? "#fff" : undefined,
+                    color: timeScale === ts ? "var(--bg-primary)" : undefined,
                   }}
                 >
                   {TIME_SCALE_CONFIG[ts].label}
@@ -479,7 +479,7 @@ export function GanttView({
               style={{
                 fontSize: "var(--font-xs)",
                 backgroundColor: showCriticalPath ? "var(--accent-red)" : undefined,
-                color: showCriticalPath ? "#fff" : undefined,
+                color: showCriticalPath ? "var(--text-on-accent)" : undefined,
               }}>
               CP
             </button>

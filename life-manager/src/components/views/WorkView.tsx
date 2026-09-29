@@ -3,7 +3,6 @@ import * as gitApi from "../../lib/git";
 import type { GitFileChange, GitHubIssue, GitLineStat, GitRun, GitStash, GitStatus } from "../../lib/types";
 import type { GitState } from "../../hooks/useGit";
 import { OPERATION_NAMES, type GitActions } from "../../hooks/useGitActions";
-import { useDismiss } from "../../hooks/useDismiss";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
 import { DiffView } from "../git/DiffView";
 import { MergeTool } from "../git/MergeTool";
@@ -69,6 +68,16 @@ type Selected = { path: string; side: Side };
 type IssueChoice = number | "none" | null;
 
 const STEP_NAMES = ["Issue を選ぶ", "ブランチ", "変更", "コミット", "プッシュ", "プルリク", "マージ", "完了"];
+/** 上の 1 行の段に出す短い名前 */
+const STEP_SHORT = ["Issue", "ブランチ", "変更", "コミット", "プッシュ", "プルリク", "マージ", "完了"];
+/** 今の段ではない段を開いたときの、その段の説明 */
+const STEP_ABOUT: Record<number, ReactNode> = {
+  2: <>ブランチは作業する場所です。Issue ごとに分けると、ほかの作業と混ざりません（<code>git switch -c</code>）。</>,
+  5: <>記録したコミットを GitHub に送ります（<code>git push</code>）。</>,
+  6: <>この変更を既定のブランチに入れるお願い（プルリク）を出します。チームの人が変更を見て（レビュー）、よければマージします。</>,
+  7: <>プルリクをレビューしてもらい、よければマージします。</>,
+  8: <>Issue を閉じて完了にし、既定のブランチに戻って最新にします。</>,
+};
 const IN_PROGRESS = "状態:進行中";
 
 // --- 取り組み中の Issue は、リポジトリごとにこの PC に覚えておく ---
@@ -239,7 +248,6 @@ function Workspace({
   status: st,
 }: WorkViewProps & { status: GitStatus; folder: string }) {
   const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo));
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [tab, setTab] = useState<"changes" | "stash">("changes");
   // 横に並んだタブなので、右（退避中）へは右から・左（変更）へは左から入れ替わる
   function changeTab(next: "changes" | "stash") {
@@ -249,9 +257,12 @@ function Workspace({
   const [selected, setSelected] = useState<Selected | null>(null);
   const [summaryError, setSummaryError] = useState(false);
   const summaryRef = useRef<HTMLInputElement>(null);
+  // 見ている段（null なら今の段）。上の段を押すと、その段の画面を見られる
+  const [viewStep, setViewStep] = useState<number | null>(null);
 
   useEffect(() => {
     setChoiceState(loadIssueChoice(owner, repo));
+    setViewStep(null);
   }, [owner, repo]);
 
   function setChoice(c: IssueChoice) {
@@ -286,6 +297,7 @@ function Workspace({
   // --- コミット欄を開く（ツールバーの「コミット…」「空コミット…」、流れの「コミット欄へ」） ---
   const focusCommit = useCallback((empty?: boolean) => {
     setTab("changes");
+    setViewStep(4);
     if (empty !== undefined) onDraftChange({ ...draft, allowEmpty: empty });
     window.setTimeout(() => summaryRef.current?.focus(), 50);
   }, [draft, onDraftChange]);
@@ -418,8 +430,7 @@ function Workspace({
     };
 
     let action: Flow["action"] = null;
-    if (step === 1) action = { label: "Issue を選ぶ", run: () => setPickerOpen(true) };
-    else if (step === 2 && issue) action = { label: "ブランチを作る…", run: () => actions.createBranch(`issue-${issue.number}`) };
+    if (step === 2 && issue) action = { label: "ブランチを作る…", run: () => actions.createBranch(`issue-${issue.number}`) };
     else if (step === 4) action = { label: "コミット欄へ", run: () => focusCommit() };
     else if (step === 5) action = st.behind > 0 ? { label: "プルする", run: actions.pull } : { label: "プッシュする", run: actions.push };
     else if (step === 6) action = { label: "プルリクを作る…", run: () => onCreatePull(st.branch, issue?.number ?? null) };
@@ -458,45 +469,54 @@ function Workspace({
     return { step, labels, hint: hints[step], action, secondary };
   })();
 
+  // 進んだら（今の段が変わったら）、その段の画面に切り替える
+  useEffect(() => {
+    setViewStep(null);
+  }, [flow.step]);
+  const shown = viewStep ?? flow.step;
+  // ③ 変更・④ コミットは、同じ画面（変更・コミット欄・差分）
+  const screen: number | "work" = shown === 3 || shown === 4 ? "work" : shown;
+
+  // 今の段ではない段を開いたときに押せるもの（その段でできること）
+  function toolsOf(n: number): StepButton[] {
+    if (n === 2) return [{ label: "ブランチを作る…", run: () => actions.createBranch(issue ? `issue-${issue.number}` : undefined) }];
+    if (n === 5) {
+      if (st.behind > 0) return [{ label: "プルする", run: actions.pull }];
+      return needsPush ? [{ label: "プッシュする", run: actions.push }] : [];
+    }
+    if (n === 6) {
+      if (pr) return [{ label: `#${pr.number} を開く`, run: () => onOpenPull(pr.number) }];
+      return onBranch && published ? [{ label: "プルリクを作る…", run: () => onCreatePull(st.branch, issue?.number ?? null) }] : [];
+    }
+    if (n === 7) return pr ? [{ label: `#${pr.number} を開く（レビュー・マージ）`, run: () => onOpenPull(pr.number) }] : [];
+    if (n === 8) return flow.secondary ? [flow.secondary] : [];
+    return [];
+  }
+
   return (
     <div className={`wview${changeCount === 0 ? " no-changes" : ""}${draft.allowEmpty ? " empty" : ""}`}>
-      <IssueBar
-        issues={issues}
-        issue={issue}
-        closedIssue={closedIssue}
-        choice={choice}
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onChoose={(c) => { setChoice(c); setPickerOpen(false); }}
-        onOpenIssue={onOpenIssue}
-        onStartIssue={onStartIssue}
-      />
-
-      <ol className="w-flow" aria-label="作業の流れ">
-        {STEP_NAMES.map((name, i) => {
+      <ol className="w-steps" aria-label="作業の流れ">
+        {STEP_SHORT.map((name, i) => {
           const n = i + 1;
+          const done = n < flow.step;
+          const label = flow.labels[n];
+          const showing = n === shown || (screen === "work" && (n === 3 || n === 4));
           return (
-            <li key={n} className={n < flow.step ? "done" : n === flow.step ? "now" : ""}>
-              <i>{n < flow.step ? "✓" : n}</i>
-              <b>{name}</b>
-              <small>{flow.labels[n]}</small>
+            <li key={n}>
+              <button
+                type="button"
+                className={`w-step${done ? " done" : n === flow.step ? " now" : ""}${showing ? " shown" : ""}`}
+                aria-current={n === flow.step ? "step" : undefined}
+                title={`${n}. ${STEP_NAMES[i]}：${label}${n === 1 && issue ? `（${issue.title}）` : ""}`}
+                onClick={() => setViewStep(n === flow.step ? null : n)}
+              >
+                <i>{done ? "✓" : n}</i>
+                <span>{done && label && label !== "—" ? label : name}</span>
+              </button>
             </li>
           );
         })}
       </ol>
-      <div className="w-flow-hint">
-        <p className="hint">{flow.hint}</p>
-        {flow.secondary && (
-          <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={flow.secondary.run}>
-            {flow.secondary.label}
-          </button>
-        )}
-        {flow.action && (
-          <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={flow.action.run}>
-            {flow.action.label}
-          </button>
-        )}
-      </div>
 
       {(st.conflicted || st.operation) && (
         <div className="w-banner warn">
@@ -539,6 +559,36 @@ function Workspace({
         </div>
       )}
 
+      {screen === 1 ? (
+        <IssueStep
+          issues={issues}
+          issue={issue}
+          closedIssue={closedIssue}
+          choice={choice}
+          onChoose={(c) => {
+            setChoice(c);
+            setViewStep(null);
+          }}
+          onOpenIssue={onOpenIssue}
+          onStartIssue={onStartIssue}
+          note={flow.step === 1 && onBranch && pr?.merged ? flow.hint : null}
+          extra={flow.step === 1 ? flow.secondary ?? null : null}
+          busy={g.busy !== null}
+        />
+      ) : screen !== "work" ? (
+        <StepPanel
+          n={screen}
+          current={screen === flow.step}
+          hint={screen === flow.step ? flow.hint : STEP_ABOUT[screen]}
+          status={screen < flow.step ? `済み（${flow.labels[screen]}）` : screen > flow.step ? "まだこの段ではありません" : null}
+          buttons={
+            screen === flow.step
+              ? [flow.action && { ...flow.action, primary: true }, flow.secondary].filter((b): b is StepButton => !!b)
+              : toolsOf(screen)
+          }
+          busy={g.busy !== null}
+        />
+      ) : (
       <div className="w-body">
         <div className="w-left">
           <div className="w-tabs" role="tablist">
@@ -605,110 +655,124 @@ function Workspace({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
 
-// --- 取り組み中の Issue ---
+// --- 段の画面（② ブランチ・⑤ プッシュ・⑥ プルリク・⑦ マージ・⑧ 完了） ---
 
-interface IssueBarProps {
+type StepButton = { label: string; run: () => void; primary?: boolean };
+
+function StepPanel({ n, current, hint, status, buttons, busy }: { n: number; current: boolean; hint: ReactNode; status: string | null; buttons: StepButton[]; busy: boolean }) {
+  return (
+    <div className="w-step-panel">
+      <h4 className="w-step-title">
+        <i>{n}</i>
+        {STEP_NAMES[n - 1]}
+        {!current && status && <span className="w-step-status">{status}</span>}
+      </h4>
+      <p className="hint">{hint}</p>
+      {buttons.length > 0 && (
+        <div className="w-step-actions">
+          {buttons.map((b) => (
+            <button key={b.label} type="button" className={b.primary ? "btn-primary" : "btn-sm"} disabled={busy} onClick={b.run}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- ① 取り組む Issue を選ぶ ---
+
+interface IssueStepProps {
   issues: GitHubIssue[];
   issue: GitHubIssue | null;
   /** 選んでいた Issue が閉じられたとき（プルリクのマージで閉じたなど） */
   closedIssue: GitHubIssue | null;
   choice: IssueChoice;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   onChoose: (choice: IssueChoice) => void;
   onOpenIssue: (n: number) => void;
   onStartIssue: (n: number) => Promise<void>;
+  /** マージ済みのブランチにいるとき（先に既定のブランチに戻る）の知らせと、そのボタン */
+  note: ReactNode;
+  extra: StepButton | null;
+  busy: boolean;
 }
 
-function IssueBar({ issues, issue, closedIssue, choice, open, onOpenChange, onChoose, onOpenIssue, onStartIssue }: IssueBarProps) {
+function IssueStep({ issues, issue, closedIssue, choice, onChoose, onOpenIssue, onStartIssue, note, extra, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
-  useDismiss(ref, open, close);
-
-  useEffect(() => {
-    if (open) setQuery("");
-  }, [open]);
-
   const q = query.trim().toLowerCase().replace(/^#/, "");
   const inProgress = (i: GitHubIssue) => i.labels.some((l) => l.name === IN_PROGRESS);
   // 進行中を先に、あとは新しい順
   const list = [...issues]
     .sort((a, b) => Number(inProgress(b)) - Number(inProgress(a)) || b.number - a.number)
     .filter((i) => !q || String(i.number).startsWith(q) || i.title.toLowerCase().includes(q));
-
   const missing = typeof choice === "number" && !issue && !closedIssue;
+  const now = issue ?? closedIssue;
 
   return (
-    <div className="w-issue">
-      <span className="wi-label">取り組み中の Issue</span>
-      <div className="wi-pick" ref={ref}>
-        <button
-          type="button"
-          className={`wi-btn${open ? " open" : ""}`}
-          title={issue ? issueMeta(issue) : ""}
-          onClick={() => onOpenChange(!open)}
-        >
-          <span className="wi-num">{issue ? `#${issue.number}` : closedIssue ? `#${closedIssue.number}` : missing ? `#${choice}` : "—"}</span>
-          <span className="wi-title">
-            {issue
-              ? issue.title
-              : closedIssue
-                ? `${closedIssue.title}（閉じました）`
-                : missing
-                  ? "（閉じられたか、見つかりません）"
-                  : choice === "none"
-                    ? "Issue なしで作業中"
-                    : "Issue を選んでください"}
-          </span>
-          <span className="wi-caret">▾</span>
-        </button>
-        {open && (
-          <div className="wi-panel popover">
-            <input
-              className="input-full bsw-filter"
-              placeholder="番号やタイトルで絞り込む"
-              autoFocus
-              autoComplete="off"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (isEnter(e) && list[0]) onChoose(list[0].number); }}
-            />
-            <div className="bsw-group">未完了の Issue</div>
-            {list.map((i) => (
-              <button key={i.number} type="button" className={`wi-item${i.number === choice ? " on" : ""}`} onClick={() => onChoose(i.number)}>
-                <span className="wi-num">#{i.number}</span>
-                <span className="wi-t">{i.title}</span>
-                <span className="wi-m">{inProgress(i) ? "進行中" : i.milestone?.title ?? ""}</span>
-              </button>
-            ))}
-            {list.length === 0 && <div className="bsw-empty">一致する Issue はありません</div>}
-            <hr />
-            <button type="button" className={`wi-item${choice === "none" ? " on" : ""}`} onClick={() => onChoose("none")}>
-              <span className="wi-num">—</span>
-              <span className="wi-t">Issue なしで作業する</span>
-              <span />
-            </button>
-          </div>
-        )}
-      </div>
-      {issue && <span className="wi-meta">{issueMeta(issue)}</span>}
-      {issue && (
-        <span className="wi-actions">
-          <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
-            Issue を開く
-          </button>
-          {!inProgress(issue) && (
-            <button type="button" className="btn-sm" onClick={() => onStartIssue(issue.number)}>
-              進行中にする
+    <div className="w-issue-step">
+      <h4 className="w-step-title">何をしますか？</h4>
+      <p className="hint">取り組む Issue を選びます。選ぶと、次の段の画面に進みます。タスク管理と git の作業が、ここでつながります。</p>
+      {note && (
+        <div className="w-step-note">
+          <span>{note}</span>
+          {extra && (
+            <button type="button" className="btn-sm" disabled={busy} onClick={extra.run}>
+              {extra.label}
             </button>
           )}
-        </span>
+        </div>
       )}
+      {(now || missing) && (
+        <div className="w-issue-now">
+          <span className="w-issue-now-k">今の Issue</span>
+          <span className="wi-num">#{now ? now.number : choice}</span>
+          <span className="wi-t">{now ? `${now.title}${closedIssue ? "（クローズ済み）" : ""}` : "（クローズされたか、見つかりません）"}</span>
+          {issue && <span className="wi-meta">{issueMeta(issue)}</span>}
+          {issue && (
+            <span className="wi-actions">
+              <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
+                Issue を開く
+              </button>
+              {!inProgress(issue) && (
+                <button type="button" className="btn-sm" onClick={() => onStartIssue(issue.number)}>
+                  進行中にする
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+      <input
+        className="input-full w-issue-search"
+        placeholder="番号やタイトルで探す"
+        autoComplete="off"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (isEnter(e) && list[0]) onChoose(list[0].number);
+        }}
+      />
+      <div className="w-issue-list">
+        {list.map((i) => (
+          <button key={i.number} type="button" className={`w-issue-row${i.number === choice ? " on" : ""}`} title={issueMeta(i)} onClick={() => onChoose(i.number)}>
+            <span className="wi-num">#{i.number}</span>
+            <span className="wi-t">{i.title}</span>
+            {inProgress(i) && <span className="w-issue-chip">進行中</span>}
+            {i.milestone && <span className="wi-m">🎯 {i.milestone.title}</span>}
+            <span className="w-issue-go">{i.number === choice ? "選んでいます" : "これにする"}</span>
+          </button>
+        ))}
+        {list.length === 0 && <div className="bsw-empty">{issues.length === 0 ? "未完了の Issue はありません" : "一致する Issue はありません"}</div>}
+      </div>
+      <button type="button" className={`link-button w-issue-none${choice === "none" ? " on" : ""}`} onClick={() => onChoose("none")}>
+        {choice === "none" ? "✓ Issue なしで作業しています" : "Issue なしで進める（ちょっとした直し）"}
+      </button>
     </div>
   );
 }

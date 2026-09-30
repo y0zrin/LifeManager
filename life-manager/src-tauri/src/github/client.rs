@@ -626,6 +626,49 @@ impl GitHubClient {
         return None;
     }
 
+    // --- 数を読む（ヒストリーの「チームの仕事」。1 ページ 1 件で読み、最後のページの番号が数になる） ---
+
+    /// 一覧の件数（per_page=1 の URL を渡す）。Link の rel="last" のページ番号、なければ中身の件数。空のリポジトリ（409）は 0
+    pub async fn count_list(&self, url: &str) -> Result<u64, String> {
+        let response = self.send(self.http.get(url)).await?;
+        let status = response.status();
+        let link = response.headers().get("link").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+        let body = response.text().await.map_err(network_error)?;
+        if status.as_u16() == 409 {
+            return Ok(0);
+        }
+        if !status.is_success() {
+            return Err(format!("HTTP {}: {}", status, body));
+        }
+        if let Some(n) = link.as_deref().and_then(Self::parse_last_page) {
+            return Ok(n);
+        }
+        let items: Vec<serde_json::Value> = serde_json::from_str(&body).map_err(|e| format!("JSONパースエラー: {}", e))?;
+        return Ok(items.len() as u64);
+    }
+
+    /// Link ヘッダーの rel="last" のページ番号
+    fn parse_last_page(link_header: &str) -> Option<u64> {
+        let part = link_header.split(',').map(str::trim).find(|p| p.contains("rel=\"last\""))?;
+        let url = &part[part.find('<')? + 1..part.find('>')?];
+        let query = url.split('?').nth(1)?;
+        return query.split('&').find_map(|kv| kv.strip_prefix("page=")).and_then(|n| n.parse().ok());
+    }
+
+    /// Issue・プルリクの検索の件数（total_count）
+    pub async fn search_issue_count(&self, query: &str) -> Result<u64, String> {
+        let url = format!("{}/search/issues?q={}&per_page=1", BASE_URL, urlencoding::encode(query));
+        let body = self.get(&url).await?;
+        let v: serde_json::Value = serde_json::from_str(&body).map_err(|e| format!("JSONパースエラー: {}", e))?;
+        return v["total_count"].as_u64().ok_or_else(|| "件数を読めませんでした".to_string());
+    }
+
+    /// 既定のブランチのコミット・Issue とプルリクの会話のコメント・リリースの件数
+    pub async fn count_repo_list(&self, owner: &str, repo: &str, list: &str) -> Result<u64, String> {
+        let url = format!("{}/repos/{}/{}/{}?per_page=1", BASE_URL, owner, repo, list);
+        return self.count_list(&url).await;
+    }
+
     // --- コミットの履歴（ブランチ画面・全体図。スマホ版や、作業フォルダのない PC で使う） ---
 
     pub async fn get_repository(&self, owner: &str, repo: &str) -> Result<String, String> {
@@ -1303,6 +1346,18 @@ impl GitHubClient {
             HeaderValue::from_static("application/vnd.github+json"),
         );
         return headers;
+    }
+}
+
+#[cfg(test)]
+mod count_tests {
+    use super::GitHubClient;
+
+    #[test]
+    fn reads_last_page_number_from_link_header() {
+        let link = r#"<https://api.github.com/repositories/1/commits?per_page=1&page=2>; rel="next", <https://api.github.com/repositories/1/commits?per_page=1&page=642>; rel="last""#;
+        assert_eq!(GitHubClient::parse_last_page(link), Some(642));
+        assert_eq!(GitHubClient::parse_last_page(r#"<https://api.github.com/x?page=2>; rel="next""#), None);
     }
 }
 

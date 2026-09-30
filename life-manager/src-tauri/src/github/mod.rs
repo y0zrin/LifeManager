@@ -8,5 +8,6 @@ pub mod history;
 pub mod pulls;
 pub mod recent;
 pub mod releases;
+pub mod teamwork;
 pub mod templates;
 pub mod token_check;

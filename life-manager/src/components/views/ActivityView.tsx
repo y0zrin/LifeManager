@@ -5,6 +5,8 @@ import { ago } from "../../lib/pulls";
 import { commentPreview } from "../../lib/help";
 import type { ActivityState } from "../../hooks/useActivity";
 import { CommitDetail } from "../git/CommitDetail";
+import { TeamWork } from "./TeamWork";
+import type { GitHubUser } from "../../lib/types";
 
 interface ActivityViewProps {
   owner: string;
@@ -13,10 +15,14 @@ interface ActivityViewProps {
   onOpenIssue: (n: number) => void;
   onOpenPull: (n: number) => void;
   onOpenRun: (runId: number) => void;
+  /** チームの人（「チームの仕事」に顔を出す） */
+  team: GitHubUser[];
+  /** 画面の動きが「ふつう」か */
+  motion: boolean;
 }
 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
-export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun }: ActivityViewProps) {
+export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<"" | ActivityKind>("");
@@ -53,6 +59,9 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
 
   return (
     <div className="activity pr-ui">
+      {/* チームの仕事（これまでの合計。減らない数） */}
+      <TeamWork key={`${owner}/${repo}`} owner={owner} repo={repo} team={team} motion={motion} />
+
       <div className="av-me">
         <div className="av-me-head">
           <b>あなたがすること {todos.length}</b>

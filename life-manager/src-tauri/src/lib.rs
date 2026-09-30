@@ -1532,6 +1532,7 @@ pub fn run() {
             github::releases::update_release,
             github::releases::upload_release_asset,
             github::cards::repo_card,
+            github::teamwork::team_totals,
             github::artifacts::issue_artifacts,
             notice_window::notice_fit,
             notice_window::focus_main,

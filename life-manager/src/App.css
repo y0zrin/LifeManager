@@ -19848,3 +19848,261 @@ html.stage-still .stage-fx .fx-shoot {
 .theme-card:not(.on):not(:hover) .tm * {
   animation-play-state: paused !important;
 }
+
+/* ===== ヒストリーの「チームの仕事」: これまでの合計を大きく。しっかり・静かに・達成感を ===== */
+.tw {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+  padding: 18px 22px 16px;
+  border: 2px solid var(--panel-line);
+  border-radius: 20px;
+  background: var(--panel-pattern);
+  box-shadow: var(--panel-inset), 0 18px 48px color-mix(in srgb, var(--shadow-color) 70%, transparent);
+  color: var(--text-primary);
+}
+
+.tw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tw-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.tw-title::before {
+  content: "";
+  width: 5px;
+  height: 1.1em;
+  border-radius: 3px;
+  background: var(--picker-accent);
+  box-shadow: 0 0 12px var(--picker-glow);
+}
+
+:root[data-theme="quest"] .tw-title,
+:root[data-theme="quest"] .tw-num b {
+  font-family: var(--font-mincho);
+}
+
+.tw-sub {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.tw-faces {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tw-faces .avatar-sm {
+  width: 24px;
+  height: 24px;
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--bg-secondary);
+}
+
+.tw-faces .avatar-sm:first-child {
+  margin-left: 0;
+}
+
+.tw-faces small {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.tw-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: end;
+  gap: 26px;
+  margin-top: 10px;
+}
+
+.tw-lead {
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.tw-num {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tw-num b {
+  font-size: 72px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-shadow: 0 0 28px var(--picker-glow);
+}
+
+.tw-num span {
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tw-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 2px 10px 2px 8px;
+  border: 1px solid var(--panel-line);
+  border-radius: 999px;
+  background: var(--picker-chip);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  animation: tw-in 0.6s var(--ease-out) both;
+}
+
+.tw-delta b {
+  color: var(--picker-accent);
+  font-size: 14px;
+}
+
+:root[data-theme="white"] .tw-delta b,
+:root[data-theme="day"] .tw-delta b,
+:root[data-theme="spring"] .tw-delta b,
+:root[data-theme="winter"] .tw-delta b,
+:root[data-theme="kingyo"] .tw-delta b {
+  color: var(--accent-blue);
+}
+
+.tw-reach {
+  margin-top: 8px;
+  color: var(--picker-accent);
+  font-size: 14px;
+  font-weight: 800;
+  animation: tw-in 0.8s var(--ease-out) 0.2s both;
+}
+
+:root[data-theme="white"] .tw-reach,
+:root[data-theme="day"] .tw-reach,
+:root[data-theme="spring"] .tw-reach,
+:root[data-theme="winter"] .tw-reach,
+:root[data-theme="kingyo"] .tw-reach {
+  color: var(--accent-blue);
+}
+
+@keyframes tw-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+.tw-road {
+  padding-bottom: 6px;
+}
+
+.tw-road-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.tw-road-top b {
+  color: var(--text-primary);
+}
+
+.tw-bar {
+  position: relative;
+  height: 8px;
+  border: 1px solid var(--panel-line);
+  border-radius: 999px;
+  background: var(--picker-chip);
+}
+
+.tw-bar i {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--picker-accent) 55%, transparent), var(--picker-accent));
+  box-shadow: 0 0 14px var(--picker-glow);
+}
+
+.tw-bar i::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--picker-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--picker-accent) 30%, transparent), 0 0 18px var(--picker-accent);
+}
+
+.tw-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tw-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--picker-chip);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.tw-part b {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 節目に届いたときだけ、数字の上を光が 1 回すべる */
+.tw.reached::after {
+  content: "";
+  position: absolute;
+  inset: -20% -40%;
+  background: linear-gradient(105deg, transparent 42%, #ffffff40 50%, transparent 58%);
+  pointer-events: none;
+  animation: tw-shine 1.6s var(--ease-out) 0.1s both;
+}
+
+@keyframes tw-shine {
+  from { transform: translateX(-60%); }
+  to { transform: translateX(60%); opacity: 0; }
+}
+
+.motion-reduced .tw.reached::after,
+.motion-reduced .tw-delta,
+.motion-reduced .tw-reach {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw.reached::after,
+  .tw-delta,
+  .tw-reach {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .tw-body {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

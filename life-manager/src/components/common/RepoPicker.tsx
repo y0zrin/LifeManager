@@ -33,6 +33,14 @@ interface RepoPickerProps {
 /** カード（読み込み中は undefined、読めなかったら error） */
 type CardState = RepoCard | { error: string };
 
+/** カードを読めなかったわけ（GitHub の答えの文をそのまま出さない） */
+function cardErrorText(e: string): string {
+  if (/\b404\b/.test(e)) return "GitHub で見つかりません（名前が変わった・消えた、または Life Manager にこのリポジトリを読む許可を出していない）";
+  if (/\b40[13]\b/.test(e)) return "読む許可がありません（ログインし直すか、リポジトリの持ち主に招待してもらいます）";
+  if (/network|dns|connect|timed? ?out|offline/i.test(e)) return "GitHub につながりません（つながったら、また読みます）";
+  return e.length > 120 ? `${e.slice(0, 120)}…` : e;
+}
+
 /** 「クローンせずに開く」を選んだリポジトリ（次からは聞かない。この PC だけ） */
 const NO_CLONE_KEY = "repo-picker-no-clone";
 
@@ -201,7 +209,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
         </div>
       );
     }
-    if ("error" in card) return <p className="picker-card-error">読めませんでした: {card.error}</p>;
+    if ("error" in card) return <p className="picker-card-error" title={card.error}>読めませんでした: {cardErrorText(card.error)}</p>;
     return (
       <div className="picker-facts">
         <div><b>{card.open_issues ?? "―"}</b>開いている Issue</div>

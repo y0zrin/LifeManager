@@ -1,6 +1,7 @@
 // PC の git を呼び出す（スマホ版では使わない）。バックエンドの git::commands と対応する
 import { invoke } from "@tauri-apps/api/core";
 import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus } from "./types";
+import { rememberGitFailure } from "./gitFailure";
 
 // --- 準備 ---
 export const gitVersion = () => invoke<string>("git_version");
@@ -226,7 +227,10 @@ export function splitGitError(e: unknown): { command?: string; message: string }
   const text = e instanceof Error ? e.message : String(e);
   const nl = text.indexOf("\n");
   if (text.startsWith("git ") && nl > 0) {
-    return { command: text.slice(0, nl), message: text.slice(nl + 1).trim() };
+    const failure = { command: text.slice(0, nl), message: text.slice(nl + 1).trim() };
+    // 「助けを求める」に添えるため、最後の失敗を覚えておく
+    rememberGitFailure(failure.command, failure.message);
+    return failure;
   }
   return { message: text };
 }

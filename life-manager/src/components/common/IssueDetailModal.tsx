@@ -17,6 +17,7 @@ import { EstimatePicker } from "./EstimateChip";
 import { Avatar } from "./Avatar";
 import { relatedOf } from "../../lib/related";
 import { ArtifactsTab } from "../media/ArtifactsTab";
+import { helpDoneBody, parseHelp } from "../../lib/help";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -67,9 +68,15 @@ interface IssueDetailModalProps {
   onSetEstimate?: (issueNumber: number, value: number | null) => Promise<void>;
   /** 成果物（つながるコミットで変わったファイル）を探すリポジトリと、この PC の作業フォルダ。渡さなければ、成果物のタブを出さない */
   artifacts?: { owner: string; repo: string; folder?: string };
+  /** ログインしている人（🆘 の解決で、呼ぶ人から自分を除く） */
+  me?: string;
+  /** 🆘 助けを求める（渡さなければ、ボタンを出さない） */
+  onAskHelp?: (issue: GitHubIssue) => void;
+  /** 外でコメントを足したとき（🆘 を送ったなど）に増える。変わったらコメントを読み直す */
+  commentsVersion?: number;
 }
 
-export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate, artifacts }: IssueDetailModalProps) {
+export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate, artifacts, me = "", onAskHelp, commentsVersion = 0 }: IssueDetailModalProps) {
   const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -146,6 +153,12 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     setGanttProgressValue(String(prog.value));
   }, [issue]);
 
+  // 外でコメントを足したら（🆘 を送ったなど）、読み直す
+  useEffect(() => {
+    if (commentsVersion > 0) loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentsVersion]);
+
   async function loadComments() {
     setLoading(true);
     try {
@@ -162,6 +175,25 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     if (!newComment.trim()) return;
     await createComment(issue.number, newComment);
     setNewComment("");
+    await loadComments();
+  }
+
+  // 🆘 のコメントへ: 返事を書く（書く欄に @ を入れて移る）・解決した（助けを求めた人と、呼ばれた人に知らせる）
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  function replyHelp(c: GitHubComment) {
+    const who = c.user?.login;
+    setNewComment((cur) => (who && !cur.includes(`@${who}`) ? `@${who} ${cur}` : cur));
+    requestAnimationFrame(() => {
+      const ta = composerRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.scrollIntoView({ block: "nearest" });
+    });
+  }
+  async function resolveHelp(c: GitHubComment) {
+    const people = [c.user?.login ?? "", ...parseHelp(c.body ?? "").to].filter((l) => l && l.toLowerCase() !== me.toLowerCase());
+    await createComment(issue.number, helpDoneBody([...new Set(people)]));
     await loadComments();
   }
 
@@ -388,8 +420,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               </span>
             )}
             {issue.state === "open" ? (
-              // 閉じ方（完了・予定なし・重複）を選んで閉じる
-              <span style={{ marginLeft: "auto" }}>
+              // 閉じ方（完了・予定なし・重複）を選んで閉じる。困ったら 🆘（チームの人を @ で呼ぶコメント）
+              <span className="idm-head-actions">
+                {onAskHelp && issue.number > 0 && (
+                  <button type="button" className="btn-help" onClick={() => onAskHelp(issue)} title="チームの人を @ で呼んで、この Issue にコメントを残します">
+                    🆘 助けを求める
+                  </button>
+                )}
                 <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} />
               </span>
             ) : (
@@ -843,6 +880,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           const composer = (
             <>
               <textarea
+                ref={composerRef}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
@@ -868,6 +906,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 order={historyOrder}
                 onOrderChange={setHistoryOrder}
                 composer={composer}
+                onReplyHelp={replyHelp}
+                onResolveHelp={issue.number > 0 ? resolveHelp : undefined}
               />
             );
           }

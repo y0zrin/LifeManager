@@ -161,6 +161,10 @@ export const timeOf = (iso: string) => {
 
 // --- あなたがすること ---
 
+/** 「助けを求める」のコメントの印（GitHub の画面では見えない）と、その解決の印 */
+export const HELP_MARK = "<!-- lm:help -->";
+export const HELP_DONE_MARK = "<!-- lm:help-done -->";
+
 export interface Todo {
   /** 見た印の鍵（中身が変わると鍵も変わり、また出る） */
   key: string;
@@ -240,7 +244,14 @@ export function buildTodos(o: {
     const target = { kind: (e.pull || e.type.startsWith("PullRequest") ? "pull" : "issue") as "pull" | "issue", number: e.number };
     const ref: Part = { kind: target.kind, number: e.number, title: e.title };
     if ((e.type === "IssueCommentEvent" || e.type === "PullRequestReviewCommentEvent") && e.body && mention.test(e.body)) {
-      out.push({ key: `mention:${e.id}`, icon: "💬", tone: "", parts: [`${e.actor} が `, ref, " であなたの名前を出しました"], detail: e.body, at: e.at, target, order: 6 });
+      // 助けを求める（🆘）と、その解決（✅）は、名前を呼ばれたとは別に、目立つように
+      if (e.body.includes(HELP_MARK)) {
+        out.push({ key: `help:${e.id}`, icon: "🆘", tone: "ng", parts: [`${e.actor} が助けを求めています ・ `, ref], detail: e.body, at: e.at, target, order: -1 });
+      } else if (e.body.includes(HELP_DONE_MARK)) {
+        out.push({ key: `helped:${e.id}`, icon: "✅", tone: "ok", parts: [`${e.actor} が 🆘 を解決にしました ・ `, ref], detail: e.body, at: e.at, target, order: 6 });
+      } else {
+        out.push({ key: `mention:${e.id}`, icon: "💬", tone: "", parts: [`${e.actor} が `, ref, " であなたの名前を出しました"], detail: e.body, at: e.at, target, order: 6 });
+      }
     }
     if (e.type === "IssuesEvent" && e.action === "assigned" && same(e.assignee, me)) {
       out.push({ key: `assigned:${e.id}`, icon: "👤", tone: "", parts: [`${e.actor} が `, ref, " の担当をあなたにしました"], at: e.at, target, order: 7 });

@@ -2,6 +2,7 @@ mod credential;
 mod git;
 mod github;
 mod journal;
+mod notice_window;
 mod notify;
 mod offline;
 mod scheduler;
@@ -1414,7 +1415,11 @@ async fn test_discord_webhook(webhook_url: String) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // もう一度起動したときは、インジケーターに残っている Life Manager を前に出す（二重に起動しない）
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| notice_window::show_main(app)));
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1422,6 +1427,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(None::<GitHubClient>))
         .setup(|app| {
+            #[cfg(desktop)]
+            notice_window::setup(app)?;
             let app_handle = app.handle().clone();
             credential::init_android_data_dir(&app_handle);
             tauri::async_runtime::spawn(async move {
@@ -1526,6 +1533,9 @@ pub fn run() {
             github::releases::upload_release_asset,
             github::cards::repo_card,
             github::artifacts::issue_artifacts,
+            notice_window::notice_fit,
+            notice_window::focus_main,
+            notice_window::set_close_to_tray,
             github::artifacts::media_read_github,
             git::media::media_read_local,
             git::media::media_read_commit,

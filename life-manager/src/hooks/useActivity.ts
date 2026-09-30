@@ -1,4 +1,4 @@
-// アクティビティ（チームの動き）と「あなたがすること」を読む。サイドバーの数のため、画面を開いていなくても 5 分ごとに読む
+// アクティビティ（チームの動き）と「あなたがすること」を読む。サイドバーの数とおしらせのため、画面を開いていなくても 2 分ごとに読む
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { activityFeed, buildTodos, type ActivityFeed } from "../lib/activity";
 import { pullVerdicts, type Verdicts } from "../lib/pulls";
@@ -75,7 +75,8 @@ export function useActivity(
 
   useEffect(() => {
     if (!enabled) return;
-    const t = window.setInterval(load, viewing ? 60000 : 300000);
+    // 見ていないときも 2 分ごと（おしらせ・助けを求められたのを、早めに知らせるため）
+    const t = window.setInterval(load, viewing ? 60000 : 120000);
     return () => window.clearInterval(t);
   }, [enabled, viewing, load]);
 
@@ -99,7 +100,7 @@ export function useActivity(
     [seen, seenKey],
   );
 
-  return { feed, error, loading, reload: load, todos, dismiss };
+  return { feed, error, loading, reload: load, todos, all, dismiss };
 }
 
 export type ActivityState = ReturnType<typeof useActivity>;

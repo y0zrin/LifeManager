@@ -7,6 +7,8 @@ import { LabelBadge } from "./LabelBadge";
 import { PendingChip } from "./PendingChip";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { closeReasonText } from "./CloseMenu";
+import { isHelp, isHelpDone, parseHelp } from "../../lib/help";
+import { HelpContextBox } from "../notices/HelpParts";
 
 interface IssueTimelineProps {
   issue: GitHubIssue;
@@ -22,6 +24,9 @@ interface IssueTimelineProps {
   onOrderChange: (order: HistoryOrder) => void;
   /** コメントを書く欄。新しい順なら一覧の上、古い順なら一覧の下に出す */
   composer?: ReactNode;
+  /** 🆘 のコメントの「返事を書く」「解決した」 */
+  onReplyHelp?: (c: GitHubComment) => void;
+  onResolveHelp?: (c: GitHubComment) => Promise<void>;
 }
 
 /** コメントと変更の履歴の並び。はじめは新しい順 */
@@ -103,11 +108,15 @@ function buildItems(issue: GitHubIssue, comments: GitHubComment[], events: Timel
 }
 
 /** 詳細の「💬 コメントと変更の履歴」。コメントのあいだに、ラベル・担当・閉じた・ほかの Issue やコミットから触れられた などを時間の順に出す */
-export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer }: IssueTimelineProps) {
+export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer, onReplyHelp, onResolveHelp }: IssueTimelineProps) {
   const index = useContext(IssueIndexContext);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "comments">("all");
+  // 「✅ 解決した」を送っている 🆘 のコメント
+  const [resolving, setResolving] = useState<number | null>(null);
+  // 🆘 は、あとに「解決しました」のコメントがあれば解決済み
+  const lastDone = comments.filter((c) => isHelpDone(c.body)).reduce((at, c) => (c.created_at > at ? c.created_at : at), "");
 
   // Issue が変わったら（閉じた・ラベルを変えた など）読み直す。まだ送っていない Issue には履歴がない
   useEffect(() => {
@@ -215,16 +224,59 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
           {items.map((item, i) => {
             if (item.kind === "comment") {
               const c = item.comment;
+              // 🆘 助けを求めるコメント: 呼んだ人・困っていること・添えたようすに整えて、赤く出す
+              const help = isHelp(c.body) ? parseHelp(c.body) : null;
+              const solved = !!help && lastDone > c.created_at;
+              const done = isHelpDone(c.body);
               return (
-                <li key={`c${c.id}`} className="timeline-comment">
+                <li key={`c${c.id}`} className={`timeline-comment${help ? " help" : ""}${done ? " help-done" : ""}`}>
                   <div className="timeline-comment-head">
                     <span className="timeline-comment-who">
                       {c.user?.login ?? "unknown"}
+                      {help && <span className="help-badge">🆘 助けて</span>}
+                      {solved && <span className="help-solved">✅ 解決</span>}
                       {c._pending && <PendingChip />}
                     </span>
                     <span className="timeline-when">{when(c.created_at)}</span>
                   </div>
-                  <div className="timeline-comment-body">{c.body}</div>
+                  {help ? (
+                    <div className="timeline-comment-body help-body">
+                      {help.to.length > 0 && (
+                        <div className="help-to">
+                          {help.to.map((l) => (
+                            <span key={l} className="help-mention">@{l}</span>
+                          ))}
+                        </div>
+                      )}
+                      {help.message && <div className="help-msg">{help.message}</div>}
+                      <HelpContextBox items={help.items} log={help.log} />
+                    </div>
+                  ) : (
+                    <div className="timeline-comment-body">{done ? c.body.replace(/<!--[\s\S]*?-->/g, "").replace(/\*\*/g, "").trim() : c.body}</div>
+                  )}
+                  {help && !solved && !c._pending && (onReplyHelp || onResolveHelp) && (
+                    <div className="help-actions">
+                      {onReplyHelp && (
+                        <button type="button" className="btn-sm" onClick={() => onReplyHelp(c)}>
+                          💬 返事を書く
+                        </button>
+                      )}
+                      {onResolveHelp && (
+                        <button
+                          type="button"
+                          className="btn-sm"
+                          disabled={resolving !== null}
+                          title="「解決しました」のコメントを残し、助けを求めた人と呼ばれた人に知らせます"
+                          onClick={() => {
+                            setResolving(c.id);
+                            onResolveHelp(c).finally(() => setResolving(null));
+                          }}
+                        >
+                          {resolving === c.id ? "送っています…" : "✅ 解決した"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             }

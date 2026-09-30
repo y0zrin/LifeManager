@@ -17,6 +17,7 @@ import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../..
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
 import type { MilestoneBar } from "../../lib/milestoneStage";
+import type { NoticeCorner } from "../../lib/notices";
 
 interface SettingsViewProps {
   labels: GitHubLabel[];
@@ -61,6 +62,8 @@ interface SettingsViewProps {
   initialPane?: SettingsPane;
   /** 開いたときに見せる区切り（ボードの「⚙ 区画の設定」・ガントの「⚙ 色の設定」から） */
   initialSection?: string;
+  /** 通知 の「ためしに出す」（おしらせを 1 つ出す） */
+  onTestNotice?: () => void;
 }
 
 /** 新しいバージョンを確かめた結果 */
@@ -119,6 +122,15 @@ const MILESTONE_BAR_OPTIONS: { value: MilestoneBar; label: string; note: string 
   { value: "hp", label: "HP（減る）", note: "残りの量を HP にして、終えた分だけ減ります。前に見たときより減った分が「−2pt」と飛びます" },
 ];
 
+// おしらせの窓を出す角（画面の絵の、窓の場所）
+const NOTICE_CORNER_OPTIONS: { value: NoticeCorner; label: string; note: string; box: { x: number; y: number } | null }[] = [
+  { value: "top-right", label: "右上", note: "はじめはこれ", box: { x: 27, y: 5 } },
+  { value: "bottom-right", label: "右下", note: "", box: { x: 27, y: 21 } },
+  { value: "top-left", label: "左上", note: "", box: { x: 5, y: 5 } },
+  { value: "bottom-left", label: "左下", note: "", box: { x: 5, y: 21 } },
+  { value: "off", label: "アプリの中だけ", note: "窓の外には出さず、アプリの右上に出します", box: null },
+];
+
 const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
   { value: "top-right", label: "右上", note: "", dot: { cx: 36, cy: 10 } },
   { value: "bottom-right", label: "右下", note: "", dot: { cx: 36, cy: 24 } },
@@ -127,7 +139,7 @@ const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: str
   { value: "hidden", label: "隠す", note: "Ctrl+M だけで開きます", dot: null },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection, onTestNotice }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
   // 区分を切り替える（横に並んだタブなので、右の区分へは右から・左へは左から入れ替わる）
   function changePane(next: SettingsPane) {
@@ -522,6 +534,58 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       {/* === 通知ペイン === */}
       {activePane === "notifications" && <>
+
+      {/* アプリのおしらせ（PC だけ。アプリの窓の外の小さな窓と、× でインジケーターに残す） */}
+      {!isMobile && (
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>アプリのおしらせ</h3>
+        <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
+          担当になった・レビューを頼まれた・名前を呼ばれた・修正を頼まれた・承認された・期限が近い・チェックや Actions の失敗・🆘 助けを求められた・マイルストーンの達成を、
+          画面の角の小さな窓に出します（× か「開く」まで残ります）。届いた知らせは、上のバーの 🔔 に 60 日残ります。
+        </p>
+        <div className="settings-subtitle">出す場所</div>
+        <div className="display-opts pos-opts">
+          {NOTICE_CORNER_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="notice-corner" checked={displaySettings.noticeCorner === opt.value}
+                onChange={() => onChangeDisplaySettings({ noticeCorner: opt.value })} />
+              <svg className="display-preview" width="46" height="34" aria-hidden="true">
+                <rect x="2" y="2" width="42" height="30" rx="4" className="pv-win" />
+                {opt.box ? <rect {...opt.box} width="14" height="8" rx="1.5" className="pv-bar" /> : <text x="23" y="21" className="pv-key">アプリ</text>}
+              </svg>
+              <span>
+                <b>{opt.label}</b>
+                {opt.note && <small>{opt.note}</small>}
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="settings-subtitle" style={{ marginTop: "var(--space-md)" }}>× を押したとき</div>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="close-to-tray" checked={displaySettings.closeToTray}
+              onChange={() => onChangeDisplaySettings({ closeToTray: true })} />
+            <span>
+              <b>インジケーターに残す（はじめはこれ）</b>
+              <small>画面の右下のインジケーター（タスクトレイ）に残り、おしらせを出し続けます。終えるときは、アイコンを右クリック →「終了する」</small>
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="close-to-tray" checked={!displaySettings.closeToTray}
+              onChange={() => onChangeDisplaySettings({ closeToTray: false })} />
+            <span>
+              <b>終了する</b>
+              <small>閉じているあいだは、おしらせも出ません</small>
+            </span>
+          </label>
+        </div>
+        {onTestNotice && (
+          <div style={{ marginTop: "var(--space-md)" }}>
+            <button type="button" className="btn-sm" onClick={onTestNotice}>🔔 ためしに出す</button>
+          </div>
+        )}
+      </div>
+      )}
 
       {/* Discord Webhook */}
       <div className="form-card">

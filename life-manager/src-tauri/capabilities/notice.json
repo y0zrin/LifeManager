@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "notice",
+  "description": "おしらせの小さな窓（アプリの窓の外に出す知らせ）",
+  "windows": ["notice"],
+  "platforms": ["windows", "macOS", "linux"],
+  "permissions": ["core:default"]
+}

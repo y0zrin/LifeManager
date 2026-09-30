@@ -13,7 +13,7 @@ import { useOverlayScrollGuard } from "./hooks/useOverlayScrollGuard";
 import { useHistory } from "./hooks/useHistory";
 import { useOffline } from "./hooks/useOffline";
 import { isMobile } from "./lib/platform";
-import { isTemporary } from "./lib/issueRef";
+import { isTemporary, issueRef } from "./lib/issueRef";
 import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
@@ -31,6 +31,13 @@ import { useActions } from "./hooks/useActions";
 import { ReleasesView } from "./components/views/ReleasesView";
 import { ActivityView } from "./components/views/ActivityView";
 import { useActivity } from "./hooks/useActivity";
+import { useNotices } from "./hooks/useNotices";
+import { NoticeToasts } from "./components/notices/NoticeToasts";
+import { NoticesDrawer } from "./components/notices/NoticesDrawer";
+import { HelpDialog } from "./components/notices/HelpDialog";
+import { lastGitFailure } from "./lib/gitFailure";
+import type { HelpContext } from "./lib/help";
+import type { Notice } from "./lib/notices";
 import type { PullDetail } from "./lib/pulls";
 import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
@@ -587,6 +594,66 @@ function App() {
     setActionsFocus({ runId, jobId });
     setView("actions");
   }, [setView]);
+  // おしらせ（🔔 のりれきと、アプリの窓の外の おしらせの窓）。「開く」で、その Issue・プルリク・Actions・画面へ
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const closeNotices = useCallback(() => setNoticesOpen(false), []);
+  const openNotice = useCallback((n: Notice) => {
+    setNoticesOpen(false);
+    // ほかのリポジトリの知らせなら、そのリポジトリに切り替えて、アクティビティ（あなたがすること）を出す
+    if (n.repo && n.repo !== `${gh.owner}/${gh.repo}`) {
+      const [o, r] = n.repo.split("/");
+      if (gh.projects.some((p) => p.owner === o && p.repo === r)) {
+        void gh.switchProject(o, r).then(() => setView("activity"));
+      }
+      return;
+    }
+    const t = n.target;
+    if (!t) return;
+    if (t.kind === "run") openRun(t.runId);
+    else if (t.kind === "view") {
+      const next = t.view;
+      if (ALL_NAV_ITEMS.some((item) => item.key === next)) setView(next as ViewType);
+    } else if (t.kind === "pull") openPull(t.number);
+    else openIssue(t.number);
+  }, [gh, openIssue, openPull, openRun, setView]);
+  const notices = useNotices({
+    repo: gh.owner ? `${gh.owner}/${gh.repo}` : "",
+    // アクティビティを読めてから（読む前の「あなたがすること」は、期限などだけ）
+    todos: activity.feed ? activity.all : null,
+    enabled: gh.connected && !isMobile && !initializing,
+    corner: display.settings.noticeCorner,
+    onOpen: openNotice,
+    onOpenHistory: () => setNoticesOpen(true),
+  });
+  const { clearDot: clearNoticeDot, clearToasts: clearNoticeToasts } = notices;
+  // りれきを開いたら、🔔 の点を消し（未読の数は持たない）、アプリの中に出している知らせを片付ける
+  useEffect(() => {
+    if (!noticesOpen) return;
+    clearNoticeDot();
+    clearNoticeToasts();
+  }, [noticesOpen, clearNoticeDot, clearNoticeToasts]);
+  // × を押したとき、インジケーターに残すか（PC だけ。設定 → 通知）
+  useEffect(() => {
+    if (!isMobile) invoke("set_close_to_tray", { on: display.settings.closeToTray }).catch(() => {});
+  }, [display.settings.closeToTray]);
+  // 🆘 助けを求める（Issue の詳細・作業タブから）。いっしょに送れる今のようすは、開いたときのもの
+  const [helpFor, setHelpFor] = useState<{ number: number; title: string; context: HelpContext } | null>(null);
+  // 🆘 を送ったら、開いている詳細のコメントを読み直す
+  const [commentsVersion, setCommentsVersion] = useState(0);
+  const askHelp = useCallback(async (issue: { number: number; title: string }) => {
+    // 作業の画面を開いていないと、git のようすが古いことがあるので読み直す
+    const st = folder && !isMobile ? await gitApi.readStatus(folder).catch(() => git.status) : null;
+    const failure = lastGitFailure();
+    setHelpFor({
+      number: issue.number,
+      title: issue.title,
+      context: {
+        branch: st?.branch ? { name: st.branch, changes: st.files.length } : undefined,
+        failure: failure ? { command: failure.command, message: failure.message } : undefined,
+        conflicts: st?.files.filter((f) => f.staged === "U").map((f) => f.path),
+      },
+    });
+  }, [folder, git.status]);
   // プルリクの競合を、この PC の作業フォルダで直す: 最新を取ってきて、そのブランチで入れる先を取り込む → 作業タブの「競合を直す」へ
   const fixPullLocally = useCallback(async (p: PullDetail) => {
     const st = git.status;
@@ -760,6 +827,9 @@ function App() {
   }
 
   const currentLabel = ALL_NAV_ITEMS.find((item) => item.key === view)?.label ?? "";
+  // 作業タブで取り組んでいる Issue（上のバーの 🆘 助けを求める）
+  const workIssueNumber = view === "work" ? loadWorkIssue(gh.owner, gh.repo) : null;
+  const workIssue = workIssueNumber !== null ? gh.issues.find((i) => i.number === workIssueNumber) ?? null : null;
 
   // 左上のリポジトリ（押すと一覧。切り替え・この PC のフォルダ・一覧から外す・リポジトリを追加）
   const projectSelect = (
@@ -831,6 +901,9 @@ function App() {
         onShowCommit={showTimelineCommit}
         onSetEstimate={gh.setEstimate}
         artifacts={gh.owner ? { owner: gh.owner, repo: gh.repo, folder } : undefined}
+        me={gh.currentUser}
+        onAskHelp={(i) => void askHelp(i)}
+        commentsVersion={commentsVersion}
       />
     );
   }
@@ -898,7 +971,24 @@ function App() {
           <div className="topbar-right">
             {/* git の操作の結果は右下に出すので、リポジトリの画面では場所をツールバーにゆずる */}
             {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
+            {view === "work" && workIssue && (
+              <button type="button" className="btn-help" onClick={() => void askHelp(workIssue)} title={`チームの人を @ で呼んで、${workIssue.title} にコメントを残します`}>
+                🆘 助けを求める
+              </button>
+            )}
             {syncIndicator}
+            {!isMobile && (
+              <button
+                type="button"
+                className={`nt-bell${noticesOpen ? " on" : ""}`}
+                onClick={() => setNoticesOpen((v) => !v)}
+                aria-label="おしらせ"
+                aria-expanded={noticesOpen}
+                title={notices.dot ? "おしらせ（新しい知らせがあります）" : "おしらせ（届いた知らせのりれき）"}
+              >
+                🔔{notices.dot && <i className="nt-bell-dot" aria-hidden="true" />}
+              </button>
+            )}
             <button className="btn-sm" onClick={() => { setShowPalette(true); }}>
               Ctrl+K
             </button>
@@ -1237,6 +1327,7 @@ function App() {
               onRunUpdate={performUpdate}
               initialPane={settingsPane ?? undefined}
               initialSection={settingsSection ?? undefined}
+              onTestNotice={notices.test}
             />
           )}
         </div>
@@ -1244,6 +1335,36 @@ function App() {
 
       {/* git の操作の結果、操作のメニュー、操作の前の確認・入力、コミットの内容 */}
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
+      {/* おしらせ: 🔔 のりれきと、アプリの中に出す知らせ（おしらせの窓を出さない設定のとき） */}
+      {noticesOpen && <NoticesDrawer notices={notices.history} onOpen={openNotice} onClose={closeNotices} />}
+      {notices.toasts.length > 0 && (
+        <div className="nt-inapp">
+          <NoticeToasts
+            notices={notices.toasts.slice(0, 3)}
+            more={Math.max(0, notices.toasts.length - 3)}
+            onOpen={(n) => {
+              notices.closeToast(n.id);
+              openNotice(n);
+            }}
+            onClose={notices.closeToast}
+            onOpenHistory={() => setNoticesOpen(true)}
+          />
+        </div>
+      )}
+      {helpFor && (
+        <HelpDialog
+          issue={helpFor}
+          me={gh.currentUser}
+          collaborators={gh.collaborators}
+          context={helpFor.context}
+          onSend={async (body, to) => {
+            await gh.createComment(helpFor.number, body);
+            setCommentsVersion((v) => v + 1);
+            gh.setStatus(`🆘 ${issueRef(helpFor.number)} で ${to.map((l) => `@${l}`).join(" ")} に助けを求めました`);
+          }}
+          onClose={() => setHelpFor(null)}
+        />
+      )}
       {/* お祝い（完了のキラキラ・スタンプ・完了の知らせ、新しく入ったもののキラキラ） */}
       <Celebration motion={display.settings.motion === "normal"} />
       <MilestoneCelebration motion={display.settings.motion === "normal"} onCloseMilestone={gh.closeMilestone} />

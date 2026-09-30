@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useState } from "react";
 import { applyTheme, isTheme, type Theme } from "../lib/theme";
 import { DEFAULT_BAR_COLORS, type GanttBarColors } from "../lib/ganttTypes";
 import { MILESTONE_BARS, type MilestoneBar } from "../lib/milestoneStage";
+import { NOTICE_CORNERS, type NoticeCorner } from "../lib/notices";
 
 /** 全体図でのブランチの見せ方。線 = ブランチごとに 1 本、ラベル = Sourcetree と同じくコミットの横に名前を付ける */
 export type BranchStyle = "label" | "line";
@@ -32,6 +33,10 @@ export interface DisplaySettings {
   ganttColors: GanttBarColors;
   /** マイルストーンの進み具合のバー: テーマに合わせる（クエストは HP）・達成率（のびる）・HP（減る） */
   milestoneBar: MilestoneBar;
+  /** おしらせの窓を出す角（off = 窓を出さず、アプリの中だけ）。PC だけ */
+  noticeCorner: NoticeCorner;
+  /** × を押したとき、インジケーター（タスクトレイ）に残す（はじめはこれ）か、終了する。PC だけ */
+  closeToTray: boolean;
 }
 
 const STORAGE_KEY = "display-settings";
@@ -44,6 +49,8 @@ const DEFAULTS: DisplaySettings = {
   theme: "chalk",
   ganttColors: DEFAULT_BAR_COLORS,
   milestoneBar: "auto",
+  noticeCorner: "top-right",
+  closeToTray: true,
 };
 // 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ。ボードの見た目は、そのままテーマになる）
 const OLD_BOARD_LOOK_KEY = "board-look";
@@ -81,6 +88,8 @@ export function loadDisplaySettings(): DisplaySettings {
       theme: [saved.theme, saved.boardLook, localStorage.getItem(OLD_BOARD_LOOK_KEY)].find(isTheme) ?? DEFAULTS.theme,
       ganttColors: loadGanttColors(saved.ganttColors),
       milestoneBar: MILESTONE_BARS.includes(saved.milestoneBar) ? saved.milestoneBar : DEFAULTS.milestoneBar,
+      noticeCorner: NOTICE_CORNERS.includes(saved.noticeCorner) ? saved.noticeCorner : DEFAULTS.noticeCorner,
+      closeToTray: typeof saved.closeToTray === "boolean" ? saved.closeToTray : DEFAULTS.closeToTray,
     };
   } catch {
     return DEFAULTS;

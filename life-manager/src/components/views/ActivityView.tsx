@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { KIND_LABELS, dayLabel, describe, kindOf, timeOf, type ActivityKind, type Part } from "../../lib/activity";
 import { ago } from "../../lib/pulls";
+import { commentPreview } from "../../lib/help";
 import type { ActivityState } from "../../hooks/useActivity";
 import { CommitDetail } from "../git/CommitDetail";
 
@@ -80,7 +81,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                     ),
                   )}
                 </span>
-                {t.detail && <span className="av-detail">「{t.detail.slice(0, 80)}」</span>}
+                {t.detail && <span className="av-detail">「{commentPreview(t.detail).slice(0, 80)}」</span>}
               </button>
               <span className="muted av-when">{t.at ? ago(t.at) : ""}</span>
               <button type="button" className="pr-reviewer-x" title="見た（中身が変わると、また出ます）" aria-label="見た" onClick={() => dismiss(t.key)}>
@@ -131,7 +132,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                   <span>
                     <b>{e.actor}</b> {renderParts(d!.parts)}
                   </span>
-                  {d!.detail && <span className="av-detail">「{d!.detail.slice(0, 100)}」</span>}
+                  {d!.detail && <span className="av-detail">「{commentPreview(d!.detail).slice(0, 100)}」</span>}
                   {d!.commits && d!.commits.length > 0 && (
                     <span className="av-commits">
                       {d!.commits.map((c) => (

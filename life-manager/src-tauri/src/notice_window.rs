@@ -1,0 +1,138 @@
+//! アプリの窓の外に出す「おしらせ」の小さな窓と、インジケーター（タスクトレイ）。
+//! おしらせの窓は、枠なし・透明・いつも手前・タスクバーに出ない・入力を奪わない。中身（index.html）は同じで、窓の名前（notice）で出し分ける。
+//! 高さは知らせの数に合わせて変え、知らせがなければ隠す。出す角（右上・右下・左上・左下）は設定で選ぶ。
+//! メインの窓の × は、設定でインジケーターに残す（はじめはこれ）か、終了する。スマホ版では、どれも何もしない
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Manager};
+
+pub const NOTICE_LABEL: &str = "notice";
+const MAIN_LABEL: &str = "main";
+/// おしらせの窓の幅（画面の点。拡大率は掛ける）と、画面の端からの間
+const NOTICE_WIDTH: f64 = 440.0;
+const NOTICE_MARGIN: f64 = 12.0;
+
+/// × を押したとき、インジケーターに残すか（はじめは残す。画面の設定から変える）
+static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
+
+/// メインの窓を前に出す（隠していれば出し、最小化していれば戻す）
+pub fn show_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window(MAIN_LABEL) {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// 起動したときに: おしらせの窓（隠しておく）・インジケーター・メインの窓の × の扱い
+#[cfg(desktop)]
+pub fn setup(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+
+    WebviewWindowBuilder::new(app, NOTICE_LABEL, WebviewUrl::App("index.html".into()))
+        .title("Life Manager のおしらせ")
+        .inner_size(NOTICE_WIDTH, 120.0)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .focused(false)
+        .focusable(false)
+        .visible(false)
+        .build()?;
+
+    let open = MenuItem::with_id(app, "open", "Life Manager を開く", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", "終了する", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &separator, &quit])?;
+    let mut tray = TrayIconBuilder::with_id("main")
+        .tooltip("Life Manager")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => show_main(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                show_main(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)?;
+
+    if let Some(main) = app.get_webview_window(MAIN_LABEL) {
+        let handle = app.handle().clone();
+        main.on_window_event(move |event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if CLOSE_TO_TRAY.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    if let Some(w) = handle.get_webview_window(MAIN_LABEL) {
+                        let _ = w.hide();
+                    }
+                    // はじめて残したときは、どこに残ったかを知らせる（おしらせの窓が出す）
+                    let _ = handle.emit_to(NOTICE_LABEL, "lm-to-tray", ());
+                } else {
+                    // おしらせの窓が残っていると終わらないので、アプリごと終える
+                    handle.exit(0);
+                }
+            }
+        });
+    }
+    Ok(())
+}
+
+/// おしらせの窓の高さを中身に合わせ、選んだ角に置く（0 なら隠す）。height は画面の点（CSS の px）
+#[tauri::command]
+pub fn notice_fit(app: AppHandle, height: f64, corner: String) -> Result<(), String> {
+    let Some(w) = app.get_webview_window(NOTICE_LABEL) else { return Ok(()) };
+    if height <= 0.0 {
+        let _ = w.hide();
+        return Ok(());
+    }
+    // メインの窓がある画面（隠しているときは、いちばんの画面）
+    let main_visible = app.get_webview_window(MAIN_LABEL).map(|m| m.is_visible().unwrap_or(false)).unwrap_or(false);
+    let monitor = if main_visible {
+        app.get_webview_window(MAIN_LABEL).and_then(|m| m.current_monitor().ok().flatten())
+    } else {
+        None
+    }
+    .or_else(|| app.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else { return Ok(()) };
+    let scale = monitor.scale_factor();
+    let area = monitor.work_area();
+    let (ax, ay) = (area.position.x as f64, area.position.y as f64);
+    let (aw, ah) = (area.size.width as f64, area.size.height as f64);
+    let width = NOTICE_WIDTH * scale;
+    let height = (height * scale).min(ah * 0.85).max(1.0);
+    let margin = NOTICE_MARGIN * scale;
+    let x = if corner.ends_with("left") { ax + margin } else { ax + aw - width - margin };
+    let y = if corner.starts_with("bottom") { ay + ah - height - margin } else { ay + margin };
+    let _ = w.set_size(tauri::PhysicalSize::new(width.round() as u32, height.round() as u32));
+    let _ = w.set_position(tauri::PhysicalPosition::new(x.round() as i32, y.round() as i32));
+    if !w.is_visible().unwrap_or(false) {
+        let _ = w.show();
+    }
+    Ok(())
+}
+
+/// おしらせの「開く」: メインの窓を前に出す
+#[tauri::command]
+pub fn focus_main(app: AppHandle) {
+    show_main(&app);
+}
+
+/// × を押したとき、インジケーターに残すか（画面の設定から）
+#[tauri::command]
+pub fn set_close_to_tray(on: bool) {
+    CLOSE_TO_TRAY.store(on, Ordering::SeqCst);
+}

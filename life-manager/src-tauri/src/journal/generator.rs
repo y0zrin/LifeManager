@@ -1,4 +1,4 @@
-use crate::github::client::GitHubClient;
+use crate::github::client::{is_network_error, GitHubClient};
 
 // 日次ジャーナルを生成してGitHubにアップロードする
 
@@ -97,12 +97,15 @@ pub async fn generate_journal(
     let weekday = weekday_jp(&parsed_date);
     let mut md = format!("# {} ({})\n\n", date, weekday);
 
-    // 既存ジャーナルの「## ノート」セクションを保持（完了の上に配置）
+    // 既存ジャーナルの「## ノート」セクションを保持（完了の上に配置）。上書きに使う sha もここで取る。
+    // 「ない」以外の理由で読めないときは書かずに止める（ノートを消したり、sha なしで書いて 422 になったりしないように）
     let path = format!("journal/{}.md", date);
-    let existing_notes = match client.get_contents(owner, repo, &path).await {
-        Ok((content, _)) => extract_notes_section(&content),
-        Err(_) => None,
+    let existing = match client.get_contents(owner, repo, &path).await {
+        Ok((content, sha)) => Some((content, sha)),
+        Err(e) if e.starts_with("HTTP 404") => None,
+        Err(e) => return Err(e),
     };
+    let existing_notes = existing.as_ref().and_then(|(content, _)| extract_notes_section(content));
     if let Some(notes) = &existing_notes {
         md.push_str("## ノート\n");
         md.push_str(notes);
@@ -162,12 +165,7 @@ pub async fn generate_journal(
     // GitHub Contents APIでアップロード
     let commit_message = format!("{}の日次ログを生成", date);
 
-    // 既存ファイルがあればSHAを取得（上書き更新のため）
-    let sha = match client.get_contents(owner, repo, &path).await {
-        Ok((_, existing_sha)) => Some(existing_sha),
-        Err(_) => None,
-    };
-
+    let sha = existing.map(|(_, sha)| sha);
     client
         .put_contents(owner, repo, &path, &md, &commit_message, sha)
         .await?;
@@ -192,22 +190,13 @@ fn extract_notes_section(md: &str) -> Option<String> {
     return None;
 }
 
-/// ジャーナルのノートセクションのみを更新してGitHubにアップロードする
-pub async fn save_journal_notes(
-    client: &GitHubClient,
-    owner: &str,
-    repo: &str,
-    date: &str,
-    notes: &str,
-) -> Result<String, String> {
-    let path = format!("journal/{}.md", date);
+/// ノートの本文（なければ空）
+pub fn notes_of(md: &str) -> String {
+    extract_notes_section(md).unwrap_or_default()
+}
 
-    // 既存ジャーナルを取得
-    let (existing_content, sha) = client
-        .get_contents(owner, repo, &path)
-        .await
-        .map_err(|_| format!("{}のジャーナルが見つかりません。先に生成してください。", date))?;
-
+/// ジャーナルの「## ノート」を notes に置き換えた Markdown（ノートはタイトル直後・完了の上に置く）
+pub fn replace_notes(existing_content: &str, notes: &str) -> String {
     // 既存のノートセクションを除去
     let stripped = if let Some(start) = existing_content.find("## ノート\n") {
         let before = &existing_content[..start];
@@ -237,6 +226,28 @@ pub async fn save_journal_notes(
     } else {
         format!("{}\n", stripped)
     };
+    md
+}
+
+/// ジャーナルのノートセクションのみを更新してGitHubにアップロードする
+pub async fn save_journal_notes(
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    date: &str,
+    notes: &str,
+) -> Result<String, String> {
+    let path = format!("journal/{}.md", date);
+
+    // 既存ジャーナルを取得（つながらないときは、そのことが分かるエラーのまま返す）
+    let (existing_content, sha) = client.get_contents(owner, repo, &path).await.map_err(|e| {
+        if is_network_error(&e) {
+            e
+        } else {
+            format!("{}のジャーナルが見つかりません。先に生成してください。", date)
+        }
+    })?;
+    let md = replace_notes(&existing_content, notes);
 
     let commit_message = format!("{}のノートを更新", date);
     client
@@ -246,16 +257,16 @@ pub async fn save_journal_notes(
     return Ok(md);
 }
 
-/// 指定日のジャーナルをGitHubから取得する
-pub async fn get_journal(
-    client: &GitHubClient,
-    owner: &str,
-    repo: &str,
-    date: &str,
-) -> Result<String, String> {
-    let path = format!("journal/{}.md", date);
-    match client.get_contents(owner, repo, &path).await {
-        Ok((content, _sha)) => return Ok(content),
-        Err(_) => return Err(format!("{}のジャーナルが見つかりません", date)),
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notes_are_placed_above_the_first_section() {
+        let md = "# 2026-09-27 (日)\n\n## 完了\n- なし\n";
+        let with_notes = replace_notes(md, "電車で考えた");
+        assert_eq!(with_notes, "# 2026-09-27 (日)\n\n## ノート\n電車で考えた\n\n## 完了\n- なし");
+        assert_eq!(notes_of(&with_notes), "電車で考えた");
+        assert_eq!(replace_notes(&with_notes, "書き直した"), "# 2026-09-27 (日)\n\n## ノート\n書き直した\n\n## 完了\n- なし");
     }
 }

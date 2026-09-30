@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Life Manager のアイコン（C1「枝が育つ：葉と実」）。幹と枝が git のブランチ、葉と実（黄＝やり終えたこと）がコミット。
+       アイコンを作り直すときは、このファイルを直して `npx tauri icon app-icon.svg` を実行する
+       （Android の背景色 gen/android/app/src/main/res/values/ic_launcher_background.xml が #fff に戻るので、#1a7f37 に直す） -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2da44e"/>
+      <stop offset="1" stop-color="#116329"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="208" fill="url(#tile)"/>
+  <path d="M512 856 L512 436" stroke="#ffffff" stroke-width="86" stroke-linecap="round" fill="none"/>
+  <path d="M512 716 C512 616 340 636 340 522" stroke="#ffffff" stroke-width="74" stroke-linecap="round" fill="none"/>
+  <path d="M512 616 C512 526 684 546 684 438" stroke="#ffffff" stroke-width="74" stroke-linecap="round" fill="none"/>
+  <ellipse cx="340" cy="450" rx="106" ry="72" transform="rotate(-35 340 450)" fill="#aff5b4"/>
+  <ellipse cx="512" cy="352" rx="80" ry="114" fill="#aff5b4"/>
+  <circle cx="684" cy="380" r="90" fill="#ffd33d"/>
+</svg>

@@ -4,10 +4,34 @@
 Tauri 2.0 (Rust + React/TypeScript) のGitHub Issues ベースタスク管理デスクトップアプリ。
 GitHub Issues/Milestones/Labels をバックエンドストレージとして利用。
 
+## 現在のバージョンと次の作業
+- **公開済み**: v0.3.3（2026-04-22）
+- **公開の準備中**: v0.9.0 — 0.4〜0.9 のロードマップ（タスク管理・リポジトリ管理・プルリク・Actions・リリース・アクティビティ）をまとめて出す。ブランチ `0.9.0` に保存してある（リリースノートは `docs/release-notes/0.9.0.md`）
+  - 済み（2026-09-29）: GitHub App に権限を足して承認。本物のアプリ（非公開の y0zrin/lm-test）で W・X・Y を確かめ、見つかった 11 件の不具合を直した
+    （X15・X16・X11・X2・X3・X6・X8・X9・X10・X12、W5・W7・W8・W9・W10・W11、Y2・Y3（タグと題名）・Y4・Y6 は本物で動いた）
+  - 済み（2026-09-30）: 設定の整理・テーマ 3 つ（黒板・ホワイトボード・クエスト）とボードの机・Issue の詳細のタブ・全体チェック 2 回（3 テーマ × PC・スマホ・ダイアログ、本物のアプリ）
+  - 済み（2026-09-30 夜）: マニュアルを 6 部 32 章（部 → 章 → 節。番号は CSS、目次・この章の中・前後の章はスクリプトで見出しから作る）に。README を 0.9 に合わせて短く
+  - 済み（2026-09-30 朝）: 紹介動画の 2 本目（0.9.0 の画面・11 場面・約 96 秒。仕組みは `dev.local/video/`、コミットしない）。撮っていて気づいた、ログインの許可のあとに最初のボタンに戻って見える不具合を直した
+  - 残り: サイドバーが窓の高さ 780px 前後で切れる件（ユーザーが見てから決める）→ main にまとめてタグ 0.9.0 → Release に setup と latest.json（手順は `docs/04_keys_and_tokens.md`。Y3 のファイルを添えるは、このときアプリの「＋ リリースを作る」で確かめる）
+  - 後で（ユーザー判断 2026-09-30）: 人が確かめること（W6 別のアカウントでのレビュー・X13 Unity のリポジトリ）。紹介動画の 2 本目は了承済み
+- **次回**: v1.0 "Foundation" — 画面側のテスト・E2E、状態管理、API キャッシュ、git ターミナル
+- **ロードマップ詳細**: メモリの `next_tasks.md` を参照
+
+### ロードマップの進み（2026-09-29 夜）
+| 版 | 中身 | 状態 |
+|---|---|---|
+| v0.4 "Depth" | サブイシュー、AND/OR の絞り込み、一括操作、並び替え、テンプレート、期限、関連、変更の履歴 | 完了（0.9.0 に入る） |
+| v0.5 "Intelligence" | 保存した見方、表、まとめる、見積もり、分析パネル | 完了（0.9.0 に入る） |
+| v0.6 "Agile" | useGitHub の分割、スプリント、バーンダウン、ベロシティ、サイクルタイム | 完了（0.9.0 に入る） |
+| v0.7 "Code" | プルリクの一覧・会話・変更されたファイル（差分・行コメント）・レビュー・マージ・作成、作業の流れの プルリク → マージ | 完了（0.9.0 に入る） |
+| v0.8 "Pipeline" | Actions（解決する順の山・ログ・もう一度実行・手で実行・ひな形〔Unity・Unreal も〕・止める）、Dependabot・コードスキャン、プルリクのチェック | 完了（0.9.0 に入る） |
+| v0.9 "Release" | リリース管理（マイルストーンからノート・ファイルを添える）、アクティビティ（あなたがすること＝通知の代わり・チームの動き）、ブランチ管理 | 完了（0.9.0 に入る） |
+| v1.0 | 画面側のテスト・E2E、状態管理、API キャッシュ、git ターミナル（Rust のテスト 91 件はある） | 未着手 |
+
 ## 技術スタック
-- **フロントエンド**: React 18 + TypeScript + Vite
+- **フロントエンド**: React 19 + TypeScript + Vite
 - **バックエンド**: Rust (Tauri 2.0)
-- **API**: GitHub REST API (Fine-grained PAT)
+- **API**: GitHub REST API（「GitHub でログイン」= OAuth デバイスフロー、または Fine-grained PAT）
 - **通知**: Discord Webhook + OS通知 (tauri-plugin-notification)
 - **自動更新**: tauri-plugin-updater (minisign署名)
 - **キー管理**: OS キーチェーン (keyring クレート)
@@ -16,6 +40,7 @@ GitHub Issues/Milestones/Labels をバックエンドストレージとして利
 ```bash
 npm run dev          # 開発サーバー起動
 npx tsc --noEmit     # 型チェック（変更後必ず実行）
+cargo check          # Rustコンパイルチェック（バックエンド変更時）
 release.bat          # リリースビルド（バージョンbump + ビルド + latest.json生成）
 ```
 
@@ -23,59 +48,61 @@ release.bat          # リリースビルド（バージョンbump + ビルド +
 ```
 src/
 ├── App.tsx, App.css         # メインアプリ、グローバルCSS
-├── hooks/useGitHub.ts       # GitHub API操作の中央フック
+├── hooks/useGitHub.ts       # GitHub API操作の中央フック（組み合わせと、全部を読む・プロジェクト切り替え・ログイン/ログアウトだけ）
+├── hooks/github/           # 分野ごとのフック: useSession（リポジトリ・ログイン・プロジェクト）/ useRepoMeta（ラベル・マイルストーン・コラボレーター）/
+│                           #   useRepoSettings（リポジトリに置く設定・Discord）/ useIssues（Issue 操作・コメント・親子・テンプレート・履歴・見積もり）/ useJournal / shared
 ├── lib/
-│   ├── types.ts             # 型定義
-│   ├── ganttTypes.ts        # ガントチャート型定義
+│   ├── types.ts             # 型定義（EventType含む）
+│   ├── ganttTypes.ts        # ガントチャート型定義（GanttBarColors含む）
 │   ├── ganttParser.ts       # Issueメタデータ↔GanttTask変換
-│   └── ganttRenderer.ts     # Canvas描画エンジン
-├── components/common/       # 共通コンポーネント
-│   ├── IssueDetailModal.tsx  # Issue詳細（ガントメタデータ編集含む）
+│   └── ganttRenderer.ts     # Canvas描画エンジン（クリティカルパス計算含む）
+├── components/common/
+│   ├── IssueDetailModal.tsx  # Issue詳細（ガント編集、先行タスク検索含む）
 │   └── ...
 └── components/views/
-    ├── DashboardView.tsx     # タスク一覧
-    ├── KanbanView.tsx        # カンバンボード
-    ├── GanttView.tsx         # ガントチャート（Canvas + 仮想スクロール）
+    ├── DashboardView.tsx     # タスク一覧（検索、サジェスト、ガント日程入力）
+    ├── KanbanView.tsx        # ボード（未整理・着手済みのボード、状態ごとの板と付箋）
+    ├── GanttView.tsx         # ガントチャート（ドラッグ移動/リサイズ、CP、遅延表示。帯の色は 設定 → 表示）
+    ├── SettingsView.tsx      # 設定（接続/タスク/通知/表示/トークン/その他。テーマ・ボードの区画・ガントの色・バージョンも）
+    ├── TimelineView.tsx      # 日誌（Issue参照リンク付き）
     └── ...
 
 src-tauri/src/
 ├── lib.rs                   # Tauriコマンド定義
 ├── github/client.rs         # GitHub REST APIクライアント
-├── scheduler/routine.rs     # ルーチンIssue自動作成
+├── scheduler/routine.rs     # ルーチンIssue自動作成（イベント通知設定対応）
 └── ...
 ```
 
-## ガントチャート (v0.3.0) — 実装状況
-
-### 完了
-- Canvas描画エンジン (ganttRenderer.ts): グリッド、日付ヘッダー、今日線、バー、依存矢印
+## ガントチャート — 実装済み機能 (v0.3.2)
+- Canvas描画エンジン: グリッド（水平罫線含む）、日付ヘッダー、今日線、バー、依存矢印
 - Issue body内のHTMLコメントメタデータ:
   - `<!-- gantt:YYYY-MM-DD/YYYY-MM-DD -->` 開始/終了日
   - `<!-- depends:#N,#N -->` 依存関係
   - `<!-- progress-mode:checkbox|manual|binary -->` + `<!-- progress:値 -->`
-- IssueDetailModalでガントメタデータ編集UI
+- ドラッグでバー移動/リサイズ（日程変更、API自動保存）
+- ホバーツールチップ（タイトル、日程、進捗、担当者）
+- クリティカルパス常時赤色表示 + CPラベルトグル
+- バーの色カスタマイズ（6種類: デフォルト/進行中/ブロック/完了/CP/優先高、localStorage永続化）
+- 遅延/前倒し表示（赤い延長バー / 前倒しテキスト）
+- 開始日>終了日の自動補正（パーサー/モーダル/ドラッグの3箇所）
+- 先行タスク登録時のIssue検索サジェスト
+- Issue作成フォームからガント日程設定
 - マイルストーン単位フィルタ + 担当者/状態/分野フィルタ
 - タイムスケール切替 (日/週/月)
-- 仮想スクロール (1000+ Issue対応設計)
-- 依存関係矢印 (S字カーブ + 行間迂回ルート)
-- マウスドラッグスクロール (Canvas上でドラッグ&ドロップ)
-- 横スクロールバー (上部固定、ドラッグ対応)
-- マイルストーン選択のlocalStorage記憶
-- 左パネル「Issue」ヘッダー固定
-- マイルストーン「なし」設定 (milestone=0で解除)
+- 仮想スクロール、マウスドラッグスクロール、横スクロールバー
 
-### 未実装・改善候補
-- ドラッグでバー移動/リサイズ（日程変更）
-- ツールチップ（バーホバーで詳細表示）
-- クリティカルパス表示
-- バーの色のカスタマイズ
-- エクスポート機能
+## イベント通知タイプ
+`issue_created`, `routine_created`, `issue_closed`, `issue_reopened`,
+`status_changed`, `comment_added`, `todo_toggled`, `issue_promoted`, `issue_updated`
 
 ## コーディング規約
 - ハードコードの色・サイズは使わない → CSS変数 (`--text-primary`, `--bg-secondary` 等)
 - 変更後は必ず `npx tsc --noEmit` で型チェック
+- Rust変更時は `cargo check` も実行
 - Issue削除機能は実装しない（GitHub上で直接行う方針）
 - グローバルフォールバックのような暗黙の動作は避ける
+- メモ/Issue作成は楽観的UX（即座にフォームリセット→バックグラウンドでAPI）
 
 ## ラベル体系
 `カテゴリ:値` 形式:

@@ -1,4 +1,11 @@
 import type { GitHubIssue } from "../../lib/types";
+import { issueRef } from "../../lib/issueRef";
+import { PendingChip } from "./PendingChip";
+import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
+import { DueChip } from "./DueChip";
+import { EstimateChip } from "./EstimateChip";
+import { ESTIMATE_PREFIX } from "../../lib/estimate";
+import { Avatar } from "./Avatar";
 
 interface TicketCardProps {
   issue: GitHubIssue;
@@ -8,14 +15,14 @@ interface TicketCardProps {
 export function TicketCard({ issue, onSelect }: TicketCardProps) {
   // Priority detection
   const priorityLabel = issue.labels.find((l) => l.name.startsWith("優先:"));
-  const priorityColor = priorityLabel?.name === "優先:高" ? "#f85149"
-    : priorityLabel?.name === "優先:中" ? "#d29922"
-    : priorityLabel?.name === "優先:低" ? "#3fb950"
+  const priorityColor = priorityLabel?.name === "優先:高" ? "var(--accent-red)"
+    : priorityLabel?.name === "優先:中" ? "var(--accent-yellow)"
+    : priorityLabel?.name === "優先:低" ? "var(--accent-green-hover)"
     : "transparent";
 
-  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere)
+  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
   const displayLabels = issue.labels.filter(
-    (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:")
+    (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:") && !l.name.startsWith(ESTIMATE_PREFIX)
   );
 
   // Todo progress
@@ -23,11 +30,6 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
 
-  // Milestone due date
-  const dueDate = issue.milestone?.due_on
-    ? new Date(issue.milestone.due_on)
-    : null;
-  const isOverdue = dueDate ? dueDate < new Date() : false;
 
   return (
     <div
@@ -35,10 +37,12 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
       onClick={() => onSelect(issue.number)}
       style={{ borderLeft: `3px solid ${priorityColor}` }}
     >
+      <ParentMark issue={issue} />
       {/* Header: number + title */}
       <div className="ticket-header">
-        <span className="ticket-number">#{issue.number}</span>
+        <span className="ticket-number">{issueRef(issue.number)}</span>
         <span className="ticket-title">{issue.title}</span>
+        {issue._pending && <PendingChip />}
       </div>
 
       {/* Labels row */}
@@ -63,16 +67,14 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
             🎯 {issue.milestone.title}
           </span>
         )}
-        {dueDate && (
-          <span className="ticket-meta-item" style={{ color: isOverdue ? "#f85149" : "#8b949e" }}>
-            📅 {dueDate.toLocaleDateString("ja-JP", { month: "short", day: "numeric" })}
-          </span>
-        )}
+        <DueChip issue={issue} />
+        <EstimateChip issue={issue} />
         {todoTotal > 0 && (
           <span className="ticket-meta-item">
             ✅ {todoDone}/{todoTotal}
           </span>
         )}
+        <SubIssueBadge issue={issue} />
         {issue.comments > 0 && (
           <span className="ticket-meta-item">
             💬 {issue.comments}
@@ -90,8 +92,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
         {issue.assignees && issue.assignees.length > 0 && (
           <div className="ticket-assignees">
             {issue.assignees.map((a) => (
-              <img key={a.login} src={a.avatar_url} alt={a.login} title={a.login}
-                className="ticket-avatar" />
+              <Avatar key={a.login} login={a.login} url={a.avatar_url} title={a.login} className="ticket-avatar" />
             ))}
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactElement } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactElement } from "react";
 import { DatePickerButton } from "../common/DatePickerButton";
 
 interface TimelineViewProps {
@@ -50,10 +50,14 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
     return body.trimEnd();
   }
 
+  // 親が描き直すたびに関数が作り直されても読み直さないよう、最新の関数を覚えておく（書きかけのノートが消えないように）
+  const getJournalRef = useRef(onGetJournal);
+  getJournalRef.current = onGetJournal;
+
   const fetchJournal = useCallback(async (date: string) => {
     setLoading(true);
     try {
-      const content = await onGetJournal(date);
+      const content = await getJournalRef.current(date);
       setJournalContent(content);
       const n = extractNotes(content);
       setNotesText(n);
@@ -65,7 +69,7 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
     } finally {
       setLoading(false);
     }
-  }, [onGetJournal]);
+  }, []);
 
   useEffect(() => {
     fetchJournal(selectedDate);

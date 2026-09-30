@@ -14,6 +14,8 @@ interface ThemeColors {
   accentBlue: string;
   accentGreen: string;
   accentRed: string;
+  /** 見積もりの色（仮の帯） */
+  accentTeal: string;
 }
 
 function readThemeColors(): ThemeColors {
@@ -32,6 +34,7 @@ function readThemeColors(): ThemeColors {
     accentBlue: g("--accent-blue"),
     accentGreen: g("--accent-green"),
     accentRed: g("--accent-red"),
+    accentTeal: g("--accent-teal"),
   };
 }
 
@@ -139,6 +142,7 @@ export class GanttRenderer {
 
     this.drawGrid(config, scrollX, scrollY, canvasWidth, canvasHeight, tasks.length);
     this.drawTodayLine(config, scrollX, canvasHeight);
+    this.drawDeadline(config, scrollX, canvasHeight);
     this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false);
     this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow);
     this.drawHeader(config, scrollX, canvasWidth);
@@ -192,10 +196,14 @@ export class GanttRenderer {
         const date = addDays(startDate, i);
         const dow = dayOfWeekUTC(date);
         if (dow === 1 || i === visibleStartDay) { // Monday
-          const x = i * pixelsPerDay - scrollX + 2;
+          const label = formatDate(date);
           ctx.textAlign = "left";
+          // 左端の日付は、すぐあとの月曜の日付と重なるなら出さない
+          const toMonday = (8 - dow) % 7;
+          if (dow !== 1 && toMonday * pixelsPerDay < ctx.measureText(label).width + 8) continue;
+          const x = i * pixelsPerDay - scrollX + 2;
           ctx.fillStyle = this.colors.textMuted;
-          ctx.fillText(formatDate(date), x, headerHeight - 6);
+          ctx.fillText(label, x, headerHeight - 6);
         }
       }
     } else {
@@ -206,10 +214,17 @@ export class GanttRenderer {
         const month = parseInt(date.split("-")[1], 10);
         if (month !== lastMonth) {
           lastMonth = month;
-          const x = i * pixelsPerDay - scrollX + 4;
+          const label = `${date.split("-")[0]}/${month}`;
           ctx.textAlign = "left";
+          // 左端の月は、すぐあとの月の名前と重なるなら出さない
+          if (i === visibleStartDay) {
+            const [y, m, d] = date.split("-").map(Number);
+            const daysLeft = new Date(Date.UTC(y, m, 0)).getUTCDate() - d + 1;
+            if (d !== 1 && daysLeft * pixelsPerDay < ctx.measureText(label).width + 8) continue;
+          }
+          const x = i * pixelsPerDay - scrollX + 4;
           ctx.fillStyle = this.colors.textMuted;
-          ctx.fillText(`${date.split("-")[0]}/${month}`, x, headerHeight - 6);
+          ctx.fillText(label, x, headerHeight - 6);
         }
       }
     }
@@ -280,6 +295,60 @@ export class GanttRenderer {
     ctx.stroke();
   }
 
+  /** マイルストーンの期限（その日の終わりに赤い点線） */
+  private drawDeadline(config: GanttViewConfig, scrollX: number, canvasHeight: number) {
+    if (!config.deadline) return;
+    const x = this.dateToX(config.deadline, config, scrollX) + config.pixelsPerDay;
+    if (x < -2 || x > this.ctx.canvas.width / this.dpr + 60) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = this.colors.accentRed;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, config.headerHeight);
+    ctx.lineTo(x, canvasHeight);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = this.colors.accentRed;
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(`期限 ${formatDate(config.deadline)}`, x + 4, config.headerHeight + 12);
+    ctx.restore();
+  }
+
+  /** 見積もりから仮に置いた帯（点線・うすい色）。マイルストーンの期限を超えた分は赤 */
+  private drawTentativeBar(task: GanttTask, config: GanttViewConfig, x1: number, x2: number, y: number, barHeight: number, scrollX: number) {
+    const ctx = this.ctx;
+    const teal = this.colors.accentTeal;
+    ctx.save();
+    ctx.setLineDash([4, 3]);
+    ctx.fillStyle = teal + "22";
+    ctx.strokeStyle = teal;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x1, y, x2 - x1, barHeight, 3);
+    ctx.fill();
+    ctx.stroke();
+    if (config.deadline && task.endDate && dateToDays(task.endDate) > dateToDays(config.deadline)) {
+      const dx = Math.max(x1, this.dateToX(config.deadline, config, scrollX) + config.pixelsPerDay);
+      ctx.fillStyle = this.colors.accentRed + "44";
+      ctx.strokeStyle = this.colors.accentRed;
+      ctx.beginPath();
+      ctx.roundRect(dx, y, x2 - dx, barHeight, [0, 3, 3, 0]);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    if (x2 - x1 > 34 && task.estimate) {
+      ctx.fillStyle = this.colors.textMuted;
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(`仮 ${task.estimate}`, x1 + 4, y + barHeight - 4);
+    }
+    ctx.restore();
+  }
+
   private drawBars(
     tasks: GanttTask[],
     config: GanttViewConfig,
@@ -309,6 +378,12 @@ export class GanttRenderer {
 
       // Skip if off screen
       if (x2 < 0 || x1 > canvasWidth) continue;
+
+      // 見積もりからの仮の帯は、進み具合・遅れ・CP の印を付けずに点線で描く
+      if (task.tentative) {
+        this.drawTentativeBar(task, config, x1, x2, y, barHeight, scrollX);
+        continue;
+      }
 
       const isCritical = criticalPath?.has(task.issueNumber) ?? false;
       const barColor = this.resolveBarColor(task, isCritical, barColors);

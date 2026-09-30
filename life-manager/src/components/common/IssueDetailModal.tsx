@@ -1,11 +1,43 @@
-import { useState, useEffect, useRef } from "react";
-import type { GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder } from "../../lib/types";
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineEvent } from "../../lib/types";
 import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
 import { LabelBadge } from "./LabelBadge";
 import { TaskListBody } from "./TaskListBody";
+import { PendingChip } from "./PendingChip";
+import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
+import { CloseMenu, closeReasonText } from "./CloseMenu";
+import { RelatedIssues } from "./RelatedIssues";
+import { HistoryOrderToggle, IssueTimeline, useHistoryOrder } from "./IssueTimeline";
+import { issueRef } from "../../lib/issueRef";
+import { splitAppMarks, visibleBody, withAppMarks } from "../../lib/bodyMarks";
+import { isEnter, isEscape } from "../../lib/keys";
+import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
+import { EstimatePicker } from "./EstimateChip";
+import { Avatar } from "./Avatar";
+import { relatedOf } from "../../lib/related";
+
+/** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
+type DetailTab = "history" | "settings" | "links";
+
+/** 内容をたたんだときの高さ（3 行ほど） */
+const CONTENT_CLAMP_PX = 88;
+
+/** 設定の表で開いている編集の欄（一度に一つ） */
+type EditRow = "labels" | "assignees" | "dates" | "deps" | "progress" | "reminder";
+
+/** ラベルを選ぶ欄の並び（カテゴリごとに 1 行） */
+const LABEL_GROUPS = ["種別", "状態", "優先", "分野"];
+
+/** YYYY-MM-DD → M/D */
+function md(date: string): string {
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}/${d}`;
+}
 
 interface IssueDetailModalProps {
+  /** 重ねずに、その場に出す（PC のタスクの右の欄）。Esc で閉じない */
+  inline?: boolean;
   issue: GitHubIssue;
   onClose: () => void;
   listComments: (issueNumber: number) => Promise<GitHubComment[]>;
@@ -14,16 +46,28 @@ interface IssueDetailModalProps {
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
   updateIssue: (n: number, updates: { title?: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: number | null }) => Promise<void>;
-  onCloseIssue: (issueNumber: number) => Promise<void>;
+  /** 閉じる（reason で閉じ方。重複なら元の Issue も） */
+  onCloseIssue: (issueNumber: number, reason?: CloseReason, duplicateOf?: GitHubIssue) => Promise<void>;
   onReopenIssue: (issueNumber: number) => Promise<void>;
   onToggleTodo: (issueNumber: number, newBody: string) => Promise<void>;
   reminders: Reminder[];
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
   onRemoveReminder: (issueNumber: number, datetime: string) => Promise<void>;
   allIssues?: GitHubIssue[];
+  /** ほかの Issue の詳細に切り替える（親・子へ移るとき。一覧にない子は、その中身も渡す） */
+  onOpenIssue?: (n: number, fallback?: GitHubIssue) => void;
+  /** サブイシュー（親子）の読み書き。渡さなければ、サブイシューの欄を出さない */
+  subIssueApi?: SubIssueApi;
+  /** 変更の履歴（タイムライン）を読む。渡さなければ、コメントだけを出す */
+  listTimeline?: (n: number) => Promise<TimelineEvent[]>;
+  /** 履歴のコミットを押したとき（変更内容を見る） */
+  onShowCommit?: (hash: string, actor: string, date: string) => void;
+  /** 見積もりを付け替える（null なら外す）。渡さなければ、見積もりの行を出さない */
+  onSetEstimate?: (issueNumber: number, value: number | null) => Promise<void>;
 }
 
-export function IssueDetailModal({ issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [] }: IssueDetailModalProps) {
+export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate }: IssueDetailModalProps) {
+  const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -32,13 +76,19 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(issue.title);
   const [editingBody, setEditingBody] = useState(false);
-  const [editBody, setEditBody] = useState(issue.body || "");
-  const [editingLabels, setEditingLabels] = useState(false);
+  // 本文を直す欄には、アプリの印（ガントの日程・関連など）を出さない。保存するときに戻す
+  const [editBody, setEditBody] = useState(() => splitAppMarks(issue.body).text);
+  const [tab, setTab] = useState<DetailTab>("history");
+  // 内容が長いときは、たたんでおく（「すべて表示」で全部）
+  const [contentOpen, setContentOpen] = useState(false);
+  const [contentLong, setContentLong] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // 履歴の並び（はじめは新しい順。この PC に覚える）
+  const [historyOrder, setHistoryOrder] = useHistoryOrder();
+  const [openRow, setOpenRow] = useState<EditRow | null>(null);
   const [editLabels, setEditLabels] = useState<string[]>(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
-  const [editingAssignees, setEditingAssignees] = useState(false);
   const [editAssignees, setEditAssignees] = useState<string[]>(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
   const editBodyRef = useRef<HTMLTextAreaElement>(null);
-  const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderDatetime, setReminderDatetime] = useState("");
   const [reminderChannels, setReminderChannels] = useState<string[]>(["os"]);
   const issueReminders = reminders.filter((r) => r.issue_number === issue.number);
@@ -68,13 +118,17 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
 
   useEffect(() => {
     loadComments();
+    // 別の Issue に移ったら、履歴のタブから（内容はたたんで）
+    setTab("history");
+    setContentOpen(false);
+    setOpenRow(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.number]);
 
   // issue が外部で更新された場合に編集状態をリセット
   useEffect(() => {
     setEditTitle(issue.title ?? "");
-    setEditBody(issue.body || "");
+    setEditBody(splitAppMarks(issue.body).text);
     setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
     setEditAssignees(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
     const d = parseGanttDates(issue.body);
@@ -120,18 +174,20 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
 
   // --- 本文保存 ---
   async function handleBodySave() {
-    if (editBody === (issue.body || "")) {
+    // 印は、今の本文のもの（直しているあいだにガントの日程を変えても、消さない）
+    const { text, marks } = splitAppMarks(issue.body);
+    if (editBody.trimEnd() === text) {
       setEditingBody(false);
       return;
     }
-    await updateIssue(issue.number, { body: editBody });
+    await updateIssue(issue.number, { body: withAppMarks(editBody, marks) });
     setEditingBody(false);
   }
 
   // --- ラベル保存 ---
   async function handleLabelsSave() {
     await updateIssue(issue.number, { labels: editLabels });
-    setEditingLabels(false);
+    setOpenRow(null);
   }
 
   function toggleLabel(name: string) {
@@ -152,265 +208,250 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
 
   async function handleAssigneesSave() {
     await updateIssue(issue.number, { assignees: editAssignees });
-    setEditingAssignees(false);
+    setOpenRow(null);
   }
 
-  // ESCキーで閉じる
+  // --- ガント（日程・先行・進み）。どの欄から保存しても、3 つともいまの値で本文の印に書く ---
+  async function handleGanttSave() {
+    setGanttSaving(true);
+    try {
+      let body = stripGanttMetadata(issue.body || "");
+      if (ganttStart && ganttEnd) {
+        const s = ganttStart <= ganttEnd ? ganttStart : ganttEnd;
+        const e = ganttStart <= ganttEnd ? ganttEnd : ganttStart;
+        body += "\n" + serializeGanttDates(s, e);
+      }
+      const deps = ganttDepsInput.split(",").map((s) => parseInt(s.replace("#", "").trim(), 10)).filter((n) => !isNaN(n));
+      if (deps.length > 0) {
+        body += "\n" + serializeDependencies(deps);
+      }
+      if (ganttProgressMode !== "checkbox") {
+        const val = ganttProgressMode === "manual" ? parseInt(ganttProgressValue, 10) || 0 : ganttProgressValue;
+        body += "\n" + serializeProgress(ganttProgressMode, val);
+      }
+      await onToggleTodo(issue.number, body);
+      setOpenRow(null);
+    } finally {
+      setGanttSaving(false);
+    }
+  }
+
+  /** 編集の欄を閉じる（入れかけたものは、今の値に戻す） */
+  function cancelRow() {
+    setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
+    setEditAssignees(issue.assignees?.map((a) => a.login) || []);
+    const d = parseGanttDates(issue.body);
+    const deps = parseDependencies(issue.body);
+    const prog = parseProgress(issue.body);
+    setGanttStart(d?.start || "");
+    setGanttEnd(d?.end || "");
+    setGanttDepsInput(deps.map((n) => `#${n}`).join(","));
+    setGanttProgressMode(prog.mode);
+    setGanttProgressValue(String(prog.value));
+    setDepSearch("");
+    setOpenRow(null);
+  }
+
+  /** 設定の表の欄を開く・閉じる（ほかの欄を開いていたら、そちらは戻して閉じる） */
+  function toggleRow(row: EditRow) {
+    if (openRow === row) {
+      cancelRow();
+      return;
+    }
+    cancelRow();
+    if (row === "reminder") {
+      // はじめは 1 時間後
+      const d = new Date(Date.now() + 3600000);
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+      setReminderDatetime(local.toISOString().slice(0, 16));
+    }
+    setOpenRow(row);
+  }
+
+  // ESCキーで閉じる（重ねて出すときだけ。右の欄に出すときは閉じない）
   useEffect(() => {
+    if (inline) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (isEscape(e)) onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, inline]);
+
+  // 内容がたたむ高さを超えるか（本文が変わったとき・幅が変わって折り返しが変わったときに測り直す）
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => setContentLong(el.scrollHeight > CONTENT_CLAMP_PX + 4);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [issue.body, editingBody]);
 
   const todoMatch = issue.body?.match(/- \[[ x]\]/g);
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
 
-  return (
-    <div className="palette-overlay" onClick={onClose}>
-      <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
-      <div onClick={(e) => e.stopPropagation()} className="modal-content">
-        {/* ヘッダー */}
-        <div style={{ marginBottom: "12px" }}>
-          <div style={{ flex: 1 }}>
-            <div className="flex-row flex-wrap" style={{ marginBottom: "4px" }}>
-              <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>#{issue.number}</span>
-              <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
-                {issue.state === "open" ? "🟢 Open" : "🟣 Closed"}
+  // タブの数（つながり: 子と関連、履歴: コメント）
+  const linkCount = (issue.sub_issues_summary?.total ?? 0) + (issue.number > 0 ? relatedOf(issue, allIssues).length : 0);
+  const commentCount = Math.max(issue.comments ?? 0, comments.length);
+  const TABS: { key: DetailTab; label: string; count?: number }[] = [
+    { key: "history", label: "履歴", count: commentCount },
+    { key: "settings", label: "設定" },
+    { key: "links", label: "つながり", count: linkCount },
+  ];
+
+  // 設定の表に出す値
+  const shownLabels = (issue.labels ?? []).filter((l) => !l.name.startsWith(ESTIMATE_PREFIX));
+  const ganttDays = ganttDates ? Math.round((Date.parse(ganttDates.end) - Date.parse(ganttDates.start)) / 86400000) + 1 : 0;
+  const progressText =
+    ganttProgress.mode === "manual"
+      ? `${ganttProgress.value}%（手で入れた値）`
+      : ganttProgress.mode === "binary"
+        ? ganttProgress.value === "done"
+          ? "達成"
+          : "まだ"
+        : todoTotal > 0
+          ? `チェックリスト ${todoDone}/${todoTotal}`
+          : "チェックリスト（項目なし）";
+  const progressRate =
+    ganttProgress.mode === "manual"
+      ? Number(ganttProgress.value) / 100
+      : ganttProgress.mode === "binary"
+        ? ganttProgress.value === "done"
+          ? 1
+          : 0
+        : todoTotal > 0
+          ? todoDone / todoTotal
+          : 0;
+  const labelGroups = [
+    ...LABEL_GROUPS.map((g) => ({ name: g, labels: availableLabels.filter((l) => l.name.startsWith(`${g}:`)) })),
+    {
+      name: "そのほか",
+      labels: availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX) && !LABEL_GROUPS.some((g) => l.name.startsWith(`${g}:`))),
+    },
+  ].filter((g) => g.labels.length > 0);
+
+  // 設定の表の 1 行（名前・値・✎）。開いていたら、その下に編集の欄
+  const row = (key: EditRow | null, name: string, value: ReactNode, editor?: ReactNode, mark = "✎") => (
+    <>
+      <div className={`idm-row${key && openRow === key ? " open" : ""}`}>
+        <span className="idm-key">{name}</span>
+        <div className="idm-val">{value}</div>
+        {key ? (
+          <button type="button" className="idm-edit" onClick={() => toggleRow(key)} aria-expanded={openRow === key} title={`${name}を変える`}>
+            {openRow === key ? "×" : mark}
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
+      {key && openRow === key && editor && <div className="idm-editor">{editor}</div>}
+    </>
+  );
+  const editorButtons = (onSave: () => void, disabled = false, saveLabel = "保存") => (
+    <div className="idm-editor-btns">
+      <button type="button" className="btn-sm" onClick={cancelRow}>
+        やめる
+      </button>
+      <button type="button" className="btn-primary" onClick={onSave} disabled={disabled}>
+        {saveLabel}
+      </button>
+    </div>
+  );
+  const none = (text = "なし") => <span className="idm-none">{text}</span>;
+
+  const body = (
+      <div onClick={(e) => e.stopPropagation()} className={inline ? "modal-content issue-detail-inline" : "modal-content issue-modal"}>
+        {inline && (
+          <button type="button" onClick={onClose} className="issue-detail-close" title="閉じる">×</button>
+        )}
+        {/* 見出し（番号・状態・閉じる・題・ラベル）。どのタブでも見える */}
+        <div className="idm-head">
+          {onOpenIssue && <ParentCrumb issue={issue} onOpenIssue={onOpenIssue} />}
+          <div className="flex-row flex-wrap" style={{ marginBottom: "4px" }}>
+            <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
+            {issue._pending && <PendingChip />}
+            <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
+              {issue.state === "open" ? "🟢 Open" : `${issue.state_reason === "not_planned" ? "⚪" : "🟣"} Closed（${closeReasonText(issue.state_reason)}）`}
+            </span>
+            {issue.milestone && (
+              <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>
+                📌 {issue.milestone.title}
               </span>
-              {issue.milestone && (
-                <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>
-                  📌 {issue.milestone.title}
-                </span>
-              )}
+            )}
+            {issue.state === "open" ? (
+              // 閉じ方（完了・予定なし・重複）を選んで閉じる
+              <span style={{ marginLeft: "auto" }}>
+                <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} />
+              </span>
+            ) : (
               <button
-                className={issue.state === "open" ? "btn-sm" : "btn-primary"}
+                className="btn-primary"
                 style={{ marginLeft: "auto", fontSize: "var(--font-sm)", padding: "3px 10px" }}
-                onClick={async () => {
-                  if (issue.state === "open") {
-                    await onCloseIssue(issue.number);
-                  } else {
-                    await onReopenIssue(issue.number);
-                  }
-                }}
+                onClick={() => onReopenIssue(issue.number)}
               >
-                {issue.state === "open" ? "クローズ" : "リオープン"}
+                リオープン
               </button>
-            </div>
-
-            {/* タイトル（クリックで編集） */}
-            {editingTitle ? (
-              <input
-                autoFocus
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleTitleSave(); if (e.key === "Escape") { setEditTitle(issue.title); setEditingTitle(false); } }}
-                onBlur={handleTitleSave}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  margin: "4px 0 8px",
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  color: "#e6edf3",
-                  background: "#161b22",
-                  border: "1px solid #58a6ff",
-                  borderRadius: "4px",
-                  padding: "4px 8px",
-                  outline: "none",
-                }}
-              />
-            ) : (
-              <h2
-                onClick={() => setEditingTitle(true)}
-                style={{
-                  margin: "4px 0 8px",
-                  fontSize: "18px",
-                  color: "#e6edf3",
-                  cursor: "pointer",
-                  borderBottom: "1px dashed transparent",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = "#30363d")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = "transparent")}
-                title="クリックして編集"
-              >
-                {issue.title}
-              </h2>
-            )}
-
-            {/* ラベル表示 / 編集 */}
-            {editingLabels ? (
-              <div>
-                <div className="label-selector" style={{ marginBottom: "8px" }}>
-                  {availableLabels.map((l) => {
-                    const active = editLabels.includes(l.name);
-                    return (
-                      <span
-                        key={l.name}
-                        className={`label-chip ${active ? "active" : ""}`}
-                        onClick={() => toggleLabel(l.name)}
-                        style={{
-                          color: parseInt(l.color, 16) > 0x7fffff ? "#000" : "#fff",
-                          backgroundColor: `#${l.color}`,
-                        }}
-                      >
-                        {l.name}
-                      </span>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button className="btn-primary" onClick={handleLabelsSave} style={{ fontSize: "12px", padding: "3px 10px" }}>
-                    保存
-                  </button>
-                  <button className="btn-sm" onClick={() => { setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []); setEditingLabels(false); }} style={{ fontSize: "12px" }}>
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{ display: "flex", flexWrap: "wrap", gap: "4px", cursor: "pointer" }}
-                onClick={() => setEditingLabels(true)}
-                title="クリックしてラベルを編集"
-              >
-                {(issue.labels ?? []).map((l) => (
-                  <LabelBadge key={l.name} name={l.name} color={l.color} />
-                ))}
-                {(!issue.labels || issue.labels.length === 0) && (
-                  <span style={{ color: "#484f58", fontSize: "12px" }}>ラベルなし（クリックで追加）</span>
-                )}
-              </div>
-            )}
-
-            {/* 担当者（アサイン） */}
-            {editingAssignees ? (
-              <div style={{ marginTop: "10px", padding: "10px", background: "var(--bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-default)" }}>
-                <span style={{ fontSize: "var(--font-sm)", color: "var(--accent-blue)", marginBottom: "6px", display: "block", fontWeight: 600 }}>👥 担当者を選択</span>
-                <div className="label-selector" style={{ gap: "6px", marginBottom: "10px" }}>
-                  {collaborators.map((c) => {
-                    const active = editAssignees.includes(c.login);
-                    return (
-                      <span
-                        key={c.login}
-                        onClick={() => toggleAssignee(c.login)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "4px 10px",
-                          borderRadius: "16px",
-                          fontSize: "var(--font-sm)",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          color: active ? "#fff" : "var(--text-muted)",
-                          backgroundColor: active ? "#1f6feb" : "var(--bg-primary)",
-                          border: active ? "2px solid var(--accent-blue)" : "2px solid var(--border-default)",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        <img src={c.avatar_url} alt={c.login} className="avatar-md" style={{ border: active ? "1px solid #fff" : "1px solid var(--border-default)" }} />
-                        {c.login}
-                      </span>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button className="btn-primary" onClick={handleAssigneesSave} style={{ fontSize: "12px", padding: "3px 10px" }}>
-                    保存
-                  </button>
-                  <button className="btn-sm" onClick={() => { setEditAssignees(issue.assignees?.map((a) => a.login) || []); setEditingAssignees(false); }} style={{ fontSize: "12px" }}>
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px", cursor: "pointer", alignItems: "center", padding: "6px 8px", borderRadius: "6px", border: "1px solid #21262d", background: "#161b2288" }}
-                onClick={() => setEditingAssignees(true)}
-                title="クリックして担当者を編集"
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#21262d")}
-              >
-                <span style={{ fontSize: "12px", color: "#8b949e", marginRight: "2px" }}>👥</span>
-                {issue.assignees && issue.assignees.length > 0 ? (
-                  issue.assignees.map((a) => (
-                    <span key={a.login} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "#e6edf3", padding: "2px 8px", background: "#1f6feb33", borderRadius: "12px", border: "1px solid #1f6feb55" }}>
-                      <img src={a.avatar_url} alt={a.login} style={{ width: "18px", height: "18px", borderRadius: "50%", border: "1px solid #58a6ff" }} />
-                      {a.login}
-                    </span>
-                  ))
-                ) : (
-                  <span style={{ color: "#484f58", fontSize: "12px" }}>未設定（クリックで追加）</span>
-                )}
-              </div>
             )}
           </div>
 
-            {/* マイルストーン */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 8px", borderRadius: "6px", border: "1px solid #21262d", background: "#161b2288" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#21262d")}
-            >
-              <span style={{ fontSize: "12px", color: "#8b949e" }}>🎯</span>
-              <select
-                value={issue.milestone?.number ?? ""}
-                onChange={async (e) => {
-                  const val = e.target.value;
-                  await updateIssue(issue.number, { milestone: val ? Number(val) : null });
-                }}
-                style={{
-                  flex: 1,
-                  background: "transparent",
-                  color: "var(--text-primary)",
-                  border: "none",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  outline: "none",
-                }}
-              >
-                <option value="" style={{ background: "var(--bg-secondary)" }}>マイルストーンなし</option>
-                {milestones.map((m) => (
-                  <option key={m.number} value={m.number} style={{ background: "var(--bg-secondary)" }}>
-                    {m.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* タイトル（クリックで編集） */}
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={(e) => { if (isEnter(e)) handleTitleSave(); if (isEscape(e)) { setEditTitle(issue.title); setEditingTitle(false); } }}
+              onBlur={handleTitleSave}
+              className="idm-title-input"
+            />
+          ) : (
+            <h2 onClick={() => setEditingTitle(true)} className="idm-title" title="クリックして編集">
+              {issue.title}
+            </h2>
+          )}
+
+          {/* ラベルと担当の一覧（押すと 設定 のタブで変えられる） */}
+          <button
+            type="button"
+            className="idm-summary"
+            onClick={() => {
+              setTab("settings");
+              toggleRow("labels");
+            }}
+            title="設定のタブで変える"
+          >
+            {shownLabels.map((l) => (
+              <LabelBadge key={l.name} name={l.name} color={l.color} />
+            ))}
+            {shownLabels.length === 0 && <span className="idm-none">ラベルなし</span>}
+            {(issue.assignees ?? []).map((a) => (
+              <span key={a.login} className="idm-person">
+                <Avatar login={a.login} url={a.avatar_url} className="avatar-sm" />
+                {a.login}
+              </span>
+            ))}
+          </button>
         </div>
 
-        {/* 本文（クリックで編集） */}
+        {/* 内容（本文とチェックリスト）。どのタブでも見える。長いときは 3 行ほどでたたみ、「すべて表示」で全部 */}
         {editingBody ? (
-          <div style={{ marginBottom: "16px" }}>
+          <div className="idm-content-edit">
             <textarea
               ref={editBodyRef}
               autoFocus
               value={editBody}
               onChange={(e) => setEditBody(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape") { setEditBody(issue.body || ""); setEditingBody(false); } }}
-              style={{
-                width: "100%",
-                minHeight: "120px",
-                padding: "12px",
-                background: "#161b22",
-                borderRadius: "6px",
-                fontSize: "13px",
-                color: "#c9d1d9",
-                border: "1px solid #58a6ff",
-                lineHeight: 1.6,
-                resize: "vertical",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
+              onKeyDown={(e) => { if (isEscape(e)) { setEditBody(splitAppMarks(issue.body).text); setEditingBody(false); } }}
+              className="idm-body-input"
             />
             <div style={{ display: "flex", gap: "6px", marginTop: "6px", alignItems: "center" }}>
               <button className="btn-primary" onClick={handleBodySave} style={{ fontSize: "12px", padding: "3px 10px" }}>
                 保存
               </button>
-              <button className="btn-sm" onClick={() => { setEditBody(issue.body || ""); setEditingBody(false); }} style={{ fontSize: "12px" }}>
+              <button className="btn-sm" onClick={() => { setEditBody(splitAppMarks(issue.body).text); setEditingBody(false); }} style={{ fontSize: "12px" }}>
                 キャンセル
               </button>
               <button className="btn-sm" style={{ fontSize: "11px", marginLeft: "auto" }}
@@ -431,298 +472,438 @@ export function IssueDetailModal({ issue, onClose, listComments, createComment, 
                 }}>+ タスク項目</button>
             </div>
           </div>
-        ) : issue.body && todoTotal > 0 ? (
-          /* タスクリストがある場合はTaskListBodyでレンダリング */
-          <div style={{ position: "relative" }}>
-            <TaskListBody
-              body={issue.body}
-              issueNumber={issue.number}
-              onToggle={onToggleTodo}
-            />
-            {/* 編集ボタン（右上に小さく配置） */}
-            <button
-              className="btn-sm"
-              onClick={() => setEditingBody(true)}
-              title="本文を編集"
-              style={{
-                position: "absolute",
-                top: "4px",
-                right: "4px",
-                fontSize: "11px",
-                padding: "2px 6px",
-                opacity: 0.6,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-            >
-              ✏️
-            </button>
-          </div>
         ) : (
-          <div
-            onClick={() => setEditingBody(true)}
-            style={{
-              padding: "12px",
-              background: "#161b22",
-              borderRadius: "6px",
-              marginBottom: "16px",
-              whiteSpace: "pre-wrap",
-              fontSize: "13px",
-              color: "#c9d1d9",
-              border: "1px solid #30363d",
-              lineHeight: 1.6,
-              cursor: "pointer",
-              minHeight: "40px",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30363d")}
-            title="クリックして編集"
-          >
-            {issue.body || <span style={{ color: "#484f58" }}>本文なし（クリックで追加）</span>}
-          </div>
-        )}
-
-        {/* タスク進捗 */}
-        {todoTotal > 0 && (
-          <div style={{ fontSize: "12px", color: "#888", marginBottom: "16px" }}>
-            タスク進捗: {todoDone}/{todoTotal}
-            <div style={{ width: "100%", height: "6px", background: "#21262d", borderRadius: "3px", marginTop: "4px" }}>
-              <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "#238636", borderRadius: "3px" }} />
-            </div>
-          </div>
-        )}
-
-        {/* ガントチャート設定 */}
-        <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
-          <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)", display: "block", marginBottom: "6px" }}>ガントチャート</span>
-
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
-            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>開始:</label>
-            <input type="date" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)}
-              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>終了:</label>
-            <input type="date" value={ganttEnd} onChange={(e) => setGanttEnd(e.target.value)}
-              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-          </div>
-
-          <div style={{ marginBottom: "6px" }}>
-            <label style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>先行:</label>
-            <div style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", marginBottom: "4px" }}>
-              {ganttDepsInput.split(",").filter(Boolean).map((s) => {
-                const num = parseInt(s.replace("#", "").trim(), 10);
-                if (isNaN(num)) return null;
-                const depIssue = allIssues.find((i) => i.number === num);
-                return (
-                  <span key={num} style={{
-                    display: "inline-flex", alignItems: "center", gap: "3px",
-                    padding: "1px 6px", borderRadius: "10px", fontSize: "11px",
-                    backgroundColor: "var(--bg-tertiary)", color: "var(--text-secondary)",
-                  }}>
-                    #{num}{depIssue ? ` ${depIssue.title.substring(0, 15)}` : ""}
-                    <span style={{ cursor: "pointer", color: "var(--text-faint)", marginLeft: "2px" }}
-                      onClick={() => {
-                        const deps = ganttDepsInput.split(",").map(x => x.trim()).filter(x => x && parseInt(x.replace("#", ""), 10) !== num);
-                        setGanttDepsInput(deps.join(","));
-                      }}>×</span>
-                  </span>
-                );
-              })}
-            </div>
-            <div style={{ position: "relative" }}>
-              <input value={depSearch}
-                onChange={(e) => { setDepSearch(e.target.value); setShowDepSuggestions(true); }}
-                onFocus={() => setShowDepSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowDepSuggestions(false), 200)}
-                placeholder="Issue検索して追加..."
-                style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "200px" }} />
-              {showDepSuggestions && depSuggestions.length > 0 && (
-                <div className="suggestion-dropdown" style={{ maxWidth: "300px" }}>
-                  {depSuggestions.map((s) => (
-                    <button key={s.number} className="suggestion-item"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const existing = ganttDepsInput.split(",").map(x => x.trim()).filter(Boolean);
-                        if (!existing.some(x => parseInt(x.replace("#", ""), 10) === s.number)) {
-                          const newDeps = [...existing, `#${s.number}`].join(",");
-                          setGanttDepsInput(newDeps);
-                        }
-                        setDepSearch("");
-                        setShowDepSuggestions(false);
-                      }}>
-                      <span className={`suggestion-state suggestion-state--${s.state}`}>
-                        {s.state === "open" ? "●" : "○"}
-                      </span>
-                      <span className="suggestion-number">#{s.number}</span>
-                      <span className="suggestion-title">{s.title}</span>
-                    </button>
-                  ))}
+          <>
+            <div ref={contentRef} className={`idm-content${contentLong && !contentOpen ? " clamped" : ""}`}>
+              {issue.body && todoTotal > 0 ? (
+                /* タスクリストがある場合はTaskListBodyでレンダリング（たたんでいても、見えている所のチェックは付けられる） */
+                <TaskListBody
+                  body={issue.body}
+                  issueNumber={issue.number}
+                  onToggle={onToggleTodo}
+                />
+              ) : (
+                <div onClick={() => setEditingBody(true)} className="idm-body" title="クリックして編集">
+                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（クリックで追加）</span>}
                 </div>
               )}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
-            <label style={{ fontSize: "11px", color: "var(--text-muted)" }}>進捗:</label>
-            <select value={ganttProgressMode} onChange={(e) => {
-              const mode = e.target.value as ProgressMode;
-              setGanttProgressMode(mode);
-              if (mode === "binary") setGanttProgressValue("undone");
-              else if (mode === "manual") setGanttProgressValue("0");
-              else setGanttProgressValue("0");
-            }} style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }}>
-              <option value="checkbox">チェックボックス</option>
-              <option value="manual">任意の値</option>
-              <option value="binary">達成可否</option>
-            </select>
-            {ganttProgressMode === "manual" && (
-              <input value={ganttProgressValue} onChange={(e) => setGanttProgressValue(e.target.value)}
-                placeholder="0-100" style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px", width: "60px" }} />
-            )}
-            {ganttProgressMode === "manual" && <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>%</span>}
-            {ganttProgressMode === "binary" && (
-              <button className={`btn-sm ${ganttProgressValue === "done" ? "active" : ""}`}
-                style={{ fontSize: "11px", backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "#fff" : undefined }}
-                onClick={() => setGanttProgressValue(ganttProgressValue === "done" ? "undone" : "done")}
-              >
-                {ganttProgressValue === "done" ? "完了" : "未完了"}
+              {/* 編集ボタン（右上に小さく配置） */}
+              <button className="btn-sm idm-body-edit" onClick={() => setEditingBody(true)} title="本文を編集">
+                ✏️
               </button>
+            </div>
+            {(contentLong || todoTotal > 0) && (
+              <div className="idm-content-foot">
+                {contentLong && (
+                  <button type="button" className="link-button" onClick={() => setContentOpen(!contentOpen)} aria-expanded={contentOpen}>
+                    {contentOpen ? "たたむ ▴" : "すべて表示 ▾"}
+                  </button>
+                )}
+                {todoTotal > 0 && (
+                  <>
+                    <span className="idm-none">チェック {todoDone}/{todoTotal}</span>
+                    <span className="idm-content-bar" aria-hidden="true">
+                      <i style={{ width: `${(todoDone / todoTotal) * 100}%` }} />
+                    </span>
+                  </>
+                )}
+              </div>
             )}
-          </div>
+          </>
+        )}
 
-          <button className="btn-primary" style={{ fontSize: "11px", padding: "3px 8px" }}
-            disabled={ganttSaving}
-            onClick={async () => {
-              setGanttSaving(true);
-              try {
-                let body = stripGanttMetadata(issue.body || "");
-                if (ganttStart && ganttEnd) {
-                  const s = ganttStart <= ganttEnd ? ganttStart : ganttEnd;
-                  const e = ganttStart <= ganttEnd ? ganttEnd : ganttStart;
-                  body += "\n" + serializeGanttDates(s, e);
-                }
-                const deps = ganttDepsInput.split(",").map((s) => parseInt(s.replace("#", "").trim(), 10)).filter((n) => !isNaN(n));
-                if (deps.length > 0) {
-                  body += "\n" + serializeDependencies(deps);
-                }
-                if (ganttProgressMode !== "checkbox") {
-                  const val = ganttProgressMode === "manual" ? parseInt(ganttProgressValue, 10) || 0 : ganttProgressValue;
-                  body += "\n" + serializeProgress(ganttProgressMode, val);
-                }
-                await onToggleTodo(issue.number, body);
-              } finally {
-                setGanttSaving(false);
-              }
-            }}>
-            {ganttSaving ? "保存中..." : "ガント設定を保存"}
-          </button>
-        </div>
-
-        {/* リマインダー */}
-        <div style={{ marginBottom: "12px", borderTop: "1px solid var(--border-default)", paddingTop: "12px" }}>
-          <div className="flex-row" style={{ marginBottom: "6px" }}>
-            <span style={{ fontSize: "var(--font-md)", color: "var(--text-muted)" }}>リマインダー</span>
-            <button className="btn-sm" style={{ fontSize: "11px" }}
-              onClick={() => {
-                if (!showReminderForm) {
-                  // デフォルトを1時間後に設定
-                  const d = new Date(Date.now() + 3600000);
-                  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-                  setReminderDatetime(local.toISOString().slice(0, 16));
-                }
-                setShowReminderForm(!showReminderForm);
-              }}>
-              {showReminderForm ? "×" : "+ 設定"}
+        {/* タブ */}
+        <div className="idm-tabs" role="tablist" aria-label="Issue の詳細">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`idm-tab${tab === t.key ? " on" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              {!!t.count && <span className="idm-tab-n">{t.count}</span>}
             </button>
-          </div>
-
-          {showReminderForm && (
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginBottom: "6px" }}>
-              <input type="datetime-local" value={reminderDatetime}
-                onChange={(e) => setReminderDatetime(e.target.value)}
-                style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
-                <input type="checkbox" checked={reminderChannels.includes("os")}
-                  onChange={(e) => {
-                    if (e.target.checked) setReminderChannels([...reminderChannels, "os"]);
-                    else setReminderChannels(reminderChannels.filter((c) => c !== "os"));
-                  }} />
-                OS
-              </label>
-              <label style={{ fontSize: "11px", display: "flex", alignItems: "center", gap: "2px", color: "var(--text-muted)" }}>
-                <input type="checkbox" checked={reminderChannels.includes("discord")}
-                  onChange={(e) => {
-                    if (e.target.checked) setReminderChannels([...reminderChannels, "discord"]);
-                    else setReminderChannels(reminderChannels.filter((c) => c !== "discord"));
-                  }} />
-                Discord
-              </label>
-              <button className="btn-primary" style={{ fontSize: "11px", padding: "3px 8px" }}
-                disabled={!reminderDatetime || reminderChannels.length === 0}
-                onClick={async () => {
-                  await onAddReminder(issue.number, issue.title, reminderDatetime, reminderChannels);
-                  setShowReminderForm(false);
-                }}>
-                設定
-              </button>
-            </div>
-          )}
-
-          {issueReminders.map((r) => (
-            <div key={r.datetime} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#888", marginBottom: "4px" }}>
-              <span>{new Date(r.datetime).toLocaleString("ja-JP")}</span>
-              <span style={{ color: "#666" }}>[{r.channels.join(", ")}]</span>
-              <button className="btn-sm" style={{ fontSize: "10px", color: "#f85149", padding: "1px 4px" }}
-                onClick={() => onRemoveReminder(issue.number, r.datetime)}>
-                取消
-              </button>
-            </div>
           ))}
         </div>
 
-        {/* コメント */}
-        <h3 className="section-header">
-          💬 コメント ({comments.length})
-        </h3>
+        {/* === 設定: ラベル・見積もり・担当・マイルストーン・ガント・リマインダー === */}
+        {tab === "settings" && (
+          <div className="idm-props">
+            <div className="idm-grp">
+              <small className="idm-grp-title">分ける</small>
+              {row(
+                "labels",
+                "ラベル",
+                shownLabels.length > 0 ? shownLabels.map((l) => <LabelBadge key={l.name} name={l.name} color={l.color} />) : none(),
+                <>
+                  {/* 見積もりは下の「見積もり」で付け替える（ここで選ぶと 2 つ付いてしまうため出さない） */}
+                  {labelGroups.map((g) => (
+                    <div key={g.name} className="idm-label-group">
+                      <small>{g.name}</small>
+                      {g.labels.map((l) => {
+                        const active = editLabels.includes(l.name);
+                        return (
+                          <span
+                            key={l.name}
+                            className={`label-chip ${active ? "active" : ""}`}
+                            onClick={() => toggleLabel(l.name)}
+                            style={{
+                              color: parseInt(l.color, 16) > 0x7fffff ? "#000" : "#fff",
+                              backgroundColor: `#${l.color}`,
+                            }}
+                          >
+                            {l.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  {editorButtons(handleLabelsSave)}
+                </>,
+              )}
+              {/* 見積もりの目安は、ボタンにマウスを乗せると出る（表を低く保つため、ここでは説明の文を出さない） */}
+              {onSetEstimate && row(null, "見積もり", <EstimatePicker value={estimate} onChange={(v) => onSetEstimate(issue.number, v)} other showGuide={false} />)}
+            </div>
 
-        {loading ? (
-          <p style={{ color: "#666", fontSize: "12px" }}>読み込み中...</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
-            {comments.map((c) => (
-              <div key={c.id} style={{ padding: "10px", background: "#161b22", borderRadius: "6px", border: "1px solid #30363d" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#58a6ff" }}>
-                    {c.user?.login ?? "unknown"}
+            <div className="idm-grp">
+              <small className="idm-grp-title">だれが・いつまでに</small>
+              {row(
+                "assignees",
+                "担当",
+                issue.assignees && issue.assignees.length > 0
+                  ? issue.assignees.map((a) => (
+                      <span key={a.login} className="idm-person">
+                        <Avatar login={a.login} url={a.avatar_url} className="avatar-sm" />
+                        {a.login}
+                      </span>
+                    ))
+                  : none("だれもいない"),
+                <>
+                  <div className="label-selector" style={{ gap: "6px" }}>
+                    {collaborators.map((c) => {
+                      const active = editAssignees.includes(c.login);
+                      return (
+                        <span key={c.login} onClick={() => toggleAssignee(c.login)} className={`idm-pick${active ? " on" : ""}`}>
+                          <Avatar login={c.login} url={c.avatar_url} className="avatar-sm" />
+                          {c.login}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {editorButtons(handleAssigneesSave)}
+                </>,
+              )}
+              {row(
+                null,
+                "マイルストーン",
+                <select
+                  className="select-sm idm-select"
+                  value={issue.milestone?.number ?? ""}
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    await updateIssue(issue.number, { milestone: val ? Number(val) : null });
+                  }}
+                >
+                  <option value="">マイルストーンなし</option>
+                  {milestones.map((m) => (
+                    <option key={m.number} value={m.number}>
+                      {m.title}
+                    </option>
+                  ))}
+                </select>,
+              )}
+            </div>
+
+            <div className="idm-grp">
+              <small className="idm-grp-title">ガント</small>
+              {row(
+                "dates",
+                "日程",
+                ganttDates ? `${md(ganttDates.start)} → ${md(ganttDates.end)}（${ganttDays} 日）` : none(),
+                <>
+                  <p className="idm-editor-hint">ガントの帯になります。ガントで帯をドラッグしても変えられます。</p>
+                  <div className="idm-field">
+                    開始
+                    <input type="date" className="idm-input" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)} />→ 終了
+                    <input type="date" className="idm-input" value={ganttEnd} onChange={(e) => setGanttEnd(e.target.value)} />
+                    {(ganttStart || ganttEnd) && (
+                      <button type="button" className="link-button" onClick={() => { setGanttStart(""); setGanttEnd(""); }}>
+                        日程を外す
+                      </button>
+                    )}
+                  </div>
+                  {editorButtons(handleGanttSave, ganttSaving || (!!ganttStart !== !!ganttEnd), ganttSaving ? "保存中..." : "保存")}
+                </>,
+              )}
+              {row(
+                "deps",
+                "先行",
+                ganttDeps.length > 0
+                  ? ganttDeps.map((n) => {
+                      const dep = allIssues.find((i) => i.number === n);
+                      return (
+                        <span key={n} className="idm-dep">
+                          {issueRef(n)}
+                          {dep ? ` ${dep.title.substring(0, 18)}` : ""}
+                        </span>
+                      );
+                    })
+                  : none(),
+                <>
+                  <p className="idm-editor-hint">先にすませる Issue です。ガントで矢印になり、遅れると全体が遅れる流れ（クリティカルパス）が分かります。</p>
+                  <div className="idm-field" style={{ marginBottom: "6px" }}>
+                    {ganttDepsInput.split(",").filter(Boolean).map((s) => {
+                      const num = parseInt(s.replace("#", "").trim(), 10);
+                      if (isNaN(num)) return null;
+                      const depIssue = allIssues.find((i) => i.number === num);
+                      return (
+                        <span key={num} className="idm-dep">
+                          {issueRef(num)}{depIssue ? ` ${depIssue.title.substring(0, 15)}` : ""}
+                          <span style={{ cursor: "pointer", color: "var(--text-faint)", marginLeft: "2px" }}
+                            onClick={() => {
+                              const deps = ganttDepsInput.split(",").map(x => x.trim()).filter(x => x && parseInt(x.replace("#", ""), 10) !== num);
+                              setGanttDepsInput(deps.join(","));
+                            }}>×</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <input value={depSearch}
+                      onChange={(e) => { setDepSearch(e.target.value); setShowDepSuggestions(true); }}
+                      onFocus={() => setShowDepSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowDepSuggestions(false), 200)}
+                      placeholder="番号か題で探して足す…"
+                      className="idm-input" style={{ width: "240px" }} />
+                    {showDepSuggestions && depSuggestions.length > 0 && (
+                      <div className="suggestion-dropdown" style={{ maxWidth: "300px" }}>
+                        {depSuggestions.map((s) => (
+                          <button key={s.number} className="suggestion-item"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              const existing = ganttDepsInput.split(",").map(x => x.trim()).filter(Boolean);
+                              if (!existing.some(x => parseInt(x.replace("#", ""), 10) === s.number)) {
+                                const newDeps = [...existing, `#${s.number}`].join(",");
+                                setGanttDepsInput(newDeps);
+                              }
+                              setDepSearch("");
+                              setShowDepSuggestions(false);
+                            }}>
+                            <span className={`suggestion-state suggestion-state--${s.state}`}>
+                              {s.state === "open" ? "●" : "○"}
+                            </span>
+                            <span className="suggestion-number">{issueRef(s.number)}</span>
+                            <span className="suggestion-title">{s.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? "保存中..." : "保存")}
+                </>,
+                ganttDeps.length > 0 ? "✎" : "＋",
+              )}
+              {row(
+                "progress",
+                "進み",
+                <>
+                  {progressText}
+                  <span className="idm-mini" aria-hidden="true">
+                    <i style={{ width: `${Math.round(Math.max(0, Math.min(1, progressRate)) * 100)}%` }} />
                   </span>
-                  <span style={{ fontSize: "11px", color: "#666" }}>
-                    {new Date(c.created_at).toLocaleString("ja-JP")}
-                  </span>
-                </div>
-                <div style={{ fontSize: "13px", color: "#c9d1d9", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                  {c.body}
-                </div>
-              </div>
-            ))}
-            {comments.length === 0 && (
-              <p style={{ color: "#484f58", fontSize: "12px" }}>コメントはまだありません</p>
-            )}
+                </>,
+                <>
+                  <p className="idm-editor-hint">ガントの帯の進みです。はじめは、本文のチェックリストの数から出します。</p>
+                  <div className="idm-field">
+                    数え方
+                    <select className="select-sm" value={ganttProgressMode} onChange={(e) => {
+                      const mode = e.target.value as ProgressMode;
+                      setGanttProgressMode(mode);
+                      if (mode === "binary") setGanttProgressValue("undone");
+                      else setGanttProgressValue("0");
+                    }}>
+                      <option value="checkbox">チェックリストの数</option>
+                      <option value="manual">手で入れる（%）</option>
+                      <option value="binary">達成したか</option>
+                    </select>
+                    {ganttProgressMode === "manual" && (
+                      <>
+                        <input value={ganttProgressValue} onChange={(e) => setGanttProgressValue(e.target.value)}
+                          placeholder="0-100" className="idm-input" style={{ width: "64px" }} />
+                        %
+                      </>
+                    )}
+                    {ganttProgressMode === "binary" && (
+                      <button type="button" className={`btn-sm ${ganttProgressValue === "done" ? "active" : ""}`}
+                        style={{ backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "var(--text-on-accent)" : undefined }}
+                        onClick={() => setGanttProgressValue(ganttProgressValue === "done" ? "undone" : "done")}
+                      >
+                        {ganttProgressValue === "done" ? "達成" : "まだ"}
+                      </button>
+                    )}
+                  </div>
+                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? "保存中..." : "保存")}
+                </>,
+              )}
+            </div>
+
+            <div className="idm-grp">
+              <small className="idm-grp-title">知らせ</small>
+              {row(
+                "reminder",
+                "リマインダー",
+                issueReminders.length > 0
+                  ? issueReminders.map((r) => (
+                      <span key={r.datetime} className="idm-dep">
+                        {new Date(r.datetime).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}（{r.channels.map((c) => (c === "os" ? "OS" : "Discord")).join("・")}）
+                        <span style={{ cursor: "pointer", color: "var(--accent-red)", marginLeft: "2px" }} title="取り消す"
+                          onClick={() => onRemoveReminder(issue.number, r.datetime)}>×</span>
+                      </span>
+                    ))
+                  : none(),
+                <>
+                  <p className="idm-editor-hint">その時刻に、この PC（OS の通知）か Discord に知らせます。</p>
+                  <div className="idm-field">
+                    <input type="datetime-local" className="idm-input" value={reminderDatetime} onChange={(e) => setReminderDatetime(e.target.value)} />
+                    <label className="chk">
+                      <input type="checkbox" checked={reminderChannels.includes("os")}
+                        onChange={(e) => {
+                          if (e.target.checked) setReminderChannels([...reminderChannels, "os"]);
+                          else setReminderChannels(reminderChannels.filter((c) => c !== "os"));
+                        }} />
+                      OS
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={reminderChannels.includes("discord")}
+                        onChange={(e) => {
+                          if (e.target.checked) setReminderChannels([...reminderChannels, "discord"]);
+                          else setReminderChannels(reminderChannels.filter((c) => c !== "discord"));
+                        }} />
+                      Discord
+                    </label>
+                  </div>
+                  {editorButtons(
+                    async () => {
+                      await onAddReminder(issue.number, issue.title, reminderDatetime, reminderChannels);
+                      setOpenRow(null);
+                    },
+                    !reminderDatetime || reminderChannels.length === 0,
+                    "足す",
+                  )}
+                </>,
+                "＋",
+              )}
+            </div>
           </div>
         )}
 
-        {/* コメント入力 */}
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
-          placeholder="コメントを追加... (Ctrl+Enter で送信)"
-          className="textarea-full"
-          style={{ minHeight: "60px" }}
-        />
-        <button onClick={handleSubmit} className="btn-primary" disabled={!newComment.trim()}
-          style={{ marginTop: "6px" }}>
-          コメント追加
-        </button>
+        {/* === つながり: サブイシュー・関連 === */}
+        {tab === "links" && (
+          <>
+            {/* サブイシュー（子の一覧と進み具合）。まだ送っていない Issue（仮の番号）には付けられない */}
+            {subIssueApi && onOpenIssue && issue.number > 0 && (
+              <SubIssues
+                issue={issue}
+                allIssues={allIssues}
+                api={subIssueApi}
+                onOpenIssue={onOpenIssue}
+                onCloseIssue={onCloseIssue}
+                onReopenIssue={onReopenIssue}
+              />
+            )}
+            {/* 関連（意味の近い Issue。本文の見えない印に残し、相手の詳細にも出す） */}
+            {onOpenIssue && issue.number > 0 && (
+              <RelatedIssues
+                issue={issue}
+                allIssues={allIssues}
+                onUpdateBody={(n, body) => updateIssue(n, { body })}
+                onOpenIssue={onOpenIssue}
+              />
+            )}
+            {issue.number <= 0 && <p className="idm-none">まだ GitHub に送っていない Issue には、つながりを付けられません（送ったあとで付けられます）。</p>}
+          </>
+        )}
+
+        {/* === 履歴: コメントと変更の履歴（新しい順なら書く欄が上、古い順なら下） === */}
+        {tab === "history" && (() => {
+          const composer = (
+            <>
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
+                placeholder="コメントを追加... (Ctrl+Enter で送信)"
+                className="textarea-full"
+                style={{ minHeight: "60px" }}
+              />
+              <button onClick={handleSubmit} className="btn-primary" disabled={!newComment.trim()}
+                style={{ marginTop: "6px" }}>
+                コメント追加
+              </button>
+            </>
+          );
+          if (listTimeline && onOpenIssue) {
+            return (
+              <IssueTimeline
+                issue={issue}
+                comments={comments}
+                loadingComments={loading}
+                listTimeline={listTimeline}
+                onOpenIssue={onOpenIssue}
+                onShowCommit={onShowCommit}
+                order={historyOrder}
+                onOrderChange={setHistoryOrder}
+                composer={composer}
+              />
+            );
+          }
+          // 変更の履歴を読めないときは、コメントだけ
+          const sorted = [...comments].sort((x, y) => (historyOrder === "newest" ? y.created_at.localeCompare(x.created_at) : x.created_at.localeCompare(y.created_at)));
+          return (
+            <>
+              <div className="issue-timeline-head">
+                <h3 className="section-header">💬 コメント ({comments.length})</h3>
+                <HistoryOrderToggle order={historyOrder} onChange={setHistoryOrder} />
+              </div>
+              {historyOrder === "newest" && <div className="issue-timeline-composer">{composer}</div>}
+              {loading ? (
+                <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>読み込み中...</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+                  {sorted.map((c) => (
+                    <div key={c.id} style={{ padding: "10px", background: "var(--bg-secondary)", borderRadius: "6px", border: "1px solid var(--border-default)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--accent-blue)" }}>
+                          {c.user?.login ?? "unknown"}
+                          {c._pending && <PendingChip />}
+                        </span>
+                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                          {new Date(c.created_at).toLocaleString("ja-JP")}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                        {c.body}
+                      </div>
+                    </div>
+                  ))}
+                  {comments.length === 0 && (
+                    <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
+                  )}
+                </div>
+              )}
+              {historyOrder === "oldest" && <div className="issue-timeline-composer">{composer}</div>}
+            </>
+          );
+        })()}
       </div>
+  );
+  return inline ? body : (
+    <div className="palette-overlay issue-overlay" onClick={onClose}>
+      <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
+      {body}
     </div>
   );
 }

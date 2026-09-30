@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { commentOnlyLines } from "../../lib/bodyMarks";
 
 // タスクリストの本文を表示し、チェックボックスのトグルを可能にするコンポーネント
 
@@ -45,6 +46,8 @@ export function TaskListBody({ body, issueNumber, onToggle }: TaskListBodyProps)
   }
 
   const lines = currentBody.split("\n");
+  // コメントだけの行（ガントの日程などの見えない印）は出さない。中のチェックも数えて、番号をずらさない
+  const hidden = commentOnlyLines(lines);
   let checkboxIndex = 0;
   const cursorStyle = saving ? "not-allowed" : "pointer";
 
@@ -55,6 +58,10 @@ export function TaskListBody({ body, issueNumber, onToggle }: TaskListBodyProps)
       )}
 
       {lines.map((line, lineIndex) => {
+        if (hidden[lineIndex]) {
+          checkboxIndex += line.match(/- \[[ x]\]/g)?.length ?? 0;
+          return null;
+        }
         const uncheckedMatch = line.match(/^(\s*)- \[ \] (.*)$/);
         if (uncheckedMatch) {
           const idx = checkboxIndex++;

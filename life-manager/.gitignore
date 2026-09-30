@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# マニュアルの PDF（scripts/manual-pdf.ps1 で作る）
+/manual-pdf/

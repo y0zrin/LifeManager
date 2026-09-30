@@ -1,5 +1,4 @@
 use chrono::{Datelike, Local, Timelike, Weekday};
-use crate::credential::CredentialEntry as Entry;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -9,8 +8,9 @@ use tokio::sync::Notify;
 use tokio::time;
 
 use crate::github::client::GitHubClient;
-use crate::journal::generator;
 use crate::notify::discord;
+use crate::offline::{self, store::Notice};
+use crate::tokens;
 
 /// 外部から設定リフレッシュを要求するためのハンドル
 static REFRESH_NOTIFY: std::sync::OnceLock<Arc<Notify>> = std::sync::OnceLock::new();
@@ -20,19 +20,6 @@ pub fn request_refresh() {
     if let Some(notify) = REFRESH_NOTIFY.get() {
         notify.notify_one();
     }
-}
-
-/// アクティブプロジェクトのowner/repoをキーチェーンから読み込む
-fn load_active_project() -> (String, String) {
-    let owner = Entry::new("life-manager", "github-owner")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_else(|| "y0zrin".to_string());
-    let repo = Entry::new("life-manager", "github-repo")
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .unwrap_or_else(|| "life".to_string());
-    (owner, repo)
 }
 
 // --- データ構造 ---
@@ -119,7 +106,8 @@ pub struct ReminderConfig {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Reminder {
-    pub issue_number: u32,
+    /// まだ GitHub に作っていない Issue なら仮の番号（負の数）。GitHub のファイルには書かない
+    pub issue_number: i64,
     pub title: String,
     pub datetime: String, // "YYYY-MM-DDTHH:mm"
     pub channels: Vec<String>,
@@ -252,42 +240,22 @@ pub async fn start_scheduler(app: tauri::AppHandle) {
     let notify = Arc::new(Notify::new());
     let _ = REFRESH_NOTIFY.set(notify.clone());
 
-    // トークンが利用可能になるまで待機（プロジェクト固有トークン優先、グローバルにフォールバック）
-    let client = loop {
+    // プロジェクトとトークンが決まるまで待つ
+    while tokens::active_project().is_none() || tokens::active_token().is_none() {
         time::sleep(Duration::from_secs(3)).await;
+    }
 
-        let (owner, repo) = load_active_project();
-
-        // プロジェクト固有トークンを試行
-        let project_key = format!("project-token-{}/{}", owner, repo);
-        if let Ok(entry) = Entry::new("life-manager", &project_key) {
-            if let Ok(token) = entry.get_password() {
-                if !token.is_empty() {
-                    break GitHubClient::new(token);
-                }
-            }
-        }
-
-        // グローバルトークンにフォールバック
-        let entry = match Entry::new("life-manager", "github-token") {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-
-        match entry.get_password() {
-            Ok(token) => break GitHubClient::new(token),
-            Err(_) => continue,
-        }
-    };
-
-    run_scheduler_loop(client, app, notify).await;
+    run_scheduler_loop(app, notify).await;
 }
 
 // 日次ジャーナル自動生成の時刻（23:59）
 const JOURNAL_HOUR: u32 = 23;
 const JOURNAL_MINUTE: u32 = 59;
 
-async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh: Arc<Notify>) {
+async fn run_scheduler_loop(app: tauri::AppHandle, refresh: Arc<Notify>) {
+    // 使っているトークンと、そのクライアント（プロジェクトの切り替え・トークンの入れ替え・ログアウトに、毎回合わせる）
+    let mut current: Option<(String, GitHubClient)> = None;
+    let mut last_project: Option<(String, String)> = None;
     let mut interval = time::interval(Duration::from_secs(60));
     let mut cached_config: Option<RoutineConfig> = None;
     let mut cached_notif_config: Option<NotificationConfig> = None;
@@ -313,51 +281,39 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
         }
         last_check_minute = Some(current_minute);
 
-        // アクティブプロジェクトを取得
-        let (owner, repo) = load_active_project();
+        // アクティブプロジェクトと、そのプロジェクトで使うトークン（専用 → いつもの）。なければこの分は何もしない
+        let Some((owner, repo)) = tokens::active_project() else { continue };
+        // ログインの鍵は 8 時間で切れるので、期限が近ければここで新しくする
+        let Some(token) = tokens::fresh_token_for(&owner, &repo).await else { continue };
+        if current.as_ref().map(|(t, _)| t.as_str()) != Some(token.as_str()) {
+            current = Some((token.clone(), GitHubClient::new(token)));
+        }
+        let client = &current.as_ref().expect("直前に入れた").1;
+        // プロジェクトが変わったら、前のプロジェクトの設定を使わないよう読み直す
+        if last_project.as_ref() != Some(&(owner.clone(), repo.clone())) {
+            last_project = Some((owner.clone(), repo.clone()));
+            force_refresh = true;
+        }
 
-        // 設定リフレッシュ（毎分 or 強制リフレッシュ時）
+        // 設定リフレッシュ（毎分 or 強制リフレッシュ時）。
+        // つながらないときは最後に読んだ内容を使う（リマインダーや通知スケジュールの OS 通知は、オフラインでも出せる）
         if force_refresh || last_config_fetch.elapsed() > Duration::from_secs(60) {
             force_refresh = false;
-            match client
-                .get_contents(&owner, &repo, "config/routines.yaml")
-                .await
-            {
-                Ok((content, _sha)) => match serde_yaml::from_str::<RoutineConfig>(&content) {
-                    Ok(config) => cached_config = Some(config),
-                    Err(e) => eprintln!("routines.yaml パースエラー: {}", e),
-                },
-                Err(_) => {} // ファイル未作成
+            if let Some(routines) = read_config_as::<Vec<Routine>>(&app, &client, &owner, &repo, "routines").await {
+                cached_config = Some(RoutineConfig { routines });
             }
-
-            // リマインダー設定を取得
-            match client
-                .get_contents(&owner, &repo, "config/reminders.yaml")
-                .await
-            {
-                Ok((content, _sha)) => {
-                    match serde_yaml::from_str::<ReminderConfig>(&content) {
-                        Ok(config) => cached_reminder_config = Some(config),
-                        Err(e) => eprintln!("reminders.yaml パースエラー: {}", e),
-                    }
-                }
-                Err(_) => {} // ファイル未作成
+            if let Some(reminders) = read_config_as::<Vec<Reminder>>(&app, &client, &owner, &repo, "reminders").await {
+                cached_reminder_config = Some(ReminderConfig { reminders });
             }
-
-            // 通知スケジュール設定を取得
-            match client
-                .get_contents(&owner, &repo, "config/notifications.yaml")
-                .await
+            if let Some(notifications) =
+                read_config_as::<Vec<NotificationSchedule>>(&app, &client, &owner, &repo, "notifications").await
             {
-                Ok((content, _sha)) => {
-                    match serde_yaml::from_str::<NotificationConfig>(&content) {
-                        Ok(config) => cached_notif_config = Some(config),
-                        Err(e) => eprintln!("notifications.yaml パースエラー: {}", e),
-                    }
-                }
-                Err(_) => {} // ファイル未作成
+                let event_notifications =
+                    read_config_as::<Option<EventNotificationConfig>>(&app, &client, &owner, &repo, "event_notifications")
+                        .await
+                        .flatten();
+                cached_notif_config = Some(NotificationConfig { notifications, event_notifications });
             }
-
             last_config_fetch = Instant::now();
         }
 
@@ -389,7 +345,7 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                 }
 
                 // 通知内容を生成
-                let message = build_notification_message(&client, &owner, &repo, &notif.notify_type, notif.message.as_deref(), &now).await;
+                let message = build_notification_message(&app, &client, &owner, &repo, &notif.notify_type, notif.message.as_deref(), &now).await;
                 if message.is_empty() {
                     continue;
                 }
@@ -412,7 +368,7 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
             for reminder in &reminder_config.reminders {
                 if reminder.datetime <= now_str {
                     // 通知を送信
-                    let message = format!("#{} {}", reminder.issue_number, reminder.title);
+                    let message = format!("{} {}", offline::issue_ref(reminder.issue_number), reminder.title);
                     if reminder.channels.contains(&"os".to_string()) {
                         send_os_notification(&app, "リマインダー", &message);
                     }
@@ -433,25 +389,11 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                     .collect();
                 reminder_config.reminders = remaining.clone();
 
-                let updated_config = ReminderConfig {
-                    reminders: remaining,
-                };
-                if let Ok(yaml) = serde_yaml::to_string(&updated_config) {
-                    let sha = client
-                        .get_contents(&owner, &repo, "config/reminders.yaml")
-                        .await
-                        .ok()
-                        .map(|(_, s)| s);
-                    let _ = client
-                        .put_contents(
-                            &owner,
-                            &repo,
-                            "config/reminders.yaml",
-                            &yaml,
-                            "発火済みリマインダーを削除",
-                            sha,
-                        )
-                        .await;
+                // つながらないときは送信待ちに並べる（そのあいだも、発火したものはもう出さない）
+                if let Ok(json) = serde_json::to_string(&remaining) {
+                    if let Err(e) = offline::save_config(&app, &client, &owner, &repo, "reminders", json).await {
+                        eprintln!("発火済みリマインダーを削除できませんでした: {}", e);
+                    }
                 }
             }
         }
@@ -473,8 +415,8 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
             ) {
                 let title = expand_template(&routine.issue.title, &now);
 
-                // 重複チェック（同タイトルのIssueが既にあればスキップ）
-                if let Ok(existing) = client.list_issues(&owner, &repo, "open").await {
+                // 重複チェック（同タイトルのIssueが既にあればスキップ。つながらないときは手元の写しと送信待ちで確かめる）
+                if let Ok(existing) = offline::list_issues(&app, &client, &owner, &repo, "open", false).await {
                     if let Ok(issues) =
                         serde_json::from_str::<Vec<serde_json::Value>>(&existing)
                     {
@@ -494,36 +436,33 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                     .map(|b| expand_template(b, &now))
                     .unwrap_or_default();
 
-                match client
-                    .create_issue(&owner, &repo, &title, &body, routine.issue.labels.clone(), None, None)
-                    .await
-                {
-                    Ok(_) => {
-                        // ルーチンIssue作成成功 → 常にOS通知 + イベント設定に従いDiscord
-                        let message = format!("📋 ルーチンIssue作成: {}", title);
-                        send_os_notification(&app, "ルーチン", &message);
-
-                        // Discord はイベント設定に従う
-                        let send_discord = if let Some(nc) = &cached_notif_config {
-                            if let Some(ec) = &nc.event_notifications {
-                                if ec.enabled {
-                                    if let Some(entry) = ec.events.get("routine_created") {
-                                        entry.enabled && entry.channels.contains(&"discord".to_string())
-                                    } else {
-                                        true // routine_created 未設定ならデフォルト送信
-                                    }
-                                } else {
-                                    false // イベント通知が無効
-                                }
+                // Discord はイベント設定に従う
+                let send_discord = if let Some(nc) = &cached_notif_config {
+                    if let Some(ec) = &nc.event_notifications {
+                        if ec.enabled {
+                            if let Some(entry) = ec.events.get("routine_created") {
+                                entry.enabled && entry.channels.contains(&"discord".to_string())
                             } else {
-                                true // event_notifications 未設定ならデフォルト
+                                true // routine_created 未設定ならデフォルト送信
                             }
                         } else {
-                            true // config未読み込みならデフォルト
-                        };
-                        if send_discord {
-                            send_discord_if_configured(&owner, &repo, &message).await;
+                            false // イベント通知が無効
                         }
+                    } else {
+                        true // event_notifications 未設定ならデフォルト
+                    }
+                } else {
+                    true // config未読み込みならデフォルト
+                };
+                let message = format!("📋 ルーチンIssue作成: {}", title);
+                // Discord へのお知らせは、GitHub に作れたあとに出す（つながらないときは、つながって作れたとき）
+                let notice = send_discord.then(|| Notice { message: message.clone(), channels: vec!["discord".to_string()] });
+
+                // つながらないときは送信待ちに並べる（仮の番号で一覧に出る）
+                match offline::create_issue(&app, &client, &owner, &repo, title, body, routine.issue.labels.clone(), None, None, notice).await {
+                    Ok(_) => {
+                        // ルーチンIssue作成 → 常にOS通知
+                        send_os_notification(&app, "ルーチン", &message);
                     }
                     Err(e) => {
                         eprintln!("ルーチンIssue作成エラー: {}", e);
@@ -546,7 +485,7 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                 if now.hour() == close_hour && now.minute() == close_min {
                     let today_str = now.format("%Y-%m-%d").to_string();
 
-                    if let Ok(existing) = client.list_issues(&owner, &repo, "open").await {
+                    if let Ok(existing) = offline::list_issues(&app, &client, &owner, &repo, "open", false).await {
                         if let Ok(issues) =
                             serde_json::from_str::<Vec<serde_json::Value>>(&existing)
                         {
@@ -561,20 +500,12 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
                                     .unwrap_or(false);
 
                                 if has_routine_label && issue_title.contains(&today_str) {
-                                    if let Some(num) = issue["number"].as_u64() {
-                                        let _ = client
-                                            .update_issue(
-                                                &owner,
-                                                &repo,
-                                                num as u32,
-                                                None,
-                                                None,
-                                                Some("closed".to_string()),
-                                                None,
-                                                None,
-                                                None,
-                                            )
-                                            .await;
+                                    if let Some(num) = issue["number"].as_i64() {
+                                        let changes = offline::store::Changes {
+                                            state: Some("closed".to_string()),
+                                            ..Default::default()
+                                        };
+                                        let _ = offline::update_issue(&app, &client, &owner, &repo, num, changes, None).await;
                                     }
                                 }
                             }
@@ -587,7 +518,8 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
         // 日次ジャーナル自動生成（23:59に実行）
         if now.hour() == JOURNAL_HOUR && now.minute() == JOURNAL_MINUTE {
             let date_str = now.format("%Y-%m-%d").to_string();
-            match generator::generate_journal(&client, &owner, &repo, &date_str).await {
+            match offline::generate_journal(&app, &client, &owner, &repo, &date_str).await {
+                Ok(result) if result.pending => eprintln!("つながらないため、日次ジャーナルはつながってから作ります: {}", date_str),
                 Ok(_) => eprintln!("日次ジャーナルを生成しました: {}", date_str),
                 Err(e) => eprintln!("日次ジャーナル生成エラー: {}", e),
             }
@@ -595,9 +527,33 @@ async fn run_scheduler_loop(client: GitHubClient, app: tauri::AppHandle, refresh
     }
 }
 
+/// 設定を読む（offline::read_config）。読めなかったり形が違ったりしたら None（前に読んだものを使い続ける）
+async fn read_config_as<T: serde::de::DeserializeOwned>(
+    app: &tauri::AppHandle,
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    key: &str,
+) -> Option<T> {
+    match offline::read_config(app, client, owner, repo, key).await {
+        Ok(json) => match serde_json::from_str(&json) {
+            Ok(value) => Some(value),
+            Err(e) => {
+                eprintln!("{} の設定を読めませんでした: {}", key, e);
+                None
+            }
+        },
+        Err(e) => {
+            eprintln!("{} の設定を読めませんでした: {}", key, e);
+            None
+        }
+    }
+}
+
 // --- 通知メッセージ生成 ---
 
 async fn build_notification_message(
+    app: &tauri::AppHandle,
     client: &GitHubClient,
     owner: &str,
     repo: &str,
@@ -608,7 +564,7 @@ async fn build_notification_message(
     match notify_type {
         "today_tasks" => {
             // 今日の未完了タスク一覧
-            let issues_json = match client.list_issues(&owner, &repo, "open").await {
+            let issues_json = match offline::list_issues(app, client, owner, repo, "open", false).await {
                 Ok(json) => json,
                 Err(_) => return String::new(),
             };
@@ -631,8 +587,8 @@ async fn build_notification_message(
                 })
                 .map(|i| {
                     format!(
-                        "#{} {}",
-                        i["number"],
+                        "{} {}",
+                        offline::issue_ref(i["number"].as_i64().unwrap_or(0)),
                         i["title"].as_str().unwrap_or("(無題)")
                     )
                 })
@@ -646,7 +602,7 @@ async fn build_notification_message(
         "overdue" => {
             // 期限超過のタスク
             let today_str = now.format("%Y-%m-%d").to_string();
-            let issues_json = match client.list_issues(&owner, &repo, "open").await {
+            let issues_json = match offline::list_issues(app, client, owner, repo, "open", false).await {
                 Ok(json) => json,
                 Err(_) => return String::new(),
             };
@@ -666,8 +622,8 @@ async fn build_notification_message(
                 })
                 .map(|i| {
                     format!(
-                        "#{} {}",
-                        i["number"],
+                        "{} {}",
+                        offline::issue_ref(i["number"].as_i64().unwrap_or(0)),
                         i["title"].as_str().unwrap_or("(無題)")
                     )
                 })
@@ -680,7 +636,7 @@ async fn build_notification_message(
         }
         "summary" => {
             // 全体サマリー
-            let issues_json = match client.list_issues(&owner, &repo, "open").await {
+            let issues_json = match offline::list_issues(app, client, owner, repo, "open", false).await {
                 Ok(json) => json,
                 Err(_) => return String::new(),
             };

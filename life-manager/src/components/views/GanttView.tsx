@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
-import { TIME_SCALE_CONFIG, DEFAULT_BAR_COLORS, BAR_COLOR_LABELS } from "../../lib/ganttTypes";
+import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
 import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates } from "../../lib/ganttParser";
+import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
+import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
+import { useDismiss } from "../../hooks/useDismiss";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -14,6 +17,10 @@ interface GanttViewProps {
   currentUser: string;
   onSelectIssue: (n: number) => void;
   onUpdateIssueBody: (issueNumber: number, newBody: string) => Promise<void>;
+  /** 帯の色（設定 → 表示） */
+  barColors: GanttBarColors;
+  /** 設定 → 表示 の「ガントの帯の色」を開く */
+  onOpenColorSettings: () => void;
 }
 
 const ROW_HEIGHT = 36;
@@ -28,7 +35,7 @@ function formatDate(d: Date): string {
 }
 
 export function GanttView({
-  issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody,
+  issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody, barColors, onOpenColorSettings,
 }: GanttViewProps) {
   const [selectedMilestone, setSelectedMilestone] = useState<number | null>(() => {
     const saved = localStorage.getItem("gantt-selected-milestone");
@@ -36,23 +43,19 @@ export function GanttView({
   });
   const [timeScale, setTimeScale] = useState<TimeScale>("week");
   const [showCriticalPath, setShowCriticalPath] = useState(false);
-  const [showColorSettings, setShowColorSettings] = useState(false);
-  const [barColors, setBarColors] = useState<GanttBarColors>(() => {
-    try {
-      const saved = localStorage.getItem("gantt-bar-colors");
-      return saved ? { ...DEFAULT_BAR_COLORS, ...JSON.parse(saved) } : DEFAULT_BAR_COLORS;
-    } catch { return DEFAULT_BAR_COLORS; }
-  });
-  const updateBarColor = (key: keyof GanttBarColors, value: string) => {
-    const next = { ...barColors, [key]: value };
-    setBarColors(next);
-    localStorage.setItem("gantt-bar-colors", JSON.stringify(next));
-  };
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const [filterAssignee, setFilterAssignee] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterDomain, setFilterDomain] = useState<string>("");
+  // 日程のないタスクに、見積もりから仮の日程を置くか（次に開いたときも同じ）
+  const [showTentative, setShowTentative] = useState(() => {
+    try {
+      return localStorage.getItem("gantt-tentative") !== "off";
+    } catch {
+      return true;
+    }
+  });
 
   // 保存されたマイルストーンが現在のプロジェクトに存在しなければクリア
   useEffect(() => {
@@ -60,6 +63,14 @@ export function GanttView({
       setSelectedMilestone(null);
       localStorage.removeItem("gantt-selected-milestone");
     }
+  }, [milestones, selectedMilestone]);
+
+  // 選んでいなければ、いちばん近い開いたマイルストーン（期限の近い順。期限のないものは後ろ）を、はじめから出す
+  useEffect(() => {
+    if (selectedMilestone !== null || milestones.length === 0) return;
+    const open = milestones.filter((m) => m.state !== "closed");
+    const nearest = [...(open.length > 0 ? open : milestones)].sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"))[0];
+    if (nearest) setSelectedMilestone(nearest.number);
   }, [milestones, selectedMilestone]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,14 +101,30 @@ export function GanttView({
     return result;
   }, [allIssues, filterAssignee, filterStatus, filterDomain]);
 
-  // Convert to GanttTasks
-  const ganttTasks = useMemo(() => issuesToGanttTasks(filteredIssues), [filteredIssues]);
+  // 見積もりからの仮の日程。マイルストーンの全部のタスクで決める（絞り込んでも同じ位置に出す）
+  const today = formatDate(new Date());
+  const plans = useMemo(
+    () => (showTentative ? planTentative(issuesToGanttTasks(allIssues), allIssues, today) : new Map<number, TentativePlan>()),
+    [allIssues, showTentative, today],
+  );
+
+  // Convert to GanttTasks（仮の日程があれば、その日程で描く）
+  const ganttTasks = useMemo(
+    () =>
+      issuesToGanttTasks(filteredIssues).map((t) => {
+        const plan = plans.get(t.issueNumber);
+        return plan ? { ...t, startDate: plan.start, endDate: plan.end, tentative: true } : t;
+      }),
+    [filteredIssues, plans],
+  );
+
+  // マイルストーンの期限（線を引き、仮の帯の超えた分を赤くする）
+  const deadline = milestones.find((m) => m.number === selectedMilestone)?.due_on?.substring(0, 10) ?? null;
 
   // Compute date range from tasks
   const dateRange = useMemo(() => {
-    const today = formatDate(new Date());
     let minDate = today;
-    let maxDate = today;
+    let maxDate = deadline && deadline > today ? deadline : today;
     for (const t of ganttTasks) {
       if (t.startDate && t.startDate < minDate) minDate = t.startDate;
       if (t.endDate && t.endDate > maxDate) maxDate = t.endDate;
@@ -108,7 +135,7 @@ export function GanttView({
     const end = new Date(maxDate + "T00:00:00");
     end.setDate(end.getDate() + 14);
     return { start: formatDate(start), end: formatDate(end) };
-  }, [ganttTasks]);
+  }, [ganttTasks, today, deadline]);
 
   const config: GanttViewConfig = useMemo(() => ({
     timeScale,
@@ -117,7 +144,8 @@ export function GanttView({
     rowHeight: ROW_HEIGHT,
     headerHeight: HEADER_HEIGHT,
     pixelsPerDay: TIME_SCALE_CONFIG[timeScale].pixelsPerDay,
-  }), [timeScale, dateRange]);
+    deadline,
+  }), [timeScale, dateRange, deadline]);
 
   // タイムライン全体の幅 (px)
   const totalWidth = useMemo(() => {
@@ -127,6 +155,16 @@ export function GanttView({
 
   // 横スクロールの最大値
   const maxScrollX = useMemo(() => Math.max(0, totalWidth - canvasSize.width), [totalWidth, canvasSize.width]);
+
+  // マイルストーンを選んだとき・目盛りを変えたときは、今日が見える所まで送る（仮の帯は今日から置くため）
+  const autoScrolled = useRef("");
+  useEffect(() => {
+    const key = `${selectedMilestone}:${timeScale}`;
+    if (autoScrolled.current === key || canvasSize.width === 0 || ganttTasks.length === 0) return;
+    autoScrolled.current = key;
+    const x = (dateToDays(today) - dateToDays(dateRange.start) - 3) * TIME_SCALE_CONFIG[timeScale].pixelsPerDay;
+    setScrollX(Math.min(maxScrollX, Math.max(0, x)));
+  }, [selectedMilestone, timeScale, canvasSize.width, ganttTasks.length, today, dateRange.start, maxScrollX]);
   const criticalPath = useMemo(() => computeCriticalPath(ganttTasks), [ganttTasks]);
 
   // Canvas resize — re-run when canvas appears in DOM
@@ -325,6 +363,23 @@ export function GanttView({
     };
   }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody]);
 
+  // 仮の帯を押したときの吹き出し（この日程で決める・詳細を開く）
+  const [tentativePop, setTentativePop] = useState<{ x: number; y: number; flipX: boolean; flipY: boolean; task: typeof ganttTasks[0] } | null>(null);
+  const tentativePopRef = useRef<HTMLDivElement>(null);
+  const closeTentativePop = useCallback(() => setTentativePop(null), []);
+  useDismiss(tentativePopRef, tentativePop !== null, closeTentativePop);
+  // 絵を送ったり目盛りを変えたりしたら、吹き出しは帯から離れるので閉じる
+  useEffect(() => setTentativePop(null), [scrollX, scrollY, timeScale, selectedMilestone]);
+
+  /** 仮の日程を、本当の日程（本文の <!-- gantt:開始/終了 -->）として書き込む */
+  async function fixTentative(task: typeof ganttTasks[0]) {
+    setTentativePop(null);
+    const issue = [...issues, ...closedIssues].find((i) => i.number === task.issueNumber);
+    if (!issue || !task.startDate || !task.endDate) return;
+    const pattern = /<!--\s*gantt:\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\s*-->/;
+    await onUpdateIssueBody(task.issueNumber, updateBodyMetadata(issue.body, pattern, serializeGanttDates(task.startDate, task.endDate)));
+  }
+
   // Click handler (ignore if dragged)
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (dragRef.current?.moved) return;
@@ -335,9 +390,16 @@ export function GanttView({
     const y = e.clientY - rect.top;
     const issueNum = renderer.hitTest(x, y, ganttTasks, config, scrollX, scrollY);
     if (issueNum !== null) {
+      const task = ganttTasks.find((t) => t.issueNumber === issueNum);
+      if (task?.tentative) {
+        setTooltip(null);
+        // 吹き出しは幅 300px・高さ 140px ほど。入りきらない側では向きを変える
+        setTentativePop({ x, y, flipX: x > canvasSize.width - 330, flipY: y > canvasSize.height - 160, task });
+        return;
+      }
       onSelectIssue(issueNum);
     }
-  }, [ganttTasks, config, scrollX, scrollY, onSelectIssue]);
+  }, [ganttTasks, config, scrollX, scrollY, onSelectIssue, canvasSize]);
 
   // Unique assignees and label categories for filters
   const assignees = useMemo(() => {
@@ -355,7 +417,7 @@ export function GanttView({
 
 
   return (
-    <div className="content" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", padding: 0 }}>
+    <div className="content gantt-screen" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", padding: 0 }}>
       {/* Toolbar */}
       <div className="toolbar" style={{ flexWrap: "wrap", gap: "var(--space-sm)", padding: "var(--space-sm) var(--space-md)" }}>
         <select
@@ -404,7 +466,7 @@ export function GanttView({
                   onClick={() => setTimeScale(ts)}
                   style={{
                     backgroundColor: timeScale === ts ? "var(--accent-blue)" : undefined,
-                    color: timeScale === ts ? "#fff" : undefined,
+                    color: timeScale === ts ? "var(--bg-primary)" : undefined,
                   }}
                 >
                   {TIME_SCALE_CONFIG[ts].label}
@@ -417,38 +479,32 @@ export function GanttView({
               style={{
                 fontSize: "var(--font-xs)",
                 backgroundColor: showCriticalPath ? "var(--accent-red)" : undefined,
-                color: showCriticalPath ? "#fff" : undefined,
+                color: showCriticalPath ? "var(--text-on-accent)" : undefined,
               }}>
               CP
             </button>
-            <button className="btn-sm" onClick={() => setShowColorSettings(!showColorSettings)}
+            <button className="btn-sm" onClick={onOpenColorSettings} title="設定 → 表示 の「ガントの帯の色」を開きます"
               style={{ fontSize: "var(--font-xs)" }}>
-              {showColorSettings ? "×" : "色設定"}
+              ⚙ 色の設定
             </button>
+            <label className="chk gantt-tentative-toggle" title="日程のないタスクに、見積もりから仮の帯（点線）を置きます">
+              <input type="checkbox" checked={showTentative}
+                onChange={(e) => {
+                  setShowTentative(e.target.checked);
+                  try {
+                    localStorage.setItem("gantt-tentative", e.target.checked ? "on" : "off");
+                  } catch {
+                    // 覚えられなくても、今は切り替わる
+                  }
+                }} />
+              見積もりから仮の日程を置く
+            </label>
             <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
               {ganttTasks.length} 件
             </span>
           </>
         )}
       </div>
-
-      {/* 色設定パネル */}
-      {showColorSettings && (
-        <div className="form-card" style={{ display: "flex", gap: "var(--space-sm)", flexWrap: "wrap", alignItems: "center", padding: "var(--space-sm) var(--space-md)" }}>
-          {(Object.keys(BAR_COLOR_LABELS) as (keyof GanttBarColors)[]).map((key) => (
-            <label key={key} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
-              <input type="color" value={barColors[key]}
-                onChange={(e) => updateBarColor(key, e.target.value)}
-                style={{ width: "20px", height: "20px", border: "none", padding: 0, cursor: "pointer" }} />
-              {BAR_COLOR_LABELS[key]}
-            </label>
-          ))}
-          <button className="btn-sm" style={{ fontSize: "var(--font-xs)" }}
-            onClick={() => { setBarColors(DEFAULT_BAR_COLORS); localStorage.removeItem("gantt-bar-colors"); }}>
-            リセット
-          </button>
-        </div>
-      )}
 
       {/* Main area */}
       {selectedMilestone === null ? (
@@ -508,7 +564,7 @@ export function GanttView({
                     }}
                     onClick={() => onSelectIssue(task.issueNumber)}
                   >
-                    <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>#{task.issueNumber}</span>
+                    <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{issueRef(task.issueNumber)}</span>
                     <span style={{
                       color: task.state === "closed" ? "var(--text-faint)" : "var(--text-secondary)",
                       whiteSpace: "nowrap",
@@ -519,6 +575,11 @@ export function GanttView({
                     }}>
                       {task.title}
                     </span>
+                    {task.estimate && <span className="est-chip gantt-est">{task.estimate}</span>}
+                    {task.tentative && <span className="gantt-kari" title="日程が決まっていないので、見積もりから仮に置いています">仮</span>}
+                    {!task.startDate && !task.estimate && task.state === "open" && (
+                      <span className="gantt-none">日程・見積もりなし</span>
+                    )}
                     <span style={{ color: "var(--text-faint)", flexShrink: 0, fontSize: "10px" }}>
                       {task.progressValue}%
                     </span>
@@ -585,14 +646,37 @@ export function GanttView({
                   left: tooltip.x - (canvasRef.current?.getBoundingClientRect().left ?? 0) + 12,
                   top: tooltip.y - (canvasRef.current?.getBoundingClientRect().top ?? 0) - 8,
                 }}>
-                  <div className="gantt-tooltip-title">#{tooltip.task.issueNumber} {tooltip.task.title}</div>
+                  <div className="gantt-tooltip-title">{issueRef(tooltip.task.issueNumber)} {tooltip.task.title}</div>
                   {tooltip.task.startDate && tooltip.task.endDate && (
-                    <div className="gantt-tooltip-dates">{tooltip.task.startDate} 〜 {tooltip.task.endDate}</div>
+                    <div className="gantt-tooltip-dates">
+                      {tooltip.task.tentative && "仮に "}{tooltip.task.startDate} 〜 {tooltip.task.endDate}
+                    </div>
+                  )}
+                  {tooltip.task.tentative && (
+                    <div className="gantt-tooltip-dates">見積もり {tooltip.task.estimate} から仮に置いています（押すと決められます）</div>
                   )}
                   <div className="gantt-tooltip-progress">進捗: {tooltip.task.progressValue}%</div>
                   {tooltip.task.assignees.length > 0 && (
                     <div className="gantt-tooltip-assignees">担当: {tooltip.task.assignees.map(a => a.login).join(", ")}</div>
                   )}
+                </div>
+              )}
+              {tentativePop && (
+                <div ref={tentativePopRef} className="gantt-tentative-pop popover" style={{
+                  // 右端・下端の近くでは、押した所の左・上に出す（絵の枠で切れないように）
+                  left: tentativePop.x + (tentativePop.flipX ? -12 : 12),
+                  top: tentativePop.y + (tentativePop.flipY ? -8 : 8),
+                  transform: `translate(${tentativePop.flipX ? "-100%" : "0"}, ${tentativePop.flipY ? "-100%" : "0"})`,
+                }}>
+                  <div className="gantt-tooltip-title">{issueRef(tentativePop.task.issueNumber)} {tentativePop.task.title}</div>
+                  <div className="gantt-tentative-note">
+                    見積もり {tentativePop.task.estimate} → 仮に {tentativePop.task.startDate} 〜 {tentativePop.task.endDate}
+                  </div>
+                  <div className="gantt-tentative-note">日程が決まっていないので、見積もりから仮に置いています。帯を動かして決めることもできます</div>
+                  <div className="gantt-tentative-actions">
+                    <button type="button" className="btn-primary" onClick={() => fixTentative(tentativePop.task)}>この日程で決める</button>
+                    <button type="button" className="btn-sm" onClick={() => { const n = tentativePop.task.issueNumber; setTentativePop(null); onSelectIssue(n); }}>詳細を開く</button>
+                  </div>
                 </div>
               )}
             </div>

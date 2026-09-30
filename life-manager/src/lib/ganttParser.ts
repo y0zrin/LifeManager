@@ -1,5 +1,6 @@
 import type { GitHubIssue } from "./types";
 import type { GanttTask, ProgressMode } from "./ganttTypes";
+import { estimateOf, formatEstimate } from "./estimate";
 
 /** Issue bodyから <!-- gantt:YYYY-MM-DD/YYYY-MM-DD --> を抽出 */
 export function parseGanttDates(body: string | null): { start: string; end: string } | null {
@@ -14,7 +15,8 @@ export function parseGanttDates(body: string | null): { start: string; end: stri
 /** Issue bodyから <!-- depends:#N,#N --> を抽出 */
 export function parseDependencies(body: string | null): number[] {
   if (!body) return [];
-  const m = body.match(/<!--\s*depends:(#\d+(?:,#\d+)*)\s*-->/);
+  // まだ GitHub に送っていない Issue は仮の番号（#-1）。送ったあとで本当の番号に直る
+  const m = body.match(/<!--\s*depends:(#-?\d+(?:,#-?\d+)*)\s*-->/);
   if (!m) return [];
   return m[1].split(",").map((s) => parseInt(s.replace("#", ""), 10)).filter((n) => !isNaN(n));
 }
@@ -116,6 +118,10 @@ export function issuesToGanttTasks(issues: GitHubIssue[]): GanttTask[] {
       dependencies: deps,
       progressMode: mode,
       progressValue: progress,
+      estimate: (() => {
+        const e = estimateOf(issue);
+        return e ? formatEstimate(e.value, e.unit) : null;
+      })(),
     };
   });
 }

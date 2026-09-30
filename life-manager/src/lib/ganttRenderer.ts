@@ -38,6 +38,56 @@ function readThemeColors(): ThemeColors {
   };
 }
 
+/**
+ * 先行 → 後続 の矢印の道すじ（折れ線の点）。帯の中を通らないように:
+ * 間があるときは、縦の線を、あいだの行の帯にかからない所に。間がない（後続が先にはじまる）ときは、先行の行のすぐ横の、
+ * 行と行のあいだの溝で折り返す（後続の帯の中を通って裏へ回らない）。最後は、いつも左から後続の左端に入る
+ */
+export function routeDependency(o: {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  /** 折り返すときの溝の y（先行の行の、後続のある側の境目） */
+  gutterY: number;
+  /** その x に縦の線を引いても、あいだの行の帯にかからないか */
+  free: (x: number) => boolean;
+  stub: number;
+}): [number, number][] {
+  const { fromX, fromY, toX, toY, gutterY, free, stub } = o;
+  if (toX >= fromX + stub * 2) {
+    // 間がある: まん中から試し、だめなら先行の終わりから後続のはじまりまでを順に
+    const span = toX - fromX - stub * 2;
+    const candidates = [fromX + stub + span / 2];
+    for (let k = 0; k <= 8; k++) candidates.push(fromX + stub + (span * k) / 8);
+    const x = candidates.find(free) ?? fromX + stub + span / 2;
+    return [[fromX, fromY], [x, fromY], [x, toY], [toX, toY]];
+  }
+  // 間がない: 先行のすぐ横で溝へ出て、後続の左へ戻り、左から入る
+  const x1 = fromX + stub;
+  let x2 = toX - stub;
+  for (let k = 2; k <= 6 && !free(x2); k++) x2 = toX - stub * k;
+  if (!free(x2)) x2 = toX - stub;
+  return [[fromX, fromY], [x1, fromY], [x1, gutterY], [x2, gutterY], [x2, toY], [toX, toY]];
+}
+
+/** 折れ線を、角を丸めて引く */
+function strokeRounded(ctx: CanvasRenderingContext2D, points: [number, number][], radius: number) {
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let k = 1; k < points.length - 1; k++) {
+    const [px, py] = points[k - 1];
+    const [x, y] = points[k];
+    const [nx, ny] = points[k + 1];
+    // 角の前後の短いほうの半分まで（短い段で丸めすぎない）
+    const r = Math.max(0, Math.min(radius, Math.hypot(x - px, y - py) / 2, Math.hypot(nx - x, ny - y) / 2));
+    ctx.arcTo(x, y, nx, ny, r);
+  }
+  const last = points[points.length - 1];
+  ctx.lineTo(last[0], last[1]);
+  ctx.stroke();
+}
+
 export function dateToDays(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);
   return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
@@ -488,7 +538,20 @@ export class GanttRenderer {
 
     const barHeight = config.rowHeight * 0.6;
     const barMidY = (config.rowHeight - barHeight) / 2 + barHeight / 2;
-    const gap = 8;
+    // 帯の端から、曲がるまでの長さ
+    const stub = 8;
+    // 見えている帯の右端（期限を過ぎた帯は、赤い延長と、外に出る「+3d」の字まで）
+    const now = new Date();
+    const todayDays = dateToDays(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+    const visibleEnd = (t: GanttTask) => {
+      const x = this.dateToX(t.endDate!, config, scrollX) + config.pixelsPerDay;
+      const late = t.state === "closed" ? 0 : todayDays - dateToDays(t.endDate!);
+      if (late <= 0) return x;
+      const w = late * config.pixelsPerDay;
+      return x + w + (w > 25 ? 0 : 26);
+    };
+    // 行ごとの帯の左右（あいだの行の帯にかからない縦の道を探すため）
+    const spans = tasks.map((t) => (t.startDate && t.endDate ? [this.dateToX(t.startDate, config, scrollX), visibleEnd(t)] : null));
 
     for (let i = startRow; i < endRow && i < tasks.length; i++) {
       const task = tasks[i];
@@ -500,44 +563,51 @@ export class GanttRenderer {
         const dep = tasks[depIdx];
         if (!dep.startDate || !dep.endDate) continue;
 
-        // 先行タスクの右端 → 後続タスクの左端
-        const fromX = this.dateToX(dep.endDate, config, scrollX) + config.pixelsPerDay;
+        // 先行タスクの（見えている）右端 → 後続タスクの左端
+        const plannedEnd = this.dateToX(dep.endDate, config, scrollX) + config.pixelsPerDay;
+        const fromX = visibleEnd(dep);
         const fromY = this.rowToY(depIdx, config, scrollY) + barMidY;
         const toX = this.dateToX(task.startDate, config, scrollX);
         const toY = this.rowToY(i, config, scrollY) + barMidY;
+        const lo = Math.min(depIdx, i);
+        const hi = Math.max(depIdx, i);
+        const free = (x: number) => {
+          for (let r = lo + 1; r < hi; r++) {
+            const sp = spans[r];
+            if (sp && x > sp[0] - 3 && x < sp[1] + 3) return false;
+          }
+          return true;
+        };
+        // 折り返すときの、行と行のあいだの溝（先行の行の、後続のある側）
+        const gutterY = this.rowToY(i > depIdx ? depIdx + 1 : depIdx, config, scrollY);
+        const points = routeDependency({ fromX, fromY, toX, toY, gutterY, free, stub });
+        // 後続が、先行の終わる予定より前にはじまる（順番が守られていない）: 赤の点線
+        const broken = toX < plannedEnd;
 
-        ctx.strokeStyle = this.colors.textSecondary;
+        // 下地（背景の色の太い線）を先に引いて、格子や帯の上でも線が読めるように
+        ctx.save();
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = this.colors.bgPrimary;
+        ctx.globalAlpha = 0.75;
+        ctx.lineWidth = 4.5;
+        strokeRounded(ctx, points, 5);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = broken ? this.colors.accentRed : this.colors.textSecondary;
         ctx.lineWidth = 1.5;
-        ctx.beginPath();
+        if (broken) ctx.setLineDash([4, 3]);
+        strokeRounded(ctx, points, 5);
+        ctx.setLineDash([]);
 
-        if (toX >= fromX + gap) {
-          // 重なりなし: S字カーブ
-          const bendX = (fromX + toX) / 2;
-          ctx.moveTo(fromX, fromY);
-          ctx.lineTo(bendX, fromY);
-          ctx.lineTo(bendX, toY);
-          ctx.lineTo(toX, toY);
-        } else {
-          // 重なりあり: 行間を迂回
-          const belowRow = Math.max(depIdx, i) + 1;
-          const channelY = this.rowToY(belowRow, config, scrollY) - 2;
-          ctx.moveTo(fromX, fromY);
-          ctx.lineTo(fromX + gap, fromY);
-          ctx.lineTo(fromX + gap, channelY);
-          ctx.lineTo(toX - gap, channelY);
-          ctx.lineTo(toX - gap, toY);
-          ctx.lineTo(toX, toY);
-        }
-        ctx.stroke();
-
-        // 矢印ヘッド（常に右向き、後続タスクの左端に向かう）
-        ctx.fillStyle = this.colors.textSecondary;
+        // 矢印の頭（いつも右向き。後続タスクの左端に向かう）
+        ctx.fillStyle = broken ? this.colors.accentRed : this.colors.textSecondary;
         ctx.beginPath();
         ctx.moveTo(toX, toY);
-        ctx.lineTo(toX - 5, toY - 3);
-        ctx.lineTo(toX - 5, toY + 3);
+        ctx.lineTo(toX - 6, toY - 3.5);
+        ctx.lineTo(toX - 6, toY + 3.5);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
       }
     }
   }

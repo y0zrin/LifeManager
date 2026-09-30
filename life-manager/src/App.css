@@ -18104,14 +18104,25 @@ html.notice-window #root {
   will-change: transform, opacity;
 }
 
-/* 止める（設定 → 表示 の「背景の動き」・画面の動きが少なめ・OS で動きを減らしているとき・スマホ） */
+/* 止める（設定 → 表示 の「背景の動き」・画面の動きが少なめ・OS で動きを減らしているとき・スマホ）。
+   粒は止まったまま残し、きらめく星と流れ星は出さない */
 html.stage-still .stage-fx i {
   animation: none !important;
+}
+
+html.stage-still .stage-fx b,
+html.stage-still .stage-fx .fx-shoot {
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .stage-fx i {
     animation: none !important;
+  }
+
+  .stage-fx b,
+  .stage-fx .fx-shoot {
+    display: none !important;
   }
 }
 
@@ -18207,21 +18218,67 @@ html.stage-still .stage-fx i {
   100% { opacity: 0.97; }
 }
 
-/* ナイト: 星がまたたき、ときどき流れ星 */
+/* ナイト: 星がきらめく（3 つの星の群れが、ずれた間でまたたく）・ときどき十字に光る星（.stage-fx b）・流れ星（.fx-shoot） */
 :root[data-theme="night"] .stage-fx i:nth-child(1) {
   background:
-    radial-gradient(#ffffffc8 1px, transparent 1.6px) 0 0 / 97px 83px,
-    radial-gradient(#ffd76aa0 1.3px, transparent 1.9px) 13px 51px / 131px 113px;
-  animation: fx-twinkle 4.5s ease-in-out infinite alternate;
+    radial-gradient(#ffffffd8 1px, transparent 1.6px) 0 0 / 97px 83px,
+    radial-gradient(#ffffffc0 0.9px, transparent 1.5px) 53px 29px / 157px 139px;
+  animation: fx-twinkle 2.6s ease-in-out infinite;
 }
 
 :root[data-theme="night"] .stage-fx i:nth-child(2) {
-  background: radial-gradient(#ffffff90 1px, transparent 1.5px) 41px 27px / 61px 71px;
-  animation: fx-twinkle 3.1s ease-in-out -1.4s infinite alternate;
+  background:
+    radial-gradient(#ffffffb8 1.1px, transparent 1.7px) 41px 27px / 113px 101px,
+    radial-gradient(#ffffffa0 1px, transparent 1.6px) 88px 66px / 173px 149px;
+  animation: fx-twinkle 3.4s ease-in-out -1.1s infinite;
 }
 
 :root[data-theme="night"] .stage-fx i:nth-child(3) {
-  inset: auto;
+  background:
+    radial-gradient(#fff3c4 1.3px, #ffd76a66 2.3px, transparent 3.6px) 13px 51px / 131px 113px,
+    radial-gradient(#fff3c4 1.1px, #ffd76a55 2px, transparent 3.2px) 97px 7px / 211px 181px;
+  animation: fx-twinkle 4.3s ease-in-out -2.2s infinite;
+}
+
+@keyframes fx-twinkle {
+  0%, 100% { opacity: 0.18; }
+  45% { opacity: 1; }
+  60% { opacity: 0.8; }
+}
+
+/* 十字に光る星（ナイトだけ）: ひとつずつ、ふくらんで・回って・消える */
+.stage-fx b {
+  display: none;
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: calc(28px * var(--s, 1));
+  height: calc(28px * var(--s, 1));
+  margin: calc(-14px * var(--s, 1)) 0 0 calc(-14px * var(--s, 1));
+  background:
+    radial-gradient(circle, #ffffff 0 1.6px, #fff3c4cc 2.6px, #ffd76a38 5.5px, transparent 9px),
+    linear-gradient(90deg, transparent, #ffffffe6 50%, transparent) center / 100% 1.6px no-repeat,
+    linear-gradient(180deg, transparent, #ffffffe6 50%, transparent) center / 1.6px 100% no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: fx-glint var(--t, 7s) ease-in-out var(--d, 0s) infinite;
+}
+
+:root[data-theme="night"] .stage-fx b {
+  display: block;
+}
+
+@keyframes fx-glint {
+  0%, 60%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  68% { opacity: 1; transform: scale(1) rotate(14deg); }
+  76% { opacity: 0.9; transform: scale(0.72) rotate(30deg); }
+  86% { opacity: 0; transform: scale(0.3) rotate(45deg); }
+}
+
+/* 流れ星（ナイトだけ） */
+.stage-fx .fx-shoot {
+  display: none;
+  position: absolute;
   top: 12%;
   left: 55%;
   width: 180px;
@@ -18229,23 +18286,18 @@ html.stage-still .stage-fx i {
   border-radius: 2px;
   background: linear-gradient(90deg, transparent, #ffffffd0);
   opacity: 0;
+  will-change: transform, opacity;
   animation: fx-shoot 9s ease-in infinite;
 }
 
-@keyframes fx-twinkle {
-  from { opacity: 0.35; }
-  to { opacity: 1; }
+:root[data-theme="night"] .stage-fx .fx-shoot {
+  display: block;
 }
 
 @keyframes fx-shoot {
   0%, 80% { opacity: 0; transform: translate(0, 0) rotate(-24deg) scaleX(0.3); }
   84% { opacity: 1; }
   95%, 100% { opacity: 0; transform: translate(-340px, 150px) rotate(-24deg) scaleX(1); }
-}
-
-/* 止めているときは、流れ星を出さない（星は残す） */
-html.stage-still:root[data-theme="night"] .stage-fx i:nth-child(3) {
-  display: none;
 }
 
 /* デイタイム: 日ざしがゆれ、光る粒が漂う */

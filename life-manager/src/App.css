@@ -1,5 +1,13 @@
 /* --- Design Tokens --- */
 
+/* 🆘 などの囲み文字（U+1F100〜1F2FF）は、日本語のフォントにも白黒の字があり、そちらが先に使われてしまう。
+   色の絵文字で出すため、この範囲だけ絵文字のフォントを先に */
+@font-face {
+  font-family: "LM Emoji";
+  src: local("Segoe UI Emoji"), local("SegoeUIEmoji"), local("Apple Color Emoji"), local("Noto Color Emoji");
+  unicode-range: U+1F100-1F2FF;
+}
+
 :root {
   /* はじめのテーマ（黒板）は暗い見た目なので、スクロールバーなど、ブラウザが描く部品も暗くする（サイドバーの白いスクロールバーなど）。
      テーマ（ホワイトボード・クエスト）は、下の :root[data-theme] で色を入れ替える */
@@ -80,9 +88,9 @@
   --space-xl: 24px;
 
   /* Font */
-  --font-family: 'Segoe UI', -apple-system, sans-serif;
+  --font-family: 'Segoe UI', "LM Emoji", -apple-system, sans-serif;
   --font-mono: 'Cascadia Mono', Consolas, monospace;
-  --font-mincho: "Yu Mincho", "游明朝", "YuMincho", serif;
+  --font-mincho: "LM Emoji", "Yu Mincho", "游明朝", "YuMincho", serif;
   --font-xs: 11px;
   --font-sm: 12px;
   --font-md: 13px;
@@ -3881,6 +3889,8 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 
 button {
   cursor: pointer;
+  /* ボタンの字もアプリの字に（ブラウザの決まりの Arial のままだと、🆘 などが日本語のフォントの白黒の字になる） */
+  font-family: inherit;
   border: 1px solid var(--border-default);
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);

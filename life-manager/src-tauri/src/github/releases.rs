@@ -281,6 +281,20 @@ fn first_chars(v: &Value, n: usize) -> Value {
     json!(v.as_str().unwrap_or("").chars().take(n).collect::<String>())
 }
 
+/// 🆘 のコメント（「助けを求める」とその解決）の印。本文の終わりにあるので、これがあれば本文を切らずに渡す
+const HELP_MARKS: [&str; 2] = ["<!-- lm:help -->", "<!-- lm:help-done -->"];
+/// 🆘 のコメントを渡すときの上限（困っていること・今のようす・git のメッセージ 20 行が入る長さ）
+const HELP_BODY_CHARS: usize = 6000;
+
+/// コメントの本文（ふつうは頭の n 文字。🆘 のコメントは、印とようすが読めるよう、ほぼまるごと）
+fn comment_body(v: &Value, n: usize) -> Value {
+    let text = v.as_str().unwrap_or("");
+    if HELP_MARKS.iter().any(|m| text.contains(m)) {
+        return first_chars(v, HELP_BODY_CHARS);
+    }
+    return first_chars(v, n);
+}
+
 /// リポジトリで起きたこと 1 つを、画面で文にしやすい形にする
 fn compact_event(e: &Value) -> Value {
     let p = &e["payload"];
@@ -306,7 +320,7 @@ fn compact_event(e: &Value) -> Value {
             // マージは、前は action: closed と merged、今は action: merged で来る
             out["merged"] = json!(pr["merged"].as_bool().unwrap_or(false) || !pr["merged_at"].is_null() || p["action"] == "merged");
             out["review_state"] = p["review"]["state"].clone();
-            out["body"] = first_chars(&p["comment"]["body"], 120);
+            out["body"] = comment_body(&p["comment"]["body"], 120);
         }
         "IssuesEvent" | "IssueCommentEvent" => {
             let i = &p["issue"];
@@ -316,7 +330,7 @@ fn compact_event(e: &Value) -> Value {
             out["state_reason"] = i["state_reason"].clone();
             out["assignee"] = p["assignee"]["login"].clone();
             out["label"] = p["label"]["name"].clone();
-            out["body"] = first_chars(&p["comment"]["body"], 200);
+            out["body"] = comment_body(&p["comment"]["body"], 200);
         }
         "CreateEvent" | "DeleteEvent" => {
             out["ref_type"] = p["ref_type"].clone();
@@ -474,6 +488,22 @@ fn apply_pull_titles(owner: &str, repo: &str, events: &mut [Value], open: &[Valu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_whole_help_comment_body() {
+        let long = format!("🆘 **助けてください** @b
+
+{}
+
+<!-- lm:help -->", "あ".repeat(400));
+        let e = json!({ "id": "1", "type": "IssueCommentEvent", "actor": { "login": "a" }, "created_at": "2026-10-01T00:00:00Z",
+            "payload": { "action": "created", "issue": { "number": 3, "title": "t" }, "comment": { "body": long } } });
+        let out = compact_event(&e);
+        assert!(out["body"].as_str().unwrap().ends_with("<!-- lm:help -->"));
+        let plain = json!({ "id": "2", "type": "IssueCommentEvent", "actor": { "login": "a" }, "created_at": "2026-10-01T00:00:00Z",
+            "payload": { "action": "created", "issue": { "number": 3, "title": "t" }, "comment": { "body": "い".repeat(400) } } });
+        assert_eq!(compact_event(&plain)["body"].as_str().unwrap().chars().count(), 200);
+    }
 
     #[test]
     fn marks_the_latest_release_and_compacts_assets() {

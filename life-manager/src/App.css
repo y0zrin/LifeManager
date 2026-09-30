@@ -20116,3 +20116,203 @@ html.stage-still .stage-fx .fx-shoot {
     gap: 12px;
   }
 }
+
+/* ===== 送っているあいだ（GitHub から返事が来るまで）: すぐその場に出し、「送っています…」。送れなければ「送れませんでした」 ===== */
+.sending-spin {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sending-spin 0.8s linear infinite;
+}
+
+@keyframes sending-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sending-chip,
+.failed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.sending-chip {
+  border: 1px solid var(--panel-line, var(--border-default));
+  background: var(--picker-chip, var(--bg-tertiary));
+  color: var(--picker-accent, var(--accent-green));
+}
+
+:root[data-theme="white"] .sending-chip,
+:root[data-theme="day"] .sending-chip,
+:root[data-theme="spring"] .sending-chip,
+:root[data-theme="winter"] .sending-chip,
+:root[data-theme="kingyo"] .sending-chip {
+  color: var(--accent-blue);
+}
+
+.failed-chip {
+  border: 1px solid color-mix(in srgb, var(--accent-red) 55%, transparent);
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+  font-weight: 800;
+}
+
+.failed-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.failed-actions .btn-primary,
+.failed-actions .btn-sm {
+  min-height: 26px;
+  padding: 1px 12px;
+}
+
+.failed-why {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+/* 上のバーの「送っています N」 */
+.sending-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px;
+  border: 1px solid var(--picker-ring, var(--accent-green));
+  border-radius: 999px;
+  background: var(--picker-chip, var(--bg-tertiary));
+  color: var(--picker-accent, var(--accent-green));
+  font-size: var(--font-sm);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+:root[data-theme="white"] .sending-top,
+:root[data-theme="day"] .sending-top,
+:root[data-theme="spring"] .sending-top,
+:root[data-theme="winter"] .sending-top,
+:root[data-theme="kingyo"] .sending-top {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+/* 仮のカード・行・付箋・コメント: 送っているあいだは点線のふちで、うすく。送れなかったら赤いふち */
+.issue-card.issue-card--sending,
+.timeline-comment.sending {
+  border-style: dashed;
+  border-color: var(--picker-ring, var(--accent-green));
+  opacity: 0.8;
+}
+
+.issue-card.issue-card--failed,
+.timeline-comment.failed {
+  border-color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 7%, var(--bg-secondary));
+}
+
+.task-row.task-row--sending td {
+  opacity: 0.75;
+}
+
+.task-row.task-row--failed td {
+  background: color-mix(in srgb, var(--accent-red) 7%, transparent);
+}
+
+.task-row--sending,
+.task-row--failed {
+  cursor: default;
+}
+
+.bd-note.sending {
+  opacity: 0.8;
+  outline: 2px dashed color-mix(in srgb, currentColor 45%, transparent);
+  outline-offset: 3px;
+}
+
+.bd-note.failed {
+  outline: 2px solid var(--accent-red);
+  outline-offset: 3px;
+}
+
+.bd-send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.bd-send .sending-chip,
+.bd-send .failed-chip {
+  margin-left: 0;
+}
+
+.bd-send .failed-actions {
+  margin-left: 0;
+}
+
+/* 付箋は紙の色（どのテーマでも明るい）なので、しるしとボタンは紙に合わせた濃い字に */
+.bd-send .sending-chip {
+  border-color: #0000002e;
+  background: #ffffffb3;
+  color: #333;
+}
+
+.bd-send .btn-sm {
+  border-color: #00000038;
+  background: #ffffffb3;
+  color: #333;
+}
+
+.bd-send .btn-sm:hover {
+  background: #fff;
+}
+
+.bd-send .failed-why {
+  color: #555;
+}
+
+/* 机の上の小さな付箋: 番号の代わりにくるくる（送れなかったら ⚠ と赤いふち） */
+.bd-desk-chip.sending {
+  opacity: 0.75;
+  outline: 2px dashed color-mix(in srgb, currentColor 40%, transparent);
+  outline-offset: 2px;
+  cursor: default;
+}
+
+.bd-desk-chip.failed {
+  outline: 2px solid var(--accent-red);
+  outline-offset: 2px;
+  cursor: default;
+}
+
+.bd-desk-chip .sending-spin {
+  width: 9px;
+  height: 9px;
+  vertical-align: -1px;
+}
+
+.bd-desk-chip.failed .bd-desk-no {
+  color: var(--accent-red);
+  opacity: 1;
+  font-weight: 800;
+}
+
+.motion-reduced .sending-spin {
+  animation-duration: 2.4s;
+}

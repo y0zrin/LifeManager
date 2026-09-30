@@ -20,8 +20,12 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
 
     if (text.startsWith("m ")) {
       const memo = text.substring(2);
-      await onCreateMemo(memo, "分野:私用");
-      setStatus("メモ: " + memo);
+      try {
+        await onCreateMemo(memo, "分野:私用");
+        setStatus("メモ: " + memo);
+      } catch {
+        // 送れなかったメモは、一覧に「送れませんでした」で残る（知らせは上のバーに出ている）
+      }
     } else if (text.startsWith("#")) {
       const num = parseInt(text.substring(1));
       if (!isNaN(num)) {

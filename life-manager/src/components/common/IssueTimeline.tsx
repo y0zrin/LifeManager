@@ -9,6 +9,7 @@ import { IssueIndexContext } from "./SubIssueMarks";
 import { closeReasonText } from "./CloseMenu";
 import { isHelp, isHelpDone, parseHelp } from "../../lib/help";
 import { HelpContextBox } from "../notices/HelpParts";
+import { FailedChip, SendingChip } from "./Sending";
 
 interface IssueTimelineProps {
   issue: GitHubIssue;
@@ -27,6 +28,9 @@ interface IssueTimelineProps {
   /** 🆘 のコメントの「返事を書く」「解決した」 */
   onReplyHelp?: (c: GitHubComment) => void;
   onResolveHelp?: (c: GitHubComment) => Promise<void>;
+  /** 送れなかったコメントの「もう一度」「書く欄に戻す」 */
+  onRetryComment?: (c: GitHubComment) => void;
+  onRestoreComment?: (c: GitHubComment) => void;
 }
 
 /** コメントと変更の履歴の並び。はじめは新しい順 */
@@ -108,7 +112,7 @@ function buildItems(issue: GitHubIssue, comments: GitHubComment[], events: Timel
 }
 
 /** 詳細の「💬 コメントと変更の履歴」。コメントのあいだに、ラベル・担当・閉じた・ほかの Issue やコミットから触れられた などを時間の順に出す */
-export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer, onReplyHelp, onResolveHelp }: IssueTimelineProps) {
+export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer, onReplyHelp, onResolveHelp, onRetryComment, onRestoreComment }: IssueTimelineProps) {
   const index = useContext(IssueIndexContext);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -229,7 +233,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
               const solved = !!help && lastDone > c.created_at;
               const done = isHelpDone(c.body);
               return (
-                <li key={`c${c.id}`} className={`timeline-comment${help ? " help" : ""}${done ? " help-done" : ""}`}>
+                <li key={`c${c.id}`} className={`timeline-comment${help ? " help" : ""}${done ? " help-done" : ""}${c._sending ? " sending" : ""}${c._failed ? " failed" : ""}`}>
                   <div className="timeline-comment-head">
                     <span className="timeline-comment-who">
                       {c.user?.login ?? "unknown"}
@@ -237,7 +241,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                       {solved && <span className="help-solved">✅ 解決</span>}
                       {c._pending && <PendingChip />}
                     </span>
-                    <span className="timeline-when">{when(c.created_at)}</span>
+                    {c._sending ? <SendingChip /> : c._failed ? <FailedChip /> : <span className="timeline-when">{when(c.created_at)}</span>}
                   </div>
                   {help ? (
                     <div className="timeline-comment-body help-body">
@@ -254,7 +258,21 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                   ) : (
                     <div className="timeline-comment-body">{done ? c.body.replace(/<!--[\s\S]*?-->/g, "").replace(/\*\*/g, "").trim() : c.body}</div>
                   )}
-                  {help && !solved && !c._pending && (onReplyHelp || onResolveHelp) && (
+                  {c._failed && (onRetryComment || onRestoreComment) && (
+                    <div className="help-actions">
+                      {onRetryComment && (
+                        <button type="button" className="btn-primary" onClick={() => onRetryComment(c)}>
+                          もう一度
+                        </button>
+                      )}
+                      {onRestoreComment && (
+                        <button type="button" className="btn-sm" onClick={() => onRestoreComment(c)}>
+                          書く欄に戻す
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {help && !solved && !c._pending && !c._sending && !c._failed && (onReplyHelp || onResolveHelp) && (
                     <div className="help-actions">
                       {onReplyHelp && (
                         <button type="button" className="btn-sm" onClick={() => onReplyHelp(c)}>

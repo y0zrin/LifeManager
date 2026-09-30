@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useContext, type ReactNode } from "react";
 import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineEvent } from "../../lib/types";
 import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
@@ -18,6 +18,9 @@ import { Avatar } from "./Avatar";
 import { relatedOf } from "../../lib/related";
 import { ArtifactsTab } from "../media/ArtifactsTab";
 import { helpDoneBody, parseHelp } from "../../lib/help";
+import { FailedChip, SendingChip } from "./Sending";
+import { IssueIndexContext } from "./SubIssueMarks";
+import { dropLocalComment, putLocalComment, useLocalComments } from "../../lib/sending";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -79,6 +82,11 @@ interface IssueDetailModalProps {
 export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate, artifacts, me = "", onAskHelp, commentsVersion = 0 }: IssueDetailModalProps) {
   const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
+  // 送っている・送れなかったコメント（手元だけ。詳細を閉じても残る）は、読んだコメントのあとに並べる
+  const { owner, repo } = useContext(IssueIndexContext);
+  const localKey = `${owner}/${repo}#${issue.number}`;
+  const localComments = useLocalComments(localKey);
+  const shownComments = localComments.length > 0 ? [...comments, ...localComments] : comments;
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -155,27 +163,53 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
 
   // 外でコメントを足したら（🆘 を送ったなど）、読み直す
   useEffect(() => {
-    if (commentsVersion > 0) loadComments();
+    if (commentsVersion > 0) loadComments(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsVersion]);
 
-  async function loadComments() {
-    setLoading(true);
+  /** コメントを読む。quiet なら「読み込み中」を出さない（送ったあと） */
+  async function loadComments(quiet = false) {
+    if (!quiet) setLoading(true);
     try {
       const result = await listComments(issue.number);
       setComments(Array.isArray(result) ? result : []);
     } catch (e) {
       console.error(e);
-      setComments([]);
+      if (!quiet) setComments([]);
     }
-    setLoading(false);
+    if (!quiet) setLoading(false);
+  }
+
+  /** コメントを送る: すぐ履歴に「送っています…」で出し、返事が来たら読み直す。送れなければ「送れませんでした」（詳細を閉じても残る） */
+  async function postComment(body: string, again?: GitHubComment) {
+    const now = new Date().toISOString();
+    const mine: GitHubComment = again ?? { id: -Date.now(), body, user: { login: me || "あなた", avatar_url: "" }, created_at: now, updated_at: now };
+    putLocalComment(localKey, { ...mine, _sending: true, _failed: undefined });
+    try {
+      await createComment(issue.number, body);
+      await loadComments(true);
+      dropLocalComment(localKey, mine.id);
+    } catch (e) {
+      putLocalComment(localKey, { ...mine, _sending: false, _failed: String(e) });
+    }
   }
 
   async function handleSubmit() {
-    if (!newComment.trim()) return;
-    await createComment(issue.number, newComment);
+    const text = newComment;
+    if (!text.trim()) return;
+    // 書く欄はすぐ空に（送っているあいだは、履歴に出ている）
     setNewComment("");
-    await loadComments();
+    await postComment(text);
+  }
+
+  /** 送れなかったコメント: もう一度・書く欄に戻す */
+  function retryComment(c: GitHubComment) {
+    void postComment(c.body, c);
+  }
+  function restoreComment(c: GitHubComment) {
+    dropLocalComment(localKey, c.id);
+    setNewComment((cur) => (cur.trim() ? `${cur}\n${c.body}` : c.body));
+    requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   // 🆘 のコメントへ: 返事を書く（書く欄に @ を入れて移る）・解決した（助けを求めた人と、呼ばれた人に知らせる）
@@ -193,8 +227,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   }
   async function resolveHelp(c: GitHubComment) {
     const people = [c.user?.login ?? "", ...parseHelp(c.body ?? "").to].filter((l) => l && l.toLowerCase() !== me.toLowerCase());
-    await createComment(issue.number, helpDoneBody([...new Set(people)]));
-    await loadComments();
+    await postComment(helpDoneBody([...new Set(people)]));
   }
 
   // --- タイトル保存 ---
@@ -898,7 +931,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             return (
               <IssueTimeline
                 issue={issue}
-                comments={comments}
+                comments={shownComments}
                 loadingComments={loading}
                 listTimeline={listTimeline}
                 onOpenIssue={onOpenIssue}
@@ -908,11 +941,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 composer={composer}
                 onReplyHelp={replyHelp}
                 onResolveHelp={issue.number > 0 ? resolveHelp : undefined}
+                onRetryComment={retryComment}
+                onRestoreComment={restoreComment}
               />
             );
           }
           // 変更の履歴を読めないときは、コメントだけ
-          const sorted = [...comments].sort((x, y) => (historyOrder === "newest" ? y.created_at.localeCompare(x.created_at) : x.created_at.localeCompare(y.created_at)));
+          const sorted = [...shownComments].sort((x, y) => (historyOrder === "newest" ? y.created_at.localeCompare(x.created_at) : x.created_at.localeCompare(y.created_at)));
           return (
             <>
               <div className="issue-timeline-head">
@@ -931,16 +966,26 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                           {c.user?.login ?? "unknown"}
                           {c._pending && <PendingChip />}
                         </span>
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                          {new Date(c.created_at).toLocaleString("ja-JP")}
-                        </span>
+                        {c._sending ? (
+                          <SendingChip />
+                        ) : c._failed ? (
+                          <span style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                            <FailedChip />
+                            <button type="button" className="btn-primary" onClick={() => retryComment(c)}>もう一度</button>
+                            <button type="button" className="btn-sm" onClick={() => restoreComment(c)}>書く欄に戻す</button>
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            {new Date(c.created_at).toLocaleString("ja-JP")}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: "13px", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
                         {c.body}
                       </div>
                     </div>
                   ))}
-                  {comments.length === 0 && (
+                  {shownComments.length === 0 && (
                     <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
                   )}
                 </div>

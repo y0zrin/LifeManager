@@ -13,7 +13,7 @@ import { useOverlayScrollGuard } from "./hooks/useOverlayScrollGuard";
 import { useHistory } from "./hooks/useHistory";
 import { useOffline } from "./hooks/useOffline";
 import { isMobile } from "./lib/platform";
-import { isTemporary, issueRef } from "./lib/issueRef";
+import { isSending, isTemporary, issueRef } from "./lib/issueRef";
 import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
 import { DashboardView } from "./components/views/DashboardView";
 import { KanbanView } from "./components/views/KanbanView";
@@ -36,6 +36,8 @@ import { NoticeToasts } from "./components/notices/NoticeToasts";
 import { NoticesDrawer } from "./components/notices/NoticesDrawer";
 import { HelpDialog } from "./components/notices/HelpDialog";
 import { lastGitFailure } from "./lib/gitFailure";
+import { useSendingCount } from "./lib/sending";
+import { SendingContext } from "./components/common/Sending";
 import type { HelpContext } from "./lib/help";
 import type { Notice } from "./lib/notices";
 import type { PullDetail } from "./lib/pulls";
@@ -267,6 +269,12 @@ function App() {
   );
   // 作業タブで選べるのは、GitHub の番号がある Issue だけ（コミットのメッセージに番号を入れるため）
   const workIssues = useMemo(() => gh.issues.filter((i) => !isTemporary(i.number)), [gh.issues]);
+  // 送れなかった仮の Issue の「もう一度」「やめる」（カード・付箋から）
+  const { retrySending, discardSending } = gh;
+  const sendingActions = useMemo(
+    () => ({ retry: (n: number) => void retrySending(n), discard: discardSending }),
+    [retrySending, discardSending],
+  );
   // 番号で Issue を引く（カードに親の題名を出すなど）
   const issueIndex = useMemo<IssueIndex>(() => {
     const byNumber = new Map<number, GitHubIssue>();
@@ -833,6 +841,8 @@ function App() {
   }
 
   const currentLabel = ALL_NAV_ITEMS.find((item) => item.key === view)?.label ?? "";
+  // GitHub に書いている数（上のバーの「送っています N」）
+  const sendingCount = useSendingCount();
   // 作業タブで取り組んでいる Issue（上のバーの 🆘 助けを求める）
   const workIssueNumber = view === "work" ? loadWorkIssue(gh.owner, gh.repo) : null;
   const workIssue = workIssueNumber !== null ? gh.issues.find((i) => i.number === workIssueNumber) ?? null : null;
@@ -891,7 +901,8 @@ function App() {
 
   // Issue の詳細。重ねて出す（ほかの画面・スマホ）か、タスクの右の欄に出す（inline）
   function renderIssueDetail(n: number | null, inline: boolean, onClose: () => void, onOpen: (n: number, fallback?: GitHubIssue) => void) {
-    if (n === null) return null;
+    // 送っている途中の仮の Issue（まだ GitHub に番号がない）は、詳細を出さない
+    if (n === null || isSending(n)) return null;
     const issueObj = gh.issues.find((i) => i.number === n)
       || gh.closedIssues.find((i) => i.number === n)
       || (openedFallback?.number === n ? openedFallback : undefined);
@@ -996,6 +1007,12 @@ function App() {
               <button type="button" className="btn-help" onClick={() => void askHelp(workIssue)} title={`チームの人を @ で呼んで、${workIssue.title} にコメントを残します`}>
                 🆘 助けを求める
               </button>
+            )}
+            {sendingCount > 0 && (
+              <span className="sending-top" role="status" title="GitHub に送っています（返事が来るまで）">
+                <i className="sending-spin" aria-hidden="true" />
+                送っています {sendingCount}
+              </span>
             )}
             {syncIndicator}
             {!isMobile && (
@@ -1516,7 +1533,9 @@ function App() {
   );
   return (
     <IssueIndexContext.Provider value={issueIndex}>
-      <EstimateUnitContext.Provider value={gh.estimateUnit}>{shell}</EstimateUnitContext.Provider>
+      <SendingContext.Provider value={sendingActions}>
+        <EstimateUnitContext.Provider value={gh.estimateUnit}>{shell}</EstimateUnitContext.Provider>
+      </SendingContext.Provider>
     </IssueIndexContext.Provider>
   );
 }

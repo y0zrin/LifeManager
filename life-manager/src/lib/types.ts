@@ -50,6 +50,10 @@ export interface GitHubIssue {
   user?: { login: string; avatar_url: string };
   /** まだ GitHub に送っていない変更がある（オフラインのあいだの変更）。まだ作っていない Issue の番号は負の数（仮の番号） */
   _pending?: boolean;
+  /** 送っているあいだ（GitHub から返事が来るまで。すぐ画面に出すための仮のもの） */
+  _sending?: boolean;
+  /** 送れなかった（わけ）。「もう一度」「やめる」を出す */
+  _failed?: string;
 }
 
 /** 閉じ方（GitHub の「Close as …」と同じ） */
@@ -88,6 +92,10 @@ export interface GitHubComment {
   updated_at: string;
   /** まだ GitHub に送っていないコメント */
   _pending?: boolean;
+  /** 送っているあいだ（すぐ画面に出すための仮のもの） */
+  _sending?: boolean;
+  /** 送れなかった（わけ） */
+  _failed?: string;
 }
 
 // --- オフラインのあいだの変更（送信待ち） ---

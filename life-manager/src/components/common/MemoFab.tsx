@@ -131,10 +131,9 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
     try {
       await onCreateMemo(body, current);
       setResult({ kind: "ok", text: body });
-    } catch (e) {
-      // 送れなかったら、書いたものを欄に戻す（もう次を書き始めていたら、そのまま）
-      setText((now) => now || body);
-      setResult({ kind: "error", text: String(e) });
+    } catch {
+      // 送れなかったメモは、一覧・ボードに「送れませんでした」で残る（「もう一度」で送り直せる）ので、欄には戻さない
+      setResult({ kind: "error", text: body });
     }
   }
 
@@ -174,7 +173,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
           ) : result?.kind === "ok" ? (
             <p className="memo-pop-note ok">✔ 「{result.text}」を投入しました</p>
           ) : result?.kind === "error" ? (
-            <p className="memo-pop-note err">⚠ 送れませんでした（{result.text}）</p>
+            <p className="memo-pop-note err">⚠ 「{result.text}」を送れませんでした。タスク一覧・ボードの「もう一度」で送り直せます</p>
           ) : (
             <p className="memo-pop-note">Enter で投入（続けて書けます）・Esc で閉じる</p>
           )}

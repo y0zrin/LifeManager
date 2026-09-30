@@ -1,9 +1,10 @@
 // Issue（開いている・閉じた）の読み込みと操作。コメント・サブイシュー（親子）・テンプレート・変更の履歴・見積もりも
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { invokeWrite } from "../../lib/sending";
 import { ESTIMATE_COLOR, UNITS, estimateLabel, withEstimate, type EstimateUnit } from "../../lib/estimate";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, TimelineEvent } from "../../lib/types";
-import { issueRef } from "../../lib/issueRef";
+import { isSending, issueRef, nextSendingNumber } from "../../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../lib/subIssues";
 import type { IssueTemplate } from "../../lib/issueTemplates";
 import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from "./shared";
@@ -33,7 +34,8 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   const loadIssues = useCallback(async () => {
     try {
       const result = await invoke("list_issues", { owner, repo, issueState: "open" });
-      setIssues(JSON.parse(result as string));
+      const fresh = JSON.parse(result as string) as GitHubIssue[];
+      setIssues((prev) => [...prev.filter((i) => isSending(i.number)), ...fresh]);
     } catch (e) {
       setStatus(friendlyError(e));
     }
@@ -55,7 +57,8 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
         invoke("list_issues", { owner, repo, issueState: "open", cached: true }),
         invoke("list_issues", { owner, repo, issueState: "closed", cached: true }),
       ]);
-      setIssues(JSON.parse(open as string));
+      const fresh = JSON.parse(open as string) as GitHubIssue[];
+      setIssues((prev) => [...prev.filter((i) => isSending(i.number)), ...fresh]);
       setClosedIssues(JSON.parse(closed as string));
     } catch (e) {
       console.error(e);
@@ -79,7 +82,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
         throw new Error("元の Issue がまだ GitHub にないので、重複として閉じられません");
       }
       const how = reason === "not_planned" ? "を予定なしとして閉じました" : reason === "duplicate" ? `を ${issueRef(duplicateOf!.number)} の重複として閉じました` : "を完了";
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: "closed", labels: null, milestone: null, assignees: null,
         stateReason: reason ?? null,
@@ -104,7 +107,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     try {
       const reopenedIssue = closedIssues.find((i) => i.number === n);
       const issueTitle = reopenedIssue?.title || issueRef(n);
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: "open", labels: null, milestone: null, assignees: null,
         notice: eventNotice("issue_reopened", `🔄 {issue} ${issueTitle} を再開`),
@@ -131,7 +134,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
         .map((l) => l.name)
         .filter((name) => name !== "種別:メモ")
         .concat(["種別:イシュー"]);
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: null, labels: newLabels, milestone: null, assignees: null,
         notice: eventNotice("issue_promoted", `⬆ {issue} ${issue.title} をイシューに昇華`),
@@ -169,7 +172,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
             : i
         )
       );
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: null, labels: null, milestone: null, assignees: newAssignees,
       });
@@ -200,7 +203,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
         prev.map((i) => i.number === n ? { ...i, labels: newLabelObjs } : i)
       );
       const statusName = newStatusLabel ? newStatusLabel.split(":")[1] : "未分類";
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: null, body: null, issueState: null, labels: newLabelNames, milestone: null, assignees: null,
         notice: eventNotice("status_changed", `🔀 {issue} ${issue.title} → ${statusName}`),
@@ -213,57 +216,104 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     }
   }
 
-  async function createIssue(title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[]): Promise<number> {
+  // --- Issue を作る: すぐ一覧に「送っています…」の仮の Issue を出し、GitHub から返事が来たら置き換える ---
+
+  /** 送っているあいだの仮の Issue の、送り直しに要るもの（送れなかったときの「もう一度」） */
+  type Send = { title: string; body: string; labels: string[]; milestone: number | null; assignees: string[] | null; message: string; done: string };
+  const sends = useRef(new Map<number, Send>());
+  // 今のリポジトリ（送っているあいだにプロジェクトを切り替えたら、返事を今の一覧に入れない）
+  const repoNow = useRef("");
+  repoNow.current = `${owner}/${repo}`;
+
+  /** 仮の Issue（ラベルの色・マイルストーンは、今わかっているもので） */
+  function placeholder(n: number, send: Send): GitHubIssue {
+    const now = new Date().toISOString();
+    return {
+      number: n,
+      title: send.title,
+      body: send.body,
+      state: "open",
+      labels: send.labels.map((name) => ({ name, color: labels.find((l) => l.name === name)?.color ?? "ededed" })),
+      milestone: null,
+      assignees: (send.assignees ?? []).map((login) => ({ login, avatar_url: "" })),
+      comments: 0,
+      created_at: now,
+      updated_at: now,
+      _sending: true,
+    } as GitHubIssue;
+  }
+
+  /** 送る（はじめてと、もう一度）。返事が来たら仮の Issue を置き換える。送れなければ「送れませんでした」にして、わけを返す */
+  async function send(temp: number, one: Send): Promise<number> {
+    const sentFrom = `${owner}/${repo}`;
     try {
-      const result = await invoke("create_issue", {
+      const result = await invokeWrite("create_issue", {
         owner, repo,
-        title, body,
-        labels: labelList,
-        milestone,
-        assignees: assignees ?? null,
-        notice: eventNotice("issue_created", `📝 {issue} ${title} を作成`),
+        title: one.title, body: one.body,
+        labels: one.labels,
+        milestone: one.milestone,
+        assignees: one.assignees,
+        notice: eventNotice("issue_created", one.message),
       });
       const pending = isPending(result);
-      setStatus(`Issueを作成しました${pending ? PENDING_NOTE : ""}`);
-      // 楽観的更新: APIレスポンスの Issue をリストに即追加（送信待ちなら仮の番号）
-      let issueNumber = 0;
+      setStatus(`${one.done}${pending ? PENDING_NOTE : ""}`);
+      sends.current.delete(temp);
+      if (repoNow.current !== sentFrom) return 0; // もう別のプロジェクトを見ている（一覧は作り直された）
+      // 返事の Issue に置き換える（送信待ちなら仮の番号）
       try {
         const newIssue = JSON.parse(result as string) as GitHubIssue;
-        issueNumber = newIssue.number;
-        setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== newIssue.number)]);
+        setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== temp && i.number !== newIssue.number)]);
+        return newIssue.number;
       } catch {
+        setIssues((prev) => prev.filter((i) => i.number !== temp));
         await loadIssues();
+        return 0;
       }
-      return issueNumber;
     } catch (e) {
-      setStatus("エラー: " + e);
+      const why = friendlyError(e);
+      if (repoNow.current !== sentFrom) sends.current.delete(temp); // 仮の Issue は、切り替えたときに一覧ごと消えている
+      setIssues((prev) => prev.map((i) => (i.number === temp ? { ...i, _sending: false, _failed: why } : i)));
+      setStatus("送れませんでした: " + why);
       throw e;
     }
   }
 
+  /** 仮の Issue を一覧のいちばん上に出してから、送る */
+  async function start(one: Send): Promise<number> {
+    const temp = nextSendingNumber();
+    sends.current.set(temp, one);
+    setIssues((prev) => [placeholder(temp, one), ...prev]);
+    return send(temp, one);
+  }
+
+  async function createIssue(title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[]): Promise<number> {
+    return start({ title, body, labels: labelList, milestone, assignees: assignees ?? null, message: `📝 {issue} ${title} を作成`, done: "Issueを作成しました" });
+  }
+
   async function createMemo(text: string, theme: string) {
-    try {
-      const result = await invoke("create_issue", {
-        owner, repo,
-        title: text, body: "",
-        labels: ["種別:メモ", "状態:未整理", theme].filter(Boolean),
-        milestone: null,
-        assignees: currentUser ? [currentUser] : null,
-        notice: eventNotice("issue_created", `📝 {issue} ${text} をメモ投入`),
-      });
-      const pending = isPending(result);
-      setStatus(`メモを投入しました${pending ? PENDING_NOTE : ""}`);
-      // 楽観的更新: APIレスポンスの Issue をリストに即追加（送信待ちなら仮の番号）
-      try {
-        const newIssue = JSON.parse(result as string) as GitHubIssue;
-        setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== newIssue.number)]);
-      } catch {
-        await loadIssues();
-      }
-    } catch (e) {
-      setStatus("エラー: " + e);
-      throw e;
-    }
+    await start({
+      title: text,
+      body: "",
+      labels: ["種別:メモ", "状態:未整理", theme].filter(Boolean),
+      milestone: null,
+      assignees: currentUser ? [currentUser] : null,
+      message: `📝 {issue} ${text} をメモ投入`,
+      done: "メモを投入しました",
+    });
+  }
+
+  /** 送れなかった仮の Issue を、もう一度送る */
+  async function retrySending(temp: number) {
+    const one = sends.current.get(temp);
+    if (!one) return;
+    setIssues((prev) => prev.map((i) => (i.number === temp ? { ...i, _sending: true, _failed: undefined } : i)));
+    await send(temp, one).catch(() => {});
+  }
+
+  /** 送れなかった仮の Issue を、やめる（一覧から消す） */
+  function discardSending(temp: number) {
+    sends.current.delete(temp);
+    setIssues((prev) => prev.filter((i) => i.number !== temp));
   }
 
   // --- タスクトグル用の本文更新（ローカル即時反映） ---
@@ -274,7 +324,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       const todoDone = (newBody.match(/- \[x\]/g) || []).length;
       const todoTotal = (newBody.match(/- \[[ x]\]/g) || []).length;
       const issueTitle = [...issues, ...closedIssues].find((i) => i.number === issueNumber)?.title || issueRef(issueNumber);
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber,
         title: null, body: newBody, issueState: null, labels: null, milestone: null, assignees: null,
         notice: todoTotal > 0 ? eventNotice("todo_toggled", `☑ {issue} ${issueTitle} ${todoDone}/${todoTotal}完了`) : null,
@@ -303,7 +353,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     try {
       const current = [...issues, ...closedIssues].find((i) => i.number === n);
       const title = updates.title ?? current?.title ?? issueRef(n);
-      const result = await invoke("update_issue", {
+      const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
         title: updates.title ?? null,
         body: updates.body ?? null,
@@ -341,7 +391,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     const name = estimateLabel(value, estimateUnit);
     if (labels.some((l) => l.name === name)) return;
     try {
-      await invoke("create_label", { owner, repo, name, color: ESTIMATE_COLOR, description: `見積もり（${UNITS[estimateUnit].name}）` });
+      await invokeWrite("create_label", { owner, repo, name, color: ESTIMATE_COLOR, description: `見積もり（${UNITS[estimateUnit].name}）` });
       await loadLabels();
     } catch {
       // つながらないとき・もうあるときなど。付けるときに GitHub が作る
@@ -371,13 +421,13 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   async function createComment(issueNumber: number, body: string) {
     try {
       const issueTitle = [...issues, ...closedIssues].find((i) => i.number === issueNumber)?.title || issueRef(issueNumber);
-      const result = await invoke("create_comment", {
+      const result = await invokeWrite("create_comment", {
         owner, repo, issueNumber, body,
         notice: eventNotice("comment_added", `💬 {issue} ${issueTitle} にコメント`),
       });
       setStatus(`${issueRef(issueNumber)} にコメントを追加${isPending(result) ? PENDING_NOTE : ""}`);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus("コメントを送れませんでした: " + friendlyError(e));
       throw e;
     }
   }
@@ -430,7 +480,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       throw new Error(`${issueRef(child.number)} はまだ GitHub に送っていないので、子にできません`);
     }
     const oldParent = parseIssueApiUrl(child.parent_issue_url);
-    await invoke("add_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id, replaceParent: !!oldParent });
+    await invokeWrite("add_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id, replaceParent: !!oldParent });
     const done = child.state === "closed" ? 1 : 0;
     if (oldParent && isSameRepo(oldParent, owner, repo)) {
       patchIssue(oldParent.number, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, -done) }));
@@ -443,7 +493,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   /** 子の Issue を作って、つなぐ。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じ */
   async function createSubIssue(parent: GitHubIssue, title: string): Promise<GitHubIssue> {
     const labelNames = ["種別:イシュー", "状態:未整理", ...parent.labels.map((l) => l.name).filter((n) => n.startsWith("分野:"))];
-    const result = await invoke("create_issue", {
+    const result = await invokeWrite("create_issue", {
       owner, repo,
       title, body: "",
       labels: labelNames,
@@ -463,7 +513,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   /** 子から外す（Issue は消えない） */
   async function removeSubIssue(parent: number, child: GitHubIssue) {
     if (!child.id) throw new Error(`${issueRef(child.number)} の id が分からないので、外せません`);
-    await invoke("remove_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id });
+    await invokeWrite("remove_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id });
     patchIssue(parent, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, child.state === "closed" ? -1 : 0) }));
     patchIssue(child.number, (i) => ({ ...i, parent_issue_url: null }));
     setStatus(`${issueRef(child.number)} を ${issueRef(parent)} の子から外しました`);
@@ -473,6 +523,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     issues, closedIssues,
     loadIssues, loadClosedIssues, reloadCached, clear,
     closeIssue, reopenIssue, promoteIssue, changeIssueStatus, assignToMe, createIssue, createMemo, updateIssue, updateIssueBody,
+    retrySending, discardSending,
     ensureEstimateLabel, setEstimate,
     listComments, createComment,
     listIssueTemplates, addIssueTemplates,

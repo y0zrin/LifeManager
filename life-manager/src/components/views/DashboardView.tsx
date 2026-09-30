@@ -10,7 +10,7 @@ import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
 import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
 import { serializeGanttDates } from "../../lib/ganttParser";
-import { issueRef } from "../../lib/issueRef";
+import { isSending, issueRef } from "../../lib/issueRef";
 import { isEscape } from "../../lib/keys";
 import { stepDirection, withTransition } from "../../lib/motion";
 import { celebrateDone, sparkleNew } from "../../lib/celebrate";
@@ -290,7 +290,12 @@ export function DashboardView({
     setTemplateNote(null);
     // バックグラウンドで作成（見積もりのラベルは、なければ先に作って色をそろえる）
     if (estimate) await onEnsureEstimateLabel(estimate);
-    const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
+    let issueNumber = 0;
+    try {
+      issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
+    } catch {
+      return; // 送れなかった Issue は、一覧に「送れませんでした」で残る（「もう一度」「やめる」）
+    }
     if (reminderDt && reminderCh.length > 0 && issueNumber) {
       await onAddReminder(issueNumber, title, reminderDt, reminderCh);
     }
@@ -365,7 +370,8 @@ export function DashboardView({
   const freshTimers = useRef<number[]>([]);
   useEffect(() => () => freshTimers.current.forEach((t) => window.clearTimeout(t)), []);
   useEffect(() => {
-    const now = new Set(issues.map((i) => i.number));
+    // 送っている途中の仮の Issue は数えない（GitHub に届いて番号が付いたときに光らせる）
+    const now = new Set(issues.map((i) => i.number).filter((n) => !isSending(n)));
     const before = seenIssues.current;
     seenIssues.current = now;
     if (!before) return;
@@ -393,7 +399,8 @@ export function DashboardView({
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest("input, textarea, select, [contenteditable='true'], .palette-overlay")) return;
-      const order = rows.map((r) => r.issue.number);
+      // 送っている途中の仮の Issue は飛ばす（まだ詳細を開けない）
+      const order = rows.map((r) => r.issue.number).filter((n) => !isSending(n));
       if (order.length === 0) return;
       const at = selectedIssue === null ? -1 : order.indexOf(selectedIssue);
       const next = e.key === "ArrowDown" ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at === -1 ? 0 : at - 1)];

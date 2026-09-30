@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
+import { IssueSendState, isUnsent } from "../common/Sending";
+import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "../common/PendingChip";
 import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
 import type { Theme } from "../../lib/theme";
@@ -159,13 +161,18 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   const fields = issue.labels.filter((l) => l.name.startsWith("分野:")).map((l) => l.name.replace("分野:", ""));
 
   return (
-    <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
+    <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}${issue._sending ? " sending" : ""}${issue._failed ? " failed" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
       {overdue && <span className="bd-late">期限切れ</span>}
       <div className="bd-nt">
-        <span className="bd-no">#{issue.number}</span>
+        <span className="bd-no">{issueRef(issue.number)}</span>
         {issue.title}
         {issue._pending && <PendingChip />}
       </div>
+      {isUnsent(issue) && (
+        <div className="bd-send">
+          <IssueSendState issue={issue} />
+        </div>
+      )}
       <div className="bd-line">
         {quest && est && <span className="bd-stars">{starsOf(issue)}</span>}
         {est && <span>{quest ? `報酬 ${formatEstimate(est.value, est.unit)}` : formatEstimate(est.value, est.unit)}</span>}
@@ -468,9 +475,10 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                   <div
                     key={issue.number}
                     className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
-                    onMouseDown={isMobile ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+                    onMouseDown={isMobile || isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
                     onClick={() => {
-                      if (!isDraggingRef.current) onSelectIssue(issue.number);
+                      // 送っているあいだ・送れなかった仮の付箋は開かない
+                      if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
                     }}
                   >
                     {note(issue)}
@@ -539,15 +547,15 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
               <button
                 key={issue.number}
                 type="button"
-                className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}`}
-                title={issue.title}
-                onMouseDown={(e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+                className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}${issue._sending ? " sending" : issue._failed ? " failed" : ""}`}
+                title={issue._sending ? `${issue.title}（送っています…）` : issue._failed ? `${issue.title}（送れませんでした。付箋の「もう一度」で送り直せます）` : issue.title}
+                onMouseDown={isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
                 onClick={() => {
-                  if (!isDraggingRef.current) onSelectIssue(issue.number);
+                  if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
                 }}
               >
                 {look === "quest" && <span className="bd-desk-hanko">受注</span>}
-                <span className="bd-desk-no">#{issue.number}</span>
+                <span className="bd-desk-no">{issue._sending ? <i className="sending-spin" aria-label="送っています" /> : issue._failed ? "⚠" : issueRef(issue.number)}</span>
                 {issue.title}
               </button>
             ))}

@@ -3,6 +3,7 @@ import type { GitHubIssue } from "../../lib/types";
 import { motionOn } from "../../lib/motion";
 import { celebrateDone } from "../../lib/celebrate";
 import { LabelBadge } from "./LabelBadge";
+import { IssueSendState, isUnsent } from "./Sending";
 import { PendingChip } from "./PendingChip";
 import { ParentMark, SubIssueBadge } from "./SubIssueMarks";
 import { DueChip } from "./DueChip";
@@ -75,7 +76,11 @@ export function IssueCard({
   // 本文の抜き出し（ガントの日程などの見えない印 <!-- … --> は出さない）
   const excerpt = (issue.body ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
 
+  // 送っているあいだ・送れなかった仮の Issue（まだ番号がない）: 押しても開かない
+  const unsent = isUnsent(issue);
+
   function handleCardClick(e: React.MouseEvent) {
+    if (unsent) return;
     if ((e.target as HTMLElement).closest("button, select, input, [data-todo-progress]")) return;
     if (picking) onTogglePick?.(issue.number);
     else onSelect?.(issue.number);
@@ -83,10 +88,10 @@ export function IssueCard({
 
   return (
     <div ref={cardRef}
-      className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}${selected ? " issue-card--selected" : ""}${fresh ? " issue-card--fresh" : ""}${leaving !== "none" ? " issue-card--done" : ""}${leaving === "shrink" ? " issue-card--leaving" : ""}`}
+      className={`issue-card${depth > 0 ? " issue-card--child" : ""}${picked ? " issue-card--picked" : ""}${selected ? " issue-card--selected" : ""}${fresh ? " issue-card--fresh" : ""}${leaving !== "none" ? " issue-card--done" : ""}${leaving === "shrink" ? " issue-card--leaving" : ""}${issue._sending ? " issue-card--sending" : ""}${issue._failed ? " issue-card--failed" : ""}`}
       onClick={handleCardClick} data-issue={issue.number}
       style={{
-        cursor: onSelect || picking ? "pointer" : "default",
+        cursor: (onSelect || picking) && !unsent ? "pointer" : "default",
         marginLeft: depth > 0 ? `${Math.min(depth, 3) * 28}px` : undefined,
         // 順に出るときの番号と、並べ替えで動かすときの名前（CSS の --i・--vt-name）
         "--i": index,
@@ -102,6 +107,7 @@ export function IssueCard({
           <span className="issue-card-number">{issueRef(issue.number)}</span>
           {issue._pending && <PendingChip />}
           <strong>{issue.title}</strong>
+          <IssueSendState issue={issue} />
           {issue.milestone && (
             <span style={{ color: "var(--text-muted)", fontSize: "var(--font-xs)", marginLeft: "8px" }}>
               📌 {issue.milestone.title}
@@ -143,7 +149,7 @@ export function IssueCard({
         )}
       </div>
 
-      {!picking && <div className="issue-card-actions">
+      {!picking && !unsent && <div className="issue-card-actions">
         {issue.state === "open" ? (
           <button className="btn-sm" onClick={(e) => finish(e.currentTarget)} disabled={leaving !== "none"}>完了</button>
         ) : (

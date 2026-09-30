@@ -4,6 +4,7 @@ import { issueRef } from "../../lib/issueRef";
 import { DueChip } from "./DueChip";
 import { EstimateChip, EstimateSumText, useEstimateUnit } from "./EstimateChip";
 import { sumEstimates } from "../../lib/estimate";
+import { IssueSendState, isUnsent } from "./Sending";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
 import { Avatar } from "./Avatar";
@@ -70,8 +71,13 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                 <tr
                   key={issue.number}
                   data-issue={issue.number}
-                  className={`task-row${isPicked ? " task-row--picked" : ""}${issue.state === "closed" ? " task-row--closed" : ""}${isFresh ? " task-row--fresh" : ""}`}
-                  onClick={() => (picking ? onTogglePick(issue.number) : onSelect(issue.number))}
+                  className={`task-row${isPicked ? " task-row--picked" : ""}${issue.state === "closed" ? " task-row--closed" : ""}${isFresh ? " task-row--fresh" : ""}${issue._sending ? " task-row--sending" : ""}${issue._failed ? " task-row--failed" : ""}`}
+                  onClick={() => {
+                    // 送っているあいだ・送れなかった仮の Issue は開かない
+                    if (isUnsent(issue)) return;
+                    if (picking) onTogglePick(issue.number);
+                    else onSelect(issue.number);
+                  }}
                 >
                   {picking && (
                     <td className="tt-pick">
@@ -86,6 +92,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                     {isFresh && <span className="task-row-new">NEW</span>}
                     <SubIssueBadge issue={issue} />
                     {issue._pending && <PendingChip />}
+                    <IssueSendState issue={issue} />
                   </td>
                   <td>{issue.state === "closed" ? <span className="tt-pill tt-pill--closed">完了</span> : <LabelPill issue={issue} prefix="状態:" />}</td>
                   <td><LabelPill issue={issue} prefix="優先:" /></td>

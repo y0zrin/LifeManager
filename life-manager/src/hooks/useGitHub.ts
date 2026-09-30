@@ -129,6 +129,7 @@ export function useGitHub() {
     closeIssue: issueOps.closeIssue, reopenIssue: issueOps.reopenIssue, promoteIssue: issueOps.promoteIssue,
     changeIssueStatus: issueOps.changeIssueStatus, assignToMe: issueOps.assignToMe, createIssue: issueOps.createIssue,
     createMemo: issueOps.createMemo, updateIssue: issueOps.updateIssue, updateIssueBody: issueOps.updateIssueBody,
+    retrySending: issueOps.retrySending, discardSending: issueOps.discardSending,
     // マイルストーン操作
     createMilestone: meta.createMilestone, updateMilestone: meta.updateMilestone, closeMilestone: meta.closeMilestone, reopenMilestone: meta.reopenMilestone,
     // ルーチン操作

@@ -27,3 +27,30 @@ export function sparkleNew(el: Element | null) {
   if (!origin) return;
   window.dispatchEvent(new CustomEvent<CelebrateDetail>(CELEBRATE_EVENT, { detail: { kind: "new", origin } }));
 }
+
+// --- マイルストーンの達成（画面全体を暗くして、大きく祝う） ---
+
+export interface MilestoneClearDetail {
+  repoKey: string;
+  number: number;
+  title: string;
+  /** 時間の順の番号（クエストのボスの絵）と、いちばん先のマイルストーンか（最後のボス） */
+  no: number;
+  last: boolean;
+  /** 終えたタスクの数 */
+  doneCount: number;
+  /** 見積もりの合計（「23pt」。見積もりがなければ null） */
+  amount: string | null;
+  /** 期限まで何日残して終えたか（すぎたらマイナス。期限がなければ null） */
+  leftDays: number | null;
+  team: { login: string; avatar_url: string }[];
+  /** まだ GitHub で閉じていない（「マイルストーンを閉じる」を出す） */
+  canClose: boolean;
+}
+
+export const MILESTONE_CLEAR_EVENT = "lm-milestone-clear";
+
+/** マイルストーンの達成のお祝い（いちばん上の重ね MilestoneCelebration が出す） */
+export function celebrateMilestone(detail: MilestoneClearDetail) {
+  window.dispatchEvent(new CustomEvent<MilestoneClearDetail>(MILESTONE_CLEAR_EVENT, { detail }));
+}

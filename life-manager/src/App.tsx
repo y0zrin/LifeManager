@@ -36,6 +36,8 @@ import { GitToolbar } from "./components/git/GitToolbar";
 import { GitNotices } from "./components/git/GitNotices";
 import { ConflictNotice } from "./components/git/ConflictNotice";
 import { Celebration } from "./components/common/Celebration";
+import { MilestoneCelebration } from "./components/milestones/MilestoneCelebration";
+import { useMilestoneClear } from "./hooks/useMilestoneClear";
 import { GitDialog } from "./components/git/GitDialog";
 import { ContextMenu, type MenuSpec } from "./components/git/ContextMenu";
 import { CommitDetail } from "./components/git/CommitDetail";
@@ -342,6 +344,8 @@ function App() {
   const [updating, setUpdating] = useState(false);
   // 上のお知らせの「後で」（設定 → その他 の バージョン には出したまま）
   const [updateBannerHidden, setUpdateBannerHidden] = useState(false);
+  // マイルストーンの最後のタスクを完了にしたら（どの画面からでも）、大きく祝う
+  useMilestoneClear(`${gh.owner}/${gh.repo}`, gh.milestones, gh.issues, gh.closedIssues, gh.estimateUnit, gh.connected && !initializing);
 
   // アップデートチェック（起動したときと、設定 → その他 の「新しいバージョンを確かめる」）
   const checkForUpdate = useCallback(async (): Promise<UpdateCheck> => {
@@ -1151,8 +1155,12 @@ function App() {
               onCreateMilestone={gh.createMilestone}
               onUpdateMilestone={gh.updateMilestone}
               onCloseMilestone={gh.closeMilestone}
+              onReopenMilestone={gh.reopenMilestone}
               onRefresh={gh.loadMilestones}
               onSelectIssue={setSelectedIssue}
+              repoKey={`${gh.owner}/${gh.repo}`}
+              quest={display.settings.theme === "quest"}
+              bar={display.settings.milestoneBar}
             />
           )}
 
@@ -1237,6 +1245,7 @@ function App() {
       <GitNotices notices={git.notices} onDismiss={git.dismissNotice} />
       {/* お祝い（完了のキラキラ・スタンプ・完了の知らせ、新しく入ったもののキラキラ） */}
       <Celebration motion={display.settings.motion === "normal"} />
+      <MilestoneCelebration motion={display.settings.motion === "normal"} onCloseMilestone={gh.closeMilestone} />
       {conflictNotice && folder && git.status?.conflicted && (
         <ConflictNotice
           folder={folder}

@@ -175,6 +175,36 @@
   --picker-card-line: #eef3ee24;
   --picker-chip: #eef3ee14;
   --picker-dust: #ffffff0d;
+
+  /* マイルストーンの HP バー（ゲームの体力の色。テーマによらない） */
+  --hp-hi: #ff9d7e;
+  --hp: #e0624f;
+  --hp-lo: #9e2d1c;
+  --hp-ghost: #ffe08a;
+  --hp-frame: #6b4a2a;
+  --hp-bg: #1a0906;
+  --hp-tick: #00000070;
+  --hp-shine: #ffffff70;
+
+  /* マイルストーンを達成したときの演出（画面を暗くした上に出すので、テーマによらない） */
+  --cel-text: #ffffff;
+  --cel-muted: #c9d1d9;
+  --cel-dim-center: #000000a0;
+  --cel-dim-edge: #000000ea;
+  --cel-night: #050a1ef2;
+  --cel-ray: #ffd66b2e;
+  --cel-ray-boss: #ff8a6b30;
+  --cel-gold: #ffd66b;
+  --cel-gold-hi: #fff6c9;
+  --cel-gold-lo: #e79f2a;
+  --cel-sky: #9fd8ff;
+  --cel-sky-lo: #7cc4ff;
+  --cel-boss: #ff8a6b;
+  --cel-ink: #1b120a;
+  --cel-line: #ffffff40;
+  --cel-chip: #ffffff14;
+  --cel-paper: #f4e7c9;
+  --cel-paper-lo: #e3cfa0;
 }
 
 /* --- テーマ: ホワイトボード（明るいオフィス）。ボードはホワイトボード、机はオフィスのデスク --- */
@@ -4210,31 +4240,6 @@ button:hover {
 
 .kanban-status-option:hover {
   background: var(--bg-tertiary);
-}
-
-/* --- Milestone --- */
-
-.milestone-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
-  margin-bottom: var(--space-sm);
-  background: var(--bg-secondary);
-}
-
-.progress-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--border-subtle);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-green);
-  border-radius: var(--radius-sm);
-  transition: width 0.3s;
 }
 
 /* --- Command Palette & Modal Overlay --- */
@@ -11434,41 +11439,1380 @@ button.lh:hover {
   word-break: break-all;
 }
 
-/* --- Milestone --- */
+/* --- マイルストーンの画面（ゲームのステージセレクトのように。クエストはボス） --- */
+.ms-view {
+  --ms-accent: var(--view-milestones);
+}
 
-.milestone-meta {
+/* ステージセレクトは横に広く使う（となりのパネルが見えるように） */
+.content.ms-view {
+  max-width: 1240px;
+}
+
+:root[data-theme="quest"] .ms-view {
+  --ms-accent: var(--accent-blue);
+}
+
+/* 上: 道と、選んでいるマイルストーンの大きなパネル */
+.ms-select {
+  position: relative;
+  height: 392px;
+  margin-bottom: var(--space-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(640px 260px at 50% 40%, color-mix(in srgb, var(--ms-accent) 16%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
+}
+
+.ms-select.quest {
+  background:
+    radial-gradient(640px 280px at 50% 40%, color-mix(in srgb, var(--accent-red) 20%, transparent), transparent 70%),
+    radial-gradient(color-mix(in srgb, var(--accent-yellow) 9%, transparent) 1.2px, transparent 1.4px) 0 0 / 22px 22px,
+    linear-gradient(180deg, var(--bg-tertiary), var(--bg-primary));
+}
+
+.ms-select.ms-empty {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  height: 260px;
+  color: var(--text-secondary);
+  font-size: var(--font-xl);
 }
 
-.milestone-desc {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  margin: var(--space-xs) 0;
-}
-
-.milestone-progress {
+.ms-panel.main {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  z-index: 3;
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: 6px;
+  gap: 22px;
+  width: min(620px, calc(100% - 140px));
+  height: 252px;
+  padding: 22px 26px;
+  border: 2px solid var(--ms-accent);
+  border-radius: 18px;
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ms-accent) 18%, transparent), 0 20px 50px var(--shadow-color);
+  transform: translateX(-50%);
 }
 
-.milestone-progress-text {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
+.motion-normal .ms-panel.main.from-next {
+  animation: ms-in-next var(--dur-enter) var(--ease-out);
+}
+
+.motion-normal .ms-panel.main.from-prev {
+  animation: ms-in-prev var(--dur-enter) var(--ease-out);
+}
+
+@keyframes ms-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-50% + 120px)) scale(0.94);
+  }
+}
+
+@keyframes ms-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-50% - 120px)) scale(0.94);
+  }
+}
+
+/* となり（小さく。押すと移る） */
+.ms-panel.side {
+  position: absolute;
+  top: 56px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 300px;
+  height: 190px;
+  min-height: 0;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: left;
+  opacity: 0.55;
+  transition: opacity var(--dur-fast);
+}
+
+.ms-panel.side:hover {
+  background: var(--bg-secondary);
+  opacity: 0.85;
+}
+
+.ms-panel.side.l {
+  left: 18px;
+}
+
+.ms-panel.side.r {
+  right: 18px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+/* 絵（クエストはボス、ほかは STAGE の印） */
+.ms-art {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--ms-accent) 16%, transparent), transparent 68%);
+  box-shadow: inset 0 0 0 2px var(--border-default);
+}
+
+.ms-select.quest .ms-art {
+  background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--accent-red) 26%, transparent), var(--bg-primary) 64%);
+  box-shadow: inset 0 0 0 3px var(--border-default), 0 0 30px color-mix(in srgb, var(--accent-red) 20%, transparent);
+}
+
+.ms-panel.side .ms-art {
+  position: absolute;
+  top: 12px;
+  width: 96px;
+  height: 96px;
+}
+
+.ms-panel.side.l .ms-art {
+  left: 16px;
+}
+
+.ms-panel.side.r .ms-art {
+  right: 16px;
+}
+
+.ms-art-inner {
+  display: grid;
+  place-items: center;
+  width: 82%;
+  height: 82%;
+}
+
+.ms-art-inner .stage-art {
+  width: 100%;
+  height: 100%;
+}
+
+.ms-art.defeated .stage-art {
+  filter: grayscale(1) brightness(0.8);
+}
+
+/* HP が減ったとき: ボスが白く光って揺れる */
+.motion-normal .ms-art-inner.hit {
+  animation: ms-hit 0.5s ease-out;
+}
+
+@keyframes ms-hit {
+  0% {
+    filter: brightness(3);
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-8px);
+  }
+  30% {
+    filter: brightness(1.6);
+    transform: translateX(7px);
+  }
+  45% {
+    transform: translateX(-5px);
+  }
+  60% {
+    transform: translateX(4px);
+  }
+  80% {
+    transform: translateX(-2px);
+  }
+  100% {
+    filter: none;
+    transform: none;
+  }
+}
+
+.ms-gekiha {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  padding: 2px 12px;
+  border: 4px solid var(--stamp-red);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 80%, transparent);
+  color: var(--stamp-red);
+  font-family: var(--font-mincho);
+  font-size: 34px;
+  font-weight: 900;
+  white-space: nowrap;
+  transform: translate(-50%, -50%) rotate(-14deg);
+}
+
+.ms-panel.side .ms-gekiha {
+  border-width: 3px;
+  font-size: 20px;
+}
+
+/* 字 */
+.ms-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ms-panel.side .ms-info {
+  flex: none;
+  margin-top: auto;
+}
+
+.ms-kick {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ms-accent);
+  font-size: var(--font-md);
+  font-weight: 900;
+  letter-spacing: 0.22em;
   white-space: nowrap;
 }
 
-/* スプリントとしての期間（見出しの横）・開始日と期限の入力・入れた量と目安 */
-.ms-range {
-  margin-left: var(--space-sm);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: 400;
+.ms-select.quest .ms-kick {
+  color: var(--accent-red);
 }
 
+.ms-kick span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+}
+
+.ms-kick .ms-clear {
+  color: var(--accent-green-hover);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.ms-name {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 38px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-panel.side .ms-name {
+  max-width: 100%;
+  font-size: 22px;
+}
+
+.ms-select.quest .ms-name {
+  font-family: var(--font-mincho);
+  letter-spacing: 0.04em;
+}
+
+.ms-desc {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-select.quest .ms-desc {
+  font-style: italic;
+}
+
+.ms-stars {
+  color: var(--cel-gold);
+  font-size: var(--font-2xl);
+  letter-spacing: 2px;
+}
+
+.ms-side-range {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.ms-meter-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0 5px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  white-space: nowrap;
+}
+
+.ms-meter-label b {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.ms-meter-label .grow {
+  flex: 1;
+}
+
+.ms-hp-tag {
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--hp);
+  color: var(--text-on-accent);
+  font-size: var(--font-sm);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+/* 進み具合のバー（達成率はのびる。HP は減る。前に見たときの量から動く） */
+.stage-meter {
+  position: relative;
+}
+
+.stage-meter-track {
+  position: relative;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.stage-meter-fill,
+.stage-meter-ghost {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.stage-meter.progress .stage-meter-fill {
+  border-radius: 9px;
+  background: linear-gradient(90deg, var(--ms-accent), var(--accent-green-hover));
+}
+
+.stage-meter.progress .stage-meter-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 34px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, transparent, var(--hp-shine));
+}
+
+.stage-meter.hp .stage-meter-track {
+  height: 20px;
+  border: 2px solid var(--hp-frame);
+  border-radius: 4px;
+  background: var(--hp-bg);
+  box-shadow: inset 0 2px 5px var(--shadow-color), 0 0 0 1px var(--hp-bg);
+}
+
+.stage-meter.hp .stage-meter-fill {
+  background: linear-gradient(180deg, var(--hp-hi), var(--hp) 45%, var(--hp-lo));
+}
+
+.stage-meter.hp .stage-meter-ghost {
+  background: var(--hp-ghost);
+  opacity: 0.85;
+}
+
+/* HP の目盛り（10% ごと） */
+.stage-meter.hp .stage-meter-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--hp-tick) calc(10% - 2px) 10%);
+}
+
+.motion-normal .stage-meter-fill {
+  transition: width 0.9s var(--ease-out);
+}
+
+.motion-normal .stage-meter-ghost {
+  transition: width 0.6s ease-in;
+}
+
+.stage-meter.instant .stage-meter-fill,
+.stage-meter.instant .stage-meter-ghost {
+  transition: none;
+}
+
+.motion-normal .stage-meter.hp.flash .stage-meter-track {
+  animation: hp-flash 0.45s ease-out;
+}
+
+@keyframes hp-flash {
+  0% {
+    filter: brightness(2.2);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* 減った・のびた分（「−2pt」が飛ぶ） */
+.stage-meter-delta {
+  position: absolute;
+  top: -14px;
+  z-index: 1;
+  font-size: 24px;
+  font-weight: 900;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.stage-meter-delta.dmg {
+  color: var(--hp-ghost);
+  text-shadow: 0 2px 0 var(--hp-lo), 0 0 3px var(--hp-bg), 0 0 12px var(--hp);
+}
+
+.stage-meter-delta.heal,
+.stage-meter-delta.gain {
+  color: var(--accent-green-hover);
+  text-shadow: 0 1px 0 var(--shadow-color);
+}
+
+.stage-meter-delta.more {
+  color: var(--text-muted);
+  font-size: var(--font-xl);
+}
+
+.motion-normal .stage-meter-delta {
+  animation: ms-delta 2.6s var(--ease-out) forwards;
+}
+
+@keyframes ms-delta {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.15);
+  }
+  25% {
+    transform: translate(-50%, -2px) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -18px);
+  }
+}
+
+.ms-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.ms-facts b {
+  color: var(--text-primary);
+}
+
+.ms-facts .over {
+  color: var(--accent-yellow);
+}
+
+.ms-party {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.ms-face {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.ms-arrow {
+  position: absolute;
+  top: 262px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 22px;
+}
+
+.ms-arrow.l {
+  left: 14px;
+}
+
+.ms-arrow.r {
+  right: 14px;
+}
+
+.ms-arrow:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+/* 道（時間の順の印・今日の線。多いときは横に動かせる） */
+.ms-road-wrap {
+  position: absolute;
+  top: 282px;
+  right: 64px;
+  left: 64px;
+  height: 104px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.ms-road {
+  position: relative;
+  height: 96px;
+}
+
+.ms-road-line {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  left: 0;
+  height: 14px;
+  border-radius: 7px;
+  background: repeating-linear-gradient(90deg, var(--bg-tertiary) 0 18px, var(--border-subtle) 18px 26px);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.ms-select.quest .ms-road-line {
+  top: 40px;
+  height: 10px;
+  background: repeating-linear-gradient(90deg, var(--border-default) 0 14px, transparent 14px 24px);
+  box-shadow: none;
+}
+
+.ms-node {
+  position: absolute;
+  top: 28px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-lg);
+  font-weight: 900;
+  transform: translateX(-50%);
+}
+
+.ms-node:hover {
+  background: var(--bg-tertiary);
+}
+
+.ms-node.done {
+  border-color: var(--accent-green-hover);
+  color: var(--accent-green-hover);
+}
+
+.ms-node.goal {
+  border-color: var(--accent-yellow);
+}
+
+.ms-node.on {
+  top: 22px;
+  width: 46px;
+  height: 46px;
+  border: 3px solid var(--ms-accent);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ms-accent) 20%, transparent), 0 0 24px var(--ms-accent);
+}
+
+.ms-select.quest .ms-node.on {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent-red) 20%, transparent), 0 0 24px var(--accent-red);
+}
+
+.ms-pointer {
+  position: absolute;
+  top: 2px;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  border-top: 16px solid var(--ms-accent);
+  border-right: 12px solid transparent;
+  border-left: 12px solid transparent;
+  transform: translateX(-50%);
+}
+
+.motion-normal .ms-pointer {
+  transition: left var(--dur-base) var(--ease-standard);
+}
+
+.ms-node-date {
+  position: absolute;
+  top: 74px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.ms-node-date.on {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.ms-today {
+  position: absolute;
+  top: 20px;
+  height: 50px;
+  border-left: 2px dashed var(--accent-blue);
+}
+
+.ms-today b {
+  position: absolute;
+  top: -16px;
+  left: -20px;
+  width: 40px;
+  color: var(--accent-blue);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* 下: そのマイルストーンのタスク */
+.ms-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ms-tasks-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.ms-tasks-head b {
+  color: var(--text-primary);
+  font-size: var(--font-xl);
+}
+
+.ms-tasks-head .grow {
+  flex: 1;
+}
+
+.ms-tasks-head .btn-sm.on {
+  border-color: var(--ms-accent);
+  color: var(--ms-accent);
+}
+
+.ms-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--accent-yellow);
+  border-radius: var(--radius-lg);
+  background: var(--accent-yellow-bg);
+  color: var(--text-primary);
+  font-size: var(--font-md);
+}
+
+.ms-confirm-actions {
+  display: inline-flex;
+  gap: var(--space-sm);
+}
+
+.ms-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-sm);
+}
+
+.ms-grid .ticket-card {
+  margin: 0;
+}
+
+.ms-grid-done {
+  opacity: 0.55;
+}
+
+.ms-done-label {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.ms-none {
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+/* 狭い窓: となりは出さず、パネルは流れに置く */
+@media (max-width: 760px) {
+  .ms-select {
+    height: auto;
+    padding: 12px 12px 112px;
+  }
+
+  .ms-panel.side,
+  .ms-arrow {
+    display: none;
+  }
+
+  .ms-panel.main {
+    position: relative;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    gap: 14px;
+    padding: 14px;
+    transform: none;
+  }
+
+  .motion-normal .ms-panel.main.from-next,
+  .motion-normal .ms-panel.main.from-prev {
+    animation: none;
+  }
+
+  .ms-art {
+    width: 96px;
+    height: 96px;
+  }
+
+  .ms-name {
+    font-size: 24px;
+  }
+
+  .ms-road-wrap {
+    top: auto;
+    right: 12px;
+    bottom: 4px;
+    left: 12px;
+  }
+}
+
+/* ステージの絵の色（クエストのボスは絵なので、色をそのまま持つ） */
+.stage-art {
+  display: block;
+}
+
+.stage-art text {
+  font-family: var(--font-family);
+}
+
+.stage-art .shadow {
+  fill: #000;
+  opacity: 0.45;
+}
+
+.boss-slime .g1 { stop-color: #c7a2ff; }
+.boss-slime .g2 { stop-color: #7446c9; }
+.boss-slime .g3 { stop-color: #3a1d78; }
+.boss-slime .gold1 { stop-color: #fff0a0; }
+.boss-slime .gold2 { stop-color: #e0a020; }
+.boss-slime .crown { stroke: #8a5a12; stroke-linejoin: round; stroke-width: 3; }
+.boss-slime .shine { fill: #fff; opacity: 0.25; }
+.boss-slime .eye { fill: #fff; }
+.boss-slime .pupil { fill: #1b0b2e; }
+.boss-slime .line { fill: none; stroke: #1b0b2e; stroke-linecap: round; stroke-width: 6; }
+.boss-slime .line.thin { stroke-width: 5; }
+.boss-slime .gem { fill: #e0624f; }
+
+.boss-golem .rock { fill: #8a7a6a; }
+.boss-golem .rock2 { fill: #7a6a5a; }
+.boss-golem .rock3 { fill: #9c8c7a; }
+.boss-golem .crack { fill: none; stroke: #5a4a3a; stroke-width: 3; }
+.boss-golem .glow { fill: #ffb347; }
+.boss-golem .mouth { fill: #3a2a1a; }
+
+.boss-ghost .g1 { stop-color: #f0f6ff; }
+.boss-ghost .g2 { stop-color: #9fb8d8; }
+.boss-ghost .arm { fill: none; stroke: #c9d8ec; stroke-linecap: round; stroke-width: 10; }
+.boss-ghost .hole { fill: #1b1f2a; }
+.boss-ghost .spark { fill: #7cf; }
+
+.boss-demon .wing { fill: #6b1d1d; stroke: #3a0a0a; stroke-width: 3; }
+.boss-demon .horn { fill: #d9c9a8; }
+.boss-demon .body { fill: #8a2323; }
+.boss-demon .eye { fill: #ffd34a; }
+.boss-demon .pupil { fill: #1a0505; }
+.boss-demon .line { fill: none; stroke: #1a0505; stroke-linecap: round; stroke-width: 4; }
+.boss-demon .fang { fill: #fff; }
+
+.boss-castle .wall { fill: #5b3f24; }
+.boss-castle .tower { fill: #6b4a2a; }
+.boss-castle .roof { fill: #8a2f2f; }
+.boss-castle .battle { fill: none; stroke: #6b4a2a; stroke-width: 8; }
+.boss-castle .gate { fill: #2a1a0c; }
+.boss-castle .pole { stroke: #e7b24a; stroke-width: 3; }
+.boss-castle .flag { fill: #e0624f; }
+.boss-castle .win { fill: #ffd66b; }
+
+.stage-badge .ring {
+  fill: none;
+  stroke: var(--ms-accent);
+  stroke-dasharray: 10 6;
+  stroke-width: 4;
+}
+
+.ms-panel.cleared .stage-badge .ring {
+  stroke: var(--accent-green-hover);
+}
+
+.stage-badge .face {
+  fill: color-mix(in srgb, var(--ms-accent) 10%, transparent);
+}
+
+.stage-badge .word {
+  fill: var(--ms-accent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.stage-badge .num {
+  fill: var(--text-primary);
+  font-weight: 900;
+}
+
+.stage-goal .ring {
+  fill: none;
+  stroke: var(--accent-yellow);
+  stroke-dasharray: 9 5;
+  stroke-width: 5;
+}
+
+.stage-goal .pole {
+  stroke: var(--text-muted);
+  stroke-width: 4;
+}
+
+.stage-goal .flag {
+  fill: var(--accent-yellow);
+}
+
+/* --- マイルストーンを達成したときの演出（画面全体を暗くして。どのテーマでも暗い夜の色） --- */
+.ms-cel {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: grid;
+  place-items: center;
+  color: var(--cel-text);
+}
+
+.ms-cel-dim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(700px 420px at 50% 44%, var(--cel-dim-center), var(--cel-dim-edge));
+}
+
+.ms-cel:not(.still) .ms-cel-dim {
+  animation: ms-cel-fade 0.45s ease-out;
+}
+
+@keyframes ms-cel-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.ms-cel-rays {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 1000px;
+  height: 1000px;
+  margin: -500px 0 0 -500px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--cel-ray) 0 7deg, transparent 7deg 20deg);
+  mask: radial-gradient(circle, #000 18%, transparent 62%);
+}
+
+:root[data-theme="quest"] .ms-cel-rays {
+  background: repeating-conic-gradient(from 0deg, var(--cel-ray-boss) 0 6deg, transparent 6deg 18deg);
+}
+
+.ms-cel:not(.still) .ms-cel-rays {
+  animation: ms-cel-spin 18s linear infinite, ms-cel-fade 0.6s ease-out;
+}
+
+@keyframes ms-cel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ms-cel-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: min(760px, calc(100vw - 32px));
+  text-align: center;
+}
+
+.ms-cel:not(.still) .ms-cel-body {
+  animation: ms-cel-pop 0.7s var(--ease-spring) 0.15s both;
+}
+
+@keyframes ms-cel-pop {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.7);
+  }
+}
+
+.ms-cel-trophy {
+  width: 150px;
+  height: 170px;
+  filter: drop-shadow(0 0 24px var(--cel-ray));
+}
+
+.ms-cel:not(.still) .ms-cel-trophy {
+  animation: ms-cel-rise 0.9s var(--ease-spring) 0.2s both;
+}
+
+@keyframes ms-cel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(80px) scale(0.6);
+  }
+}
+
+.ms-cel-trophy .t-cup { fill: var(--cel-gold); }
+.ms-cel-trophy .t-handle { fill: none; stroke: var(--cel-gold); stroke-width: 8; }
+.ms-cel-trophy .t-star { fill: var(--cel-gold-hi); opacity: 0.9; }
+.ms-cel-trophy .t-base { fill: var(--cel-gold-lo); }
+
+.ms-cel-kick {
+  margin-top: 8px;
+  color: var(--cel-gold);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+}
+
+.ms-cel-kick.sky {
+  color: var(--cel-sky);
+}
+
+.ms-cel-kick.boss {
+  color: var(--cel-boss);
+  letter-spacing: 0.5em;
+}
+
+.ms-cel-title {
+  max-width: 100%;
+  margin-top: 6px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--cel-gold-hi), var(--cel-gold) 55%, var(--cel-gold-lo));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  filter: drop-shadow(0 4px 14px var(--cel-dim-edge));
+}
+
+.ms-cel-title.sky {
+  background-image: linear-gradient(180deg, var(--cel-text), var(--cel-sky) 60%, var(--cel-sky-lo));
+}
+
+.ms-cel-title.plain {
+  background: none;
+  color: var(--cel-text);
+  font-size: 30px;
+}
+
+:root[data-theme="quest"] .ms-cel-title,
+:root[data-theme="quest"] .ms-cel-sub {
+  font-family: var(--font-mincho);
+}
+
+.ms-cel-sub {
+  margin-top: 8px;
+  color: var(--cel-text);
+  font-size: var(--font-2xl);
+}
+
+.ms-cel-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.ms-cel-stats div {
+  min-width: 132px;
+  padding: 10px 18px;
+  border: 1px solid var(--cel-line);
+  border-radius: 12px;
+  background: var(--cel-chip);
+}
+
+.ms-cel-stats b {
+  display: block;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.ms-cel-stats span {
+  color: var(--cel-muted);
+  font-size: var(--font-sm);
+}
+
+.ms-cel-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--cel-muted);
+  font-size: var(--font-md);
+}
+
+.ms-cel-team img,
+.ms-cel-team span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--cel-dim-center);
+  border-radius: 50%;
+  background: var(--cel-chip);
+  color: var(--cel-text);
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.ms-cel-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.ms-cel-btn {
+  min-height: 0;
+  padding: 9px 22px;
+  border: none;
+  border-radius: 10px;
+  background: var(--cel-gold);
+  color: var(--cel-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ms-cel .ms-cel-btn:hover:not(:disabled) {
+  background: var(--cel-gold-hi);
+}
+
+.ms-cel-btn.sub {
+  border: 1px solid var(--cel-line);
+  background: transparent;
+  color: var(--cel-text);
+  font-weight: 600;
+}
+
+.ms-cel .ms-cel-btn.sub:hover {
+  background: var(--cel-chip);
+}
+
+/* 花火 */
+.ms-cel-fw {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--cel-night), var(--cel-dim-edge));
+}
+
+.ms-cel-burst {
+  position: absolute;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.2);
+}
+
+.ms-cel-burst line {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 5;
+}
+
+.ms-cel-burst circle {
+  fill: var(--cel-text);
+}
+
+.ms-cel:not(.still) .ms-cel-burst {
+  animation: ms-burst 2.2s ease-out infinite;
+}
+
+.ms-cel.still .ms-cel-burst {
+  opacity: 0.9;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@keyframes ms-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  12% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -44%) scale(1.08);
+  }
+}
+
+/* 紙ふぶき */
+.ms-cel-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ms-cel-confetti i {
+  position: absolute;
+  top: -20px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  transform: rotate(var(--r));
+}
+
+.ms-cel:not(.still) .ms-cel-confetti i {
+  animation: ms-confetti linear infinite;
+}
+
+.ms-cel.still .ms-cel-confetti {
+  display: none;
+}
+
+@keyframes ms-confetti {
+  from {
+    transform: translateY(-20px) rotate(var(--r));
+  }
+  to {
+    transform: translateY(110vh) rotate(calc(var(--r) + 540deg));
+  }
+}
+
+/* ステージクリア（クエストはボス撃破） */
+.ms-cel-banner {
+  max-width: 90vw;
+  padding: 12px 80px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--cel-paper), var(--cel-paper-lo));
+  box-shadow: 0 10px 30px var(--cel-dim-edge);
+  color: var(--cel-ink);
+  font-family: var(--font-mincho);
+  font-size: clamp(30px, 4.5vw, 52px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%);
+}
+
+.ms-cel:not(.still) .ms-cel-banner {
+  animation: ms-cel-banner 0.6s var(--ease-spring) 0.2s both;
+}
+
+@keyframes ms-cel-banner {
+  from {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+}
+
+.ms-cel-stars {
+  margin-top: 14px;
+  color: var(--cel-gold);
+  font-size: 56px;
+  letter-spacing: 8px;
+  text-shadow: 0 0 18px var(--cel-gold);
+}
+
+.ms-cel-stars .off {
+  color: var(--cel-line);
+  text-shadow: none;
+}
+
+.ms-cel-starnote {
+  color: var(--cel-muted);
+  font-size: var(--font-md);
+}
+
+.ms-cel-tally {
+  width: min(440px, 90vw);
+  margin-top: 14px;
+  font-size: var(--font-xl);
+}
+
+.ms-cel-tally div {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--cel-line);
+}
+
+.ms-cel-tally span {
+  color: var(--cel-muted);
+}
+
+.ms-cel-tally i {
+  flex: 1;
+}
+
+.ms-cel-tally b {
+  color: var(--cel-gold);
+  font-size: var(--font-2xl);
+}
+
+.ms-cel-boss {
+  width: 200px;
+  height: 180px;
+}
+
+.ms-cel:not(.still) .ms-cel-boss {
+  animation: ms-cel-shatter 1.4s ease-in forwards;
+}
+
+.ms-cel.still .ms-cel-boss {
+  opacity: 0.35;
+  filter: saturate(0.2);
+}
+
+@keyframes ms-cel-shatter {
+  0% {
+    filter: brightness(1);
+    transform: none;
+  }
+  20% {
+    filter: brightness(3);
+  }
+  35% {
+    transform: translateX(-6px);
+  }
+  50% {
+    filter: brightness(2.5) saturate(0.3);
+    transform: translateX(6px);
+  }
+  100% {
+    filter: brightness(2) saturate(0.2) blur(1px);
+    opacity: 0.35;
+    transform: scale(1.1);
+  }
+}
+
+/* 大きなはんこ（黒板は花丸） */
+.ms-cel-stamp {
+  width: min(330px, 70vw);
+  height: auto;
+}
+
+.ms-cel-stamp.hanko {
+  transform: rotate(-12deg);
+}
+
+.ms-cel:not(.still) .ms-cel-stamp.hanko {
+  animation: ms-cel-stamp 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) 0.15s both;
+}
+
+.ms-cel:not(.still) .ms-cel-stamp.hanamaru {
+  animation: ms-cel-maru 0.7s var(--ease-spring) 0.15s both;
+}
+
+@keyframes ms-cel-stamp {
+  from {
+    opacity: 0;
+    transform: scale(2.4) rotate(-12deg);
+  }
+  to {
+    transform: rotate(-12deg);
+  }
+}
+
+@keyframes ms-cel-maru {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-90deg);
+  }
+}
+
+.hanko .k-ring { fill: var(--cel-chip); stroke: var(--stamp-red); stroke-width: 12; }
+.hanko .k-ring.thin { fill: none; stroke-width: 4; }
+.hanko .k-small { fill: var(--stamp-red); font-size: 22px; font-weight: 800; letter-spacing: 6px; }
+.hanko .k-word { fill: var(--stamp-red); font-family: var(--font-mincho); font-size: 96px; font-weight: 900; }
+.hanko .k-date { fill: var(--stamp-red); font-size: 17px; font-weight: 700; letter-spacing: 3px; }
+.hanko .k-ink circle { fill: var(--stamp-red); }
+.hanamaru .h-petals circle,
+.hanamaru .h-ring { fill: none; stroke: var(--stamp-pink); stroke-linecap: round; stroke-width: 5; }
+.hanamaru .h-ring { stroke-width: 6; }
+.hanamaru .h-ring.thin { stroke-width: 3; }
+.hanamaru .h-text { fill: var(--cel-text); font-family: var(--font-mincho); font-size: 21px; font-weight: 900; }
+
+/* 開始日と期限の入力（作る・編集する） */
 .ms-dates {
   display: flex;
   flex-wrap: wrap;
@@ -11479,16 +12823,6 @@ button.lh:hover {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--font-xs);
-}
-
-.ms-target {
-  margin-left: var(--space-sm);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-.ms-target--over {
-  color: var(--accent-yellow);
 }
 
 /* --- チームのペース（ベロシティ・サイクルタイム） --- */

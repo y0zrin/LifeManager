@@ -16,6 +16,7 @@ import { THEMES, type Theme } from "../../lib/theme";
 import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
+import type { MilestoneBar } from "../../lib/milestoneStage";
 
 interface SettingsViewProps {
   labels: GitHubLabel[];
@@ -111,6 +112,13 @@ function ThemePreview({ theme }: { theme: Theme }) {
 }
 
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
+// マイルストーンの進み具合のバー
+const MILESTONE_BAR_OPTIONS: { value: MilestoneBar; label: string; note: string }[] = [
+  { value: "auto", label: "テーマに合わせる（はじめはこれ）", note: "クエストは HP（ボスの残りの体力）、黒板・ホワイトボードは達成率" },
+  { value: "progress", label: "達成率（のびる）", note: "終えた分だけ、バーがのびます" },
+  { value: "hp", label: "HP（減る）", note: "残りの量を HP にして、終えた分だけ減ります。前に見たときより減った分が「−2pt」と飛びます" },
+];
+
 const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
   { value: "top-right", label: "右上", note: "", dot: { cx: 36, cy: 10 } },
   { value: "bottom-right", label: "右下", note: "", dot: { cx: 36, cy: 24 } },
@@ -919,6 +927,22 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
           どの場所でも、Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
         </p>
+      </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>マイルストーンの進み具合</h3>
+        <div className="display-opts">
+          {MILESTONE_BAR_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="milestone-bar" checked={displaySettings.milestoneBar === opt.value}
+                onChange={() => onChangeDisplaySettings({ milestoneBar: opt.value })} />
+              <span>
+                <b>{opt.label}</b>
+                <small>{opt.note}</small>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="form-card">

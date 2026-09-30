@@ -1,4 +1,4 @@
-// アクティビティ: リポジトリで起きたこと（チームの動き）と、「あなたがすること」（GitHub の通知の代わり）。
+// ヒストリー: リポジトリで起きたこと（チームの動き）と、「あなたがすること」（GitHub の通知の代わり）。
 // GitHub の通知（ベル）そのものは、GitHub の決まりで App の鍵では読めないので、Issue・プルリク・Actions から集める
 import { invoke } from "@tauri-apps/api/core";
 import type { GitHubIssue } from "./types";

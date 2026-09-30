@@ -16174,7 +16174,7 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 }
 
 /* ==========================================================================
-   リリース・アクティビティ
+   リリース・ヒストリー
    ========================================================================== */
 
 .app-shell[data-view="releases"] { --view-accent: var(--view-releases); }
@@ -16310,7 +16310,7 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   font-size: 0.92em;
 }
 
-/* --- アクティビティ --- */
+/* --- ヒストリー --- */
 .activity {
   max-width: 980px;
   margin: 0 auto;
@@ -16386,10 +16386,28 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 }
 .av-day { margin-bottom: var(--space-xl); }
 .av-day-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: var(--space-lg) 0 var(--space-sm);
   color: var(--text-muted);
   font-size: var(--font-md);
   font-weight: 700;
+}
+
+/* ヒストリーの件数（日ごと・絞り込んだ全部） */
+.av-day-count {
+  padding: 0 9px;
+  border: 1px solid var(--panel-line, var(--border-default));
+  border-radius: 999px;
+  background: var(--picker-chip, var(--bg-tertiary));
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.av-count {
+  color: var(--text-primary);
 }
 .av-ev {
   display: flex;
@@ -18602,7 +18620,7 @@ html.stage-still .stage-fx .fx-shoot {
   box-shadow: var(--panel-inset), 0 18px 48px color-mix(in srgb, var(--shadow-color) 80%, transparent);
 }
 
-/* アクティビティ: あなたがすること（光る輪）と、日ごとのまとまり（面） */
+/* ヒストリー: あなたがすること（光る輪）と、日ごとのまとまり（面） */
 .av-me {
   padding: 14px 18px;
   border: 2px solid var(--picker-ring);

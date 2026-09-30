@@ -78,12 +78,12 @@ import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib
 
 type NavItem = { key: ViewType; icon: string; label: string };
 
-// サイドバーの並び: ホーム（オーバービュー・アクティビティ）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下。
+// サイドバーの並び: ホーム（オーバービュー・ヒストリー）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下。
 // タスク系は、マイルストーンを作る → ボードでタスクを足す（マイルストーンに入れる）→ 日時・見積もりを入れてガントへ、の順。
 // ルーチンは使う回数が少なく、タスク一覧は補助なので下に
 const HOME_GROUP = "ホーム";
 const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー" };
-const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "アクティビティ" }];
+const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "ヒストリー" }];
 const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
 const TASK_ITEMS: NavItem[] = [
   WORK_ITEM,
@@ -586,7 +586,7 @@ function App() {
   };
   // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
   const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions", gh.currentUser);
-  // アクティビティ: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
+  // ヒストリー: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
   const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", gh.issues, actions.stack);
   const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);
   const clearActionsFocus = useCallback(() => setActionsFocus(null), []);
@@ -599,7 +599,7 @@ function App() {
   const closeNotices = useCallback(() => setNoticesOpen(false), []);
   const openNotice = useCallback((n: Notice) => {
     setNoticesOpen(false);
-    // ほかのリポジトリの知らせなら、そのリポジトリに切り替えて、アクティビティ（あなたがすること）を出す
+    // ほかのリポジトリの知らせなら、そのリポジトリに切り替えて、ヒストリー（あなたがすること）を出す
     if (n.repo && n.repo !== `${gh.owner}/${gh.repo}`) {
       const [o, r] = n.repo.split("/");
       if (gh.projects.some((p) => p.owner === o && p.repo === r)) {
@@ -618,7 +618,7 @@ function App() {
   }, [gh, openIssue, openPull, openRun, setView]);
   const notices = useNotices({
     repo: gh.owner ? `${gh.owner}/${gh.repo}` : "",
-    // アクティビティを読めてから（読む前の「あなたがすること」は、期限などだけ）
+    // ヒストリーを読めてから（読む前の「あなたがすること」は、期限などだけ）
     todos: activity.feed ? activity.all : null,
     enabled: gh.connected && !isMobile && !initializing,
     corner: display.settings.noticeCorner,
@@ -791,7 +791,7 @@ function App() {
     // 作業には、作業中の変更があるファイルの数を出す（競合しているあいだは ⚠ を出す）
     const count = item.key === "work" ? git.status?.files.length ?? 0 : 0;
     const conflicted = item.key === "work" && !!git.status?.conflicted;
-    // Actions には、すぐ直す・早めに直すものの数。アクティビティには、あなたがすることの数
+    // Actions には、すぐ直す・早めに直すものの数。ヒストリーには、あなたがすることの数
     const urgent = item.key === "actions" ? actions.urgent : 0;
     const todo = item.key === "activity" ? activity.todos.length : 0;
     return (
@@ -1161,7 +1161,7 @@ function App() {
             />
           )}
 
-          {/* アクティビティ（あなたがすること・チームの動き） */}
+          {/* ヒストリー（あなたがすること・チームの動き） */}
           {view === "activity" && gh.connected && (
             <ActivityView owner={gh.owner} repo={gh.repo} activity={activity} onOpenIssue={openIssue} onOpenPull={openPull} onOpenRun={(runId) => openRun(runId)} />
           )}

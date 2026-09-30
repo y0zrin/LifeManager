@@ -138,7 +138,7 @@ export function summaryNotice(count: number, repo: string): Notice {
     icon: "📰",
     tone: "",
     title: `あなたがすることが ${count} 件あります`,
-    body: "アクティビティの「あなたがすること」で見られます",
+    body: "ヒストリーの「あなたがすること」で見られます",
     at: new Date().toISOString(),
     repo,
     target: { kind: "view", view: "activity" },

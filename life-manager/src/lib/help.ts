@@ -77,7 +77,7 @@ export function splitCode(line: string): { code: boolean; text: string }[] {
   return line.split(/(`[^`]*`)/).filter(Boolean).map((s) => (s.startsWith("`") && s.endsWith("`") && s.length >= 2 ? { code: true, text: s.slice(1, -1) } : { code: false, text: s }));
 }
 
-/** コメントを 1 行で見せるとき（アクティビティ）: 🆘 は「🆘 助けてください ・ 困っていること」、解決は「✅ 解決しました」。印は出さない */
+/** コメントを 1 行で見せるとき（ヒストリー）: 🆘 は「🆘 助けてください ・ 困っていること」、解決は「✅ 解決しました」。印は出さない */
 export function commentPreview(body: string): string {
   if (isHelp(body)) {
     const first = parseHelp(body).message.split("\n").find((l) => l.trim())?.trim();

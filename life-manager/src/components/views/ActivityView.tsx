@@ -15,7 +15,7 @@ interface ActivityViewProps {
   onOpenRun: (runId: number) => void;
 }
 
-/** アクティビティ: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
+/** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
 export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
   const [who, setWho] = useState("");
@@ -37,7 +37,12 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
 
   const events = useMemo(() => (feed?.events ?? []).map((e) => ({ e, d: describe(e) })).filter((x) => x.d !== null), [feed]);
   const actors = useMemo(() => [...new Set(events.map((x) => x.e.actor))].sort(), [events]);
-  const shown = events.filter((x) => (!who || x.e.actor === who) && (!kind || kindOf(x.e) === kind));
+  const matchWho = (x: (typeof events)[number]) => !who || x.e.actor === who;
+  const matchKind = (x: (typeof events)[number]) => !kind || kindOf(x.e) === kind;
+  const shown = events.filter((x) => matchWho(x) && matchKind(x));
+  // 絞り込みの選択肢ごとの件数（もう一方の絞り込みは当てたまま。選ぶと何件になるか）
+  const whoCount = (a: string) => events.filter((x) => (!a || x.e.actor === a) && matchKind(x)).length;
+  const kindCount = (k: "" | ActivityKind) => events.filter((x) => (!k || kindOf(x.e) === k) && matchWho(x)).length;
   const days: { label: string; items: typeof shown }[] = [];
   for (const x of shown) {
     const label = dayLabel(x.e.at);
@@ -95,22 +100,24 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
 
       <div className="av-filters">
         <select className="select-sm" value={who} onChange={(e) => setWho(e.target.value)} aria-label="だれ">
-          <option value="">だれ: すべて</option>
+          <option value="">だれ: すべて（{whoCount("")}）</option>
           {actors.map((a) => (
             <option key={a} value={a}>
-              {a}
+              {a}（{whoCount(a)}）
             </option>
           ))}
         </select>
         <select className="select-sm" value={kind} onChange={(e) => setKind(e.target.value as "" | ActivityKind)} aria-label="種類">
-          <option value="">種類: すべて</option>
+          <option value="">種類: すべて（{kindCount("")}）</option>
           {(Object.keys(KIND_LABELS) as ActivityKind[]).map((k) => (
             <option key={k} value={k}>
-              {KIND_LABELS[k]}
+              {KIND_LABELS[k]}（{kindCount(k)}）
             </option>
           ))}
         </select>
-        <span className="muted">チームの動き（GitHub が残している、最近の 90 日ほど）</span>
+        <span className="muted">
+          チームの動き {feed && <b className="av-count">{shown.length} 件</b>}（GitHub が残している、最近の 90 日ほど）
+        </span>
       </div>
 
       {error ? (
@@ -122,7 +129,10 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
       ) : (
         days.map((day) => (
           <div key={day.label} className="av-day">
-            <div className="av-day-label">{day.label}</div>
+            <div className="av-day-label">
+              {day.label}
+              <span className="av-day-count">{day.items.length} 件</span>
+            </div>
             {day.items.map(({ e, d }) => (
               <div key={e.id} className={`av-ev k-${kindOf(e)}`}>
                 <span className="av-icon" aria-hidden="true">

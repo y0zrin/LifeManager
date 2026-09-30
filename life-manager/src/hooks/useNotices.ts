@@ -21,7 +21,7 @@ import {
 /** 知らせたものの鍵（この PC に。リポジトリごと） */
 const NOTIFIED_KEY = (repo: string) => `notified:${repo}`;
 const NOTIFIED_KEEP = 500;
-/** 読み込みが落ち着くのを待つ（プルリクの承認・チェックは、アクティビティのあとから届く） */
+/** 読み込みが落ち着くのを待つ（プルリクの承認・チェックは、ヒストリーのあとから届く） */
 const SETTLE_MS = 3000;
 
 function loadNotified(repo: string): string[] {

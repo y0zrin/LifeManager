@@ -1,4 +1,4 @@
-// アクティビティ（チームの動き）と「あなたがすること」を読む。サイドバーの数とおしらせのため、画面を開いていなくても 2 分ごとに読む
+// ヒストリー（チームの動き）と「あなたがすること」を読む。サイドバーの数とおしらせのため、画面を開いていなくても 2 分ごとに読む
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { activityFeed, buildTodos, type ActivityFeed } from "../lib/activity";
 import { pullVerdicts, type Verdicts } from "../lib/pulls";

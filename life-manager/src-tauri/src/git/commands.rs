@@ -209,6 +209,64 @@ pub async fn git_fetch(path: String) -> Result<GitRun, String> {
     blocking(move || run(Path::new(&path), &["fetch", "--all", "--prune"])).await
 }
 
+/// 見ているブランチだけを、GitHub から読む（切り替えない）。git fetch origin <ブランチ>
+#[tauri::command]
+pub async fn git_fetch_branch(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || run(Path::new(&path), &["fetch", "origin", branch.trim()])).await
+}
+
+/// 見ているブランチを、切り替えずに GitHub の最新にする（ブランチ画面の「プル」）。
+/// - 今のブランチなら、ふつうのプル
+/// - この PC にまだないブランチは、GitHub のブランチを追いかけるブランチとして作る（git branch --track）
+/// - 早送りできるとき（GitHub の方が進んでいる・同じ）は、git fetch origin X:X で進める
+/// - この PC の方が進んでいるときは、何もしない（まだプッシュしていないコミットがある）
+/// - 分かれているとき（両方に相手にないコミットがある）は、切り替えてからプルするよう伝える
+#[tauri::command]
+pub async fn git_pull_branch(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || pull_branch(&PathBuf::from(&path), branch.trim())).await
+}
+
+fn pull_branch(repo: &Path, b: &str) -> Result<GitRun, String> {
+    let st = status::read_status(repo)?;
+    if st.branch == b {
+        return run(repo, &["pull", "--no-rebase"]);
+    }
+    let remote = format!("origin/{}", b);
+    let fetched = run(repo, &["fetch", "origin", b])?;
+    let local_exists = run(repo, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{}", b)]).is_ok();
+    if !local_exists {
+        let made = run(repo, &["branch", "--track", b, &remote])?;
+        return Ok(GitRun { command: format!("{} && {}", fetched.command, made.command), output: PULL_CREATED.to_string() });
+    }
+    if run(repo, &["merge-base", "--is-ancestor", b, &remote]).is_ok() {
+        // 早送りできる（GitHub の方が進んでいるか、同じ）
+        let refspec = format!("{0}:{0}", b);
+        return run(repo, &["fetch", "origin", &refspec]).map_err(|e| {
+            if e.contains("checked out at") {
+                format!("{}
+→ {} は、別の作業フォルダで使っています。そちらでプルしてください", e, b)
+            } else {
+                e
+            }
+        });
+    }
+    if run(repo, &["merge-base", "--is-ancestor", &remote, b]).is_ok() {
+        return Ok(GitRun { command: fetched.command, output: PULL_LOCAL_AHEAD.to_string() });
+    }
+    Err(format!(
+        "git fetch origin {0}:{0}
+{0} と GitHub の {0} が分かれています（それぞれに、相手にないコミットがあります）。
+→ 「このブランチに切り替える」→ プルで取り込みます（git switch {0} → git pull）",
+        b
+    ))
+}
+
+/// git_pull_branch の結果の印（画面の言葉を変えるため）
+pub const PULL_CREATED: &str = "created";
+pub const PULL_LOCAL_AHEAD: &str = "local-ahead";
+
 /// ブランチを切り替える。create なら作ってから切り替える（start があれば、そのコミットから作る）
 #[tauri::command]
 pub async fn git_switch(path: String, branch: String, create: bool, start: Option<String>) -> Result<GitRun, String> {

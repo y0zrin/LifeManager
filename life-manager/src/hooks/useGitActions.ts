@@ -52,6 +52,23 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     );
   }
 
+  /** 見ているブランチだけを GitHub から読む（ブランチ画面。切り替えない） */
+  function fetchBranch(e: BranchEntry) {
+    return g.exec("フェッチしています", (p) => git.fetchBranch(p, e.name), `GitHub の ${e.name} を読みました（origin/${e.name}）`);
+  }
+
+  /** 見ているブランチを、切り替えずに GitHub の最新にする（ブランチ画面。今のブランチなら、ふつうのプル） */
+  function pullBranch(e: BranchEntry) {
+    if (e.isCurrent) return pull();
+    return g.exec("プルしています", (p) => git.pullBranch(p, e.name), (run) =>
+      run.output === "created"
+        ? `${e.name} をこの PC に作りました（切り替えていません）`
+        : run.output === "local-ahead"
+          ? `${e.name} は、この PC の方が進んでいます（まだプッシュしていないコミットがあります）`
+          : `${e.name} を GitHub の最新にしました（${branch || "今のブランチ"} のまま）`,
+    );
+  }
+
   async function push(): Promise<GitResult> {
     const published = !!st?.upstream;
     const r = await g.exec(
@@ -530,6 +547,18 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     }
     items.push(
       {
+        label: "⟳ このブランチをフェッチ",
+        code: `git fetch origin ${e.name}`,
+        disabled: !can || !e.onGitHub,
+        run: () => fetchBranch(e),
+      },
+      {
+        label: e.isCurrent ? "⬇ プル" : "⬇ プル（切り替えずに）",
+        code: e.isCurrent ? "git pull" : e.onPc ? `git fetch origin ${e.name}:${e.name}` : `git branch --track ${e.name} origin/${e.name}`,
+        disabled: !can || !e.onGitHub,
+        run: () => pullBranch(e),
+      },
+      {
         label: "⬆ プッシュ",
         code: e.onGitHub ? `git push origin ${e.name}` : `git push -u origin ${e.name}`,
         disabled: !can || !e.onPc,
@@ -595,6 +624,8 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
   const actions = {
     fetch,
     pull,
+    fetchBranch,
+    pullBranch,
     push,
     commit,
     stage,

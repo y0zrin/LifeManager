@@ -400,6 +400,18 @@ const BranchPage = memo(function BranchPage({
             </button>
           )}
           <span className="p-actions">
+            {/* 見ているブランチを、切り替えずにフェッチ・プル（作業フォルダは今のブランチのまま） */}
+            {local && actions && entry.onGitHub && (
+              <>
+                <button type="button" className="btn-sm" onClick={() => actions.fetchBranch(entry)} title={`git fetch origin ${entry.name}（GitHub の ${entry.name} を読むだけ）`}>
+                  ⟳ フェッチ
+                </button>
+                <button type="button" className="btn-sm" onClick={() => actions.pullBranch(entry)}
+                  title={entry.isCurrent ? "git pull" : entry.onPc ? `git fetch origin ${entry.name}:${entry.name}（切り替えずに、GitHub の最新にする）` : `git branch --track ${entry.name} origin/${entry.name}（切り替えずに、この PC に作る）`}>
+                  ⬇ プル
+                </button>
+              </>
+            )}
             {local && actions && !entry.isCurrent && (
               <button type="button" className="btn-sm" onClick={() => actions.requestSwitch(entry.name)} title={`git switch ${entry.name}`}>
                 このブランチに切り替える

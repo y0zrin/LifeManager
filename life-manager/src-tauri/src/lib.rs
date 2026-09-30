@@ -1580,6 +1580,8 @@ pub fn run() {
             git::commands::git_push,
             git::commands::git_pull,
             git::commands::git_fetch,
+            git::commands::git_fetch_branch,
+            git::commands::git_pull_branch,
             git::commands::git_switch,
             git::commands::git_stash_push,
             git::commands::git_stash_pop,

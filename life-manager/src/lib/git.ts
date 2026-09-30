@@ -76,6 +76,10 @@ export const commit = (path: string, messages: string[], amend: boolean, allowEm
 export const push = (path: string) => invoke<GitRun>("git_push", { path });
 export const pull = (path: string) => invoke<GitRun>("git_pull", { path });
 export const fetch = (path: string) => invoke<GitRun>("git_fetch", { path });
+/** 見ているブランチだけを GitHub から読む（切り替えない） */
+export const fetchBranch = (path: string, branch: string) => invoke<GitRun>("git_fetch_branch", { path, branch });
+/** 見ているブランチを、切り替えずに GitHub の最新にする（今のブランチなら、ふつうのプル）。output は "created"（この PC に作った）・"local-ahead"（この PC の方が進んでいる） */
+export const pullBranch = (path: string, branch: string) => invoke<GitRun>("git_pull_branch", { path, branch });
 /** create なら作ってから切り替える（start があれば、そのコミットから作る） */
 export const switchBranch = (path: string, branch: string, create: boolean, start: string | null = null) =>
   invoke<GitRun>("git_switch", { path, branch, create, start });

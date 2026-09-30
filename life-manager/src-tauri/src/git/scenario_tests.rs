@@ -207,6 +207,78 @@ fn pull_fast_forwards_merges_without_editor_and_push_is_rejected_when_behind() {
     assert_eq!(status(&t.a).ahead, 0);
 }
 
+#[test]
+fn pull_branch_updates_a_branch_without_switching() {
+    let t = team("pullbranch");
+    // B が feature を作って送る → A は main のまま、feature を「この PC にない」から作る
+    git(&t.b, &["switch", "-q", "-c", "feature"]);
+    write(&t.b, "enemy.txt", "slime
+");
+    commit_all(&t.b, "敵を置く");
+    git(&t.b, &["push", "-q", "-u", "origin", "feature"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert_eq!(run.output, PULL_CREATED);
+    assert!(run.command.contains("git branch --track feature origin/feature"), "{}", run.command);
+    assert_eq!(status(&t.a).branch, "main", "切り替わってしまった");
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), git(&t.b, &["rev-parse", "feature"]));
+
+    // B がさらに送る → A は main のまま、早送りで feature を進める
+    write(&t.b, "enemy.txt", "slime
+goblin
+");
+    commit_all(&t.b, "敵を足す");
+    git(&t.b, &["push", "-q"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert!(run.command.contains("fetch origin feature:feature"), "{}", run.command);
+    assert_eq!(status(&t.a).branch, "main");
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), git(&t.b, &["rev-parse", "feature"]));
+
+    // A の feature にだけコミットがある → 何もしない（この PC の方が進んでいる）
+    git(&t.a, &["switch", "-q", "feature"]);
+    write(&t.a, "boss.txt", "dragon
+");
+    commit_all(&t.a, "ボスを置く");
+    git(&t.a, &["switch", "-q", "main"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert_eq!(run.output, PULL_LOCAL_AHEAD);
+
+    // 両方に新しいコミット → 切り替えてからプルするよう伝える（手元のブランチは動かさない）
+    write(&t.b, "enemy.txt", "slime
+goblin
+bat
+");
+    commit_all(&t.b, "こうもりを足す");
+    git(&t.b, &["push", "-q"]);
+    let before = git(&t.a, &["rev-parse", "feature"]);
+    let err = block(git_pull_branch(s(&t.a), "feature".into())).unwrap_err();
+    assert!(err.contains("分かれています") && err.contains("git switch feature"), "{}", err);
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), before);
+
+    // 今のブランチなら、ふつうのプル
+    write(&t.b, "b.txt", "B
+");
+    git(&t.b, &["switch", "-q", "main"]);
+    git(&t.b, &["pull", "-q", "--no-rebase"]);
+    write(&t.b, "b.txt", "B
+");
+    commit_all(&t.b, "B の変更");
+    git(&t.b, &["push", "-q"]);
+    let run = block(git_pull_branch(s(&t.a), "main".into())).unwrap();
+    assert!(run.command.contains("pull"), "{}", run.command);
+    assert_eq!(read(&t.a, "b.txt"), "B
+");
+
+    // フェッチだけ（GitHub の控えが進む。手元のブランチはそのまま）
+    write(&t.b, "c.txt", "C
+");
+    commit_all(&t.b, "C の変更");
+    git(&t.b, &["push", "-q"]);
+    let local = git(&t.a, &["rev-parse", "main"]);
+    block(git_fetch_branch(s(&t.a), "main".into())).unwrap();
+    assert_eq!(git(&t.a, &["rev-parse", "main"]), local);
+    assert_eq!(git(&t.a, &["rev-parse", "origin/main"]), git(&t.b, &["rev-parse", "main"]));
+}
+
 // ---------------------------------------------------------------- 競合
 
 #[test]

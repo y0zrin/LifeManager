@@ -1,6 +1,7 @@
 //! アプリの窓の外に出す「おしらせ」の小さな窓と、インジケーター（タスクトレイ）。
 //! おしらせの窓は、枠なし・透明・いつも手前・タスクバーに出ない・入力を奪わない。中身（index.html）は同じで、窓の名前（notice）で出し分ける。
-//! 高さは知らせの数に合わせて変え、知らせがなければ隠す。出す角（右上・右下・左上・左下）は設定で選ぶ。
+//! 高さは知らせの数に合わせて変え、知らせがなければ画面の外へ退ける。出す角（右上・右下・左上・左下）は設定で選ぶ。
+//! 窓は隠さない（隠した窓を出し直すと、Windows では入力の場所〔フォーカス〕を取ってしまうので、出したまま動かすだけにする）
 //! メインの窓の × は、設定でインジケーターに残す（はじめはこれ）か、終了する。スマホ版では、どれも何もしない
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,6 +12,8 @@ const MAIN_LABEL: &str = "main";
 /// おしらせの窓の幅（画面の点。拡大率は掛ける）と、画面の端からの間
 const NOTICE_WIDTH: f64 = 440.0;
 const NOTICE_MARGIN: f64 = 12.0;
+/// 知らせがないときに置いておく所（どの画面にもかからない。物理の点）
+const PARKED: i32 = -30000;
 
 /// × を押したとき、インジケーターに残すか（はじめは残す。画面の設定から変える）
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
@@ -31,9 +34,11 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::{Emitter, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
-    WebviewWindowBuilder::new(app, NOTICE_LABEL, WebviewUrl::App("index.html".into()))
+    // はじめから出しておく（画面の外に。入力の場所を取らないよう、出すのはこの 1 回だけ）
+    let notice = WebviewWindowBuilder::new(app, NOTICE_LABEL, WebviewUrl::App("index.html".into()))
         .title("Life Manager のおしらせ")
         .inner_size(NOTICE_WIDTH, 120.0)
+        .position(PARKED as f64, PARKED as f64)
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -44,8 +49,14 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
         .minimizable(false)
         .focused(false)
         .focusable(false)
-        .visible(false)
+        .visible(true)
         .build()?;
+    // おしらせの窓は閉じない（ほかのアプリから閉じる知らせが来ても残す。アプリを終えるときは、いっしょに消える）
+    notice.on_window_event(|event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+        }
+    });
 
     let open = MenuItem::with_id(app, "open", "Life Manager を開く", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
@@ -91,12 +102,12 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-/// おしらせの窓の高さを中身に合わせ、選んだ角に置く（0 なら隠す）。height は画面の点（CSS の px）
+/// おしらせの窓の高さを中身に合わせ、選んだ角に置く（0 なら画面の外へ退ける）。height は画面の点（CSS の px）
 #[tauri::command]
 pub fn notice_fit(app: AppHandle, height: f64, corner: String) -> Result<(), String> {
     let Some(w) = app.get_webview_window(NOTICE_LABEL) else { return Ok(()) };
     if height <= 0.0 {
-        let _ = w.hide();
+        let _ = w.set_position(tauri::PhysicalPosition::new(PARKED, PARKED));
         return Ok(());
     }
     // メインの窓がある画面（隠しているときは、いちばんの画面）
@@ -117,11 +128,9 @@ pub fn notice_fit(app: AppHandle, height: f64, corner: String) -> Result<(), Str
     let margin = NOTICE_MARGIN * scale;
     let x = if corner.ends_with("left") { ax + margin } else { ax + aw - width - margin };
     let y = if corner.starts_with("bottom") { ay + ah - height - margin } else { ay + margin };
-    let _ = w.set_size(tauri::PhysicalSize::new(width.round() as u32, height.round() as u32));
+    // 先に移してから大きさを合わせる（拡大率の違う画面へ移ったとき、Windows が大きさを変えることがあるため）
     let _ = w.set_position(tauri::PhysicalPosition::new(x.round() as i32, y.round() as i32));
-    if !w.is_visible().unwrap_or(false) {
-        let _ = w.show();
-    }
+    let _ = w.set_size(tauri::PhysicalSize::new(width.round() as u32, height.round() as u32));
     Ok(())
 }
 

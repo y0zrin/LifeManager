@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod auth;
+pub mod cards;
 pub mod client;
 pub mod errors;
 pub mod history;

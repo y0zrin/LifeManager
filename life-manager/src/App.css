@@ -160,6 +160,21 @@
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur-fast: 0.16s;
   --dur-base: 0.28s;
+
+  /* 選ぶ画面（アカウント・リポジトリ）の色。黒板は、緑の黒板とチョークの粉 */
+  --picker-bg1: #122019;
+  --picker-bg2: #0a110d;
+  --picker-glow: #3fb95033;
+  --picker-text: #eef3ee;
+  --picker-muted: #9fb2a4;
+  --picker-faint: #5f7566;
+  --picker-accent: #56d364;
+  --picker-on-accent: #0d1117;
+  --picker-ring: #eef3eef2;
+  --picker-card: #16201ad9;
+  --picker-card-line: #eef3ee24;
+  --picker-chip: #eef3ee14;
+  --picker-dust: #ffffff0d;
 }
 
 /* --- テーマ: ホワイトボード（明るいオフィス）。ボードはホワイトボード、机はオフィスのデスク --- */
@@ -253,6 +268,19 @@
   --stamp-pink: #bf3989;
   --celebrate-text: #1a7f37;
   --shadow-color: #8c959f59;
+  --picker-bg1: #f7fafc;
+  --picker-bg2: #dfe8f1;
+  --picker-glow: #0969da29;
+  --picker-text: #1f2328;
+  --picker-muted: #57606a;
+  --picker-faint: #8c959f;
+  --picker-accent: #0969da;
+  --picker-on-accent: #ffffff;
+  --picker-ring: #0969da;
+  --picker-card: #ffffffeb;
+  --picker-card-line: #d0d7de;
+  --picker-chip: #0969da14;
+  --picker-dust: #0969da0d;
 }
 
 /* --- テーマ: クエスト（木と羊皮紙）。ボードはクエストボード、机はギルドの受付 --- */
@@ -345,6 +373,19 @@
   --stamp-pink: #e88fb0;
   --celebrate-text: #ffd66b;
   --shadow-color: #000000a6;
+  --picker-bg1: #2f1f10;
+  --picker-bg2: #140c06;
+  --picker-glow: #e7b24a38;
+  --picker-text: #f4e7c9;
+  --picker-muted: #c9b38a;
+  --picker-faint: #8a7250;
+  --picker-accent: #e7b24a;
+  --picker-on-accent: #1b120a;
+  --picker-ring: #e7b24a;
+  --picker-card: #342313e6;
+  --picker-card-line: #e7b24a59;
+  --picker-chip: #e7b24a1f;
+  --picker-dust: #e7b24a0f;
 }
 
 /* クエスト: サイドバーは木目、アプリの名前と画面の題は明朝 */
@@ -710,7 +751,7 @@ body {
   gap: var(--space-sm);
 }
 
-/* アカウントを切り替える（期限のすぐ下）と、この PC でログインしたアカウントの一覧 */
+/* アカウントを切り替える（期限のすぐ下。押すと、アカウントを選ぶ画面） */
 .account-switch {
   justify-content: space-between;
   color: var(--accent-blue);
@@ -721,130 +762,787 @@ body {
   font-size: var(--font-xs);
 }
 
-.account-pane-head {
+/* --- 選ぶ画面（アカウント・リポジトリ）: 画面いっぱいに重ねる。PS5 のアカウントを選ぶ画面のように。色はテーマの --picker-* --- */
+.picker {
+  --picker-face: clamp(96px, 11.5vw, 150px);
+  --picker-face-on: clamp(122px, 14.5vw, 190px);
+  --picker-title: clamp(24px, 2.7vw, 34px);
+  --picker-step: min(500px, 39vw);
+  position: fixed;
+  inset: 0;
+  z-index: 200;
   display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-xs);
-  padding: 2px var(--space-xs) var(--space-xs);
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  font-size: var(--font-sm);
+  flex-direction: column;
+  overflow: hidden auto;
+  padding: 26px 44px 24px;
+  background:
+    radial-gradient(900px 480px at 50% 42%, var(--picker-glow), transparent 70%),
+    linear-gradient(180deg, var(--picker-bg1), var(--picker-bg2));
+  color: var(--picker-text);
 }
 
-.account-back {
+/* 黒板のチョークの粉・羊皮紙の粒（うすい点） */
+.picker::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(var(--picker-dust) 1.2px, transparent 1.4px);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+
+.motion-normal .picker {
+  animation: picker-in var(--dur-enter) var(--ease-out);
+}
+
+@keyframes picker-in {
+  from {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.picker button {
+  font-family: inherit;
+}
+
+.picker button:hover {
+  background-color: transparent;
+}
+
+.picker-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  color: var(--picker-muted);
+  font-size: var(--font-2xl);
+}
+
+.picker-logo {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent-green-hover), var(--accent-green));
+  color: var(--text-on-accent);
+  font-size: var(--font-xl);
+  font-weight: 800;
+}
+
+.picker-grow {
+  flex: 1;
+}
+
+.picker-clock {
+  color: var(--picker-text);
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+.picker-close {
   min-height: 0;
   padding: 0 var(--space-sm);
   border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-lg);
+  color: var(--picker-muted);
+  font-size: 28px;
+  line-height: 1;
 }
 
-.account-back:hover {
-  color: var(--text-primary);
+.picker .picker-close:hover {
+  color: var(--picker-text);
 }
 
-.account-blocked {
-  margin: 0 var(--space-xs) var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-md);
-  background: var(--accent-yellow-bg);
-  color: var(--accent-yellow);
-  font-size: var(--font-xs);
+.picker-title {
+  position: relative;
+  margin-top: clamp(24px, 9vh, 90px);
+  font-size: var(--picker-title);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
-.account-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  border-radius: var(--radius-md);
+.picker-title.small {
+  margin-top: clamp(16px, 5vh, 50px);
+  font-size: calc(var(--picker-title) * 0.82);
 }
 
-.account-row.current {
-  gap: var(--space-sm);
-  padding: 6px var(--space-sm);
+:root[data-theme="quest"] .picker-title {
+  font-family: var(--font-mincho);
 }
 
-.account-row-main {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-sm);
-  min-width: 0;
-  min-height: 0;
-  padding: 6px var(--space-sm);
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  text-align: left;
-}
-
-.account-row-main:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-}
-
-.account-row-who {
+/* アカウント: 大きな丸を横に並べ、選んでいる人を大きく・輪で囲む */
+.picker-people {
+  position: relative;
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 24px clamp(24px, 4vw, 54px);
+  padding: 30px 0;
+}
+
+.picker-person {
+  display: flex;
   flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
-
-.account-row-who b {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: var(--font-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-row-who small {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-row-mark {
-  color: var(--accent-green-hover);
-}
-
-/* 外す（マウスを乗せた行だけに出す） */
-.account-row-forget {
-  flex: none;
+  align-items: center;
+  width: 170px;
   min-height: 0;
-  margin-right: var(--space-xs);
-  padding: 1px 6px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  padding: 0;
+  border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  opacity: 0;
+  color: var(--picker-text);
+  text-align: center;
+  opacity: 0.72;
+  transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-spring);
 }
 
-.account-row:hover .account-row-forget,
-.account-row-forget:focus-visible {
+.picker-person.on {
   opacity: 1;
+  transform: translateY(-14px);
 }
 
-.account-row-forget:hover {
-  border-color: var(--accent-red);
+.picker-person:focus-visible {
+  outline: none;
+}
+
+.picker-face {
+  display: grid;
+  place-items: center;
+  width: var(--picker-face);
+  height: var(--picker-face);
+  border-radius: 50%;
+  object-fit: cover;
+  color: var(--text-on-accent);
+  font-size: calc(var(--picker-face) * 0.42);
+  font-weight: 800;
+  box-shadow: 0 10px 30px var(--shadow-color);
+  transition: width var(--dur-base) var(--ease-spring), height var(--dur-base) var(--ease-spring), box-shadow var(--dur-base) var(--ease-standard);
+}
+
+.picker-person.on .picker-face {
+  width: var(--picker-face-on);
+  height: var(--picker-face-on);
+  font-size: calc(var(--picker-face-on) * 0.42);
+  box-shadow: 0 0 0 5px var(--picker-bg2), 0 0 0 10px var(--picker-ring), 0 18px 50px var(--shadow-color), 0 0 60px var(--picker-glow);
+}
+
+.picker-person-add .picker-face {
+  background: var(--picker-chip);
+  box-shadow: inset 0 0 0 3px var(--picker-card-line);
+  color: var(--picker-muted);
+  font-weight: 300;
+}
+
+.picker-person-add.on .picker-face {
+  box-shadow: inset 0 0 0 3px var(--picker-card-line), 0 0 0 5px var(--picker-bg2), 0 0 0 10px var(--picker-ring), 0 0 60px var(--picker-glow);
+}
+
+.picker-name {
+  max-width: 100%;
+  margin-top: 16px;
+  overflow: hidden;
+  font-size: 21px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-person.on .picker-name {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.picker-person-add.on .picker-name {
+  font-size: 21px;
+}
+
+.picker-sub {
+  margin-top: 6px;
+  color: var(--picker-muted);
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.picker-status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  color: var(--picker-muted);
+  font-size: var(--font-xl);
+}
+
+.picker-status.err {
   color: var(--accent-red);
 }
 
-.account-add {
-  color: var(--accent-blue);
+.picker-hint {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  padding-top: var(--space-lg);
+  color: var(--picker-muted);
+  font-size: var(--font-xl);
 }
 
-.account-row-note {
-  margin: var(--space-xs) var(--space-sm) 2px;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+.picker-hint b {
+  display: inline-block;
+  min-width: 28px;
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-md);
+  background: var(--picker-chip);
+  color: var(--picker-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.picker-forget {
+  position: absolute;
+  right: 44px;
+  bottom: 24px;
+  min-height: 0;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--picker-faint);
+  font-size: 15px;
+}
+
+.picker .picker-forget:hover:not(:disabled) {
+  color: var(--accent-red);
+}
+
+/* 外すのを確かめる（下のまん中。キーの案内の上） */
+.picker-forget-confirm {
+  position: absolute;
+  bottom: 64px;
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  width: min(560px, calc(100% - 32px));
+  transform: translateX(-50%);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--picker-card-line);
+  border-radius: var(--radius-lg);
+  background: var(--picker-card);
+  color: var(--picker-text);
+  font-size: var(--font-lg);
   line-height: 1.5;
+}
+
+/* リポジトリ: 右上の自分（押すと、アカウントを選ぶ画面） */
+.picker-me {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--picker-text);
+  font-size: 17px;
+  text-align: left;
+}
+
+.picker .picker-me:hover {
+  border-color: var(--picker-card-line);
+  background: var(--picker-chip);
+}
+
+.picker-me-face {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--picker-chip);
+  color: var(--picker-text);
+  font-weight: 800;
+  object-fit: cover;
+}
+
+.picker-me-who {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.picker-me-who small {
+  color: var(--picker-muted);
+  font-size: var(--font-lg);
+}
+
+/* リポジトリ: まん中に大きく、左右にとなり（位置が変わると、すべるように動く） */
+.picker-deck {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+}
+
+.picker-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: min(560px, 84vw);
+  height: 290px;
+  padding: 26px 30px;
+  border: 1.5px solid var(--picker-card-line);
+  border-radius: 18px;
+  background: var(--picker-card);
+  box-shadow: 0 18px 50px var(--shadow-color);
+  color: var(--picker-text);
+  text-align: left;
+  transform: translate(-50%, -50%);
+  transition: transform var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard);
+}
+
+.picker-card > * {
+  flex-shrink: 0;
+}
+
+.picker-card.on {
+  z-index: 2;
+  border: 2px solid var(--picker-ring);
+  box-shadow: 0 0 0 6px var(--picker-glow), 0 22px 60px var(--shadow-color);
+}
+
+.picker-card.side {
+  cursor: pointer;
+  opacity: 0.42;
+}
+
+.picker-card.side:hover {
+  opacity: 0.6;
+}
+
+.picker-card.side.left {
+  transform: translate(calc(-50% - var(--picker-step)), -50%) scale(0.66);
+}
+
+.picker-card.side.right {
+  transform: translate(calc(-50% + var(--picker-step)), -50%) scale(0.66);
+}
+
+.picker-card.far {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker-card.far.left {
+  transform: translate(calc(-50% - var(--picker-step) * 1.8), -50%) scale(0.5);
+}
+
+.picker-card.far.right {
+  transform: translate(calc(-50% + var(--picker-step) * 1.8), -50%) scale(0.5);
+}
+
+.picker-card.empty {
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  font-size: var(--font-xl);
+}
+
+.picker-card-owner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--picker-muted);
+  font-size: 17px;
+}
+
+.picker-now {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--picker-chip);
+  color: var(--picker-accent);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.picker-card-name {
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-card.on .picker-card-name {
+  max-width: calc(100% - 150px);
+}
+
+.picker-badges {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 10px;
+}
+
+.picker-badge {
+  padding: 2px 10px;
+  border: 1px solid var(--picker-card-line);
+  border-radius: 999px;
+  background: var(--picker-chip);
+  color: var(--picker-muted);
+  font-size: 13px;
+}
+
+.picker-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  width: 100%;
+  margin-top: 18px;
+  color: var(--picker-muted);
+  font-size: var(--font-xl);
+}
+
+.picker-facts b {
+  display: block;
+  color: var(--picker-text);
+  font-size: 20px;
+}
+
+.picker-facts.loading b {
+  opacity: 0.5;
+}
+
+.picker-card-error {
+  margin-top: 18px;
+  color: var(--accent-red);
+  font-size: var(--font-lg);
+  line-height: 1.5;
+}
+
+.picker-card-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-md);
+  width: 100%;
+  margin-top: auto;
+}
+
+.picker-here {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--picker-muted);
+  font-size: var(--font-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-here b {
+  color: var(--picker-text);
+  font-weight: 600;
+}
+
+.picker-here small {
+  font-size: var(--font-md);
+}
+
+/* 開くときに「クローンしますか？」（数の代わりに出す） */
+.picker-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+.picker-ask b {
+  font-size: var(--font-xl);
+}
+
+.picker-ask span {
+  color: var(--picker-muted);
+  font-size: var(--font-md);
+}
+
+.picker-card-foot.ask {
+  justify-content: flex-end;
+}
+
+.picker-card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.picker-open {
+  min-height: 0;
+  padding: 8px 22px;
+  border: none;
+  border-radius: 10px;
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.picker .picker-open:hover:not(:disabled) {
+  background: var(--picker-accent);
+  filter: brightness(1.1);
+}
+
+.picker-clone {
+  min-height: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--picker-card-line);
+  border-radius: 10px;
+  background: var(--picker-chip);
+  color: var(--picker-text);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.picker .picker-clone:hover:not(:disabled) {
+  border-color: var(--picker-ring);
+  background: var(--picker-chip);
+}
+
+.picker-more {
+  min-height: 0;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--picker-muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.picker .picker-more:hover,
+.picker-more.on {
+  border-color: var(--picker-card-line);
+  background: var(--picker-chip);
+  color: var(--picker-text);
+}
+
+/* チームの顔（右上。5 人まで） */
+.picker-team {
+  position: absolute;
+  top: 26px;
+  right: 26px;
+  display: flex;
+  padding-left: 8px;
+}
+
+.picker-team img,
+.picker-team i {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -8px;
+  border: 2px solid var(--picker-bg1);
+  border-radius: 50%;
+  background: var(--picker-chip);
+  color: var(--picker-text);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  object-fit: cover;
+}
+
+/* ⋯ のメニュー（この PC のフォルダ・GitHub で開く・一覧から外す） */
+.picker-menu {
+  position: absolute;
+  right: 20px;
+  bottom: 64px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 290px;
+  padding: var(--space-xs);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-primary);
+}
+
+.picker-menu > button {
+  min-height: 0;
+  padding: 7px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  text-align: left;
+}
+
+.picker .picker-menu > button:hover {
+  background: var(--bg-tertiary);
+}
+
+.picker-menu > button.picker-menu-red {
+  color: var(--accent-red);
+}
+
+.picker-menu-note,
+.picker-menu-confirm {
+  padding: 6px var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.picker-menu-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+}
+
+.picker-menu-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.picker-card-note {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--picker-card-line);
+  border-radius: var(--radius-lg);
+  background: var(--picker-card);
+  color: var(--picker-muted);
+  font-size: var(--font-md);
+  line-height: 1.5;
+}
+
+.picker-card-note.ok {
+  color: var(--accent-green-hover);
+}
+
+.picker-card-note.error {
+  color: var(--accent-red);
+}
+
+.picker-card-note code {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--picker-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  word-break: break-all;
+}
+
+.picker-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  min-height: 0;
+  padding: 0 var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--picker-muted);
+  font-size: 44px;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.picker-arrow.left {
+  left: -28px;
+}
+
+.picker-arrow.right {
+  right: -28px;
+}
+
+.picker .picker-arrow:hover {
+  color: var(--picker-text);
+}
+
+/* 下の帯: 一覧と「＋ リポジトリを追加…」 */
+.picker-strip {
+  position: relative;
+  display: flex;
+  justify-content: safe center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+  scrollbar-width: thin;
+}
+
+.picker-strip > button {
+  flex: none;
+  min-height: 0;
+  padding: 7px 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--picker-chip);
+  color: var(--picker-muted);
+  font-size: 15px;
+}
+
+.picker .picker-strip > button:hover {
+  background: var(--picker-chip);
+  color: var(--picker-text);
+}
+
+.picker-strip > button.on {
+  border-color: var(--picker-ring);
+  color: var(--picker-text);
+  font-weight: 700;
+}
+
+.picker-strip > button.picker-strip-add {
+  border: 1px dashed var(--picker-card-line);
+}
+
+/* 狭い窓: となりのカードは出さない */
+@media (max-width: 760px) {
+  .picker {
+    padding: 18px 16px;
+  }
+
+  .picker-card.side {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .picker-card.on .picker-card-name {
+    max-width: 100%;
+  }
+
+  .picker-team {
+    display: none;
+  }
+
+  .picker-forget {
+    position: static;
+    align-self: center;
+    margin-top: var(--space-sm);
+  }
 }
 
 /* これから作る画面（押せない） */

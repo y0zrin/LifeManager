@@ -57,6 +57,8 @@ import { adoptLogin, forgetAccount, isSetupPending, listAccounts, markSetupPendi
 import { TokenBanner } from "./components/common/TokenBanner";
 import { AccountMenu } from "./components/common/AccountMenu";
 import { RepoSwitcher } from "./components/common/RepoSwitcher";
+import { RepoPicker } from "./components/common/RepoPicker";
+import { AccountPicker } from "./components/common/AccountPicker";
 import { AddRepoWizard } from "./components/common/AddRepoWizard";
 import { MemoFab } from "./components/common/MemoFab";
 import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } from "./lib/types";
@@ -328,6 +330,9 @@ function App() {
   const [resumeSetup, setResumeSetup] = useState(false);
   // 別のアカウントを足しているところ（足す前のアカウントの名前。やめたら、そのアカウントに戻る）
   const [addingAccount, setAddingAccount] = useState<string | null>(null);
+  // 選ぶ画面。アカウントは、起動したとき（この PC にアカウントが 2 つ以上）と、左下のメニュー・リポジトリを選ぶ画面の右上から
+  const [accountPicker, setAccountPicker] = useState<"startup" | "menu" | null>(null);
+  const [repoPickerOpen, setRepoPickerOpen] = useState(false);
   // 競合（コンフリクト）の知らせ。同じ競合では 1 回だけ出す（競合がなくなったら、次の競合でまた出す）
   const [conflictNotice, setConflictNotice] = useState(false);
   const toldConflict = useRef<string | null>(null);
@@ -375,6 +380,8 @@ function App() {
       } else {
         try {
           await gh.loadToken();
+          // この PC にアカウントが 2 つ以上ある（学校の PC などを何人かで使う）→ だれが使うかを選んでから
+          if ((await listAccounts().catch(() => [])).length > 0) setAccountPicker("startup");
         } catch {
           // トークン未設定 → セットアップ画面を表示
         }
@@ -759,6 +766,7 @@ function App() {
       onRemove={gh.removeProject}
       onSetFolder={localFolders.setFolder}
       onAdd={() => setAddRepoOpen(true)}
+      onOpenPicker={isMobile ? undefined : () => setRepoPickerOpen(true)}
     />
   );
 
@@ -869,10 +877,7 @@ function App() {
           login={gh.currentUser}
           onOpenTokens={openTokens}
           onSignOut={handleSignOut}
-          onSwitchAccount={handleSwitchAccount}
-          onAddAccount={handleAddAccount}
-          onForgetAccount={handleForgetAccount}
-          switchBlocked={accountSwitchBlocked}
+          onOpenAccounts={() => setAccountPicker("menu")}
         />
       </aside>
 
@@ -1253,6 +1258,36 @@ function App() {
           onSwitch={handleSwitchProject}
           onNotify={gh.setStatus}
           onClose={() => setAddRepoOpen(false)}
+        />
+      )}
+      {repoPickerOpen && (
+        <RepoPicker
+          projects={gh.projects}
+          owner={gh.owner}
+          repo={gh.repo}
+          login={gh.currentUser}
+          folders={localFolders.folders}
+          onSwitch={handleSwitchProject}
+          onRemove={gh.removeProject}
+          onSetFolder={localFolders.setFolder}
+          onAdd={() => setAddRepoOpen(true)}
+          onOpenAccounts={() => {
+            setRepoPickerOpen(false);
+            setAccountPicker("menu");
+          }}
+          onClose={() => setRepoPickerOpen(false)}
+        />
+      )}
+      {accountPicker && (
+        <AccountPicker
+          login={gh.currentUser}
+          currentProjects={gh.projects.length}
+          startup={accountPicker === "startup"}
+          onSwitch={handleSwitchAccount}
+          onAdd={handleAddAccount}
+          onForget={handleForgetAccount}
+          onClose={() => setAccountPicker(null)}
+          switchBlocked={accountSwitchBlocked}
         />
       )}
       {gitDialog && <GitDialog key={gitDialog.title} spec={gitDialog} onClose={closeGitDialog} />}

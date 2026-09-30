@@ -1524,6 +1524,7 @@ pub fn run() {
             github::releases::create_release,
             github::releases::update_release,
             github::releases::upload_release_asset,
+            github::cards::repo_card,
             github::releases::close_milestone,
             github::releases::activity_feed,
             github::actions::actions_overview,

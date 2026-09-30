@@ -37,12 +37,15 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
     textRef.current?.focus();
   }, []);
 
+  // Esc はこのダイアログだけを閉じる（後ろの Issue の詳細まで閉じないよう、先に受けて止める）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isEscape(e) && !busy) onClose();
+      if (!isEscape(e)) return;
+      e.stopPropagation();
+      if (!busy) onClose();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [busy, onClose]);
 
   const chosen: HelpContext = {
@@ -72,7 +75,7 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
   const failureHead = context.failure?.message.split("\n").find((l) => l.trim())?.trim() ?? "";
 
   return (
-    <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
+    <div className="palette-overlay git-dialog-back help-back" onClick={() => !busy && onClose()}>
       <div className="git-dialog help-dialog" role="dialog" aria-modal="true" aria-label="助けを求める" onClick={(e) => e.stopPropagation()}>
         <h3>🆘 助けを求める</h3>
         <p className="git-dialog-note">

@@ -1351,20 +1351,7 @@ function App() {
           />
         </div>
       )}
-      {helpFor && (
-        <HelpDialog
-          issue={helpFor}
-          me={gh.currentUser}
-          collaborators={gh.collaborators}
-          context={helpFor.context}
-          onSend={async (body, to) => {
-            await gh.createComment(helpFor.number, body);
-            setCommentsVersion((v) => v + 1);
-            gh.setStatus(`🆘 ${issueRef(helpFor.number)} で ${to.map((l) => `@${l}`).join(" ")} に助けを求めました`);
-          }}
-          onClose={() => setHelpFor(null)}
-        />
-      )}
+
       {/* お祝い（完了のキラキラ・スタンプ・完了の知らせ、新しく入ったもののキラキラ） */}
       <Celebration motion={display.settings.motion === "normal"} />
       <MilestoneCelebration motion={display.settings.motion === "normal"} onCloseMilestone={gh.closeMilestone} />
@@ -1488,6 +1475,21 @@ function App() {
 
       {/* Issue詳細（重ねて出す） */}
       {renderIssueDetail(selectedIssue, false, () => closeIssueDetail(selectedIssue), openIssue)}
+      {/* 🆘 助けを求める（Issue の詳細の上に出すので、詳細のあと） */}
+      {helpFor && (
+        <HelpDialog
+          issue={helpFor}
+          me={gh.currentUser}
+          collaborators={gh.collaborators}
+          context={helpFor.context}
+          onSend={async (body, to) => {
+            await gh.createComment(helpFor.number, body);
+            setCommentsVersion((v) => v + 1);
+            gh.setStatus(`🆘 ${issueRef(helpFor.number)} で ${to.map((l) => `@${l}`).join(" ")} に助けを求めました`);
+          }}
+          onClose={() => setHelpFor(null)}
+        />
+      )}
     </main>
   );
   return (

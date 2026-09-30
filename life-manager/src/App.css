@@ -17920,7 +17920,11 @@ html.notice-window #root {
   margin-top: 8px;
 }
 
-/* 🆘 助けを求める（ダイアログ） */
+/* 🆘 助けを求める（ダイアログ）。Issue の詳細（重ねて出すとき）より上に */
+.palette-overlay.help-back {
+  z-index: 101;
+}
+
 .git-dialog.help-dialog {
   width: 620px;
 }

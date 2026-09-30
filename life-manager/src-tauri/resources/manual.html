@@ -6,6 +6,12 @@
 <title>Life Manager マニュアル</title>
 <meta name="description" content="Life Manager の使い方。タスク管理と、git によるバージョン管理（作業・ブランチ・全体図）を、画面に沿って説明します。">
 <style>
+  /* 🆘 など囲みの絵文字（U+1F100〜1F2FF）は、日本語のフォントの白黒の字より先に、色の絵文字を使う（アプリと同じ） */
+  @font-face {
+    font-family: "LM Emoji";
+    src: local("Segoe UI Emoji"), local("SegoeUIEmoji"), local("Apple Color Emoji"), local("Noto Color Emoji");
+    unicode-range: U+1F100-1F2FF;
+  }
   :root {
     --bg: #ffffff;
     --bg-soft: #f6f8fa;
@@ -26,7 +32,7 @@
     --lane-2: #8250df;
     --faint: #8c959f;
     --radius: 8px;
-    --font: "Segoe UI", -apple-system, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+    --font: "Segoe UI", "LM Emoji", -apple-system, "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
     --mono: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
     --toc-width: 260px;
   }
@@ -998,6 +1004,17 @@ labels: ["種別:バグ", "状態:未整理"]
   </ul>
   <p>変更の履歴は、GitHub につながっているときだけ出ます（コメントは、つながっていなくても出ます）。</p>
   <p>コメントを書いて <span class="ui">コメント追加</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）を押すと、すぐ履歴に <span class="ui">送っています…</span> で出ます。送れなかったときは「<a href="#sending">送っているあいだ・送れなかったとき</a>」。</p>
+  <h3 id="mention">コメントで人を呼ぶ（@名前）</h3>
+  <p>コメントに <code>@</code> と、相手の GitHub のユーザー名を書くと、その人を呼べます。見てほしいとき・聞きたいときに使います。</p>
+  <div class="cmd">@suzuki-hana 当たり判定を小さくしました。見てもらえますか？</div>
+  <ul>
+    <li>呼ばれた人のアプリには、<b>おしらせ</b>（画面の角の知らせ）と、ヒストリーの「あなたがすること」に <span class="ui">💬 …であなたの名前を出しました</span> が出ます。押すと、その Issue・プルリクが開きます（「<a href="#notices">おしらせと「助けを求める」</a>」）。GitHub の通知（ベル・メール）も届きます。</li>
+    <li>書くのは、表示の名前ではなく<b>ユーザー名</b>（ログインの名前。英数字と <code>-</code>）です。大文字・小文字は区別しません。チームの人のユーザー名は、設定 → 接続 のメンバーの一覧や、Issue の担当者の一覧で見られます。</li>
+    <li>名前のあとには、空白を 1 つ入れると確実です（<code>@suzuki-hana2</code> のように英数字や <code>-</code> を続けると、別の人の名前になります）。</li>
+    <li>プルリクの会話のコメントでも、同じように呼べます。自分で自分を呼んでも、知らせは出ません。</li>
+    <li>そのリポジトリを見られない人（非公開のリポジトリのメンバーでない人）は、呼んでも知らせが届きません。</li>
+    <li>困っていて、すぐ気づいてほしいときは <span class="ui">🆘 助けを求める</span> を使うと、呼ばれた人に赤い 🆘 で目立って届きます（「<a href="#help">🆘 助けを求める</a>」）。🆘 のコメントの <span class="ui">💬 返事を書く</span> では、はじめから <code>@</code> と相手の名前が入ります。</li>
+  </ul>
   <h3 id="artifacts">成果物（メディアビューワー）</h3>
   <p>Issue の詳細の <span class="ui">成果物</span> のタブに、その Issue につながるコミットで変わったファイルが、種類ごとに見本つきで並びます。つながるコミットは、メッセージで「#11」に触れたコミット（作業タブでこの Issue を選んでコミットすると付きます）・Issue にリンクされたコミット・その Issue に触れたプルリクのコミットです。この PC にクローンしてあれば、まだプッシュしていないコミットも探します。画像は縮めて見せ、音は <span class="ui">▶</span> でその場で鳴らせます。押すと<b>メディアビューワー</b>が開きます。</p>
   <ul>

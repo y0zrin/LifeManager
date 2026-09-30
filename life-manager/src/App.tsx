@@ -60,6 +60,8 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
+import { ThemePicker, markThemeChosen, needsThemeChoice } from "./components/common/ThemePicker";
+import { applyTheme, type Theme } from "./lib/theme";
 import { InsightsView } from "./components/views/InsightsView";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { adoptLogin, forgetAccount, isSetupPending, listAccounts, markSetupPending, restoreAccount, SIGNED_OUT_STORE, stashAccount, switchAccount, type TokenReport } from "./lib/auth";
@@ -339,6 +341,10 @@ function App() {
   const [initializing, setInitializing] = useState(true);
   // セットアップの途中で閉じた → 前のプロジェクトは開かず、セットアップの続きから
   const [resumeSetup, setResumeSetup] = useState(false);
+  // はじめて起動したとき、ログインの前に見た目を選ぶ（選んだら、セットアップの手順の 1. に「見た目」を出し、押すと選び直せる）
+  const [themeFirst, setThemeFirst] = useState(needsThemeChoice);
+  const [lookChosen, setLookChosen] = useState(false);
+  const previewTheme = useCallback((t: Theme) => applyTheme(t), []);
   // 別のアカウントを足しているところ（足す前のアカウントの名前。やめたら、そのアカウントに戻る）
   const [addingAccount, setAddingAccount] = useState<string | null>(null);
   // 選ぶ画面。アカウントは、起動したとき（この PC にアカウントが 2 つ以上）と、左下のメニュー・リポジトリを選ぶ画面の右上から
@@ -857,8 +863,23 @@ function App() {
 
   // 未接続・セットアップの途中 → セットアップ画面
   if (!gh.connected || resumeSetup || addingAccount) {
+    if (themeFirst && !addingAccount) {
+      return (
+        <ThemePicker
+          initial={display.settings.theme}
+          onPreview={previewTheme}
+          onDone={(t) => {
+            display.update({ theme: t });
+            markThemeChosen();
+            setThemeFirst(false);
+            setLookChosen(true);
+          }}
+        />
+      );
+    }
     return (
       <SetupView
+        onLook={lookChosen ? () => setThemeFirst(true) : undefined}
         onDone={handleSetupDone}
         resume={resumeSetup}
         adding={addingAccount}

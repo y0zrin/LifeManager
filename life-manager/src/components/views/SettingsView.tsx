@@ -12,7 +12,8 @@ import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
 import { BoardColumnsSetting } from "../common/BoardColumnsSetting";
-import { THEMES, type Theme } from "../../lib/theme";
+import { THEMES } from "../../lib/theme";
+import { ThemeMini } from "../common/ThemeMini";
 import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
@@ -98,21 +99,6 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
   { value: "top", label: "上", note: "横に並んだ帯になります", bar: { x: 5, y: 5, width: 36, height: 7 } },
   { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
-
-// テーマの見本の絵（画面・サイドバー・ボード・下の机の色は、そのテーマと同じ）
-function ThemePreview({ theme, big = false }: { theme: Theme; big?: boolean }) {
-  return (
-    <svg className={`display-preview pv-theme pv-theme-${theme}`} viewBox="0 0 46 34" width={big ? undefined : 46} height={big ? undefined : 34} aria-hidden="true">
-      <rect x="1" y="1" width="44" height="32" rx="4" className="pv-t-win" />
-      <rect x="1" y="1" width="10" height="32" rx="2" className="pv-t-side" />
-      <rect x="14" y="5" width="28" height="18" rx="1.5" className="pv-t-frame" />
-      <rect x="16" y="7" width="24" height="14" className="pv-t-board" />
-      <rect x="19" y="10" width="7" height="7" className="pv-t-note" transform="rotate(-5 22.5 13.5)" />
-      <rect x="29" y="11" width="7" height="7" className="pv-t-note2" transform="rotate(4 32.5 14.5)" />
-      <rect x="11" y="26" width="34" height="7" className="pv-t-desk" />
-    </svg>
-  );
-}
 
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
 // マイルストーンの進み具合のバー
@@ -852,14 +838,14 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       <div className="form-card" id="settings-theme">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>テーマ</h3>
-        {/* 選ぶ画面のような大きなカード。カードは、それぞれのテーマの色と模様で描く */}
+        {/* 選ぶ画面のような大きなカード。カードは、それぞれのテーマの色と模様で描き、ミニの画面が動く（選んでいるカードと、マウスを乗せたカード） */}
         <div className="theme-cards" role="radiogroup" aria-label="テーマ">
           {THEMES.map((t) => {
             const on = displaySettings.theme === t.key;
             return (
               <button key={t.key} type="button" role="radio" aria-checked={on} className={`theme-card theme-card--${t.key}${on ? " on" : ""}`}
                 onClick={() => onChangeDisplaySettings({ theme: t.key })}>
-                <ThemePreview theme={t.key} big />
+                <ThemeMini theme={t.key} />
                 <span className="theme-card-name">
                   {t.label}
                   {on && <span className="theme-card-on">使っている</span>}

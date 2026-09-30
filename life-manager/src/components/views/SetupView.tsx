@@ -23,6 +23,8 @@ interface SetupViewProps {
   onRestoreAccount?: (login: string) => Promise<void>;
   /** ログインできた。前にこの PC で使っていたアカウントで、そのまま続けられるなら true（セットアップはここで終わる） */
   onLoggedIn?: (report: TokenReport) => Promise<boolean>;
+  /** はじめに見た目を選んだ（手順の 1. に「見た目」を出し、押すと選び直せる） */
+  onLook?: () => void;
 }
 
 /** ログインのあとに選ぶ使い方: チームを作る（リーダー）／招待を受ける（メンバー）／個人で使う */
@@ -61,7 +63,7 @@ type Signup = "none" | "opened" | "login";
  * 招待を受ける: 自分の GitHub の名前を大きく出す。招待はメール（か招待のページ）で受け、使えるようになったらアプリが気づいて
  * 「このリポジトリではじめる」を出す。どの道も、最後のボタンでそのままはじめる
  */
-export function SetupView({ onDone, resume = false, adding = null, onRestoreAccount, onLoggedIn }: SetupViewProps) {
+export function SetupView({ onDone, resume = false, adding = null, onRestoreAccount, onLoggedIn, onLook }: SetupViewProps) {
   const [step, setStep] = useState(0);
   const [path, setPath] = useState<Path | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
@@ -395,9 +397,16 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         <h1 className="setup-title">Life Manager へようこそ</h1>
         <p className="setup-sub">タスク（GitHub の Issue）と git の作業を、ひとつの画面で。</p>
         <ol className="setup-steps">
+          {onLook && (
+            <li className="done">
+              <button type="button" className="link-button setup-look" onClick={onLook} title="見た目を選び直す">
+                1. 見た目
+              </button>
+            </li>
+          )}
           {steps.map((s, i) => (
             <li key={s} className={i < step ? "done" : i === step ? "on" : ""}>
-              {i + 1}. {s}
+              {i + (onLook ? 2 : 1)}. {s}
             </li>
           ))}
         </ol>

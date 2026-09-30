@@ -1467,10 +1467,11 @@ body {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--accent-green-hover), var(--accent-green));
-  color: var(--text-on-accent);
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
   font-size: var(--font-xl);
   font-weight: 800;
+  box-shadow: 0 4px 12px var(--picker-glow);
 }
 
 .picker-grow {
@@ -19349,4 +19350,501 @@ html.stage-still .stage-fx .fx-shoot {
   --tc-bg1: #dcebf8; --tc-bg2: #f5f9fd; --tc-glow: #ffffffcc; --tc-text: #1d2b3a; --tc-muted: #1d2b3aaa; --tc-accent: #2a74c2; --tc-on-accent: #ffffff;
   --tc-pattern: radial-gradient(#ffffff 1.5px, #a9c9ea 2px, transparent 2.6px) 0 0 / 30px 28px, radial-gradient(#ffffff 1px, #b9d4ef 1.5px, transparent 2px) 15px 12px / 22px 26px;
   border-color: #b9d0e8;
+}
+
+/* ===== テーマのミニの画面（ThemeMini）: はじめに見た目を選ぶ画面・設定 → 表示 のテーマのカード =====
+   もとは 560×340 の絵を、入れ物の幅に合わせて縮める。色はテーマごとの --tm-*（アプリのテーマの色と同じ） */
+.tm {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 560 / 340;
+  overflow: hidden;
+  border: 1px solid var(--tm-line);
+  border-radius: 12px;
+  background: var(--tm-win);
+}
+
+.tm-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 560px;
+  height: 340px;
+  transform-origin: 0 0;
+  font-family: var(--font-family);
+}
+
+.tm-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.tm-stage i {
+  position: absolute;
+  inset: -120px;
+}
+
+.tm-side {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 104px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--tm-line);
+  background: var(--tm-side);
+}
+
+.tm-side b {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--tm-text);
+  font-size: 10px;
+}
+
+.tm-side span {
+  display: block;
+  height: 7px;
+  margin: 7px 0;
+  border-radius: 4px;
+  background: var(--tm-line);
+}
+
+.tm-side span.on {
+  width: 80%;
+  background: var(--tm-accent);
+  box-shadow: 0 0 8px var(--tm-accent);
+}
+
+.tm-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tm-top {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--tm-line);
+  color: var(--tm-text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tm-boards {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px;
+}
+
+.tm-board {
+  position: relative;
+  overflow: hidden;
+  padding: 8px;
+  border: 7px solid var(--tm-frame);
+  border-radius: 6px;
+  background: var(--tm-board);
+  box-shadow: 0 6px 14px #0005;
+}
+
+.tm-board b {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin-bottom: 6px;
+  color: var(--tm-board-text);
+  font-size: 10px;
+}
+
+.tm-deco {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 16px;
+}
+
+.tm-note {
+  position: relative;
+  z-index: 2;
+  width: 118px;
+  margin: 0 0 8px;
+  padding: 6px 7px;
+  background: var(--tm-note);
+  box-shadow: 0 3px 6px #0006;
+  color: #262626;
+  font-size: 9px;
+  line-height: 1.35;
+  transform: rotate(-2deg);
+}
+
+.tm-note.n2 {
+  background: var(--tm-note2);
+  transform: rotate(2deg);
+}
+
+/* 付箋が 1 枚、となりのボードへ運ばれる */
+.tm-carry {
+  position: absolute;
+  top: 92px;
+  left: 8px;
+  z-index: 3;
+  animation: tm-carry 6s ease-in-out infinite;
+}
+
+@keyframes tm-carry {
+  0%, 22% { transform: translate(0, 0) rotate(-2deg); box-shadow: 0 3px 6px #0006; }
+  34% { transform: translate(10px, -10px) rotate(-6deg) scale(1.08); box-shadow: 0 14px 20px #0007; }
+  56% { transform: translate(207px, -58px) rotate(3deg) scale(1.08); box-shadow: 0 14px 20px #0007; }
+  64%, 88% { transform: translate(203px, -62px) rotate(2deg) scale(1); box-shadow: 0 3px 6px #0006; }
+  94% { opacity: 0; transform: translate(203px, -62px) rotate(2deg); }
+  95% { opacity: 0; transform: translate(0, 0) rotate(-2deg); }
+  100% { opacity: 1; transform: translate(0, 0) rotate(-2deg); }
+}
+
+.tm-desk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-top: 1px solid #0003;
+  background: var(--tm-desk);
+  font-size: 18px;
+}
+
+.tm-desk small {
+  color: var(--tm-desk-text);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tm-desk .grow {
+  flex: 1;
+}
+
+.tm-glow {
+  animation: tm-flicker 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes tm-flicker {
+  0% { filter: drop-shadow(0 0 2px #ffcf7a); }
+  50% { filter: drop-shadow(0 0 9px #ffcf7a); }
+  100% { filter: drop-shadow(0 0 4px #ffcf7a); }
+}
+
+.tm-steam {
+  display: inline-block;
+  animation: tm-steam 3s ease-in-out infinite;
+}
+
+@keyframes tm-steam {
+  0%, 100% { transform: translateY(2px); opacity: 0.4; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* 止める（となりのカード・設定で選んでいないカード・動きを減らしているとき） */
+.tm.still *,
+.motion-reduced .tm * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm * {
+    animation-play-state: paused !important;
+  }
+}
+
+/* --- テーマごとの色と、後ろの粒 --- */
+.tm--chalk {
+  --tm-win: #0d1117; --tm-side: #161b22; --tm-line: #30363d; --tm-text: #e6edf3; --tm-accent: #56d364; --tm-frame: #6b4a2b;
+  --tm-board: radial-gradient(ellipse at 30% 20%, #2f4a3a, #243a2e 45%, #1c2e24); --tm-board-text: #f4f1e8;
+  --tm-note: #fff176; --tm-note2: #a5d2fa; --tm-desk: linear-gradient(180deg, #c39a5f, #a67c45); --tm-desk-text: #3a2610;
+}
+
+.tm--chalk .tm-stage i:nth-child(1) {
+  background: radial-gradient(#ffffff26 1.2px, transparent 1.7px) 0 0 / 18px 18px;
+  animation: fx-drift-a 20s linear infinite;
+}
+
+.tm--white {
+  --tm-win: #ffffff; --tm-side: #eaeef2; --tm-line: #d0d7de; --tm-text: #1f2328; --tm-accent: #0969da; --tm-frame: #b9c0c8;
+  --tm-board: #f7f9fa; --tm-board-text: #1f2328; --tm-note: #fff176; --tm-note2: #ffb3c1;
+  --tm-desk: linear-gradient(180deg, #d8d2c8, #c1b9ad); --tm-desk-text: #3d3a35;
+}
+
+.tm--white .tm-stage i:nth-child(1) {
+  background: linear-gradient(#0969da12 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, #0969da12 1px, transparent 1px) 0 0 / 16px 16px;
+}
+
+.tm--white .tm-stage i:nth-child(2) {
+  inset: -10% -60%;
+  background: radial-gradient(38% 60% at 50% 45%, #ffffffd9, transparent 70%);
+  animation: fx-sweep 16s ease-in-out infinite alternate;
+}
+
+.tm--quest {
+  --tm-win: #1b120a; --tm-side: #2e1e10; --tm-line: #5b3f24; --tm-text: #f4e7c9; --tm-accent: #e7b24a; --tm-frame: #4a2d15;
+  --tm-board: repeating-linear-gradient(90deg, #b88a55 0 26px, #a97c4a 26px 28px); --tm-board-text: #2a1a0b;
+  --tm-note: #f0dcae; --tm-note2: #efdcae; --tm-desk: linear-gradient(180deg, #5d3717, #432611); --tm-desk-text: #f4e7c9;
+}
+
+.tm--quest .tm-note::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #b0302a;
+  box-shadow: 0 0 0 1px #7a1f1b;
+}
+
+.tm--quest .tm-stage i:nth-child(1) {
+  background: radial-gradient(#e7b24a55 1.3px, transparent 1.9px) 0 0 / 24px 24px;
+  animation: fx-rise-a 12s linear infinite;
+}
+
+.tm--night {
+  --tm-win: #0b1020; --tm-side: #121932; --tm-line: #2a3563; --tm-text: #e8ecff; --tm-accent: #ffd76a; --tm-frame: #2b3772;
+  --tm-board: radial-gradient(#ffffffb0 0.8px, transparent 1.3px) 0 0 / 23px 19px, linear-gradient(180deg, #1b2452, #16204a);
+  --tm-board-text: #e8ecff; --tm-note: #fff176; --tm-note2: #a5d2fa;
+  --tm-desk: linear-gradient(180deg, #3b2a20, #2a1d15); --tm-desk-text: #ffe7b0;
+}
+
+.tm--night .tm-stage i:nth-child(1) {
+  background: radial-gradient(#ffffffd8 1px, transparent 1.6px) 0 0 / 47px 41px, radial-gradient(#fff3c4 1.2px, #ffd76a66 2px, transparent 3px) 13px 21px / 61px 53px;
+  animation: fx-twinkle 2.4s ease-in-out infinite;
+}
+
+.tm--day {
+  --tm-win: #fbfaf6; --tm-side: #f3efe4; --tm-line: #d9d0ba; --tm-text: #2a2620; --tm-accent: #1a6cc9; --tm-frame: #d8b98a;
+  --tm-board: radial-gradient(#00000014 0.8px, transparent 1.2px) 0 0 / 6px 6px, #d4a366; --tm-board-text: #3a2610;
+  --tm-note: #fff176; --tm-note2: #a5d2fa; --tm-desk: linear-gradient(180deg, #e0bf8b, #c9a06a); --tm-desk-text: #3a2610;
+}
+
+.tm--day .tm-note::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #e0453a;
+  box-shadow: 0 1px 2px #0006;
+}
+
+.tm--day .tm-stage i:nth-child(1) {
+  inset: -30%;
+  background: conic-gradient(from 205deg at 82% 8%, #ffd98a55, transparent 8%, #ffd98a3a 13%, transparent 20%);
+  transform-origin: 82% 8%;
+  animation: fx-sway 10s ease-in-out infinite alternate;
+}
+
+.tm--spring {
+  --tm-win: #fff8fa; --tm-side: #fdeef3; --tm-line: #efc6d4; --tm-text: #3a2830; --tm-accent: #c2386b; --tm-frame: #e9c9a8;
+  --tm-board: #fdeaf0; --tm-board-text: #5a3040; --tm-note: #fff176; --tm-note2: #ffb3c1;
+  --tm-desk: linear-gradient(180deg, #eed3b3, #dcb88f); --tm-desk-text: #4a3020;
+}
+
+.tm--spring .tm-note::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 30%;
+  width: 30px;
+  height: 8px;
+  background: #f7b4c9cc;
+  transform: rotate(-4deg);
+}
+
+.tm--spring .tm-stage i:nth-child(1) {
+  background: radial-gradient(ellipse 4px 2.4px, #f49ab8c0 55%, transparent 72%) 0 0 / 70px 60px;
+  animation: fx-fall-a 9s linear infinite;
+}
+
+.tm--winter {
+  --tm-win: #f5f9fd; --tm-side: #e9f1fa; --tm-line: #bcd2ea; --tm-text: #1d2b3a; --tm-accent: #2a74c2; --tm-frame: #ffffff;
+  --tm-board: radial-gradient(#ffffffd0 1.2px, transparent 1.8px) 0 0 / 17px 15px, linear-gradient(180deg, #c7def4, #b1cfee);
+  --tm-board-text: #1d2b3a; --tm-note: #ffffff; --tm-note2: #ffffff;
+  --tm-desk: linear-gradient(180deg, #c8423a, #a8322b); --tm-desk-text: #ffffff;
+}
+
+.tm--winter .tm-stage i:nth-child(1) {
+  background: radial-gradient(#ffffff 1.4px, #a9c9ea 2px, transparent 2.6px) 0 0 / 38px 34px;
+  animation: fx-snow-a 8s linear infinite;
+}
+
+/* 金魚: ボードは水そう（黒いふち）。中を金魚が泳ぐ。机は縁側で、風鈴がゆれる */
+.tm--kingyo {
+  --tm-win: #ffffff; --tm-side: #fef1e1; --tm-line: #efdcc4; --tm-text: #262222; --tm-accent: #ff4d5a; --tm-frame: #262222;
+  --tm-board: repeating-radial-gradient(circle at 72% 78%, transparent 0 16px, #26222209 16px 17px), radial-gradient(ellipse at 28% 18%, #ffffff, #fff6ec 55%, #fdecd9);
+  --tm-board-text: #262222; --tm-note: #ffffff; --tm-note2: #ffffff;
+  --tm-desk: repeating-linear-gradient(90deg, #d9b98e 0 44px, #c9a57a 44px 46px); --tm-desk-text: #3a2610;
+}
+
+.tm--kingyo .tm-board {
+  border-width: 3px;
+  border-radius: 14px;
+}
+
+.tm--kingyo .tm-note {
+  border: 1px solid #eddcc6;
+  box-shadow: inset 3px 0 0 #ff4d5a, 0 3px 6px #26222226;
+}
+
+.tm--kingyo .tm-stage i:nth-child(1) {
+  background: radial-gradient(#ffffff 1.6px, #e8d5bd 2.1px, transparent 2.6px) 0 0 / 60px 80px;
+  animation: fx-rise-a 10s linear infinite;
+}
+
+.tm-fish {
+  position: absolute;
+  z-index: 1;
+  top: 62%;
+  left: 12%;
+  width: 34px;
+  height: 18px;
+  background: var(--fish-red) center / contain no-repeat;
+  animation: tm-fish 7s ease-in-out infinite;
+}
+
+.tm-fish.f2 {
+  top: 80%;
+  left: 40%;
+  background-image: var(--fish-black);
+  animation-duration: 9s;
+  animation-delay: -3s;
+}
+
+.tm-fish.f3 {
+  top: 70%;
+  left: 20%;
+  background-image: var(--fish-sarasa);
+  animation-duration: 8s;
+  animation-delay: -1.5s;
+}
+
+@keyframes tm-fish {
+  0% { transform: translateX(0) scaleX(1); }
+  46% { transform: translateX(110px) scaleX(1); }
+  50% { transform: translateX(110px) scaleX(-1); }
+  96% { transform: translateX(0) scaleX(-1); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+.tm-furin {
+  width: 16px;
+  height: 36px;
+  align-self: flex-start;
+  background: var(--furin) center top / contain no-repeat;
+  transform-origin: 50% 0;
+  animation: kingyo-furin 2.6s ease-in-out infinite alternate;
+}
+
+/* ===== はじめに見た目を選ぶ（ThemePicker）: 選ぶ画面と同じ作り。後ろは、そのテーマの舞台（動く背景）が透けて見える ===== */
+.picker.tp {
+  background: transparent;
+}
+
+.picker.tp::before {
+  display: none;
+}
+
+.tp-steps {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.tp-steps span {
+  padding: 3px 10px;
+  border: 1px solid var(--picker-card-line);
+  border-radius: 999px;
+  background: var(--picker-chip);
+  color: var(--picker-muted);
+}
+
+.tp-steps span.on {
+  border-color: var(--picker-accent);
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
+  font-weight: 800;
+}
+
+.tp .picker-title {
+  margin-top: clamp(12px, 4vh, 40px);
+}
+
+.tp-sub {
+  position: relative;
+  margin-top: 6px;
+  color: var(--picker-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.tp-sub b {
+  color: var(--picker-text);
+}
+
+.tp .picker-deck {
+  min-height: 460px;
+}
+
+.picker-card.tp-card {
+  width: min(620px, 78vw);
+  height: auto;
+  padding: 16px 16px 14px;
+}
+
+.tp-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.tp-name {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+:root[data-theme="quest"] .tp-name {
+  font-family: var(--font-mincho);
+}
+
+.tp-foot small {
+  display: block;
+  max-width: 400px;
+  margin-top: 2px;
+  color: var(--picker-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tp-foot .picker-open {
+  flex: none;
+  margin-left: auto;
+}
+
+/* 設定 → 表示 のテーマのカード: 選んでいるカードと、マウスを乗せたカードだけ動く */
+.theme-card .tm {
+  border-radius: 10px;
+}
+
+.theme-card:not(.on):not(:hover) .tm * {
+  animation-play-state: paused !important;
 }

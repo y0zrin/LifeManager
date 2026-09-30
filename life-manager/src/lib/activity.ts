@@ -5,6 +5,7 @@ import type { GitHubIssue } from "./types";
 import type { Verdicts } from "./pulls";
 import type { CheckSummary, Stack } from "./actions";
 import { daysUntil, dueOf } from "./due";
+import { countOf } from "./count";
 
 export interface ActivityEvent {
   id: string;
@@ -206,7 +207,7 @@ export function buildTodos(o: {
     if (!same(p.user, me)) continue;
     const ck = o.checks[p.head_sha];
     if (ck && ck.failure > 0) {
-      out.push({ key: `checks:${p.number}:${p.head_sha}`, icon: "✖", tone: "ng", parts: ["あなたのプルリク ", pr(p), ` のチェックが ${ck.failure} つ失敗しています`], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 0 });
+      out.push({ key: `checks:${p.number}:${p.head_sha}`, icon: "✖", tone: "ng", parts: ["あなたのプルリク ", pr(p), ` のチェックが ${countOf(ck.failure, "件")}失敗しています`], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 0 });
     }
     const v = o.verdicts[String(p.number)];
     if (v && v.changes_requested.length > 0) {

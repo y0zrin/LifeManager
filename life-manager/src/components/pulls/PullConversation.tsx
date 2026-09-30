@@ -9,6 +9,7 @@ import {
   type PullFile,
   type ReviewEvent,
 } from "../../lib/pulls";
+import { countOf } from "../../lib/count";
 
 interface PullConversationProps {
   owner: string;
@@ -122,7 +123,7 @@ export function PullConversation(props: PullConversationProps) {
     if (item.kind === "commits") {
       return (
         <div key={i} className="pr-commits">
-          {line("●", <>{item.commits.length} つのコミットを足しました</>, item.at)}
+          {line("●", <>{countOf(item.commits.length, "件")}のコミットを足しました</>, item.at)}
           <ul>
             {item.commits.map((c) => (
               <li key={c.sha}>

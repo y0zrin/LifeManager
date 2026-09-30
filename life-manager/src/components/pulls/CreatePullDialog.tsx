@@ -15,6 +15,7 @@ import {
   type PullSummary,
 } from "../../lib/pulls";
 import { PullFiles } from "./PullFiles";
+import { countOf } from "../../lib/count";
 
 interface CreatePullDialogProps {
   owner: string;
@@ -39,6 +40,9 @@ interface CreatePullDialogProps {
 function template(issue: number | null) {
   return `${issue !== null ? `Closes #${issue}\n\n` : ""}## 何を変えたか\n- \n\n## どう確かめたか\n- \n`;
 }
+
+/** 行の数がないファイル（画像・音・3D・フォント・圧縮など） */
+const BINARY = /\.(png|jpe?g|gif|bmp|webp|ico|psd|tga|dds|exr|hdr|wav|mp3|ogg|flac|m4a|fbx|obj|glb|gltf|blend|uasset|umap|ttf|otf|woff2?|zip|7z|rar|gz|exe|dll|pdb|lib|a|so|dylib|unitypackage|asset|mp4|mov|pdf)$/i;
 
 /** ＋ プルリクを作る: どのブランチを、どこに入れたいか。作る前に、入るコミットと変更を見られる */
 export function CreatePullDialog(props: CreatePullDialogProps) {
@@ -144,6 +148,9 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
   const canCreate = !!head && !!base && head !== base && title.trim() !== "" && !already && !noDiff && !busy;
   const added = cmp?.files.reduce((n, f) => n + f.additions, 0) ?? 0;
   const deleted = cmp?.files.reduce((n, f) => n + f.deletions, 0) ?? 0;
+  // 差分が大きいと、GitHub の比べる API は一部のファイルの行の数を 0 で返す（差分の本文もない）。
+  // そのときは「以上」を付ける（正しい数は、作ったあとのプルリクに出る）。画像などは、もともと行の数がない
+  const uncounted = cmp?.files.filter((f) => f.additions + f.deletions === 0 && !f.patch && f.status !== "renamed" && !BINARY.test(f.filename)).length ?? 0;
 
   async function submit(button: HTMLElement) {
     setBusy(true);
@@ -216,9 +223,10 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
               <>
                 <div className="pr-dialog-summary">
                   <span>
-                    <b>{cmp.ahead_by}</b> コミット・<b>{cmp.files.length}</b> ファイル <span className="add">+{added}</span> <span className="del">−{deleted}</span>
+                    <b>{cmp.ahead_by}</b> コミット・<b>{cmp.files.length}</b> ファイル <span className="add">+{added}{uncounted > 0 && " 以上"}</span> <span className="del">−{deleted}{uncounted > 0 && " 以上"}</span>
                   </span>
-                  {cmp.behind_by > 0 && <span className="muted">（{base} には、このブランチに無いコミットが {cmp.behind_by} つあります）</span>}
+                  {cmp.behind_by > 0 && <span className="muted">（{base} には、このブランチに無いコミットが {countOf(cmp.behind_by, "件")}あります）</span>}
+                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません。正しい数は、作ったあとに出ます）</span>}
                   <span className="grow" />
                   <button type="button" className="btn-sm" onClick={() => setShowDiff((v) => !v)} aria-expanded={showDiff}>
                     {showDiff ? "差分をたたむ ▴" : "変更を見る ▾"}
@@ -286,8 +294,9 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
             ))}
           </div>
         )}
-        <label className="pr-dialog-draft">
-          <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> 下書きにする（まだ見てほしくないとき。マージもできません）
+        <label className="chk pr-dialog-draft">
+          <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
+          <span>下書きにする（まだ見てほしくないとき。マージもできません）</span>
         </label>
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">

@@ -12565,6 +12565,12 @@ html.vt-tab .pr-tab-body {
   color: var(--text-secondary);
   font-size: var(--font-sm);
 }
+/* 「下書きにする」はダイアログの直下の label なので、欄の見出しの縦並び（.pr-dialog > label）を打ち消して、箱と言葉を横に並べる */
+.pr-dialog > label.pr-dialog-draft {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
 
 /* 作業の流れ（8 段）: 狭いときは 2 行に */
 .w-flow-warn {

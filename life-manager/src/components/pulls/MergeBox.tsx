@@ -46,10 +46,18 @@ function loadMethod(): MergeMethod {
   }
 }
 
+/**
+ * 長く残すブランチ（版の名前 0.9.0・v1.2・release/1.0、develop など）。マージしたあとも残すことが多いので、
+ * 「マージしたらブランチを消す」を、はじめは外しておく（作業のブランチ issue-3・feature/… は、はじめから消す）
+ */
+export function keepsBranch(name: string): boolean {
+  return /^v?\d+(\.\d+)+(-[\w.]+)?$/i.test(name) || /^(release|releases|hotfix)\//i.test(name) || /^(develop|development|dev|staging|production|master|main|gh-pages)$/i.test(name);
+}
+
 /** マージの箱（会話のいちばん下）。マージできるか・レビューの判断・マージの仕方・閉じる。マージしたあとは、ブランチの片づけ */
 export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChanged, onMerged, onFixLocally, checks, onOpenCheck }: MergeBoxProps) {
   const [method, setMethodState] = useState<MergeMethod>(loadMethod);
-  const [deleteBranch, setDeleteBranch] = useState(true);
+  const [deleteBranch, setDeleteBranch] = useState(() => !keepsBranch(pull.head));
   const [confirming, setConfirming] = useState<"merge" | "close" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -319,6 +327,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
               <label className="mb-check">
                 <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />
                 マージしたら GitHub のブランチ <code>{pull.head}</code> を消す（あとで戻せます）
+                {keepsBranch(pull.head) && <span className="muted">　版やリリースのブランチなので、はじめは残す方にしています</span>}
               </label>
             ))}
           {closes.length > 0 && <p className="mb-closes">🔗 マージすると {closes.map((n) => `#${n}`).join("・")} も閉じます（本文の Closes）</p>}

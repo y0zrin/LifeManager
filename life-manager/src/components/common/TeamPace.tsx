@@ -7,6 +7,7 @@ import {
   type PaceMode, type VelocityEntry,
 } from "../../lib/sprint";
 import { useEstimateUnit } from "./EstimateChip";
+import { countOf } from "../../lib/count";
 
 /** サイクルタイムを読む Issue の数（新しく閉じた順） */
 const MAX_FLOW = 40;
@@ -128,7 +129,7 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
     <section className="pace" aria-label="チームのペース">
       <div className="pace-head">
         <b>🏃 チームのペース</b>
-        <span className="pace-scope">終わったマイルストーンから{entries.length > 0 ? `（最近 ${entries.length} つ）` : ""}</span>
+        <span className="pace-scope">終わったマイルストーンから{entries.length > 0 ? `（最近 ${countOf(entries.length, "個")}）` : ""}</span>
         <span className="pace-mode" role="group" aria-label="数え方">
           {(["estimate", "count"] as PaceMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => onModeChange(m)}>
@@ -142,7 +143,7 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
         <p className="pace-note">
           {mode === "estimate" && finishedCount > 0 ? (
             <>
-              終わったマイルストーン（{finishedCount} つ）の Issue には、見積もりが付いていません。
+              終わったマイルストーン（{countOf(finishedCount, "個")}）の Issue には、見積もりが付いていません。
               <button type="button" className="link-button" onClick={() => onModeChange("count")}>件数で数える</button>
               と、終えた数とその平均が出ます。
             </>
@@ -165,7 +166,7 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
             </div>
             {avg !== null && (
               <p className="pace-note">
-                次のスプリントに入れる量の目安: <b className="pace-em">{fmt(avg)}</b>（最近 {values.length} つの平均。直近 {recent.length} つは {fmt(Math.min(...recent))}〜{fmt(Math.max(...recent))}）
+                次のスプリントに入れる量の目安: <b className="pace-em">{fmt(avg)}</b>（最近 {countOf(values.length, "個")}の平均。直近 {countOf(recent.length, "個")}は {fmt(Math.min(...recent))}〜{fmt(Math.max(...recent))}）
               </p>
             )}
           </div>

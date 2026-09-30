@@ -10,6 +10,7 @@ import { withTransition } from "../../lib/motion";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEnter } from "../../lib/keys";
 import { branchPull, type PullSummary } from "../../lib/pulls";
+import { countOf } from "../../lib/count";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
 export interface CommitDraft {
@@ -449,7 +450,7 @@ function Workspace({
         <>
           プルリク <b>#{pr.number}</b> を出しました。レビューしてもらい、よければマージします（ひとりなら、差分を自分で確かめてマージしてかまいません）。
           直すときは、このブランチでコミット・プッシュすると、プルリクに足されます。
-          {pr.checks && pr.checks.failure > 0 && <span className="w-flow-warn">✖ チェック（Actions のテストなど）が {pr.checks.failure} つ失敗しています。プルリクの「チェック」か Actions で、どこで失敗したかを見られます。</span>}
+          {pr.checks && pr.checks.failure > 0 && <span className="w-flow-warn">✖ チェック（Actions のテストなど）が {countOf(pr.checks.failure, "件")}失敗しています。プルリクの「チェック」か Actions で、どこで失敗したかを見られます。</span>}
         </>
       ) : null,
       8: direct ? (

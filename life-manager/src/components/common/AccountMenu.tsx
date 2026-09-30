@@ -50,6 +50,8 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
     }
   }, []);
   useEffect(() => {
+    // 別の人に切り替わったら、前の人の名前・期限を残さない（読み直せるまでは、名前だけ出す）
+    setReport((r) => (r && login && r.login.toLowerCase() !== login.toLowerCase() ? null : r));
     load();
   }, [load, login]);
 

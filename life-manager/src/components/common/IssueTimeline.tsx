@@ -120,7 +120,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
   // 「✅ 解決した」を送っている 🆘 のコメント
   const [resolving, setResolving] = useState<number | null>(null);
   // 🆘 は、あとに「解決しました」のコメントがあれば解決済み
-  const lastDone = comments.filter((c) => isHelpDone(c.body)).reduce((at, c) => (c.created_at > at ? c.created_at : at), "");
+  const lastDone = comments.filter((c) => !c._sending && !c._failed && isHelpDone(c.body)).reduce((at, c) => (c.created_at > at ? c.created_at : at), "");
 
   // Issue が変わったら（閉じた・ラベルを変えた など）読み直す。まだ送っていない Issue には履歴がない
   useEffect(() => {

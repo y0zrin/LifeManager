@@ -39,9 +39,18 @@ export function ImageView({ bytes, path, onInfo }: ImageViewProps) {
   function onLoad() {
     const img = imgRef.current;
     if (!img) return;
-    const w = img.naturalWidth;
-    const h = img.naturalHeight;
+    // 大きさの決まっていない SVG（width・height のないもの）は 0 になるので、仮の大きさで出す
+    const sized = img.naturalWidth > 0 && img.naturalHeight > 0;
+    const w = sized ? img.naturalWidth : 512;
+    const h = sized ? img.naturalHeight : 512;
     setSize({ w, h });
+    if (!sized) {
+      setGrid(defaultSprite(w, h));
+      setRange({ from: 1, to: 1 });
+      setScale(1);
+      onInfo?.("大きさの決まっていない画像");
+      return;
+    }
     const g = guessSprite(w, h);
     // 推測できなくても、ボタンでスプライトシートにしたときの分け方は用意しておく
     const start = g ?? defaultSprite(w, h);

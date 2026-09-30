@@ -4371,6 +4371,11 @@ button:hover {
   font-size: var(--font-xs);
 }
 
+/* スマホ: 右上の「移動」に、付箋の題名がかからないように */
+.bd-slot:has(> .bd-move) .bd-nt {
+  padding-right: 42px;
+}
+
 /* 付箋・依頼書（どの見た目でも同じところ） */
 .bd-note {
   position: relative;
@@ -19054,12 +19059,16 @@ html.stage-still .stage-fx .fx-shoot {
 }
 
 /* --- タブ: 丸いチップ。選んでいるものはアクセント（下のすべる線は出さない） --- */
+/* 幅が足りないとき（スマホ）は、字を 1 字ずつ折り返さずに、チップごと 2 段目へ */
 .settings-pane-tabs {
+  flex-wrap: wrap;
   gap: 8px;
   border-bottom: none;
 }
 
 .settings-pane-tab {
+  flex: none;
+  white-space: nowrap;
   border: 1.5px solid var(--panel-line);
   border-radius: 999px;
   background: var(--picker-chip);
@@ -20315,4 +20324,11 @@ html.stage-still .stage-fx .fx-shoot {
 
 .motion-reduced .sending-spin {
   animation-duration: 2.4s;
+}
+
+/* メディアビューワー: 外のアプリで開けなかったわけ（見出しの下に 1 行） */
+.mv-outside-note {
+  margin: 0;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-default);
 }

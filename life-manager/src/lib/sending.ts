@@ -38,7 +38,8 @@ export function useSendingCount(): number {
   return useSyncExternalStore(subscribeCount, () => count);
 }
 
-// --- 手元のコメント（送っている・送れなかった）。Issue の詳細を閉じても残り、開き直すとまた出る。キーは「owner/repo#番号」 ---
+// --- 手元のコメント（送っている・送れなかった・送れたが、まだ読み直した一覧に入っていない）。
+//     Issue の詳細を閉じても残り、開き直すとまた出る。キーは「ログイン@owner/repo#番号」（PC を共有して、別の人が開いても出ない） ---
 
 const localComments = new Map<string, GitHubComment[]>();
 const commentListeners = new Set<() => void>();
@@ -67,6 +68,18 @@ export function dropLocalComment(key: string, id: number) {
   const list = localComments.get(key);
   if (!list) return;
   const next = list.filter((x) => x.id !== id);
+  if (next.length > 0) localComments.set(key, next);
+  else localComments.delete(key);
+  emitComments();
+}
+
+/** 読み直した一覧に入った、送れたコメントを外す（fresh は、読んだコメントの id） */
+export function pruneLocalComments(key: string, fresh: number[]) {
+  const list = localComments.get(key);
+  if (!list) return;
+  const have = new Set(fresh);
+  const next = list.filter((c) => !(c._sent && have.has(c.id)));
+  if (next.length === list.length) return;
   if (next.length > 0) localComments.set(key, next);
   else localComments.delete(key);
   emitComments();

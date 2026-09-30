@@ -101,7 +101,7 @@ export function IssueCard({
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
           {picking && (
-            <input type="checkbox" className="issue-card-pick" checked={picked}
+            <input type="checkbox" className="issue-card-pick" checked={picked} disabled={unsent}
               onChange={() => onTogglePick?.(issue.number)} aria-label={`${issueRef(issue.number)} を選ぶ`} />
           )}
           <span className="issue-card-number">{issueRef(issue.number)}</span>

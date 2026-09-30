@@ -105,7 +105,10 @@ interface DashboardViewProps {
   /** Issue テンプレート（.github/ISSUE_TEMPLATE）を読む・置く */
   onListTemplates: () => Promise<IssueTemplate[]>;
   onAddTemplates: (templates: IssueTemplate[]) => Promise<IssueTemplate[]>;
-  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
+  onCreateIssue: (
+    title: string, body: string, labels: string[], milestone: number | null, assignees?: string[],
+    extra?: { prepare?: () => Promise<void>; onCreated?: (n: number) => Promise<void> | void },
+  ) => Promise<number>;
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
@@ -168,7 +171,7 @@ export function DashboardView({
     if (issueTitle.length < 2) return [];
     const q = issueTitle.toLowerCase();
     return [...issues, ...closedIssues]
-      .filter(i => i.title.toLowerCase().includes(q))
+      .filter(i => !isSending(i.number) && i.title.toLowerCase().includes(q))
       .slice(0, 5);
   }, [issueTitle, issues, closedIssues]);
 
@@ -288,16 +291,15 @@ export function DashboardView({
     setIssueGanttEnd("");
     setAppliedTemplate(null);
     setTemplateNote(null);
-    // バックグラウンドで作成（見積もりのラベルは、なければ先に作って色をそろえる）
-    if (estimate) await onEnsureEstimateLabel(estimate);
-    let issueNumber = 0;
+    // すぐ一覧に「送っています…」で出して、後ろで送る。見積もりのラベルは、なければ送る前に作って色をそろえる。
+    // リマインダーは、届いて番号が付いたら付ける（送れなかったあとの「もう一度」で届いたときも）
     try {
-      issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
+      await onCreateIssue(title, body, labels, milestone, assignees, {
+        prepare: estimate ? () => onEnsureEstimateLabel(estimate) : undefined,
+        onCreated: reminderDt && reminderCh.length > 0 ? (n) => onAddReminder(n, title, reminderDt, reminderCh) : undefined,
+      });
     } catch {
-      return; // 送れなかった Issue は、一覧に「送れませんでした」で残る（「もう一度」「やめる」）
-    }
-    if (reminderDt && reminderCh.length > 0 && issueNumber) {
-      await onAddReminder(issueNumber, title, reminderDt, reminderCh);
+      // 送れなかった Issue は、一覧に「送れませんでした」で残る（「もう一度」「やめる」）
     }
   }
 
@@ -504,7 +506,8 @@ export function DashboardView({
   };
 
 
-  const pickedIssues = allIssues.filter((i) => picked.has(i.number));
+  // 送っている途中の仮の Issue は、まとめて変える相手にしない（GitHub にまだ番号がない）
+  const pickedIssues = allIssues.filter((i) => picked.has(i.number) && !isSending(i.number));
 
   async function runBulk(action: BulkAction) {
     if (action.kind === "estimate" && action.value !== null) await onEnsureEstimateLabel(action.value);
@@ -835,7 +838,7 @@ export function DashboardView({
           busy={bulkBusy}
           message={bulkDone}
           onRun={runBulk}
-          onSelectAll={() => { setBulkDone(null); setPicked(new Set(rows.map((r) => r.issue.number))); }}
+          onSelectAll={() => { setBulkDone(null); setPicked(new Set(rows.map((r) => r.issue.number).filter((n) => !isSending(n)))); }}
           onQuit={quitPicking}
         />
       )}

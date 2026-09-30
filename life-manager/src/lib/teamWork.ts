@@ -23,6 +23,16 @@ export const TEAM_PARTS: { key: keyof TeamTotals; icon: string; label: string }[
   { key: "releases", icon: "🏷", label: "リリース" },
 ];
 
+/** 読めなかった数（null。問い合わせの 1 つが時間切れなど）は、前に見た数で埋める。一時的に読めなかっただけで、合計が減って見え、
+ *  次に読めたときに「+400」「1,000 に届きました」とまちがえないように */
+export function fillMissing(t: TeamTotals, before: TeamTotals | null | undefined): TeamTotals {
+  const out = { ...t };
+  for (const p of TEAM_PARTS) {
+    if (out[p.key] === null && before && typeof before[p.key] === "number") out[p.key] = before[p.key];
+  }
+  return out;
+}
+
 export function sumTotals(t: TeamTotals): number {
   return TEAM_PARTS.reduce((sum, p) => sum + (t[p.key] ?? 0), 0);
 }

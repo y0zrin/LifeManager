@@ -281,7 +281,7 @@ fn first_chars(v: &Value, n: usize) -> Value {
     json!(v.as_str().unwrap_or("").chars().take(n).collect::<String>())
 }
 
-/// 🆘 のコメント（「助けを求める」とその解決）の印。本文の終わりにあるので、これがあれば本文を切らずに渡す
+/// 🆘 のコメント（「助けを求める」とその解決）の印。これがあれば本文を切らずに渡す（1.0 からは 2 行目、前は本文の終わり）
 const HELP_MARKS: [&str; 2] = ["<!-- lm:help -->", "<!-- lm:help-done -->"];
 /// 🆘 のコメントを渡すときの上限（困っていること・今のようす・git のメッセージ 20 行が入る長さ）
 const HELP_BODY_CHARS: usize = 6000;
@@ -293,6 +293,35 @@ fn comment_body(v: &Value, n: usize) -> Value {
         return first_chars(v, HELP_BODY_CHARS);
     }
     return first_chars(v, n);
+}
+
+/// 本文で「@名前」と呼ばれた人（小文字）。ふつうのコメントは頭の数文字しか渡さないので、呼んだかは本文まるごとから数えておく。
+/// メールアドレス（bob@alice.com）や、チームの呼び方（@org/team）は、人を呼んだとしない
+fn mentions_of(text: &str) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let name_char = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] != '@' {
+            i += 1;
+            continue;
+        }
+        let mut j = i + 1;
+        while j < chars.len() && name_char(chars[j]) {
+            j += 1;
+        }
+        let before_ok = i == 0 || !(name_char(chars[i - 1]) || matches!(chars[i - 1], '.' | '@' | '/'));
+        let after_ok = j >= chars.len() || chars[j] != '/';
+        if before_ok && after_ok && j > i + 1 {
+            let name = chars[i + 1..j].iter().collect::<String>().to_lowercase();
+            if !out.contains(&name) {
+                out.push(name);
+            }
+        }
+        i = j.max(i + 1);
+    }
+    return out;
 }
 
 /// リポジトリで起きたこと 1 つを、画面で文にしやすい形にする
@@ -321,6 +350,7 @@ fn compact_event(e: &Value) -> Value {
             out["merged"] = json!(pr["merged"].as_bool().unwrap_or(false) || !pr["merged_at"].is_null() || p["action"] == "merged");
             out["review_state"] = p["review"]["state"].clone();
             out["body"] = comment_body(&p["comment"]["body"], 120);
+            out["mentions"] = json!(mentions_of(p["comment"]["body"].as_str().unwrap_or("")));
         }
         "IssuesEvent" | "IssueCommentEvent" => {
             let i = &p["issue"];
@@ -331,6 +361,12 @@ fn compact_event(e: &Value) -> Value {
             out["assignee"] = p["assignee"]["login"].clone();
             out["label"] = p["label"]["name"].clone();
             out["body"] = comment_body(&p["comment"]["body"], 200);
+            out["mentions"] = json!(mentions_of(p["comment"]["body"].as_str().unwrap_or("")));
+            // コメントは、コメントの番号で呼ぶ（最近のコメントの一覧から拾ったものと同じ id にして、知らせを二重にしない）
+            if kind == "IssueCommentEvent" && !p["comment"]["id"].is_null() {
+                out["comment_id"] = p["comment"]["id"].clone();
+                out["id"] = json!(format!("c{}", p["comment"]["id"]));
+            }
         }
         "CreateEvent" | "DeleteEvent" => {
             out["ref_type"] = p["ref_type"].clone();
@@ -349,12 +385,58 @@ fn compact_event(e: &Value) -> Value {
     out
 }
 
-/// アクティビティ: リポジトリで起きたこと（100 件）と、開いているプルリク（「あなたがすること」のもと）
+/// 最近のコメントの一覧の 1 つを、リポジトリで起きたこと（IssueCommentEvent）と同じ形に（題名は来ないので、画面で番号から足す）
+fn compact_comment(c: &Value) -> Value {
+    let number = c["issue_url"].as_str().and_then(|u| u.rsplit('/').next()).and_then(|n| n.parse::<u64>().ok());
+    let body = c["body"].as_str().unwrap_or("");
+    return json!({
+        "id": format!("c{}", c["id"]),
+        "comment_id": c["id"],
+        "type": "IssueCommentEvent",
+        "actor": c["user"]["login"],
+        "at": c["created_at"],
+        "action": "created",
+        "number": number,
+        "title": null,
+        "pull": c["html_url"].as_str().is_some_and(|u| u.contains("/pull/")),
+        "body": comment_body(&c["body"], 200),
+        "mentions": mentions_of(body),
+    });
+}
+
+/// 最近のコメントのうち、リポジトリで起きたことにまだ来ていないものを足して、新しい順に並べ直す
+fn merge_recent_comments(events: &mut Vec<Value>, comments: &Value) {
+    let Some(list) = comments.as_array() else { return };
+    let known: std::collections::HashSet<String> = events.iter().filter_map(|e| e["comment_id"].as_u64().map(|n| n.to_string())).collect();
+    let mut added = false;
+    for c in list {
+        let Some(id) = c["id"].as_u64() else { continue };
+        if known.contains(&id.to_string()) {
+            continue;
+        }
+        events.push(compact_comment(c));
+        added = true;
+    }
+    if added {
+        // 時刻はどちらも GitHub の「…Z」なので、文字のままくらべてよい
+        events.sort_by(|a, b| b["at"].as_str().unwrap_or("").cmp(a["at"].as_str().unwrap_or("")));
+    }
+}
+
+/// アクティビティ: リポジトリで起きたこと（100 件）と、開いているプルリク（「あなたがすること」のもと）。
+/// 名前を呼ばれた・🆘 が遅れないよう、最近 14 日のコメント（50 件）も読んで足す
 #[tauri::command]
 pub async fn activity_feed(state: ClientState<'_>, owner: String, repo: String) -> Result<Value, String> {
     let client = client_of(&state).await?;
-    let (events, pulls) = tokio::join!(client.list_repo_events(&owner, &repo), client.list_open_pulls(&owner, &repo));
+    let since = (chrono::Utc::now() - chrono::Duration::days(14)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let (events, pulls, comments) = tokio::join!(
+        client.list_repo_events(&owner, &repo),
+        client.list_open_pulls(&owner, &repo),
+        client.list_recent_issue_comments(&owner, &repo, &since)
+    );
     let events = parse(&events.map_err(|e| explain(&e, "リポジトリで起きたことを読むこと"))?)?;
+    // コメントを読めなかったとき（権限など）は、リポジトリで起きたことだけで
+    let comments = comments.ok().and_then(|t| parse(&t).ok()).unwrap_or(Value::Null);
     // プルリクの権限がなければ null（そのときは、プルリクの「あなたがすること」は出さない）
     let pulls = pulls.ok().and_then(|t| parse(&t).ok()).map(|v| {
         v.as_array()
@@ -376,6 +458,7 @@ pub async fn activity_feed(state: ClientState<'_>, owner: String, repo: String) 
             .unwrap_or_default()
     });
     let mut events: Vec<Value> = events.as_array().map(|a| a.iter().map(compact_event).collect()).unwrap_or_default();
+    merge_recent_comments(&mut events, &comments);
     let open = pulls.as_deref().unwrap_or(&[]);
     let untitled = untitled_pulls(&owner, &repo, &events, open);
     tokio::join!(fill_push_commits(&client, &owner, &repo, &mut events), fetch_pull_titles(&client, &owner, &repo, untitled));
@@ -503,6 +586,38 @@ mod tests {
         let plain = json!({ "id": "2", "type": "IssueCommentEvent", "actor": { "login": "a" }, "created_at": "2026-10-01T00:00:00Z",
             "payload": { "action": "created", "issue": { "number": 3, "title": "t" }, "comment": { "body": "い".repeat(400) } } });
         assert_eq!(compact_event(&plain)["body"].as_str().unwrap().chars().count(), 200);
+    }
+
+    #[test]
+    fn adds_recent_comments_not_yet_in_events() {
+        // リポジトリで起きたことに来ているコメント（番号 11）と、まだ来ていないコメント（番号 12・プルリクの会話）
+        let e = json!({ "id": "900", "type": "IssueCommentEvent", "actor": { "login": "a" }, "created_at": "2026-10-01T01:00:00Z",
+            "payload": { "action": "created", "issue": { "number": 3, "title": "t" }, "comment": { "id": 11, "body": "@b 見て" } } });
+        let mut events = vec![compact_event(&e)];
+        assert_eq!(events[0]["id"], json!("c11"));
+        let comments = json!([
+            { "id": 12, "user": { "login": "c" }, "created_at": "2026-10-01T02:00:00Z", "body": "@B お願いします",
+              "issue_url": "https://api.github.com/repos/o/r/issues/7", "html_url": "https://github.com/o/r/pull/7#issuecomment-12" },
+            { "id": 11, "user": { "login": "a" }, "created_at": "2026-10-01T01:00:00Z", "body": "@b 見て",
+              "issue_url": "https://api.github.com/repos/o/r/issues/3", "html_url": "https://github.com/o/r/issues/3#issuecomment-11" }
+        ]);
+        merge_recent_comments(&mut events, &comments);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0]["id"], json!("c12"));
+        assert_eq!(events[0]["number"], json!(7));
+        assert_eq!(events[0]["pull"], json!(true));
+        assert_eq!(events[0]["mentions"], json!(["b"]));
+        assert_eq!(events[1]["id"], json!("c11"));
+    }
+
+    #[test]
+    fn counts_mentions_from_the_whole_comment() {
+        let body = format!("{}\n最後に @Alice さん、見てください。bob@carol.com・git@dave.github.io・@org/team・@eve_x、@frank-2", "い".repeat(400));
+        let e = json!({ "id": "3", "type": "IssueCommentEvent", "actor": { "login": "a" }, "created_at": "2026-10-01T00:00:00Z",
+            "payload": { "action": "created", "issue": { "number": 3, "title": "t" }, "comment": { "body": body } } });
+        let out = compact_event(&e);
+        assert_eq!(out["mentions"], json!(["alice", "eve_x", "frank-2"]));
+        assert_eq!(out["body"].as_str().unwrap().chars().count(), 200);
     }
 
     #[test]

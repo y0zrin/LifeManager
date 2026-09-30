@@ -64,6 +64,9 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bytes]);
 
+  // 波形の山（音と幅が同じあいだは、計算し直さない。再生中は毎コマ描くので）
+  const peaksCache = useRef<{ src: AudioBuffer; bars: number; peaks: number[]; max: number } | null>(null);
+
   // 波形を描く（今の位置まで明るく）
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -71,18 +74,22 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
+    // 大きさが変わったときだけ、キャンバスを作り直す
+    if (canvas.width !== Math.round(w * dpr)) canvas.width = Math.round(w * dpr);
+    if (canvas.height !== Math.round(h * dpr)) canvas.height = Math.round(h * dpr);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const css = getComputedStyle(canvas);
     const played = css.getPropertyValue("--mv-wave-played").trim() || "#58a6ff";
     const rest = css.getPropertyValue("--mv-wave").trim() || "#58a6ff66";
     const head = css.getPropertyValue("--mv-wave-head").trim() || "#ffd33d";
     const bars = Math.max(50, Math.floor(w / 3));
-    const peaks = peaksOf(decoded, bars);
-    const max = Math.max(0.01, ...peaks);
+    if (!peaksCache.current || peaksCache.current.src !== decoded || peaksCache.current.bars !== bars) {
+      const p = peaksOf(decoded, bars);
+      peaksCache.current = { src: decoded, bars, peaks: p, max: Math.max(0.01, ...p) };
+    }
+    const { peaks, max } = peaksCache.current;
     const at = decoded.duration > 0 ? time / decoded.duration : 0;
     ctx.clearRect(0, 0, w, h);
     peaks.forEach((p, i) => {

@@ -114,10 +114,15 @@ fn from_github_commit(v: &Value) -> Option<LocalCommit> {
     })
 }
 
+/// コミットの時刻を、くらべられる数に（この PC の git は「…+09:00」、GitHub は「…Z」で来るので、文字のままではくらべない。読めなければ 0）
+fn instant(date: &str) -> i64 {
+    return chrono::DateTime::parse_from_rfc3339(date).map(|d| d.timestamp()).unwrap_or(0);
+}
+
 /// コミットごとの変わったファイルを、ファイルごとにまとめる（いちばん新しく変えたコミットのものを残す）
 pub fn merge_files(commits: &[(LocalCommit, Option<u64>)]) -> Vec<ArtifactFile> {
     let mut sorted: Vec<&(LocalCommit, Option<u64>)> = commits.iter().collect();
-    sorted.sort_by(|a, b| a.0.date.cmp(&b.0.date));
+    sorted.sort_by_key(|a| instant(&a.0.date));
     let mut map: BTreeMap<String, ArtifactFile> = BTreeMap::new();
     for (c, _) in sorted {
         for f in &c.files {
@@ -207,7 +212,7 @@ pub async fn issue_artifacts(state: ClientState<'_>, owner: String, repo: String
         listed.push(ArtifactCommit { sha: commit.sha.clone(), message: commit.message.clone(), author: commit.author.clone(), date: commit.date.clone(), pull, local: is_local });
         commits.push((commit, pull));
     }
-    listed.sort_by(|a, b| b.date.cmp(&a.date));
+    listed.sort_by_key(|c| std::cmp::Reverse(instant(&c.date)));
     let files = merge_files(&commits);
     Ok(Artifacts { commits: listed, files })
 }
@@ -269,5 +274,14 @@ mod tests {
         let cpp = files.iter().find(|f| f.path == "new.cpp").unwrap();
         assert_eq!(cpp.commits, 2);
         assert!(files.iter().all(|f| f.path != "old.cpp"));
+    }
+
+    #[test]
+    fn compares_times_across_time_zones() {
+        let file = ChangedFile { path: "a.png".into(), status: "modified".into(), previous: None, additions: None, deletions: None };
+        let commit = |sha: &str, date: &str| LocalCommit { sha: sha.into(), message: "m".into(), author: "a".into(), date: date.into(), files: vec![file.clone()] };
+        // 仲間の 14:00（日本）= 05:00Z は、自分の 13:00+09:00 より新しい
+        let commits = vec![(commit("mine", "2026-09-30T13:00:00+09:00"), None), (commit("theirs", "2026-09-30T05:00:00Z"), None)];
+        assert_eq!(merge_files(&commits)[0].sha, "theirs");
     }
 }

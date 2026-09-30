@@ -22,6 +22,10 @@ export interface ActivityEvent {
   merged?: boolean;
   review_state?: string | null;
   body?: string | null;
+  /** コメントで「@名前」と呼ばれた人（小文字。本文まるごとから数えたもの。body は頭しかないことがある） */
+  mentions?: string[] | null;
+  /** コメントの番号（コメントは id も「c番号」。最近のコメントの一覧から拾ったものと、同じものになる） */
+  comment_id?: number | null;
   pull?: boolean;
   state_reason?: string | null;
   assignee?: string | null;
@@ -238,14 +242,26 @@ export function buildTodos(o: {
     out.push({ key: `run:${c.key}:${c.run.id}`, icon: "✖", tone: "ng", parts: [`${c.run.branch} の ${c.run.name} が失敗しています（あなたのプッシュ）`], at: c.run.created_at, target: { kind: "run", runId: c.run.id }, order: 5 });
   }
 
-  const mention = new RegExp(`@${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`, "i");
+  // 名前を呼ばれたか: GitHub から読んだものは、本文まるごとから数えた mentions で。ないときは本文から
+  // （メールアドレス bob@alice.com や、チームの @org/team は、人を呼んだとしない）
+  const meLower = me.toLowerCase();
+  const mention = new RegExp(`(?<![\\w/.@-])@${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w/-])`, "i");
+  const mentionsMe = (e: ActivityEvent) => (e.mentions ? e.mentions.includes(meLower) : !!e.body && mention.test(e.body));
+  // 🆘 が、あとの「解決しました」で片付いているか（Issue ごとの、いちばん新しい解決の時刻）
+  const doneAt = new Map<number, string>();
+  for (const e of o.events) {
+    if (e.type === "IssueCommentEvent" && e.number && e.body?.includes(HELP_DONE_MARK) && (doneAt.get(e.number) ?? "") < e.at) doneAt.set(e.number, e.at);
+  }
   for (const e of o.events) {
     if (same(e.actor, me) || now - Date.parse(e.at) > MENTION_DAYS * 86400000 || !e.number) continue;
     const target = { kind: (e.pull || e.type.startsWith("PullRequest") ? "pull" : "issue") as "pull" | "issue", number: e.number };
     const ref: Part = { kind: target.kind, number: e.number, title: e.title };
-    if ((e.type === "IssueCommentEvent" || e.type === "PullRequestReviewCommentEvent") && e.body && mention.test(e.body)) {
-      // 助けを求める（🆘）と、その解決（✅）は、名前を呼ばれたとは別に、目立つように
+    // コメントは、書いたとき（created）だけ。直した・消したで、また知らせない
+    const isComment = (e.type === "IssueCommentEvent" || e.type === "PullRequestReviewCommentEvent") && (!e.action || e.action === "created");
+    if (isComment && e.body && mentionsMe(e)) {
+      // 助けを求める（🆘）と、その解決（✅）は、名前を呼ばれたとは別に、目立つように。あとで解決になった 🆘 は出さない
       if (e.body.includes(HELP_MARK)) {
+        if ((doneAt.get(e.number) ?? "") > e.at) continue;
         out.push({ key: `help:${e.id}`, icon: "🆘", tone: "ng", parts: [`${e.actor} が助けを求めています ・ `, ref], detail: e.body, at: e.at, target, order: -1 });
       } else if (e.body.includes(HELP_DONE_MARK)) {
         out.push({ key: `helped:${e.id}`, icon: "✅", tone: "ok", parts: [`${e.actor} が 🆘 を解決にしました ・ `, ref], detail: e.body, at: e.at, target, order: 6 });

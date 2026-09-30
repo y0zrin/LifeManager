@@ -114,7 +114,7 @@ const NOTICE_CORNER_OPTIONS: { value: NoticeCorner; label: string; note: string;
   { value: "bottom-right", label: "右下", note: "", box: { x: 27, y: 21 } },
   { value: "top-left", label: "左上", note: "", box: { x: 5, y: 5 } },
   { value: "bottom-left", label: "左下", note: "", box: { x: 5, y: 21 } },
-  { value: "off", label: "アプリの中だけ", note: "窓の外には出さず、アプリの右上に出します", box: null },
+  { value: "off", label: "アプリの中だけ", note: "窓の外には出さず、アプリの右上に出します（窓を閉じているあいだの知らせは 🔔 のりれきで）", box: null },
 ];
 
 const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [

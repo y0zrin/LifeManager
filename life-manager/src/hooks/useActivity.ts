@@ -80,9 +80,17 @@ export function useActivity(
     return () => window.clearInterval(t);
   }, [enabled, viewing, load]);
 
+  // 最近のコメントの一覧から拾ったもの（GitHub が題名を入れない）には、知っている Issue の題名を足す
+  const filled = useMemo<ActivityFeed | null>(() => {
+    if (!feed) return null;
+    if (!feed.events.some((e) => !e.title && e.number)) return feed;
+    const titles = new Map(issues.map((i) => [i.number, i.title]));
+    return { ...feed, events: feed.events.map((e) => (!e.title && e.number && titles.has(e.number) ? { ...e, title: titles.get(e.number) ?? null } : e)) };
+  }, [feed, issues]);
+
   const all = useMemo(
-    () => buildTodos({ me, pulls: feed?.pulls ?? null, verdicts, checks, issues, events: feed?.events ?? [], stack }),
-    [me, feed, verdicts, checks, issues, stack],
+    () => buildTodos({ me, pulls: filled?.pulls ?? null, verdicts, checks, issues, events: filled?.events ?? [], stack }),
+    [me, filled, verdicts, checks, issues, stack],
   );
   const todos = useMemo(() => all.filter((t) => !seen.includes(t.key)), [all, seen]);
 
@@ -100,7 +108,7 @@ export function useActivity(
     [seen, seenKey],
   );
 
-  return { feed, error, loading, reload: load, todos, all, dismiss };
+  return { feed: filled, error, loading, reload: load, todos, all, dismiss };
 }
 
 export type ActivityState = ReturnType<typeof useActivity>;

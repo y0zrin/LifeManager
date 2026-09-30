@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GitHubUser } from "../../lib/types";
 import { Avatar } from "../common/Avatar";
-import { TEAM_PARTS, crossedStep, fmt, loadTeamSeen, roadOf, saveTeamSeen, sumTotals, teamTotals, type TeamSeen, type TeamTotals } from "../../lib/teamWork";
+import { TEAM_PARTS, crossedStep, fillMissing, fmt, loadTeamSeen, roadOf, saveTeamSeen, sumTotals, teamTotals, type TeamSeen, type TeamTotals } from "../../lib/teamWork";
 
 interface TeamWorkProps {
   owner: string;
@@ -39,7 +39,7 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
     teamTotals(owner, repo)
       .then((t) => {
         if (!alive) return;
-        setTotals(t);
+        setTotals(fillMissing(t, seen?.parts));
         setError(null);
       })
       .catch((e) => alive && setError(String(e)));
@@ -70,7 +70,8 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
       raf.current = requestAnimationFrame(step);
     }
     if (seen) setReached(crossedStep(seen.total, total));
-    saveTeamSeen(key, { total, at: new Date().toISOString(), parts: totals });
+    // 読めなかった数が残っている（前に見た数もない）ときは、覚えない（次に全部読めたとき、まちがった「+」にしない）
+    if (!TEAM_PARTS.some((p) => totals[p.key] === null)) saveTeamSeen(key, { total, at: new Date().toISOString(), parts: totals });
     return () => cancelAnimationFrame(raf.current);
     // 読めた数が変わったときだけ（前に見た数は、開いたときのもの）
     // eslint-disable-next-line react-hooks/exhaustive-deps

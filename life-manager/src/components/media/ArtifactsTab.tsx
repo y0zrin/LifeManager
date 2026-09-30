@@ -82,6 +82,9 @@ export function ArtifactsTab({ owner, repo, number, folder, onCount }: Artifacts
   const [open, setOpen] = useState<number | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // 鳴らしている音の URL（止めたら返す）と、最後に押した ▶ の番号（読むあいだに別の ▶ を押したら、前のは鳴らさない）
+  const audioUrl = useRef<string | null>(null);
+  const playToken = useRef(0);
   const shows = useRef(new Map<string, Promise<string>>());
 
   useEffect(() => {
@@ -101,7 +104,7 @@ export function ArtifactsTab({ owner, repo, number, folder, onCount }: Artifacts
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owner, repo, number, folder]);
 
-  useEffect(() => () => audioRef.current?.pause(), []);
+  useEffect(() => () => stopAudio(), []);
 
   const commitOf = useMemo(() => new Map((data?.commits ?? []).map((c) => [c.sha, c])), [data]);
 
@@ -140,21 +143,37 @@ export function ArtifactsTab({ owner, repo, number, folder, onCount }: Artifacts
     [commitOf, folder, owner, repo],
   );
 
-  async function playAudio(file: MediaFile) {
+  function stopAudio() {
     audioRef.current?.pause();
-    if (playing === file.path) {
+    audioRef.current = null;
+    if (audioUrl.current) URL.revokeObjectURL(audioUrl.current);
+    audioUrl.current = null;
+  }
+
+  async function playAudio(file: MediaFile) {
+    const token = ++playToken.current;
+    const again = playing === file.path;
+    stopAudio();
+    if (again) {
       setPlaying(null);
       return;
     }
+    setPlaying(file.path);
     try {
       const bytes = await readMediaBytes(file);
-      const audio = new Audio(blobUrl(bytes, file.path));
+      if (token !== playToken.current) return; // 読んでいるあいだに、別の ▶ を押した
+      const url = blobUrl(bytes, file.path);
+      const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setPlaying(null);
-      setPlaying(file.path);
+      audioUrl.current = url;
+      audio.onended = () => {
+        if (token !== playToken.current) return;
+        stopAudio();
+        setPlaying(null);
+      };
       await audio.play();
     } catch {
-      setPlaying(null);
+      if (token === playToken.current) setPlaying(null);
     }
   }
 

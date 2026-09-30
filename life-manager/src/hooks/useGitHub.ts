@@ -27,6 +27,7 @@ export function useGitHub() {
   // Issue とその操作（コメント・サブイシュー・テンプレート・変更の履歴・見積もり）
   const issueOps = useIssues(scope, {
     labels: meta.labels,
+    milestones: meta.milestones,
     loadLabels: meta.loadLabels,
     currentUser: session.currentUser,
     eventNotice: settings.eventNotice,

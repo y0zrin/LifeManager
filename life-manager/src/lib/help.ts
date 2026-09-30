@@ -15,15 +15,24 @@ export interface HelpContext {
 const SUMMARY = "今のようす（Life Manager から）";
 const FAILURE_HEAD = "最後に失敗した git: ";
 
-/** git のメッセージは長いことがあるので、はじめの 20 行まで */
+/** 困っていることは、長すぎないように */
+const MESSAGE_CHARS = 2000;
+/** git のメッセージは長いことがあるので、はじめの 20 行・1 行 200 字まで */
 const LOG_LINES = 20;
+const LOG_LINE_CHARS = 200;
+
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/** アプリの見えない印（🆘・解決）だけを消す。ほかの <!-- … --> は、書いた人の文として残す */
+const stripMarks = (body: string) => body.split(HELP_MARK).join("").split(HELP_DONE_MARK).join("");
 
 const code = (s: string) => `\`${s.replace(/`/g, "'")}\``;
 
 /** 🆘 のコメントの本文 */
 export function helpBody(to: string[], message: string, context: HelpContext): string {
-  const lines = [`🆘 **助けてください** ${to.map((l) => `@${l}`).join(" ")}`.trimEnd(), ""];
-  if (message.trim()) lines.push(message.trim(), "");
+  // 見えない印は 2 行目に（本文が長くても、読むときに切られて消えないように）
+  const lines = [`🆘 **助けてください** ${to.map((l) => `@${l}`).join(" ")}`.trimEnd(), HELP_MARK, ""];
+  if (message.trim()) lines.push(clip(message.trim(), MESSAGE_CHARS), "");
   const items: string[] = [];
   if (context.branch) items.push(`- ブランチ ${code(context.branch.name)}（作業中の変更 ${context.branch.changes}）`);
   if (context.failure) items.push(`- ${FAILURE_HEAD}${code(context.failure.command)}`);
@@ -31,13 +40,12 @@ export function helpBody(to: string[], message: string, context: HelpContext): s
   if (items.length > 0) {
     lines.push(`<details><summary>${SUMMARY}</summary>`, "", ...items, "");
     if (context.failure?.message) {
-      const log = context.failure.message.replace(/```/g, "'''").split("\n").slice(0, LOG_LINES).join("\n");
+      const log = context.failure.message.replace(/```/g, "'''").split("\n").slice(0, LOG_LINES).map((l) => clip(l, LOG_LINE_CHARS)).join("\n");
       lines.push("```text", log, "```", "");
     }
     lines.push("</details>", "");
   }
-  lines.push(HELP_MARK);
-  return lines.join("\n");
+  return lines.join("\n").trimEnd();
 }
 
 /** 🆘 の解決の本文（呼ばれた人と、助けを求めた人に知らせる） */
@@ -60,9 +68,9 @@ export interface ParsedHelp {
 
 /** 🆘 のコメントを読む（アプリの画面に、コメントのそのままでなく整えて出すため） */
 export function parseHelp(body: string): ParsedHelp {
-  const text = body.replace(/<!--[\s\S]*?-->/g, "").trim();
+  const text = stripMarks(body).trim();
   const [head, ...rest] = text.split("\n");
-  const to = [...head.matchAll(/@([A-Za-z0-9][A-Za-z0-9-]*)/g)].map((m) => m[1]);
+  const to = [...head.matchAll(/@([A-Za-z0-9][A-Za-z0-9_-]*)/g)].map((m) => m[1]);
   const all = rest.join("\n");
   const at = all.indexOf("<details>");
   const message = (at >= 0 ? all.slice(0, at) : all).trim();

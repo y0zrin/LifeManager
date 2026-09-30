@@ -650,7 +650,10 @@ impl GitHubClient {
     /// Link ヘッダーの rel="last" のページ番号
     fn parse_last_page(link_header: &str) -> Option<u64> {
         let part = link_header.split(',').map(str::trim).find(|p| p.contains("rel=\"last\""))?;
-        let url = &part[part.find('<')? + 1..part.find('>')?];
+        // 「<」のあとの「>」まで（形がおかしくても、落ちずに None）
+        let start = part.find('<')? + 1;
+        let end = start + part[start..].find('>')?;
+        let url = &part[start..end];
         let query = url.split('?').nth(1)?;
         return query.split('&').find_map(|kv| kv.strip_prefix("page=")).and_then(|n| n.parse().ok());
     }
@@ -660,6 +663,10 @@ impl GitHubClient {
         let url = format!("{}/search/issues?q={}&per_page=1", BASE_URL, urlencoding::encode(query));
         let body = self.get(&url).await?;
         let v: serde_json::Value = serde_json::from_str(&body).map_err(|e| format!("JSONパースエラー: {}", e))?;
+        // 検索が時間切れで途中までのときは、少なめの数になるので使わない
+        if v["incomplete_results"].as_bool() == Some(true) {
+            return Err("検索が途中で終わりました（件数がそろっていません）".to_string());
+        }
         return v["total_count"].as_u64().ok_or_else(|| "件数を読めませんでした".to_string());
     }
 
@@ -1209,6 +1216,16 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    /// Issue とプルリクの会話の、最近のコメント（新しい順・50 件まで。since より後に書いた・直したもの）。
+    /// 「リポジトリで起きたこと」（events）は数十秒〜数時間遅れて届くことがあるので、名前を呼ばれた・🆘 はこちらからも拾う
+    pub async fn list_recent_issue_comments(&self, owner: &str, repo: &str, since: &str) -> Result<String, String> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/comments?since={}&sort=created&direction=desc&per_page=50",
+            BASE_URL, owner, repo, urlencoding::encode(since)
+        );
+        return self.get(&url).await;
+    }
+
     /// リポジトリのファイルの中身（そのままのバイト列。100MB まで）。ref はコミットのハッシュなど
     pub async fn get_file_bytes(&self, owner: &str, repo: &str, reference: &str, path: &str, limit: u64) -> Result<Vec<u8>, String> {
         let encoded: Vec<String> = path.split('/').map(|p| urlencoding::encode(p).into_owned()).collect();
@@ -1358,6 +1375,12 @@ mod count_tests {
         let link = r#"<https://api.github.com/repositories/1/commits?per_page=1&page=2>; rel="next", <https://api.github.com/repositories/1/commits?per_page=1&page=642>; rel="last""#;
         assert_eq!(GitHubClient::parse_last_page(link), Some(642));
         assert_eq!(GitHubClient::parse_last_page(r#"<https://api.github.com/x?page=2>; rel="next""#), None);
+    }
+
+    #[test]
+    fn broken_link_header_is_none_not_a_panic() {
+        assert_eq!(GitHubClient::parse_last_page(r#"> rel="last" <https://api.github.com/x?page=3"#), None);
+        assert_eq!(GitHubClient::parse_last_page(r#"<https://api.github.com/x>; rel="last""#), None);
     }
 }
 

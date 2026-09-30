@@ -96,6 +96,8 @@ export interface GitHubComment {
   _sending?: boolean;
   /** 送れなかった（わけ） */
   _failed?: string;
+  /** 送れた（GitHub の返事のコメント）。読み直した一覧に入るまで、手元の置き場から出す */
+  _sent?: boolean;
 }
 
 // --- オフラインのあいだの変更（送信待ち） ---

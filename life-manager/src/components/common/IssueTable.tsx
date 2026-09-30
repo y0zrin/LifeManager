@@ -81,7 +81,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                 >
                   {picking && (
                     <td className="tt-pick">
-                      <input type="checkbox" checked={isPicked} onChange={() => onTogglePick(issue.number)}
+                      <input type="checkbox" checked={isPicked} disabled={isUnsent(issue)} onChange={() => onTogglePick(issue.number)}
                         onClick={(e) => e.stopPropagation()} aria-label={`${issueRef(issue.number)} を選ぶ`} />
                     </td>
                   )}

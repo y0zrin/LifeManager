@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { baseName, blobUrl, extOf, formatBytes, KIND_GROUPS, KIND_ICONS, KIND_LABELS, kindOf, readMediaBytes, type MediaFile } from "../../lib/media";
 import { LANG_NAMES } from "../../lib/highlight";
 import { isEscape } from "../../lib/keys";
@@ -60,6 +61,15 @@ function PdfView({ bytes, path }: { bytes: ArrayBuffer; path: string }) {
 export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaViewerProps) {
   const host = usePortalHost();
   const [index, setIndex] = useState(() => Math.max(0, Math.min(start, files.length - 1)));
+  // 外のアプリ・ブラウザで開けなかったわけ（ファイルを移ると消す）
+  const [outsideNote, setOutsideNote] = useState<string | null>(null);
+  useEffect(() => setOutsideNote(null), [index]);
+  /** 作業フォルダのファイルを、外のアプリ（HTML はブラウザ）で開く。開いてよい種類だけ（アプリの Rust 側で確かめる） */
+  const openOutside = (p: string) => {
+    if (!folder) return;
+    setOutsideNote(null);
+    invoke("media_open_local", { path: folder, file: p }).catch((e) => setOutsideNote(String(e)));
+  };
   const [loaded, setLoaded] = useState<Record<string, Loaded>>({});
   const [info, setInfo] = useState<Record<string, string>>({});
   const file = files[index];
@@ -139,14 +149,14 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
       : kind === "model" ? <ModelView key={key} bytes={b} path={p} onInfo={setFileInfo} />
       : kind === "markdown" ? <MarkdownView key={key} bytes={b} />
       : kind === "csv" ? <CsvView key={key} bytes={b} path={p} onInfo={setFileInfo} />
-      : kind === "html" ? <HtmlView key={key} bytes={b} onOpenOutside={folder ? () => void openPath(joinPath(folder, p)) : undefined} />
+      : kind === "html" ? <HtmlView key={key} bytes={b} onOpenOutside={folder ? () => openOutside(p) : undefined} />
       : kind === "pdf" ? <PdfView key={key} bytes={b} path={p} />
       : kind === "code" || kind === "text" ? <CodeView key={key} bytes={b} path={p} loadPatch={patchLoader} onInfo={setFileInfo} />
       : (
         <div className="mv-main full">
           <div className="mv-note center">
             この形式（.{ext || "?"}）は、ここでは見られません。
-            {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => void openPath(joinPath(folder, p))}>外部のアプリで開く</button></div>}
+            {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => openOutside(p)}>外部のアプリで開く</button></div>}
           </div>
         </div>
       );
@@ -176,6 +186,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
           )}
           <button type="button" className="mv-close" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
         </div>
+        {outsideNote && <p className="mv-note error mv-outside-note" role="alert">{outsideNote}</p>}
         <div className="mv-body">
           <nav className="mv-list" aria-label="ファイル">
             {title && <div className="mv-list-title">{title}</div>}

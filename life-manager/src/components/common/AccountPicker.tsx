@@ -120,7 +120,8 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         setIndex((i) => Math.max(0, i - 1));
-      } else if (isEnter(e)) {
+      } else if (isEnter(e) && !(e.target instanceof HTMLButtonElement)) {
+        // ボタン（「この PC から外す…」・× など）に移っているときは、そのボタンを押す（選んでいる人に切り替えない）
         e.preventDefault();
         activate(focused);
       } else if (isEscape(e) && !busy) {

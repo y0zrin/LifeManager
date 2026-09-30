@@ -51,7 +51,10 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
         let clips: import("three").AnimationClip[] = [];
         if (ext === "glb" || ext === "gltf") {
           const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
-          const gltf = await new GLTFLoader().parseAsync(bytes, "");
+          // .gltf がほかのファイル・外の URL を読みに行かないように（中に入っているもの＝data: と blob: だけ）
+          const manager = new THREE.LoadingManager();
+          manager.setURLModifier((url) => (/^(data|blob):/i.test(url) ? url : "data:,"));
+          const gltf = await new GLTFLoader(manager).parseAsync(bytes, "");
           root = gltf.scene;
           clips = gltf.animations;
         } else if (ext === "fbx") {
@@ -98,6 +101,12 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
         renderer.setPixelRatio(window.devicePixelRatio || 1);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         host.appendChild(renderer.domElement);
+        // このあとで失敗しても、描く道具（WebGL）を残さない（最後まで進めば、下で全部を片づけるものに入れ替える）
+        cleanup = () => {
+          renderer.dispose();
+          renderer.forceContextLoss();
+          renderer.domElement.remove();
+        };
         const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 10000);
         const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 1.2);
         const sun = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -194,7 +203,10 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
           });
           materials.forEach((m) => m.dispose());
           textures.forEach((t) => t.dispose());
+          gridHelper.geometry.dispose();
+          (Array.isArray(gridHelper.material) ? gridHelper.material : [gridHelper.material]).forEach((m) => m.dispose());
           renderer.dispose();
+          renderer.forceContextLoss();
           renderer.domElement.remove();
         };
       } catch (e) {

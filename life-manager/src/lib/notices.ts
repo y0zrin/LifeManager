@@ -1,6 +1,7 @@
 // おしらせ（アプリの中の通知）: 知らせの形・りれき（この PC に、日ごとに 60 日まで）・おしらせの窓への送り方。
 // 未読・既読は持たない（片付ける受信箱にしない）。新しい知らせが来たことだけ、🔔 に小さな点で出す
 import { emitTo } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Part, Todo } from "./activity";
 import { helpSummary } from "./help";
 
@@ -78,7 +79,28 @@ export const NOTICE_CORNERS: NoticeCorner[] = ["top-right", "bottom-right", "top
 
 const KEEP_DAYS = 60;
 const KEEP_ITEMS = 300;
-const HISTORY_KEY = (repo: string) => `notices:${repo}`;
+/** だれの覚えか（ログイン。1 台の PC でアカウントを切り替えても、ほかの人のりれき・知らせ済みを混ぜない） */
+let noticeUser = "";
+export function setNoticeUser(login: string) {
+  noticeUser = login.toLowerCase();
+}
+
+/** この PC に覚える鍵（ログインがわかれば「ログイン@owner/repo」） */
+export function noticeStoreKey(kind: "notices" | "notified", repo: string): string {
+  return noticeUser ? `${kind}:${noticeUser}@${repo}` : `${kind}:${repo}`;
+}
+
+/** 覚えている並びを読む（1.0 より前の「owner/repo」の鍵は、はじめて読むときに引き継ぐ） */
+export function readNoticeStore(kind: "notices" | "notified", repo: string): unknown[] {
+  try {
+    let raw = localStorage.getItem(noticeStoreKey(kind, repo));
+    if (raw === null && noticeUser) raw = localStorage.getItem(`${kind}:${repo}`);
+    const list = JSON.parse(raw ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
 
 export function newNoticeId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -109,10 +131,10 @@ export function noticeFromTodo(todo: Todo, repo: string): Notice {
   const kind = kindOfTodo(todo.key);
   const raw = todo.detail ?? "";
   const detail = raw.replace(/<!--[\s\S]*?-->/g, "").trim();
-  // 🆘 は困っていることと、ブランチ・失敗した git。ほかは、コメントの（@ で呼んだ行でない）はじめの 1 行
+  // 🆘 は困っていることと、ブランチ・失敗した git。ほかは、コメントのはじめの 1 行（頭の「@名前」は外す。「@alice 見て」→「見て」）
   const body = kind === "help"
     ? helpSummary(raw)
-    : detail.split("\n").find((l) => l.trim() && !/^@[\w-]/.test(l.trim()))?.trim().slice(0, 120);
+    : detail.split("\n").map((l) => l.replace(/^(\s*@[\w-]+[\s,、]*)+/, "").trim()).find(Boolean)?.slice(0, 120);
   return {
     id: newNoticeId(),
     key: noticeKeyOf(todo.key),
@@ -163,12 +185,7 @@ export function milestoneNotice(o: { number: number; title: string; doneCount: n
 }
 
 export function loadNotices(repo: string): Notice[] {
-  try {
-    const list = JSON.parse(localStorage.getItem(HISTORY_KEY(repo)) ?? "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+  return readNoticeStore("notices", repo) as Notice[];
 }
 
 /** りれきに足す（新しい順。60 日・300 件まで） */
@@ -176,16 +193,18 @@ export function saveNotice(repo: string, notice: Notice): Notice[] {
   const cut = Date.now() - KEEP_DAYS * 86400000;
   const next = [notice, ...loadNotices(repo)].filter((n) => Date.parse(n.at) >= cut).slice(0, KEEP_ITEMS);
   try {
-    localStorage.setItem(HISTORY_KEY(repo), JSON.stringify(next));
+    localStorage.setItem(noticeStoreKey("notices", repo), JSON.stringify(next));
   } catch {
     // 覚えられなくても、今の知らせは出る
   }
   return next;
 }
 
-/** おしらせの窓に送る（デスクトップ）。窓がなければ false */
+/** おしらせの窓に送る（デスクトップ）。窓がなければ false（起動のときに作れなかったときは、アプリの中に出す） */
 export async function sendToNoticeWindow(notice: Notice): Promise<boolean> {
   try {
+    const win = await WebviewWindow.getByLabel("notice").catch(() => undefined);
+    if (win === null) return false;
     await emitTo("notice", "lm-notice", notice);
     return true;
   } catch {

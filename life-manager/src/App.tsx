@@ -601,7 +601,9 @@ function App() {
   // Actions: 解決する順の山（サイドバーの 🔴・🟠 の数のため、画面を開いていなくても読む）と、プルリクのチェックから開く実行
   const actions = useActions(gh.owner, gh.repo, gh.connected && !isMobile, view === "actions", gh.currentUser);
   // ヒストリー: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
-  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", gh.issues, actions.stack);
+  // 送っている途中の仮の Issue（まだ番号がない）は、期限の知らせなどに入れない
+  const sentIssues = useMemo(() => gh.issues.filter((i) => !isSending(i.number)), [gh.issues]);
+  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", sentIssues, actions.stack);
   const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);
   const clearActionsFocus = useCallback(() => setActionsFocus(null), []);
   const openRun = useCallback((runId: number, jobId?: number | null) => {
@@ -632,6 +634,7 @@ function App() {
   }, [gh, openIssue, openPull, openRun, setView]);
   const notices = useNotices({
     repo: gh.owner ? `${gh.owner}/${gh.repo}` : "",
+    me: gh.currentUser,
     // ヒストリーを読めてから（読む前の「あなたがすること」は、期限などだけ）
     todos: activity.feed ? activity.all : null,
     enabled: gh.connected && !isMobile && !initializing,
@@ -1522,9 +1525,13 @@ function App() {
           collaborators={gh.collaborators}
           context={helpFor.context}
           onSend={async (body, to) => {
-            await gh.createComment(helpFor.number, body);
+            const sent = await gh.createComment(helpFor.number, body);
             setCommentsVersion((v) => v + 1);
-            gh.setStatus(`🆘 ${issueRef(helpFor.number)} で ${to.map((l) => `@${l}`).join(" ")} に助けを求めました`);
+            const who = to.map((l) => `@${l}`).join(" ");
+            // つながらないときは送信待ち（まだ呼べていない）。つながったら送る
+            gh.setStatus(sent?._pending
+              ? `🆘 ${issueRef(helpFor.number)} で ${who} に助けを求めるコメントは、まだ送れていません（つながったら送ります）`
+              : `🆘 ${issueRef(helpFor.number)} で ${who} に助けを求めました`);
           }}
           onClose={() => setHelpFor(null)}
         />

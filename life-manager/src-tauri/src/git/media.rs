@@ -52,13 +52,18 @@ fn check_file(file: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Git LFS の目印（本物の中身の代わりに入っている、短い文字）なら、その中身の番号（sha256）
+/// Git LFS の目印（本物の中身の代わりに入っている、短い文字）なら、その中身の番号（sha256。16 進の 64 文字だけ）。
+/// 番号はそのままフォルダの名前に使うので、形のちがうもの（「../」など）は目印として扱わない
 pub fn lfs_oid(bytes: &[u8]) -> Option<String> {
     if bytes.len() > 1024 || !bytes.starts_with(b"version https://git-lfs.github.com/spec/v1") {
         return None;
     }
     let text = String::from_utf8_lossy(bytes);
-    text.lines().find_map(|l| l.strip_prefix("oid sha256:")).map(|s| s.trim().to_string())
+    let oid = text.lines().find_map(|l| l.strip_prefix("oid sha256:")).map(|s| s.trim().to_string())?;
+    if oid.len() == 64 && oid.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Some(oid.to_ascii_lowercase());
+    }
+    return None;
 }
 
 /// この PC に取ってきてある LFS の中身（なければ、見られない理由）
@@ -68,7 +73,7 @@ fn read_lfs_object(repo: &Path, oid: &str) -> Result<Vec<u8>, String> {
     if dir.is_relative() {
         dir = repo.join(dir);
     }
-    if oid.len() < 4 {
+    if oid.len() != 64 || !oid.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err("Git LFS の目印が正しくありません".into());
     }
     let object = dir.join("lfs").join("objects").join(&oid[0..2]).join(&oid[2..4]).join(oid);
@@ -102,6 +107,43 @@ pub async fn media_read_local(path: String, file: String) -> Result<Response, St
         Ok(Response::new(bytes))
     })
     .await
+}
+
+/// 外のアプリ（PC で決めてあるアプリ・ブラウザ）で開いてよいファイルの種類。
+/// 仲間のファイルを開くことがあるので、動かすもの（.exe・.bat・.js・.py など）は入れない
+const OPEN_OUTSIDE: &[&str] = &[
+    // 画像
+    "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "tga", "tif", "tiff", "psd", "kra", "xcf", "ase", "aseprite", "clip",
+    // 音
+    "wav", "mp3", "ogg", "flac", "m4a", "aac", "aif", "aiff", "mid", "midi",
+    // 動画
+    "mp4", "webm", "mov", "avi", "mkv",
+    // 3D
+    "glb", "gltf", "obj", "fbx", "stl", "blend", "3ds", "dae", "ply", "usd", "usdz",
+    // 文書・データ
+    "pdf", "txt", "md", "csv", "tsv", "json", "xml", "yaml", "yml", "log", "docx", "xlsx", "pptx", "odt", "ods", "odp",
+    // ページ（ブラウザで開く）・フォント・まとめたもの
+    "html", "htm", "ttf", "otf", "woff", "woff2", "zip",
+];
+
+/// 作業フォルダのファイルを、外のアプリで開く（メディアビューワーの「外部のアプリで開く」「ブラウザで開く」）。
+/// フォルダの外と、開いてよい種類でないものは開かない
+#[tauri::command]
+pub async fn media_open_local(app: tauri::AppHandle, path: String, file: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    check_file(&file)?;
+    let root = Path::new(&path).canonicalize().map_err(|e| format!("作業フォルダが見つかりません: {}", e))?;
+    let target = root.join(file.trim()).canonicalize().map_err(|_| format!("ファイルが見つかりません: {}", file))?;
+    if !target.starts_with(&root) || !target.is_file() {
+        return Err("作業フォルダの外のファイルは開けません".into());
+    }
+    let ext = target.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    if !OPEN_OUTSIDE.contains(&ext.as_str()) {
+        return Err(format!("この形式（.{}）は、アプリからは開きません（エクスプローラーで表示して、確かめてから開いてください）", ext));
+    }
+    // canonicalize は \\?\ で始まるので、ふつうのパスに戻してから渡す
+    let shown = target.to_string_lossy().trim_start_matches(r"\\?\").to_string();
+    return app.opener().open_path(shown, None::<&str>).map_err(|e| e.to_string());
 }
 
 /// コミットの中のファイル（git show コミット:ファイル）
@@ -225,6 +267,9 @@ mod tests {
         let pointer = b"version https://git-lfs.github.com/spec/v1\noid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\nsize 12345\n";
         assert_eq!(lfs_oid(pointer).as_deref(), Some("4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393"));
         assert_eq!(lfs_oid(b"\x89PNG\r\n"), None);
+        // 番号はフォルダの名前に使うので、16 進の 64 文字でないもの（フォルダをさかのぼるなど）は目印にしない
+        assert_eq!(lfs_oid(b"version https://git-lfs.github.com/spec/v1\noid sha256:../../Windows/win.ini\nsize 1\n"), None);
+        assert_eq!(lfs_oid("version https://git-lfs.github.com/spec/v1\noid sha256:ああああ\nsize 1\n".as_bytes()), None);
     }
 
     #[test]

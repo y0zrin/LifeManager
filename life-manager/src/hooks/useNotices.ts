@@ -11,31 +11,28 @@ import {
   newNoticeId,
   noticeFromTodo,
   noticeKeyOf,
+  noticeStoreKey,
+  readNoticeStore,
   saveNotice,
+  setNoticeUser,
   sendToNoticeWindow,
   summaryNotice,
   type Notice,
   type NoticeCorner,
 } from "../lib/notices";
 
-/** 知らせたものの鍵（この PC に。リポジトリごと） */
-const NOTIFIED_KEY = (repo: string) => `notified:${repo}`;
+/** 知らせたものの鍵（この PC に。ログインとリポジトリごと） */
 const NOTIFIED_KEEP = 500;
 /** 読み込みが落ち着くのを待つ（プルリクの承認・チェックは、ヒストリーのあとから届く） */
 const SETTLE_MS = 3000;
 
 function loadNotified(repo: string): string[] {
-  try {
-    const list = JSON.parse(localStorage.getItem(NOTIFIED_KEY(repo)) ?? "[]");
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
+  return readNoticeStore("notified", repo).filter((k): k is string => typeof k === "string");
 }
 
 function saveNotified(repo: string, keys: string[]) {
   try {
-    localStorage.setItem(NOTIFIED_KEY(repo), JSON.stringify(keys.slice(-NOTIFIED_KEEP)));
+    localStorage.setItem(noticeStoreKey("notified", repo), JSON.stringify(keys.slice(-NOTIFIED_KEEP)));
   } catch {
     // 覚えられなければ、次に開いたときにまとめて知らせる
   }
@@ -44,6 +41,8 @@ function saveNotified(repo: string, keys: string[]) {
 export function useNotices(o: {
   /** owner/repo */
   repo: string;
+  /** ログインしている人（りれき・知らせ済みを、人ごとに覚える） */
+  me: string;
   /** 「あなたがすること」（ぜんぶ。まだ読めていなければ null） */
   todos: Todo[] | null;
   enabled: boolean;
@@ -53,7 +52,9 @@ export function useNotices(o: {
   /** おしらせの窓の「ほか N 件」（りれきを開く） */
   onOpenHistory: () => void;
 }) {
-  const { repo, todos, enabled } = o;
+  const { repo, todos, enabled, me } = o;
+  // 覚える鍵に使う人（読み書きの前に決めておく）
+  setNoticeUser(me);
   const [history, setHistory] = useState<Notice[]>(() => loadNotices(repo));
   // 新しい知らせが来たときだけ、🔔 に小さな点（未読の数は出さない）
   const [dot, setDot] = useState(false);
@@ -72,7 +73,7 @@ export function useNotices(o: {
     setHistory(loadNotices(repo));
     setToasts([]);
     setDot(false);
-  }, [repo]);
+  }, [repo, me]);
 
   /** 知らせる（りれきに残し、窓かアプリの中に出す）。popup = false なら、りれきと 🔔 の点だけ */
   const deliver = useCallback(async (n: Notice, popup = true) => {
@@ -95,8 +96,8 @@ export function useNotices(o: {
         seen.add(key);
         return true;
       });
-      const first = !started.current.has(repo);
-      started.current.add(repo);
+      const first = !started.current.has(`${me}@${repo}`);
+      started.current.add(`${me}@${repo}`);
       if (fresh.length === 0) return;
       saveNotified(repo, [...known, ...seen]);
       // 大事なもの（並びの上）が、いちばん上に来るよう、下から知らせる

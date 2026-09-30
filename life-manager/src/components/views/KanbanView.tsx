@@ -482,7 +482,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                     }}
                   >
                     {note(issue)}
-                    {isMobile && (
+                    {/* 送っている途中・送れなかった仮の付箋は、まだ動かせない */}
+                    {isMobile && !isUnsent(issue) && (
                       <button
                         type="button"
                         className="btn-sm bd-move"

@@ -3,7 +3,7 @@ import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { invokeWrite } from "../../lib/sending";
 import { ESTIMATE_COLOR, UNITS, estimateLabel, withEstimate, type EstimateUnit } from "../../lib/estimate";
-import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, TimelineEvent } from "../../lib/types";
+import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, TimelineEvent } from "../../lib/types";
 import { isSending, issueRef, nextSendingNumber } from "../../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../lib/subIssues";
 import type { IssueTemplate } from "../../lib/issueTemplates";
@@ -13,6 +13,8 @@ import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from ".
 interface IssueDeps {
   /** リポジトリのラベル（状態を変えたときなど、ラベルの色をそろえる） */
   labels: GitHubLabel[];
+  /** マイルストーン（送っているあいだの仮の Issue にも、選んだマイルストーンを付けて出す） */
+  milestones: GitHubMilestone[];
   loadLabels: () => Promise<void>;
   /** ログインしている人（自分に割り当てる・メモの担当） */
   currentUser: string;
@@ -25,7 +27,7 @@ interface IssueDeps {
 }
 
 export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, deps: IssueDeps) {
-  const { labels, loadLabels, currentUser, eventNotice, estimateUnit, reloadAll } = deps;
+  const { labels, milestones, loadLabels, currentUser, eventNotice, estimateUnit, reloadAll } = deps;
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [closedIssues, setClosedIssues] = useState<GitHubIssue[]>([]);
 
@@ -219,7 +221,13 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   // --- Issue を作る: すぐ一覧に「送っています…」の仮の Issue を出し、GitHub から返事が来たら置き換える ---
 
   /** 送っているあいだの仮の Issue の、送り直しに要るもの（送れなかったときの「もう一度」） */
-  type Send = { title: string; body: string; labels: string[]; milestone: number | null; assignees: string[] | null; message: string; done: string };
+  type Send = {
+    title: string; body: string; labels: string[]; milestone: number | null; assignees: string[] | null; message: string; done: string;
+    /** 送る前にすること（見積もりのラベルを作るなど。もう一度のときも、もう一度する） */
+    prepare?: () => Promise<void>;
+    /** 届いて番号が付いたら（リマインダーを付けるなど。もう一度で届いたときも） */
+    onCreated?: (n: number) => Promise<void> | void;
+  };
   const sends = useRef(new Map<number, Send>());
   // 今のリポジトリ（送っているあいだにプロジェクトを切り替えたら、返事を今の一覧に入れない）
   const repoNow = useRef("");
@@ -234,7 +242,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       body: send.body,
       state: "open",
       labels: send.labels.map((name) => ({ name, color: labels.find((l) => l.name === name)?.color ?? "ededed" })),
-      milestone: null,
+      milestone: milestones.find((m) => m.number === send.milestone) ?? null,
       assignees: (send.assignees ?? []).map((login) => ({ login, avatar_url: "" })),
       comments: 0,
       created_at: now,
@@ -247,6 +255,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   async function send(temp: number, one: Send): Promise<number> {
     const sentFrom = `${owner}/${repo}`;
     try {
+      await one.prepare?.();
       const result = await invokeWrite("create_issue", {
         owner, repo,
         title: one.title, body: one.body,
@@ -263,6 +272,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       try {
         const newIssue = JSON.parse(result as string) as GitHubIssue;
         setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== temp && i.number !== newIssue.number)]);
+        if (one.onCreated) Promise.resolve(one.onCreated(newIssue.number)).catch((e) => setStatus(friendlyError(e)));
         return newIssue.number;
       } catch {
         setIssues((prev) => prev.filter((i) => i.number !== temp));
@@ -286,8 +296,11 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     return send(temp, one);
   }
 
-  async function createIssue(title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[]): Promise<number> {
-    return start({ title, body, labels: labelList, milestone, assignees: assignees ?? null, message: `📝 {issue} ${title} を作成`, done: "Issueを作成しました" });
+  async function createIssue(
+    title: string, body: string, labelList: string[], milestone: number | null, assignees?: string[],
+    extra?: Pick<Send, "prepare" | "onCreated">,
+  ): Promise<number> {
+    return start({ title, body, labels: labelList, milestone, assignees: assignees ?? null, message: `📝 {issue} ${title} を作成`, done: "Issueを作成しました", ...extra });
   }
 
   async function createMemo(text: string, theme: string) {
@@ -408,17 +421,19 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
 
   // --- コメント ---
 
+  /** コメントを読む。読めなかったら投げる（上のバーにも出す。読み直しで、出ている一覧を空にしないように） */
   async function listComments(issueNumber: number): Promise<GitHubComment[]> {
     try {
       const result = await invoke("list_comments", { owner, repo, issueNumber });
       return JSON.parse(result as string);
     } catch (e) {
       setStatus("コメント取得エラー: " + e);
-      return [];
+      throw e;
     }
   }
 
-  async function createComment(issueNumber: number, body: string) {
+  /** コメントを送る。作ったコメントを返す（つながらないときは、送信待ちのコメント。_pending） */
+  async function createComment(issueNumber: number, body: string): Promise<GitHubComment | null> {
     try {
       const issueTitle = [...issues, ...closedIssues].find((i) => i.number === issueNumber)?.title || issueRef(issueNumber);
       const result = await invokeWrite("create_comment", {
@@ -426,6 +441,11 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
         notice: eventNotice("comment_added", `💬 {issue} ${issueTitle} にコメント`),
       });
       setStatus(`${issueRef(issueNumber)} にコメントを追加${isPending(result) ? PENDING_NOTE : ""}`);
+      try {
+        return JSON.parse(result as string) as GitHubComment;
+      } catch {
+        return null;
+      }
     } catch (e) {
       setStatus("コメントを送れませんでした: " + friendlyError(e));
       throw e;

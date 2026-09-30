@@ -1427,8 +1427,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(None::<GitHubClient>))
         .setup(|app| {
+            // おしらせの窓・インジケーターを作れなくても、アプリは起動する（知らせはアプリの中に出す）
             #[cfg(desktop)]
-            notice_window::setup(app)?;
+            if let Err(e) = notice_window::setup(app) {
+                eprintln!("おしらせの窓を用意できませんでした: {e}");
+            }
             let app_handle = app.handle().clone();
             credential::init_android_data_dir(&app_handle);
             tauri::async_runtime::spawn(async move {
@@ -1539,6 +1542,7 @@ pub fn run() {
             notice_window::set_close_to_tray,
             github::artifacts::media_read_github,
             git::media::media_read_local,
+            git::media::media_open_local,
             git::media::media_read_commit,
             github::releases::close_milestone,
             github::releases::activity_feed,

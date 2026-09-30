@@ -26,6 +26,8 @@ const pct = (r: number) => `${Math.max(0, Math.min(1, r)) * 100}%`;
 export function StageMeter({ seenKey, remaining, total, hp, fmt, onHit }: StageMeterProps) {
   const [first] = useState(() => readSeen(seenKey));
   const last = useRef<Seen | null>(first);
+  // last がどの見方（見積もり・件数）の量か。見方を切り替えたら、その見方で前に見た量からくらべる（件数とポイントをくらべない）
+  const lastKey = useRef(seenKey);
   const tick = useRef(0);
   const onHitRef = useRef(onHit);
   onHitRef.current = onHit;
@@ -35,6 +37,10 @@ export function StageMeter({ seenKey, remaining, total, hp, fmt, onHit }: StageM
   });
 
   useEffect(() => {
+    if (lastKey.current !== seenKey) {
+      lastKey.current = seenKey;
+      last.current = readSeen(seenKey);
+    }
     const prev = last.current;
     const now = { remaining, total };
     const target = ratioOf(now, hp);

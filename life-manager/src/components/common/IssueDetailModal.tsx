@@ -9,7 +9,7 @@ import { ParentCrumb, SubIssues, type SubIssueApi } from "./SubIssues";
 import { CloseMenu, closeReasonText } from "./CloseMenu";
 import { RelatedIssues } from "./RelatedIssues";
 import { HistoryOrderToggle, IssueTimeline, useHistoryOrder } from "./IssueTimeline";
-import { issueRef } from "../../lib/issueRef";
+import { isSending, issueRef } from "../../lib/issueRef";
 import { splitAppMarks, visibleBody, withAppMarks } from "../../lib/bodyMarks";
 import { isEnter, isEscape } from "../../lib/keys";
 import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
@@ -20,7 +20,7 @@ import { ArtifactsTab } from "../media/ArtifactsTab";
 import { helpDoneBody, parseHelp } from "../../lib/help";
 import { FailedChip, SendingChip } from "./Sending";
 import { IssueIndexContext } from "./SubIssueMarks";
-import { dropLocalComment, putLocalComment, useLocalComments } from "../../lib/sending";
+import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -46,7 +46,7 @@ interface IssueDetailModalProps {
   issue: GitHubIssue;
   onClose: () => void;
   listComments: (issueNumber: number) => Promise<GitHubComment[]>;
-  createComment: (issueNumber: number, body: string) => Promise<void>;
+  createComment: (issueNumber: number, body: string) => Promise<GitHubComment | null>;
   availableLabels: GitHubLabel[];
   milestones: GitHubMilestone[];
   collaborators: GitHubUser[];
@@ -82,11 +82,21 @@ interface IssueDetailModalProps {
 export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate, artifacts, me = "", onAskHelp, commentsVersion = 0 }: IssueDetailModalProps) {
   const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
-  // 送っている・送れなかったコメント（手元だけ。詳細を閉じても残る）は、読んだコメントのあとに並べる
+  // 送っている・送れなかった・送れたがまだ読み直していないコメント（手元の置き場。詳細を閉じても残る）は、読んだコメントのあとに並べる
   const { owner, repo } = useContext(IssueIndexContext);
-  const localKey = `${owner}/${repo}#${issue.number}`;
+  const localKey = `${me}@${owner}/${repo}#${issue.number}`;
   const localComments = useLocalComments(localKey);
-  const shownComments = localComments.length > 0 ? [...comments, ...localComments] : comments;
+  // この詳細が画面に出ているか（閉じたあとに送り終わったコメントで、読み直さない）
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const shownComments = localComments.length > 0
+    ? [...comments, ...localComments.filter((c) => !comments.some((x) => x.id === c.id))]
+    : comments;
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -128,7 +138,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const depSuggestions = depSearch.length >= 1
     ? allIssues
         .filter((i) => {
-          if (i.number === issue.number) return false;
+          if (i.number === issue.number || isSending(i.number)) return false;
           const numMatch = depSearch.match(/^#?(\d+)$/);
           if (numMatch) return String(i.number).includes(numMatch[1]);
           return i.title.toLowerCase().includes(depSearch.toLowerCase());
@@ -167,12 +177,15 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsVersion]);
 
-  /** コメントを読む。quiet なら「読み込み中」を出さない（送ったあと） */
+  /** コメントを読む。quiet なら「読み込み中」を出さない（送ったあと）。読めなかったときは、出ている一覧をそのままにする */
   async function loadComments(quiet = false) {
     if (!quiet) setLoading(true);
     try {
       const result = await listComments(issue.number);
-      setComments(Array.isArray(result) ? result : []);
+      const fresh = Array.isArray(result) ? result : [];
+      setComments(fresh);
+      // 送れたコメントが、読んだ一覧に入ったら、手元の置き場から外す
+      pruneLocalComments(localKey, fresh.map((c) => c.id));
     } catch (e) {
       console.error(e);
       if (!quiet) setComments([]);
@@ -180,17 +193,22 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     if (!quiet) setLoading(false);
   }
 
-  /** コメントを送る: すぐ履歴に「送っています…」で出し、返事が来たら読み直す。送れなければ「送れませんでした」（詳細を閉じても残る） */
+  /** コメントを送る: すぐ履歴に「送っています…」で出す。送れたら GitHub の返事のコメントに置き換え（読み直した一覧に入るまで手元に残す）、
+   *  送れなければ「送れませんでした」（詳細を閉じても残る） */
   async function postComment(body: string, again?: GitHubComment) {
+    const key = localKey;
     const now = new Date().toISOString();
     const mine: GitHubComment = again ?? { id: -Date.now(), body, user: { login: me || "あなた", avatar_url: "" }, created_at: now, updated_at: now };
-    putLocalComment(localKey, { ...mine, _sending: true, _failed: undefined });
+    putLocalComment(key, { ...mine, _sending: true, _failed: undefined });
     try {
-      await createComment(issue.number, body);
-      await loadComments(true);
-      dropLocalComment(localKey, mine.id);
+      const created = await createComment(issue.number, body);
+      dropLocalComment(key, mine.id);
+      if (created && typeof created.id === "number") putLocalComment(key, { ...created, _sent: true });
+      // 読み直す（と、送れたものを置き場から外す）のは、この詳細がまだ出ているときだけ。
+      // 閉じたあとなら、送れたコメントは置き場に残り、開き直した詳細が次に読み直したときに外す
+      if (mounted.current) await loadComments(true);
     } catch (e) {
-      putLocalComment(localKey, { ...mine, _sending: false, _failed: String(e) });
+      putLocalComment(key, { ...mine, _sending: false, _failed: String(e) });
     }
   }
 

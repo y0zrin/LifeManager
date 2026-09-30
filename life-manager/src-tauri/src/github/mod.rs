@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod artifacts;
 pub mod auth;
 pub mod cards;
 pub mod client;

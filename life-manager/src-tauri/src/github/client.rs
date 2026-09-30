@@ -1166,6 +1166,30 @@ impl GitHubClient {
         return self.get(&url).await;
     }
 
+    /// リポジトリのファイルの中身（そのままのバイト列。100MB まで）。ref はコミットのハッシュなど
+    pub async fn get_file_bytes(&self, owner: &str, repo: &str, reference: &str, path: &str, limit: u64) -> Result<Vec<u8>, String> {
+        let encoded: Vec<String> = path.split('/').map(|p| urlencoding::encode(p).into_owned()).collect();
+        let url = format!(
+            "{}/repos/{}/{}/contents/{}?ref={}",
+            BASE_URL, owner, repo, encoded.join("/"), urlencoding::encode(reference)
+        );
+        // 中身をそのまま受け取る（ふつうの JSON の受け取り方の代わりに）
+        let token = self.current_token().await;
+        let mut headers = Self::headers_for(&token);
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github.raw"));
+        let response = self.http.get(&url).headers(headers).send().await.map_err(network_error)?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!("HTTP {}: {}", status, body));
+        }
+        if response.content_length().unwrap_or(0) > limit {
+            return Err(format!("大きすぎるので開けません（{} MB）", response.content_length().unwrap_or(0) / 1024 / 1024));
+        }
+        let bytes = response.bytes().await.map_err(network_error)?;
+        Ok(bytes.to_vec())
+    }
+
     // --- HTTP共通メソッド ---
 
     async fn get(&self, url: &str) -> Result<String, String> {

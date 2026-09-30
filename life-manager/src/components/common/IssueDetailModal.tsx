@@ -16,9 +16,10 @@ import { ESTIMATE_PREFIX, estimateOf } from "../../lib/estimate";
 import { EstimatePicker } from "./EstimateChip";
 import { Avatar } from "./Avatar";
 import { relatedOf } from "../../lib/related";
+import { ArtifactsTab } from "../media/ArtifactsTab";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
-type DetailTab = "history" | "settings" | "links";
+type DetailTab = "history" | "settings" | "links" | "artifacts";
 
 /** 内容をたたんだときの高さ（3 行ほど） */
 const CONTENT_CLAMP_PX = 88;
@@ -64,9 +65,11 @@ interface IssueDetailModalProps {
   onShowCommit?: (hash: string, actor: string, date: string) => void;
   /** 見積もりを付け替える（null なら外す）。渡さなければ、見積もりの行を出さない */
   onSetEstimate?: (issueNumber: number, value: number | null) => Promise<void>;
+  /** 成果物（つながるコミットで変わったファイル）を探すリポジトリと、この PC の作業フォルダ。渡さなければ、成果物のタブを出さない */
+  artifacts?: { owner: string; repo: string; folder?: string };
 }
 
-export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate }: IssueDetailModalProps) {
+export function IssueDetailModal({ inline = false, issue, onClose, listComments, createComment, availableLabels, milestones, collaborators, updateIssue, onCloseIssue, onReopenIssue, onToggleTodo, reminders, onAddReminder, onRemoveReminder, allIssues = [], onOpenIssue, subIssueApi, listTimeline, onShowCommit, onSetEstimate, artifacts }: IssueDetailModalProps) {
   const estimate = estimateOf(issue);
   const [comments, setComments] = useState<GitHubComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -79,6 +82,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   // 本文を直す欄には、アプリの印（ガントの日程・関連など）を出さない。保存するときに戻す
   const [editBody, setEditBody] = useState(() => splitAppMarks(issue.body).text);
   const [tab, setTab] = useState<DetailTab>("history");
+  // 成果物の数（タブを開いて探したあと）
+  const [artifactCount, setArtifactCount] = useState<number | null>(null);
   // 内容が長いときは、たたんでおく（「すべて表示」で全部）
   const [contentOpen, setContentOpen] = useState(false);
   const [contentLong, setContentLong] = useState(false);
@@ -300,6 +305,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     { key: "history", label: "履歴", count: commentCount },
     { key: "settings", label: "設定" },
     { key: "links", label: "つながり", count: linkCount },
+    ...(artifacts && issue.number > 0 ? [{ key: "artifacts" as const, label: "成果物", count: artifactCount ?? undefined }] : []),
   ];
 
   // 設定の表に出す値
@@ -798,6 +804,11 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               )}
             </div>
           </div>
+        )}
+
+        {/* === 成果物: つながるコミットで変わったファイル（押すとメディアビューワー） === */}
+        {tab === "artifacts" && artifacts && issue.number > 0 && (
+          <ArtifactsTab owner={artifacts.owner} repo={artifacts.repo} folder={artifacts.folder} number={issue.number} onCount={setArtifactCount} />
         )}
 
         {/* === つながり: サブイシュー・関連 === */}

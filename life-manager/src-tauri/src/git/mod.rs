@@ -6,6 +6,7 @@ pub mod commands;
 mod conflict;
 pub mod history;
 mod ignore;
+pub mod media;
 pub mod publish;
 mod runner;
 mod setup;

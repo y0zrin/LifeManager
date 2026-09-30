@@ -830,6 +830,7 @@ function App() {
         listTimeline={gh.listTimeline}
         onShowCommit={showTimelineCommit}
         onSetEstimate={gh.setEstimate}
+        artifacts={gh.owner ? { owner: gh.owner, repo: gh.repo, folder } : undefined}
       />
     );
   }
@@ -1305,7 +1306,7 @@ function App() {
       {gitignoreOpen && folder && <GitignoreEditor folder={folder} onSave={gitActions.saveGitignore} onClose={closeGitignore} />}
       {commitDetail && (folder || gh.owner) && (
         <CommitDetail
-          source={folder ? { folder } : { owner: gh.owner, repo: gh.repo }}
+          source={folder ? { folder, owner: gh.owner, repo: gh.repo } : { owner: gh.owner, repo: gh.repo }}
           commit={commitDetail}
           onClose={closeCommitDetail}
         />

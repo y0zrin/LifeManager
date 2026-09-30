@@ -4,9 +4,15 @@ import { shortWhen } from "../../lib/history";
 import type { GitCommit, GitRun } from "../../lib/types";
 import { DiffRows, parseDiff } from "./DiffView";
 import { isEscape } from "../../lib/keys";
+import { filesFromShow } from "../../lib/showFiles";
+import { baseName, KIND_ICONS, kindOf, type MediaFile } from "../../lib/media";
+import { MediaViewer } from "../media/MediaViewer";
 
-/** どこから読むか：この PC の作業フォルダ（git show）か、GitHub（作業フォルダのないとき・スマホ版） */
-export type CommitSource = { folder: string } | { owner: string; repo: string };
+/**
+ * どこから読むか：この PC の作業フォルダ（git show）か、GitHub（作業フォルダのないとき・スマホ版）。
+ * 作業フォルダのときも、GitHub の名前があれば、ファイルを見るとき（この PC にないコミット）に GitHub から読む
+ */
+export type CommitSource = { folder: string; owner?: string; repo?: string } | { owner: string; repo: string };
 
 interface CommitDetailProps {
   source: CommitSource;
@@ -37,6 +43,8 @@ function splitShow(output: string) {
 export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
   const [run, setRun] = useState<GitRun | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ファイルを見る（メディアビューワーで開いているファイルの番号）
+  const [viewing, setViewing] = useState<number | null>(null);
   const sourceKey = "folder" in source ? source.folder : `${source.owner}/${source.repo}`;
 
   useEffect(() => {
@@ -51,18 +59,41 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
   }, [sourceKey, commit.hash]);
 
   useEffect(() => {
+    // ビューワーを開いているときの Esc は、ビューワーが閉じる
+    if (viewing !== null) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isEscape(e)) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, viewing]);
 
   const parts = useMemo(() => (run ? splitShow(run.output) : null), [run]);
   // Issue の履歴から開いたときは、題名が分からない（読み込んだ内容の 1 行目を題名にする）
   const subject = commit.subject || parts?.message.split("\n")[0] || "";
   const author = commit.author || (run ? run.output.split("\n")[1]?.replace(/\s*<[^>]*>\s*$/, "") ?? "" : "");
   const rows = useMemo(() => (parts ? parseDiff(parts.patch, true) : []), [parts]);
+  // 変わったファイル（メディアビューワーで見る）
+  const shown = useMemo(() => (run ? filesFromShow(run.output) : []), [run]);
+  const mediaFiles: MediaFile[] = useMemo(
+    () =>
+      shown.map((f) => ({
+        path: f.path,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        source: {
+          kind: "commit" as const,
+          sha: commit.hash,
+          folder: "folder" in source ? source.folder : undefined,
+          owner: source.owner,
+          repo: source.repo,
+        },
+        commitLabel: `${commit.hash.slice(0, 7)} ${subject}${author ? ` ・ ${author}` : ""}`,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shown, commit.hash, sourceKey, subject, author],
+  );
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={onClose}>
@@ -93,6 +124,16 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
                   ))}
                 </div>
               )}
+              {mediaFiles.length > 0 && (
+                <div className="cd-files">
+                  <span className="cd-files-label">👁 ファイルを見る</span>
+                  {mediaFiles.map((f, i) => (
+                    <button key={f.path} type="button" className={`cd-file${f.status === "removed" ? " removed" : ""}`} onClick={() => setViewing(i)} title={f.path}>
+                      <span aria-hidden="true">{KIND_ICONS[kindOf(f.path)]}</span> {baseName(f.path)}
+                    </button>
+                  ))}
+                </div>
+              )}
               {rows.length > 0 ? (
                 <div className="dr-diff cd-diff">
                   <DiffRows rows={rows} />
@@ -104,6 +145,10 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
           )}
         </div>
       </div>
+      {viewing !== null && (
+        <MediaViewer files={mediaFiles} start={viewing} title="このコミットのファイル" onClose={() => setViewing(null)}
+          loadPatch={async (f) => (run ? shown.find((s) => s.path === f.path)?.patch ?? null : null)} />
+      )}
     </div>
   );
 }

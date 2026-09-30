@@ -69,19 +69,21 @@ import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib
 
 type NavItem = { key: ViewType; icon: string; label: string };
 
-// サイドバーの並び: ホーム（オーバービュー・アクティビティ）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下
+// サイドバーの並び: ホーム（オーバービュー・アクティビティ）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下。
+// タスク系は、マイルストーンを作る → ボードでタスクを足す（マイルストーンに入れる）→ 日時・見積もりを入れてガントへ、の順。
+// ルーチンは使う回数が少なく、タスク一覧は補助なので下に
 const HOME_GROUP = "ホーム";
 const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー" };
 const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "アクティビティ" }];
 const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
 const TASK_ITEMS: NavItem[] = [
   WORK_ITEM,
-  { key: "dashboard", icon: "📋", label: "タスク" },
-  { key: "kanban", icon: "📊", label: "ボード" },
   { key: "milestones", icon: "🎯", label: "マイルストーン" },
-  { key: "routines", icon: "🔄", label: "ルーチン" },
-  { key: "timeline", icon: "📅", label: "日誌" },
+  { key: "kanban", icon: "📊", label: "ボード" },
   { key: "gantt", icon: "📐", label: "ガント" },
+  { key: "timeline", icon: "📅", label: "日誌" },
+  { key: "routines", icon: "🔄", label: "ルーチン" },
+  { key: "dashboard", icon: "📋", label: "タスク一覧" },
 ];
 const REPO_ITEMS: NavItem[] = [
   { key: "branches", icon: "🌿", label: "ブランチ" },

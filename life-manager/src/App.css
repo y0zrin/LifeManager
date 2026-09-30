@@ -2109,8 +2109,8 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 
 .motion-normal .issue-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--view-accent) 45%, var(--border-default));
-  box-shadow: var(--shadow-popover);
+  border-color: var(--view-accent, var(--accent-blue));
+  box-shadow: 0 0 0 1px var(--view-accent, var(--accent-blue)), var(--shadow-popover);
 }
 
 /* 完了: ✓ のはんこが押され、カードがしぼんで消える */
@@ -3417,8 +3417,10 @@ button:hover {
   transition: border-color 0.1s;
 }
 
+/* マウスを乗せたカード: 輪郭をハイライト（画面の色で。動きを減らしていても） */
 .issue-card:hover {
-  border-color: var(--border-default);
+  border-color: var(--view-accent, var(--accent-blue));
+  box-shadow: 0 0 0 1px var(--view-accent, var(--accent-blue));
 }
 
 .issue-count {
@@ -6267,6 +6269,12 @@ button:hover {
   box-shadow: inset 3px 0 0 var(--accent-blue);
 }
 
+.issue-card--selected:hover,
+.motion-normal .issue-card--selected:hover {
+  border-color: var(--accent-blue);
+  box-shadow: inset 3px 0 0 var(--accent-blue), 0 0 0 1px var(--accent-blue);
+}
+
 /* 詳細を重ねずに、右の欄に出すとき */
 .modal-content.issue-detail-inline {
   flex: 1;
@@ -6704,8 +6712,18 @@ button:hover {
   cursor: pointer;
 }
 
+/* マウスを乗せた行: 背景と、上下の輪郭をハイライト（左右の端も） */
 .task-row:hover td {
   background: var(--bg-tertiary);
+  box-shadow: inset 0 1px 0 var(--view-accent, var(--accent-blue)), inset 0 -1px 0 var(--view-accent, var(--accent-blue));
+}
+
+.task-row:hover td:first-child {
+  box-shadow: inset 0 1px 0 var(--view-accent, var(--accent-blue)), inset 0 -1px 0 var(--view-accent, var(--accent-blue)), inset 2px 0 0 var(--view-accent, var(--accent-blue));
+}
+
+.task-row:hover td:last-child {
+  box-shadow: inset 0 1px 0 var(--view-accent, var(--accent-blue)), inset 0 -1px 0 var(--view-accent, var(--accent-blue)), inset -1px 0 0 var(--view-accent, var(--accent-blue));
 }
 
 .task-row--picked td {
@@ -14077,10 +14095,18 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 .av-todo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 10px;
+  padding: 6px 6px;
   border-top: 1px solid var(--border-subtle);
-  font-size: var(--font-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-lg);
+  line-height: 1.6;
+  transition: background-color var(--dur-fast);
+}
+/* マウスを乗せた行を強調（行ぜんたい） */
+.av-todo:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 .av-todo:nth-child(2) { border-top: none; }
 .av-todo.t-ng .av-icon { color: var(--accent-red); }
@@ -14093,17 +14119,20 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 2px;
   min-height: 0;
   padding: 2px 4px;
   border: none;
   background: none;
   color: var(--text-secondary);
+  line-height: 1.6;
   text-align: left;
 }
-.av-todo-main:hover { background: var(--bg-tertiary); }
+.av-todo-main:hover { background: none; }
+.av-todo:hover .av-todo-main { color: var(--text-primary); }
 .av-ref { color: var(--accent-blue); }
-.av-detail { color: var(--text-muted); font-size: var(--font-sm); overflow-wrap: anywhere; }
-.av-when { flex: none; font-size: var(--font-xs); white-space: nowrap; }
+.av-detail { color: var(--text-muted); font-size: var(--font-md); line-height: 1.6; overflow-wrap: anywhere; }
+.av-when { flex: none; font-size: var(--font-sm); white-space: nowrap; }
 .av-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--font-xs); }
 .av-filters {
   display: flex;
@@ -14113,24 +14142,34 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   margin-bottom: var(--space-sm);
   font-size: var(--font-sm);
 }
-.av-day { margin-bottom: var(--space-md); }
+.av-day { margin-bottom: var(--space-xl); }
 .av-day-label {
-  margin: 8px 0 4px;
+  margin: var(--space-lg) 0 var(--space-sm);
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   font-weight: 700;
 }
 .av-ev {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   margin-left: 6px;
-  padding: 4px 0 4px 12px;
-  border-left: 2px solid var(--border-default);
+  padding: 9px 12px 9px 14px;
+  border-left: 3px solid var(--border-default);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--text-secondary);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
+  line-height: 1.6;
+  transition: background-color var(--dur-fast), box-shadow var(--dur-fast), color var(--dur-fast);
 }
+.av-ev + .av-ev { margin-top: 2px; }
 .av-ev b { color: var(--text-primary); }
+/* マウスを乗せた行を強調（背景と輪郭。左の線の色はそのまま） */
+.av-ev:hover {
+  background: var(--bg-secondary);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+  color: var(--text-primary);
+}
 .av-ev.k-push { border-left-color: var(--accent-blue); }
 .av-ev.k-pull { border-left-color: var(--view-pulls); }
 .av-ev.k-issue { border-left-color: var(--accent-green-hover); }
@@ -14140,17 +14179,19 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
-.av-commits { display: flex; flex-direction: column; }
+.av-commits { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
 .av-commit {
   align-self: flex-start;
   min-height: 0;
-  padding: 0 4px;
+  padding: 1px 6px;
   border: none;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text-secondary);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
+  line-height: 1.6;
   text-align: left;
 }
 .av-commit:hover { background: var(--bg-tertiary); }

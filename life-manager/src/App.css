@@ -418,7 +418,447 @@
   --picker-dust: #e7b24a0f;
 }
 
+/* --- テーマ: ナイト（夜空と月あかり）。ボードは夜空の掲示板、机は夜の机 --- */
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --bg-primary: #0b1020;
+  --bg-secondary: #121932;
+  --bg-tertiary: #1b2446;
+  --border-default: #2a3563;
+  --border-subtle: #1b2446;
+  --text-primary: #e8ecff;
+  --text-secondary: #c6cdf0;
+  --text-muted: #9aa3c7;
+  --text-faint: #4b5582;
+  --accent-blue: #8ab4ff;
+  --accent-blue-bg: #8ab4ff26;
+  --accent-teal: #5fd4d4;
+  --accent-teal-bg: #5fd4d41f;
+  --accent-teal-border: #5fd4d466;
+  --accent-green: #2f9e6e;
+  --accent-green-hover: #43c28a;
+  --accent-red: #ff7b8a;
+  --accent-red-strong: #e0485c;
+  --accent-yellow: #ffd76a;
+  --accent-purple: #b79cff;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #43c28a26;
+  --accent-red-bg: #ff7b8a26;
+  --accent-yellow-bg: #ffd76a26;
+  --accent-purple-bg: #b79cff1f;
+  --diff-add-bg: #43c28a26;
+  --diff-del-bg: #ff7b8a26;
+  --diff-hunk-bg: #8ab4ff1a;
+  --shadow-popover: 0 8px 24px #000000a6;
+  --chart-created: #8ab4ff;
+  --chart-closed: #43c28a;
+  --state-0: #9aa3c7;
+  --state-1: #8ab4ff;
+  --state-2: #ffd76a;
+  --state-3: #b79cff;
+  --state-4: #43c28a;
+  --state-5: #5fd4d4;
+  --state-6: #ff9ecf;
+  --state-7: #ffae6b;
+  --lane-0: #8ab4ff;
+  --lane-1: #43c28a;
+  --lane-2: #b79cff;
+  --lane-3: #ffae6b;
+  --lane-4: #ff7b8a;
+  --lane-5: #5fd4d4;
+  --lane-6: #ffd76a;
+  --lane-7: #ff9ecf;
+  --lane-8: #a8c8ff;
+  --lane-9: #8fe0b0;
+  --view-work: #ffae6b;
+  --view-insights: #5fd4d4;
+  --view-dashboard: #8ab4ff;
+  --view-kanban: #43c28a;
+  --view-milestones: #b79cff;
+  --view-routines: #ff9ecf;
+  --view-timeline: #ffd76a;
+  --view-gantt: #ff7b8a;
+  --view-branches: #8fe0b0;
+  --view-overview: #a8c8ff;
+  --view-pulls: #b79cff;
+  --view-actions: #ffae6b;
+  --view-releases: #5fd4d4;
+  --view-activity: #ff9ecf;
+  --view-settings: #ffd76a;
+  --level-soon: #ffae6b;
+  --level-soon-strong: #e0853a;
+  --level-soon-bg: #ffae6b26;
+  --level-later: #ffd76a;
+  --level-later-strong: #c9a23a;
+  --level-later-bg: #ffd76a26;
+  --accent-blue-strong: #5a8cff;
+  --log-error-text: #ffb0ba;
+  --merge-purple: #9a7cf0;
+  --merge-purple-strong: #b79cff;
+  --merge-purple-bg: #9a7cf026;
+  --merge-purple-text: #d8ccff;
+  --spark-1: #ff7b8a;
+  --spark-2: #ffae6b;
+  --spark-3: #ffd76a;
+  --spark-4: #43c28a;
+  --spark-5: #5fd4d4;
+  --spark-6: #8ab4ff;
+  --spark-7: #b79cff;
+  --spark-8: #ff9ecf;
+  --stamp-red: #ff6b7a;
+  --stamp-pink: #ff9ecf;
+  --celebrate-text: #ffd76a;
+  --shadow-color: #000000a6;
+  --picker-bg1: #121a3a;
+  --picker-bg2: #070b18;
+  --picker-glow: #8ab4ff33;
+  --picker-text: #e8ecff;
+  --picker-muted: #9aa3c7;
+  --picker-faint: #4b5582;
+  --picker-accent: #ffd76a;
+  --picker-on-accent: #0b1020;
+  --picker-ring: #ffd76a;
+  --picker-card: #121932d9;
+  --picker-card-line: #e8ecff24;
+  --picker-chip: #e8ecff14;
+  --picker-dust: #ffffff40;
+}
+
+/* --- テーマ: デイタイム（日の当たる部屋）。ボードは日の当たるコルクボード、机はカフェのテーブル --- */
+:root[data-theme="day"] {
+  color-scheme: light;
+  --bg-primary: #fbfaf6;
+  --bg-secondary: #f3efe4;
+  --bg-tertiary: #e8e2d2;
+  --border-default: #d9d0ba;
+  --border-subtle: #ebe5d6;
+  --text-primary: #2a2620;
+  --text-secondary: #3d3830;
+  --text-muted: #6b6457;
+  --text-faint: #a39a88;
+  --accent-blue: #1a6cc9;
+  --accent-blue-bg: #1a6cc91a;
+  --accent-teal: #127a82;
+  --accent-teal-bg: #127a821a;
+  --accent-teal-border: #127a8266;
+  --accent-green: #2d8a3e;
+  --accent-green-hover: #237a33;
+  --accent-red: #c9302c;
+  --accent-red-strong: #a3221f;
+  --accent-yellow: #9a6a00;
+  --accent-purple: #7a4fd0;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #237a331f;
+  --accent-red-bg: #c9302c1a;
+  --accent-yellow-bg: #e0a8202e;
+  --accent-purple-bg: #7a4fd01a;
+  --diff-add-bg: #dff5df;
+  --diff-del-bg: #fde6e4;
+  --diff-hunk-bg: #e3f0ff;
+  --shadow-popover: 0 8px 24px #8a7a5a40;
+  --chart-created: #1a6cc9;
+  --chart-closed: #237a33;
+  --state-0: #a39a88;
+  --state-1: #1a6cc9;
+  --state-2: #c98a00;
+  --state-3: #7a4fd0;
+  --state-4: #237a33;
+  --state-5: #127a82;
+  --state-6: #c2407e;
+  --state-7: #c05a10;
+  --lane-0: #1a6cc9;
+  --lane-1: #237a33;
+  --lane-2: #7a4fd0;
+  --lane-3: #c05a10;
+  --lane-4: #c9302c;
+  --lane-5: #127a82;
+  --lane-6: #9a6a00;
+  --lane-7: #c2407e;
+  --lane-8: #4a9af0;
+  --lane-9: #45b060;
+  --view-work: #c05a10;
+  --view-insights: #127a82;
+  --view-dashboard: #1a6cc9;
+  --view-kanban: #237a33;
+  --view-milestones: #7a4fd0;
+  --view-routines: #c2407e;
+  --view-timeline: #9a6a00;
+  --view-gantt: #c9302c;
+  --view-branches: #2e9a4e;
+  --view-overview: #0e5aa8;
+  --view-pulls: #7a4fd0;
+  --view-actions: #c05a10;
+  --view-releases: #127a82;
+  --view-activity: #c2407e;
+  --view-settings: #9a6a00;
+  --level-soon: #c05a10;
+  --level-soon-strong: #973f00;
+  --level-soon-bg: #f0a06a1f;
+  --level-later: #9a6a00;
+  --level-later-strong: #7d5200;
+  --level-later-bg: #e0a82026;
+  --accent-blue-strong: #1a6cc9;
+  --log-error-text: #c9302c;
+  --merge-purple: #7a4fd0;
+  --merge-purple-strong: #5d35b0;
+  --merge-purple-bg: #7a4fd01a;
+  --merge-purple-text: #5d35b0;
+  --spark-1: #c9302c;
+  --spark-2: #c05a10;
+  --spark-3: #c98a00;
+  --spark-4: #237a33;
+  --spark-5: #127a82;
+  --spark-6: #1a6cc9;
+  --spark-7: #7a4fd0;
+  --spark-8: #c2407e;
+  --stamp-red: #c9302c;
+  --stamp-pink: #c2407e;
+  --celebrate-text: #237a33;
+  --shadow-color: #8a7a5a55;
+  --picker-bg1: #e8f4ff;
+  --picker-bg2: #fff8ea;
+  --picker-glow: #ffd98a66;
+  --picker-text: #2a2620;
+  --picker-muted: #6b6457;
+  --picker-faint: #a39a88;
+  --picker-accent: #1a6cc9;
+  --picker-on-accent: #ffffff;
+  --picker-ring: #1a6cc9;
+  --picker-card: #ffffffeb;
+  --picker-card-line: #d9d0ba;
+  --picker-chip: #1a6cc914;
+  --picker-dust: #f5a62314;
+}
+
+/* --- テーマ: スプリング（桜と若葉）。ボードは桜の掲示板、机は春の机 --- */
+:root[data-theme="spring"] {
+  color-scheme: light;
+  --bg-primary: #fff8fa;
+  --bg-secondary: #fdeef3;
+  --bg-tertiary: #f8dfe8;
+  --border-default: #efc6d4;
+  --border-subtle: #f6dde6;
+  --text-primary: #3a2830;
+  --text-secondary: #4d3540;
+  --text-muted: #8a6a76;
+  --text-faint: #c0a0ac;
+  --accent-blue: #c2386b;
+  --accent-blue-bg: #c2386b1a;
+  --accent-teal: #1f8a7a;
+  --accent-teal-bg: #1f8a7a1a;
+  --accent-teal-border: #1f8a7a66;
+  --accent-green: #3f9b5a;
+  --accent-green-hover: #2f8a4a;
+  --accent-red: #d0343c;
+  --accent-red-strong: #a8242b;
+  --accent-yellow: #a86e00;
+  --accent-purple: #8a4fc0;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #2f8a4a1f;
+  --accent-red-bg: #d0343c1a;
+  --accent-yellow-bg: #e0a8202e;
+  --accent-purple-bg: #8a4fc01a;
+  --diff-add-bg: #e0f5e3;
+  --diff-del-bg: #fde4e8;
+  --diff-hunk-bg: #fbe3ee;
+  --shadow-popover: 0 8px 24px #c0708f33;
+  --chart-created: #c2386b;
+  --chart-closed: #2f8a4a;
+  --state-0: #c0a0ac;
+  --state-1: #c2386b;
+  --state-2: #c98a00;
+  --state-3: #8a4fc0;
+  --state-4: #2f8a4a;
+  --state-5: #1f8a7a;
+  --state-6: #e0588f;
+  --state-7: #c05a30;
+  --lane-0: #c2386b;
+  --lane-1: #2f8a4a;
+  --lane-2: #8a4fc0;
+  --lane-3: #c05a30;
+  --lane-4: #d0343c;
+  --lane-5: #1f8a7a;
+  --lane-6: #a86e00;
+  --lane-7: #e0588f;
+  --lane-8: #e896b8;
+  --lane-9: #6cc080;
+  --view-work: #c05a30;
+  --view-insights: #1f8a7a;
+  --view-dashboard: #c2386b;
+  --view-kanban: #2f8a4a;
+  --view-milestones: #8a4fc0;
+  --view-routines: #e0588f;
+  --view-timeline: #a86e00;
+  --view-gantt: #d0343c;
+  --view-branches: #3f9b5a;
+  --view-overview: #5a5ac8;
+  --view-pulls: #8a4fc0;
+  --view-actions: #c05a30;
+  --view-releases: #1f8a7a;
+  --view-activity: #e0588f;
+  --view-settings: #a86e00;
+  --level-soon: #c05a30;
+  --level-soon-strong: #9a3f18;
+  --level-soon-bg: #f0a07a1f;
+  --level-later: #a86e00;
+  --level-later-strong: #875500;
+  --level-later-bg: #e0a82026;
+  --accent-blue-strong: #c2386b;
+  --log-error-text: #d0343c;
+  --merge-purple: #8a4fc0;
+  --merge-purple-strong: #6a35a0;
+  --merge-purple-bg: #8a4fc01a;
+  --merge-purple-text: #6a35a0;
+  --spark-1: #d0343c;
+  --spark-2: #c05a30;
+  --spark-3: #c98a00;
+  --spark-4: #2f8a4a;
+  --spark-5: #1f8a7a;
+  --spark-6: #c2386b;
+  --spark-7: #8a4fc0;
+  --spark-8: #e0588f;
+  --stamp-red: #d0343c;
+  --stamp-pink: #e0588f;
+  --celebrate-text: #2f8a4a;
+  --shadow-color: #c0708f40;
+  --picker-bg1: #fff6f9;
+  --picker-bg2: #eaf6ea;
+  --picker-glow: #ffd3e155;
+  --picker-text: #3a2830;
+  --picker-muted: #8a6a76;
+  --picker-faint: #c0a0ac;
+  --picker-accent: #c2386b;
+  --picker-on-accent: #ffffff;
+  --picker-ring: #c2386b;
+  --picker-card: #ffffffeb;
+  --picker-card-line: #efc6d4;
+  --picker-chip: #c2386b12;
+  --picker-dust: #f7a8c240;
+}
+
+/* --- テーマ: ウィンター（雪の青と白）。ボードは雪の窓の掲示板、机はこたつ --- */
+:root[data-theme="winter"] {
+  color-scheme: light;
+  --bg-primary: #f5f9fd;
+  --bg-secondary: #e9f1fa;
+  --bg-tertiary: #d9e7f5;
+  --border-default: #bcd2ea;
+  --border-subtle: #dbe8f5;
+  --text-primary: #1d2b3a;
+  --text-secondary: #2c3d50;
+  --text-muted: #5d7189;
+  --text-faint: #9aabbf;
+  --accent-blue: #2a74c2;
+  --accent-blue-bg: #2a74c21a;
+  --accent-teal: #1a7f8e;
+  --accent-teal-bg: #1a7f8e1a;
+  --accent-teal-border: #1a7f8e66;
+  --accent-green: #2b8a57;
+  --accent-green-hover: #1f7a48;
+  --accent-red: #c8364a;
+  --accent-red-strong: #a3243a;
+  --accent-yellow: #946a00;
+  --accent-purple: #6a55c8;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #1f7a481f;
+  --accent-red-bg: #c8364a1a;
+  --accent-yellow-bg: #d4a72c2e;
+  --accent-purple-bg: #6a55c81a;
+  --diff-add-bg: #e2f4ea;
+  --diff-del-bg: #fce6ea;
+  --diff-hunk-bg: #deedfb;
+  --shadow-popover: 0 8px 24px #5d7fa440;
+  --chart-created: #2a74c2;
+  --chart-closed: #1f7a48;
+  --state-0: #9aabbf;
+  --state-1: #2a74c2;
+  --state-2: #b98a1a;
+  --state-3: #6a55c8;
+  --state-4: #1f7a48;
+  --state-5: #1a7f8e;
+  --state-6: #c24f86;
+  --state-7: #c0622a;
+  --lane-0: #2a74c2;
+  --lane-1: #1f7a48;
+  --lane-2: #6a55c8;
+  --lane-3: #c0622a;
+  --lane-4: #c8364a;
+  --lane-5: #1a7f8e;
+  --lane-6: #946a00;
+  --lane-7: #c24f86;
+  --lane-8: #6fa8e0;
+  --lane-9: #4fb07a;
+  --view-work: #c0622a;
+  --view-insights: #1a7f8e;
+  --view-dashboard: #2a74c2;
+  --view-kanban: #1f7a48;
+  --view-milestones: #6a55c8;
+  --view-routines: #c24f86;
+  --view-timeline: #946a00;
+  --view-gantt: #c8364a;
+  --view-branches: #2f9a64;
+  --view-overview: #1f4f86;
+  --view-pulls: #6a55c8;
+  --view-actions: #c0622a;
+  --view-releases: #1a7f8e;
+  --view-activity: #c24f86;
+  --view-settings: #946a00;
+  --level-soon: #c0622a;
+  --level-soon-strong: #994a18;
+  --level-soon-bg: #f0a07a1f;
+  --level-later: #946a00;
+  --level-later-strong: #775300;
+  --level-later-bg: #d4a72c26;
+  --accent-blue-strong: #1f4f86;
+  --log-error-text: #c8364a;
+  --merge-purple: #6a55c8;
+  --merge-purple-strong: #4f3da8;
+  --merge-purple-bg: #6a55c81a;
+  --merge-purple-text: #4f3da8;
+  --spark-1: #c8364a;
+  --spark-2: #c0622a;
+  --spark-3: #b98a1a;
+  --spark-4: #1f7a48;
+  --spark-5: #1a7f8e;
+  --spark-6: #2a74c2;
+  --spark-7: #6a55c8;
+  --spark-8: #c24f86;
+  --stamp-red: #c8364a;
+  --stamp-pink: #c24f86;
+  --celebrate-text: #1f7a48;
+  --shadow-color: #5d7fa455;
+  --picker-bg1: #dcebf8;
+  --picker-bg2: #f5f9fd;
+  --picker-glow: #ffffffaa;
+  --picker-text: #1d2b3a;
+  --picker-muted: #5d7189;
+  --picker-faint: #9aabbf;
+  --picker-accent: #2a74c2;
+  --picker-on-accent: #ffffff;
+  --picker-ring: #2a74c2;
+  --picker-card: #ffffffeb;
+  --picker-card-line: #bcd2ea;
+  --picker-chip: #2a74c214;
+  --picker-dust: #ffffff;
+}
+
 /* クエスト: サイドバーは木目、アプリの名前と画面の題は明朝 */
+:root[data-theme="night"] .sidebar {
+  background: radial-gradient(#ffffff22 1px, transparent 1.4px) 0 0 / 23px 23px, linear-gradient(180deg, #0e1530, #0b1020);
+}
+
+:root[data-theme="day"] .sidebar {
+  background: linear-gradient(180deg, #fffdf7, #f6f1e4);
+}
+
+:root[data-theme="spring"] .sidebar {
+  background: linear-gradient(180deg, #fff5f8, #fde8ef);
+}
+
+:root[data-theme="winter"] .sidebar {
+  background: radial-gradient(#ffffffcc 1.3px, transparent 1.8px) 0 0 / 19px 19px, linear-gradient(180deg, #eef5fc, #e2edf8);
+}
+
 :root[data-theme="quest"] .sidebar {
   background: repeating-linear-gradient(90deg, transparent 0 34px, #00000026 34px 36px), linear-gradient(180deg, #2e1e10, #22160b);
 }
@@ -447,7 +887,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
-:root[data-theme="white"] input[type="date"]::-webkit-calendar-picker-indicator {
+:root[data-theme="white"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="day"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="spring"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="winter"] input[type="date"]::-webkit-calendar-picker-indicator {
   filter: none;
 }
 
@@ -468,7 +911,10 @@ select {
   color-scheme: dark;
 }
 
-:root[data-theme="white"] select {
+:root[data-theme="white"] select,
+:root[data-theme="day"] select,
+:root[data-theme="spring"] select,
+:root[data-theme="winter"] select {
   color-scheme: light;
 }
 
@@ -3806,14 +4252,22 @@ button:hover {
 
 /* 付箋（ホワイトボード・黒板）: 種別で色を分け、上にテープ */
 .look-white .bd-note,
-.look-chalk .bd-note {
+.look-chalk .bd-note,
+.look-night .bd-note,
+.look-day .bd-note,
+.look-spring .bd-note,
+.look-winter .bd-note {
   color: #262626;
   font-family: var(--bd-hand);
   box-shadow: 0 5px 8px #0005, 0 1px 1px #0002;
 }
 
 .look-white .bd-note::before,
-.look-chalk .bd-note::before {
+.look-chalk .bd-note::before,
+.look-night .bd-note::before,
+.look-day .bd-note::before,
+.look-spring .bd-note::before,
+.look-winter .bd-note::before {
   content: "";
   position: absolute;
   top: -7px;
@@ -3843,19 +4297,35 @@ button:hover {
 }
 
 .look-white .bd-mine,
-.look-chalk .bd-mine {
+.look-chalk .bd-mine,
+.look-night .bd-mine,
+.look-day .bd-mine,
+.look-spring .bd-mine,
+.look-winter .bd-mine {
   color: #c2410c;
 }
 
 .look-white .bd-over,
-.look-chalk .bd-over {
+.look-chalk .bd-over,
+.look-night .bd-over,
+.look-day .bd-over,
+.look-spring .bd-over,
+.look-winter .bd-over {
   color: #d6336c;
 }
 
 .look-white .bd-who,
 .look-chalk .bd-who,
+.look-night .bd-who,
+.look-day .bd-who,
+.look-spring .bd-who,
+.look-winter .bd-who,
 .look-white .bd-line,
-.look-chalk .bd-line {
+.look-chalk .bd-line,
+.look-night .bd-line,
+.look-day .bd-line,
+.look-spring .bd-line,
+.look-winter .bd-line {
   color: #444;
 }
 
@@ -4011,6 +4481,291 @@ button:hover {
 
 .look-quest .bd-board.over {
   box-shadow: 0 0 0 3px #ffd54f, inset 0 0 0 6px #4a2d15;
+}
+
+/* 夜空の掲示板（ナイト）: 星と三日月。付箋はランプに照らされて、ほのかに光る。星のピン */
+.bd-wall.look-night {
+  background: linear-gradient(180deg, #0a0f22, #070b18);
+}
+
+.look-night .bd-board {
+  border: 2px solid #2b3772;
+  border-radius: 10px;
+  background:
+    radial-gradient(#ffffffaa 0.9px, transparent 1.3px) 0 0 / 37px 41px,
+    radial-gradient(#ffffff66 0.8px, transparent 1.2px) 11px 17px / 53px 47px,
+    linear-gradient(180deg, #16204a, #0f1633);
+  box-shadow: inset 0 0 40px #00000080, 0 4px 10px #0008;
+}
+
+/* 三日月（右上） */
+.look-night .bd-board::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: -7px 4px 0 0 #fff2b8;
+  filter: drop-shadow(0 0 6px #fff2b8aa);
+  pointer-events: none;
+}
+
+.look-night .bd-title {
+  color: #e8ecff;
+  font-family: var(--bd-hand);
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 0 0 8px #8ab4ff66;
+}
+
+.look-night .bd-count,
+.look-night .est-sum {
+  color: #ffd76a;
+  font-family: var(--bd-hand);
+}
+
+.look-night .bd-empty {
+  border-color: #ffffff30;
+  color: #c6cdf099;
+  font-family: var(--bd-hand);
+}
+
+.look-night .bd-board.over {
+  box-shadow: 0 0 0 3px #ffd76a, inset 0 0 40px #00000080;
+}
+
+.look-night .bd-note {
+  box-shadow: 0 0 18px #ffd76a33, 0 5px 8px #0008;
+  filter: saturate(0.85) brightness(0.95);
+}
+
+.look-night .bd-note::before {
+  content: "★";
+  top: -9px;
+  width: 14px;
+  height: auto;
+  margin-left: -7px;
+  border: none;
+  background: none;
+  color: #ffd76a;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 0 6px #ffd76a;
+  transform: none;
+}
+
+/* 日の当たるコルクボード（デイタイム）: 明るい木の枠・画びょう・斜めの日ざし */
+.bd-wall.look-day {
+  background: linear-gradient(115deg, #fffaf0 0%, #fff3d6 40%, #f7ecd6 100%);
+}
+
+.look-day .bd-board {
+  border: 9px solid #d8b98a;
+  border-radius: 6px;
+  background:
+    radial-gradient(#b8894e 0.9px, transparent 1.4px) 0 0 / 7px 9px,
+    radial-gradient(#a57740 0.8px, transparent 1.3px) 3px 4px / 11px 8px,
+    linear-gradient(135deg, #d9aa6d, #cf9c5c);
+  box-shadow: inset 0 0 18px #7a4f2055, 0 6px 12px #8a6a3a33;
+}
+
+/* 斜めの日ざし */
+.look-day .bd-board::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, #ffffff88 0%, transparent 35%, transparent 60%, #ffffff44 75%, transparent 90%);
+  pointer-events: none;
+}
+
+.look-day .bd-title {
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 3px;
+  background: #fffaf0;
+  box-shadow: 0 2px 4px #0003;
+  color: #3a2610;
+  font-family: var(--bd-hand);
+  font-size: 16px;
+  font-weight: 700;
+  transform: rotate(-1deg);
+}
+
+.look-day .bd-count,
+.look-day .est-sum {
+  color: #7a4a10;
+  font-family: var(--bd-hand);
+}
+
+.look-day .bd-empty {
+  border-color: #fffaf0aa;
+  background: #fffaf030;
+  color: #3a2610;
+  font-family: var(--bd-hand);
+}
+
+.look-day .bd-board.over {
+  box-shadow: 0 0 0 3px var(--accent-blue), inset 0 0 18px #7a4f2055;
+}
+
+/* 画びょう */
+.look-day .bd-note::before {
+  top: -5px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #7fc3ff, #1f7ae0 70%);
+  box-shadow: 0 2px 2px #0005;
+  transform: none;
+}
+
+/* 桜の掲示板（スプリング）: 淡い桃色に花びら・和紙のテープ */
+.bd-wall.look-spring {
+  background: linear-gradient(180deg, #fff4f7, #fbe3eb);
+}
+
+.look-spring .bd-board {
+  border: 8px solid #e9c9a8;
+  border-radius: 8px;
+  background:
+    radial-gradient(ellipse 5px 3px at 20% 30%, #f7a8c2 60%, transparent 62%) 0 0 / 70px 60px,
+    radial-gradient(ellipse 4px 2.6px at 70% 60%, #f9bcd0 60%, transparent 62%) 0 0 / 55px 70px,
+    radial-gradient(ellipse 3.5px 2.4px at 40% 80%, #fbd0dd 60%, transparent 62%) 0 0 / 45px 50px,
+    linear-gradient(160deg, #fffafb, #fdeaf0);
+  box-shadow: inset 0 0 20px #e89ab533, 0 6px 12px #c0708f22;
+}
+
+.look-spring .bd-title {
+  color: #b3365f;
+  font-family: var(--bd-hand);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.look-spring .bd-title::before {
+  content: "🌸 ";
+  font-size: 14px;
+}
+
+.look-spring .bd-count,
+.look-spring .est-sum {
+  color: #2f8a4a;
+  font-family: var(--bd-hand);
+}
+
+.look-spring .bd-empty {
+  border-color: #efc6d4;
+  color: #8a6a76;
+  font-family: var(--bd-hand);
+}
+
+.look-spring .bd-board.over {
+  box-shadow: 0 0 0 3px #c2386b, inset 0 0 20px #e89ab533;
+}
+
+/* 和紙のテープ（桃のしま） */
+.look-spring .bd-note::before {
+  width: 46px;
+  margin-left: -23px;
+  border: none;
+  background: repeating-linear-gradient(45deg, #f9c6d5cc 0 6px, #fde3eacc 6px 12px);
+  transform: rotate(-4deg);
+}
+
+/* 雪の窓の掲示板（ウィンター）: すりガラスに雪の結晶。青と白。下に積もった雪 */
+.bd-wall.look-winter {
+  background: linear-gradient(180deg, #eaf3fb, #dbe9f6);
+}
+
+.look-winter .bd-board {
+  border: 8px solid #ffffff;
+  border-radius: 10px;
+  background:
+    radial-gradient(#ffffff 1.6px, transparent 2.1px) 0 0 / 26px 26px,
+    radial-gradient(#ffffffb0 1.1px, transparent 1.6px) 13px 9px / 31px 29px,
+    linear-gradient(170deg, #cfe3f6 0%, #b9d6f1 50%, #a9cbeb 100%);
+  box-shadow: inset 0 0 26px #ffffffaa, 0 0 0 1px #9fc0e2, 0 6px 14px #3a6ea522;
+}
+
+/* 積もった雪（下のふち） */
+.look-winter .bd-board::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 18px;
+  border-radius: 0 0 4px 4px;
+  background: radial-gradient(ellipse at 20% 100%, #ffffff 45%, transparent 47%) 0 0 / 60px 36px repeat-x;
+  pointer-events: none;
+}
+
+.look-winter .bd-title {
+  color: #1f4f86;
+  font-family: var(--bd-hand);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.look-winter .bd-title::before {
+  content: "❄ ";
+  color: #5ea3e0;
+}
+
+.look-winter .bd-count,
+.look-winter .est-sum {
+  color: #1f4f86;
+  font-family: var(--bd-hand);
+}
+
+.look-winter .bd-empty {
+  border-color: #ffffffcc;
+  background: #ffffff40;
+  color: #2c3d50;
+  font-family: var(--bd-hand);
+}
+
+.look-winter .bd-board.over {
+  box-shadow: 0 0 0 3px #2a74c2, inset 0 0 26px #ffffffaa;
+}
+
+/* 付箋は白い紙に、種別の色の線。雪の結晶のピン */
+.look-winter .bd-note {
+  background: linear-gradient(180deg, #ffffff, #f4f8fc);
+  box-shadow: inset 4px 0 0 #e0a83a, 0 5px 10px #3a6ea533;
+}
+
+.look-winter .bd-note.bd-pink {
+  box-shadow: inset 4px 0 0 #e56b8a, 0 5px 10px #3a6ea533;
+}
+
+.look-winter .bd-note.bd-blue {
+  box-shadow: inset 4px 0 0 #2a74c2, 0 5px 10px #3a6ea533;
+}
+
+.look-winter .bd-note.bd-green {
+  box-shadow: inset 4px 0 0 #1f7a48, 0 5px 10px #3a6ea533;
+}
+
+.look-winter .bd-note::before {
+  content: "❄";
+  top: -10px;
+  width: 16px;
+  height: auto;
+  margin-left: -8px;
+  border: none;
+  background: none;
+  color: #5ea3e0;
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 0 4px #ffffff;
+  transform: none;
 }
 
 @media (max-width: 900px) {
@@ -4213,6 +4968,90 @@ button:hover {
 .desk-quest .bd-desk-drop.no {
   border-color: #ff9e8f;
   color: #ff9e8f;
+}
+
+/* 夜の机（ナイト）: 黒い木に、右からランプの光 */
+.desk-night {
+  border-top: 6px solid #3a2f28;
+  background:
+    radial-gradient(ellipse 360px 120px at 88% 0%, #ffd76a44, transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 7px, #00000022 7px 8px),
+    linear-gradient(180deg, #3b2a20, #2a1d16 70%, #1d140f);
+  color: #f3e6d0;
+}
+
+.desk-night .bd-desk-drop {
+  border-color: #ffd76a;
+  background: #0b1020e6;
+  color: #ffd76a;
+  font-family: var(--bd-hand);
+}
+
+/* カフェのテーブル（デイタイム）: 明るい樫 */
+.desk-day {
+  border-top: 6px solid #c9a36e;
+  background: repeating-linear-gradient(90deg, transparent 0 90px, #00000010 90px 92px), linear-gradient(180deg, #ecd1a4, #e0bf8b 70%, #c9a36e);
+  color: #3a2610;
+}
+
+.desk-day .bd-desk-drop {
+  border-color: #1a6cc9;
+  background: #fffaf0d9;
+  color: #1a6cc9;
+}
+
+/* 春の机（スプリング）: 白木に花びら */
+.desk-spring {
+  border-top: 6px solid #d9b996;
+  background:
+    radial-gradient(ellipse 5px 3px at 30% 40%, #f7a8c2 60%, transparent 62%) 0 0 / 90px 60px,
+    radial-gradient(ellipse 4px 2.6px at 70% 70%, #f9bcd0 60%, transparent 62%) 0 0 / 70px 50px,
+    linear-gradient(180deg, #f6e3cc, #eed3b3 70%, #dcbc97);
+  color: #4a2f22;
+}
+
+.desk-spring .bd-desk-drop {
+  border-color: #c2386b;
+  background: #fff8fad9;
+  color: #c2386b;
+  font-family: var(--bd-hand);
+}
+
+/* こたつ（ウィンター）: 天板と、ふとんの柄 */
+.desk-winter {
+  border-top: 8px solid #b88a5c;
+  background: linear-gradient(180deg, #d9b489 0 16px, transparent 16px), repeating-linear-gradient(45deg, #c8423a 0 12px, #b3362f 12px 24px), #c8423a;
+  color: #ffffff;
+}
+
+.desk-winter .bd-desk-name {
+  align-self: flex-end;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #ffffffcc;
+  color: #6b1e18;
+}
+
+.desk-winter .bd-desk-items {
+  align-self: flex-end;
+}
+
+.desk-winter .bd-desk-drop {
+  border-color: #ffffff;
+  background: #2a74c2d9;
+  color: #ffffff;
+}
+
+.desk-day .bd-desk-drop.no,
+.desk-spring .bd-desk-drop.no {
+  border-color: #cf222e;
+  color: #cf222e;
+}
+
+.desk-night .bd-desk-drop.no,
+.desk-winter .bd-desk-drop.no {
+  border-color: #ffb0ba;
+  color: #ffb0ba;
 }
 
 .kanban-status-sheet {
@@ -10797,6 +11636,34 @@ button.lh:hover {
 .pv-theme-quest .pv-t-note { fill: #f0dcae; }
 .pv-theme-quest .pv-t-note2 { fill: #efdcae; }
 .pv-theme-quest .pv-t-desk { fill: #5d3717; }
+.pv-theme-night .pv-t-win { fill: #0b1020; stroke: #2a3563; }
+.pv-theme-night .pv-t-side { fill: #121932; }
+.pv-theme-night .pv-t-frame { fill: #2b3772; }
+.pv-theme-night .pv-t-board { fill: #16204a; }
+.pv-theme-night .pv-t-note { fill: #fff176; }
+.pv-theme-night .pv-t-note2 { fill: #a5d2fa; }
+.pv-theme-night .pv-t-desk { fill: #3b2a20; }
+.pv-theme-day .pv-t-win { fill: #fbfaf6; stroke: #d9d0ba; }
+.pv-theme-day .pv-t-side { fill: #f3efe4; }
+.pv-theme-day .pv-t-frame { fill: #d8b98a; }
+.pv-theme-day .pv-t-board { fill: #d4a366; }
+.pv-theme-day .pv-t-note { fill: #fff176; }
+.pv-theme-day .pv-t-note2 { fill: #a5d2fa; }
+.pv-theme-day .pv-t-desk { fill: #e0bf8b; }
+.pv-theme-spring .pv-t-win { fill: #fff8fa; stroke: #efc6d4; }
+.pv-theme-spring .pv-t-side { fill: #fdeef3; }
+.pv-theme-spring .pv-t-frame { fill: #e9c9a8; }
+.pv-theme-spring .pv-t-board { fill: #fdeaf0; }
+.pv-theme-spring .pv-t-note { fill: #fff176; }
+.pv-theme-spring .pv-t-note2 { fill: #ffb3c1; }
+.pv-theme-spring .pv-t-desk { fill: #eed3b3; }
+.pv-theme-winter .pv-t-win { fill: #f5f9fd; stroke: #bcd2ea; }
+.pv-theme-winter .pv-t-side { fill: #e9f1fa; }
+.pv-theme-winter .pv-t-frame { fill: #ffffff; }
+.pv-theme-winter .pv-t-board { fill: #b9d6f1; }
+.pv-theme-winter .pv-t-note { fill: #ffffff; }
+.pv-theme-winter .pv-t-note2 { fill: #ffffff; }
+.pv-theme-winter .pv-t-desk { fill: #c8423a; }
 
 /* ガントの帯の色: 色と名前を並べる */
 .gantt-colors {

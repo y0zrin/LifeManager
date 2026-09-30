@@ -88,9 +88,9 @@ function Confetti() {
   );
 }
 
-/** はんこ（黒板は花丸、ホワイトボードは「達成」、クエストは「撃破」） */
+/** はんこ（黒板・スプリングは花丸、クエストは「撃破」、ほかは「達成」） */
 function Stamp({ theme, title }: { theme: string; title: string }) {
-  if (theme === "chalk") {
+  if (theme === "chalk" || theme === "spring") {
     const petals = Array.from({ length: 12 }, (_, i) => {
       const a = (Math.PI * 2 * i) / 12;
       return <circle key={i} cx={100 + Math.cos(a) * 78} cy={100 + Math.sin(a) * 78} r="18" />;

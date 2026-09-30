@@ -114,7 +114,7 @@ function ThemePreview({ theme }: { theme: Theme }) {
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
 // マイルストーンの進み具合のバー
 const MILESTONE_BAR_OPTIONS: { value: MilestoneBar; label: string; note: string }[] = [
-  { value: "auto", label: "テーマに合わせる（はじめはこれ）", note: "クエストは HP（ボスの残りの体力）、黒板・ホワイトボードは達成率" },
+  { value: "auto", label: "テーマに合わせる（はじめはこれ）", note: "クエストは HP（ボスの残りの体力）、ほかのテーマは達成率" },
   { value: "progress", label: "達成率（のびる）", note: "終えた分だけ、バーがのびます" },
   { value: "hp", label: "HP（減る）", note: "残りの量を HP にして、終えた分だけ減ります。前に見たときより減った分が「−2pt」と飛びます" },
 ];

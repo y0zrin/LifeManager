@@ -42,15 +42,23 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
 
   return (
     <div className="palette-overlay" onClick={onClose}>
-      <div className="palette" onClick={(e) => e.stopPropagation()}>
+      <div className="palette" role="dialog" aria-label="コマンド" onClick={(e) => e.stopPropagation()}>
+        <div className="palette-title">何をしますか？</div>
         <input
           autoFocus
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (isEnter(e)) handleSubmit(); }}
-          placeholder='m テキスト | #番号 | @ラベル名 | 検索語'
+          placeholder="例: m 牛乳を買う ／ #12 ／ @分野:仕事 ／ ジャンプ"
           className="palette-input"
         />
+        {/* 打てるもの（頭の文字で切り替わる） */}
+        <ul className="palette-hints">
+          <li><kbd>m</kbd> テキスト<span>メモにする</span></li>
+          <li><kbd>#</kbd>番号<span>その Issue を探す</span></li>
+          <li><kbd>@</kbd>ラベル名<span>そのラベルで絞る</span></li>
+          <li>ことば<span>題名と本文から探す</span></li>
+        </ul>
       </div>
     </div>
   );

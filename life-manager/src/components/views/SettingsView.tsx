@@ -100,9 +100,9 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
 ];
 
 // テーマの見本の絵（画面・サイドバー・ボード・下の机の色は、そのテーマと同じ）
-function ThemePreview({ theme }: { theme: Theme }) {
+function ThemePreview({ theme, big = false }: { theme: Theme; big?: boolean }) {
   return (
-    <svg className={`display-preview pv-theme pv-theme-${theme}`} width="46" height="34" aria-hidden="true">
+    <svg className={`display-preview pv-theme pv-theme-${theme}`} viewBox="0 0 46 34" width={big ? undefined : 46} height={big ? undefined : 34} aria-hidden="true">
       <rect x="1" y="1" width="44" height="32" rx="4" className="pv-t-win" />
       <rect x="1" y="1" width="10" height="32" rx="2" className="pv-t-side" />
       <rect x="14" y="5" width="28" height="18" rx="1.5" className="pv-t-frame" />
@@ -852,18 +852,22 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       <div className="form-card" id="settings-theme">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>テーマ</h3>
-        <div className="display-opts">
-          {THEMES.map((t) => (
-            <label key={t.key} className="display-opt">
-              <input type="radio" name="theme" checked={displaySettings.theme === t.key}
-                onChange={() => onChangeDisplaySettings({ theme: t.key })} />
-              <ThemePreview theme={t.key} />
-              <span>
-                <b>{t.label}</b>
-                <small>{t.about}</small>
-              </span>
-            </label>
-          ))}
+        {/* 選ぶ画面のような大きなカード。カードは、それぞれのテーマの色と模様で描く */}
+        <div className="theme-cards" role="radiogroup" aria-label="テーマ">
+          {THEMES.map((t) => {
+            const on = displaySettings.theme === t.key;
+            return (
+              <button key={t.key} type="button" role="radio" aria-checked={on} className={`theme-card theme-card--${t.key}${on ? " on" : ""}`}
+                onClick={() => onChangeDisplaySettings({ theme: t.key })}>
+                <ThemePreview theme={t.key} big />
+                <span className="theme-card-name">
+                  {t.label}
+                  {on && <span className="theme-card-on">使っている</span>}
+                </span>
+                <span className="theme-card-about">{t.about}</span>
+              </button>
+            );
+          })}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
           アプリ全体の色が変わります。ボードと、ボードの下の机も、テーマのものになります。
@@ -1030,6 +1034,31 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           </label>
         </div>
       </div>
+
+      {/* 背景の動き（テーマの粒）。スマホでは動かさない */}
+      {!isMobile && (
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>背景の動き</h3>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="stage-motion" checked={displaySettings.stageMotion}
+              onChange={() => onChangeDisplaySettings({ stageMotion: true })} />
+            <span>
+              <b>動かす（はじめはこれ）</b>
+              <small>画面の後ろで、テーマの粒が動きます（黒板はチョークの粉、クエストは金の粒、ナイトは星、スプリングは花びら、ウィンターは雪 など）</small>
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="stage-motion" checked={!displaySettings.stageMotion}
+              onChange={() => onChangeDisplaySettings({ stageMotion: false })} />
+            <span>
+              <b>止める</b>
+              <small>粒は止まったまま出ます。画面の動きを「少なめ」にしたとき・OS でアニメーションを減らしているときも止まります</small>
+            </span>
+          </label>
+        </div>
+      </div>
+      )}
 
       </>}
 

@@ -22,3 +22,8 @@ export function isTheme(v: unknown): v is Theme {
 export function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
 }
+
+/** 背景（テーマの粒）を動かすか。止めるときは html に stage-still（粒は残して、動きだけ止める） */
+export function applyStageMotion(on: boolean) {
+  document.documentElement.classList.toggle("stage-still", !on);
+}

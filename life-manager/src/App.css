@@ -18033,3 +18033,763 @@ html.notice-window #root {
     animation: none;
   }
 }
+
+/* ===== ルック（新しい世代）: 選ぶ画面の作りを、すべての画面に =====
+   舞台（画面の後ろ。テーマの光と模様。動く）・面（大きな角丸・太めの線・テーマの模様）・見出し・ボタン・タブ。
+   色はテーマごとの --picker-*（背景・光・面・線・アクセント）。模様は --panel-pattern（面）と、動く背景の .stage-fx（舞台） */
+
+:root {
+  /* 黒板: 面は石板のつや */
+  --panel-pattern: linear-gradient(180deg, #ffffff0a, transparent 38%), linear-gradient(180deg, #1a2a20f2, #14211af2);
+  --panel-line: #eef3ee2e;
+  --panel-inset: inset 0 0 0 1px #0000004d, inset 0 1px 0 #ffffff14;
+}
+
+:root[data-theme="white"] {
+  --panel-pattern: linear-gradient(180deg, #ffffff, #fafcfe);
+  --panel-line: #c9d6e3;
+  --panel-inset: inset 0 3px 0 #0969da;
+}
+
+:root[data-theme="quest"] {
+  /* クエスト: 羊皮紙のあかり */
+  --panel-pattern: radial-gradient(130% 90% at 50% 0%, #f4e7c914, transparent 70%), linear-gradient(180deg, #3b2915f5, #2a1c0ef5);
+  --panel-line: #e7b24a70;
+  --panel-inset: inset 0 0 0 3px #0000003d, inset 0 0 0 4px #e7b24a26;
+}
+
+:root[data-theme="night"] {
+  /* ナイト: 面にも、うすい星 */
+  --panel-pattern: radial-gradient(#ffffff26 1px, transparent 1.5px) 7px 9px / 53px 47px, linear-gradient(180deg, #1b2452f0, #111838f0);
+  --panel-line: #8ab4ff40;
+  --panel-inset: inset 0 1px 0 #ffffff1c;
+}
+
+:root[data-theme="day"] {
+  --panel-pattern: linear-gradient(180deg, #fffdf8, #fff7ea);
+  --panel-line: #e3d4b1;
+  --panel-inset: inset 0 3px 0 #f5b94a;
+}
+
+:root[data-theme="spring"] {
+  /* スプリング: 面の隅にも花びら */
+  --panel-pattern: radial-gradient(ellipse 4px 2.6px, #f7b4c955 55%, transparent 72%) 90% 12% / 190px 150px, linear-gradient(180deg, #ffffff, #fff6f9);
+  --panel-line: #efc0d0;
+  --panel-inset: inset 0 3px 0 #e46f97;
+}
+
+:root[data-theme="winter"] {
+  /* ウィンター: すりガラス */
+  --panel-pattern: linear-gradient(180deg, #ffffffe6, #f2f8fde6);
+  --panel-line: #b9d0e8;
+  --panel-inset: inset 0 3px 0 #ffffff, inset 0 4px 0 #cfe2f5;
+}
+
+/* --- 舞台（画面の後ろに固定した層。テーマの粒を 3 枚重ねて動かす。動かすのは transform と opacity だけ）--- */
+.stage-fx {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 560px at 62% -8%, var(--picker-glow), transparent 68%),
+    radial-gradient(700px 420px at 12% 100%, var(--picker-glow), transparent 70%),
+    linear-gradient(180deg, var(--picker-bg1), var(--picker-bg2));
+}
+
+.stage-fx i {
+  position: absolute;
+  inset: -240px;
+  will-change: transform, opacity;
+}
+
+/* 止める（設定 → 表示 の「背景の動き」・画面の動きが少なめ・OS で動きを減らしているとき・スマホ） */
+html.stage-still .stage-fx i {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-fx i {
+    animation: none !important;
+  }
+}
+
+.setup-view {
+  background: transparent;
+}
+
+/* 黒板: チョークの粉が、ゆっくり漂う */
+.stage-fx i:nth-child(1) {
+  background: radial-gradient(#ffffff1c 1.3px, transparent 1.8px) 0 0 / 24px 24px;
+  animation: fx-drift-a 26s linear infinite;
+}
+
+.stage-fx i:nth-child(2) {
+  background: radial-gradient(#ffffff10 1px, transparent 1.5px) 12px 12px / 36px 36px;
+  animation: fx-drift-b 40s linear infinite;
+}
+
+.stage-fx i:nth-child(3) {
+  background: radial-gradient(420px 260px at 30% 60%, #3fb95014, transparent 70%);
+  animation: fx-breathe 9s ease-in-out infinite alternate;
+}
+
+@keyframes fx-drift-a {
+  to { transform: translate(-48px, -72px); }
+}
+
+@keyframes fx-drift-b {
+  to { transform: translate(36px, -108px); }
+}
+
+@keyframes fx-breathe {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+/* ホワイトボード: 方眼の上を、やわらかい光がゆっくり横切る */
+:root[data-theme="white"] .stage-fx i:nth-child(1) {
+  inset: 0;
+  background:
+    linear-gradient(#0969da12 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, #0969da12 1px, transparent 1px) 0 0 / 28px 28px;
+  animation: none;
+}
+
+:root[data-theme="white"] .stage-fx i:nth-child(2) {
+  inset: -10% -60%;
+  background: radial-gradient(38% 60% at 50% 45%, #ffffffd9, transparent 70%);
+  animation: fx-sweep 22s ease-in-out infinite alternate;
+}
+
+:root[data-theme="white"] .stage-fx i:nth-child(3) {
+  background: radial-gradient(#0969da14 1.2px, transparent 1.7px) 0 0 / 56px 56px;
+  animation: fx-drift-a 34s linear infinite;
+}
+
+@keyframes fx-sweep {
+  from { transform: translateX(-38%); }
+  to { transform: translateX(38%); }
+}
+
+/* クエスト: 板の間の木目の上を、金の粒が立ちのぼり、たいまつのあかりがゆらぐ */
+:root[data-theme="quest"] .stage-fx i:nth-child(1) {
+  background: radial-gradient(#e7b24a40 1.3px, transparent 1.9px) 0 0 / 30px 30px;
+  animation: fx-rise-a 14s linear infinite;
+}
+
+:root[data-theme="quest"] .stage-fx i:nth-child(2) {
+  background: radial-gradient(#ffcf7a66 2px, transparent 2.8px) 17px 9px / 97px 113px;
+  animation: fx-rise-b 19s linear infinite;
+}
+
+:root[data-theme="quest"] .stage-fx i:nth-child(3) {
+  inset: 0;
+  background: radial-gradient(520px 380px at 8% 100%, #ff9a3c2e, transparent 70%), repeating-linear-gradient(90deg, transparent 0 138px, #0000002e 138px 141px);
+  animation: fx-flicker 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes fx-rise-a {
+  to { transform: translateY(-120px); }
+}
+
+@keyframes fx-rise-b {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(14px, -113px); }
+  100% { transform: translate(0, -226px); }
+}
+
+@keyframes fx-flicker {
+  0% { opacity: 0.75; }
+  35% { opacity: 1; }
+  60% { opacity: 0.82; }
+  100% { opacity: 0.97; }
+}
+
+/* ナイト: 星がまたたき、ときどき流れ星 */
+:root[data-theme="night"] .stage-fx i:nth-child(1) {
+  background:
+    radial-gradient(#ffffffc8 1px, transparent 1.6px) 0 0 / 97px 83px,
+    radial-gradient(#ffd76aa0 1.3px, transparent 1.9px) 13px 51px / 131px 113px;
+  animation: fx-twinkle 4.5s ease-in-out infinite alternate;
+}
+
+:root[data-theme="night"] .stage-fx i:nth-child(2) {
+  background: radial-gradient(#ffffff90 1px, transparent 1.5px) 41px 27px / 61px 71px;
+  animation: fx-twinkle 3.1s ease-in-out -1.4s infinite alternate;
+}
+
+:root[data-theme="night"] .stage-fx i:nth-child(3) {
+  inset: auto;
+  top: 12%;
+  left: 55%;
+  width: 180px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ffffffd0);
+  opacity: 0;
+  animation: fx-shoot 9s ease-in infinite;
+}
+
+@keyframes fx-twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@keyframes fx-shoot {
+  0%, 80% { opacity: 0; transform: translate(0, 0) rotate(-24deg) scaleX(0.3); }
+  84% { opacity: 1; }
+  95%, 100% { opacity: 0; transform: translate(-340px, 150px) rotate(-24deg) scaleX(1); }
+}
+
+/* 止めているときは、流れ星を出さない（星は残す） */
+html.stage-still:root[data-theme="night"] .stage-fx i:nth-child(3) {
+  display: none;
+}
+
+/* デイタイム: 日ざしがゆれ、光る粒が漂う */
+:root[data-theme="day"] .stage-fx i:nth-child(1) {
+  inset: -30%;
+  background: conic-gradient(from 205deg at 82% 8%, #ffd98a48, transparent 7%, #ffd98a30 12%, transparent 19%, #ffd98a28 25%, transparent 33%);
+  transform-origin: 82% 8%;
+  animation: fx-sway 12s ease-in-out infinite alternate;
+}
+
+:root[data-theme="day"] .stage-fx i:nth-child(2) {
+  background: radial-gradient(#f5a62330 1.4px, transparent 2px) 0 0 / 28px 28px;
+  animation: fx-drift-b 30s linear infinite;
+}
+
+:root[data-theme="day"] .stage-fx i:nth-child(3) {
+  background: radial-gradient(#ffffffc0 1.8px, transparent 2.5px) 9px 15px / 83px 97px;
+  animation: fx-rise-b 24s linear infinite;
+}
+
+@keyframes fx-sway {
+  from { transform: rotate(-2.5deg); }
+  to { transform: rotate(2.5deg); }
+}
+
+/* スプリング: 花びらが舞い落ちる（3 つの速さ） */
+:root[data-theme="spring"] .stage-fx i:nth-child(1) {
+  background: radial-gradient(ellipse 5px 3px, #f49ab8b0 55%, transparent 72%) 0 0 / 150px 128px;
+  animation: fx-fall-a 13s linear infinite;
+}
+
+:root[data-theme="spring"] .stage-fx i:nth-child(2) {
+  background: radial-gradient(ellipse 3.6px 2.4px, #f7b4c9a8 55%, transparent 72%) 74px 52px / 176px 146px;
+  animation: fx-fall-b 19s linear infinite;
+}
+
+:root[data-theme="spring"] .stage-fx i:nth-child(3) {
+  background: radial-gradient(ellipse 6px 3.8px, #efa0bbc0 55%, transparent 72%) 33px 96px / 212px 170px;
+  animation: fx-fall-c 9s linear infinite;
+}
+
+@keyframes fx-fall-a {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(40px, 64px); }
+  100% { transform: translate(150px, 128px); }
+}
+
+@keyframes fx-fall-b {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-30px, 73px); }
+  100% { transform: translate(0, 146px); }
+}
+
+@keyframes fx-fall-c {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(60px, 85px); }
+  100% { transform: translate(212px, 170px); }
+}
+
+/* ウィンター: 雪が降る（手前ほど大きく速く。白い背景でも見えるよう、ふちに青み） */
+:root[data-theme="winter"] .stage-fx i:nth-child(1) {
+  background: radial-gradient(#ffffff 1.7px, #a9c9ea 2.3px, transparent 2.9px) 0 0 / 62px 58px;
+  animation: fx-snow-a 12s linear infinite;
+}
+
+:root[data-theme="winter"] .stage-fx i:nth-child(2) {
+  background: radial-gradient(#ffffff 1.1px, #b9d4ef 1.6px, transparent 2.1px) 31px 20px / 44px 50px;
+  animation: fx-snow-b 20s linear infinite;
+}
+
+:root[data-theme="winter"] .stage-fx i:nth-child(3) {
+  background: radial-gradient(#ffffff 2.6px, #9fc2e6 3.3px, transparent 4px) 12px 37px / 118px 96px;
+  animation: fx-snow-c 8s linear infinite;
+}
+
+@keyframes fx-snow-a {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(10px, 58px); }
+  100% { transform: translate(0, 116px); }
+}
+
+@keyframes fx-snow-b {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(-8px, 50px); }
+  100% { transform: translate(0, 100px); }
+}
+
+@keyframes fx-snow-c {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(16px, 96px); }
+  100% { transform: translate(0, 192px); }
+}
+
+/* --- 上のバー: 舞台が透けるガラス。画面の名前は大きく --- */
+.topbar {
+  background: color-mix(in srgb, var(--picker-bg1) 70%, transparent);
+  border-bottom-color: var(--panel-line);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-title {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+/* --- 面: 大きな角丸・太めの線・テーマの模様・影（選ぶ画面のカード） --- */
+.form-card,
+.analytics,
+.setup-card,
+.modal-content,
+.issue-detail-inline,
+.git-dialog,
+.memo-pop,
+.nt-drawer {
+  border: 2px solid var(--panel-line);
+  border-radius: 20px;
+  background: var(--panel-pattern);
+  box-shadow: var(--panel-inset), 0 18px 48px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+}
+
+/* 重ねて出す面は、後ろが透けないように */
+.modal-content,
+.git-dialog,
+.memo-pop,
+.nt-drawer,
+.issue-detail-inline {
+  background-color: var(--picker-bg2);
+}
+
+.form-card {
+  padding: 20px 22px;
+  margin-bottom: 16px;
+}
+
+.nt-drawer {
+  border-radius: 20px 0 0 20px;
+}
+
+/* 面の中の小さな面（カード） */
+.analytics-kpi,
+.analytics-box,
+.issue-card,
+.timeline-comment,
+.nt-item {
+  border: 1.5px solid var(--panel-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--picker-card) 60%, var(--picker-chip));
+}
+
+.issue-card {
+  padding: 13px 15px;
+  margin-bottom: 10px;
+}
+
+.issue-card:hover,
+.nt-item:hover {
+  border-color: var(--picker-ring);
+  box-shadow: 0 0 0 1px var(--picker-ring), 0 10px 30px var(--picker-glow);
+}
+
+/* 選んでいるカードは、選ぶ画面と同じ光る輪 */
+.issue-card.issue-card--selected {
+  border-color: var(--picker-ring);
+  box-shadow: 0 0 0 2px var(--picker-ring), 0 0 34px var(--picker-glow);
+}
+
+.analytics-kpi-v {
+  font-size: 30px;
+}
+
+/* --- 見出し: 大きく・太く、頭にアクセントの印。クエストは明朝 --- */
+.settings-section-title,
+.section-header,
+.analytics h4,
+.setup-card h1,
+.setup-card h2,
+.git-dialog h3 {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+}
+
+.settings-section-title::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 1.1em;
+  border-radius: 3px;
+  background: var(--picker-accent);
+  box-shadow: 0 0 12px var(--picker-glow);
+}
+
+.section-header {
+  border-top-color: var(--panel-line);
+  font-size: 17px;
+}
+
+.setup-card h1 {
+  font-size: 34px;
+  letter-spacing: 0.03em;
+}
+
+:root[data-theme="quest"] .settings-section-title,
+:root[data-theme="quest"] .section-header,
+:root[data-theme="quest"] .setup-card h1,
+:root[data-theme="quest"] .git-dialog h3,
+:root[data-theme="quest"] .idm-title {
+  font-family: var(--font-mincho);
+}
+
+/* --- ボタン: いちばんの操作はテーマのアクセント色で光らせる（選ぶ画面の「開く」）。ほかはチップ --- */
+.btn-primary,
+.gh-login-button {
+  border: none;
+  border-radius: 12px;
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
+  font-weight: 800;
+  box-shadow: 0 6px 18px var(--picker-glow), inset 0 1px 0 #ffffff33;
+}
+
+.btn-primary:hover,
+.gh-login-button:hover {
+  background: color-mix(in srgb, var(--picker-accent) 86%, var(--picker-text));
+}
+
+.btn-sm {
+  border: 1.5px solid var(--panel-line);
+  border-radius: 11px;
+  background: var(--picker-chip);
+  color: var(--text-secondary);
+}
+
+.btn-sm:hover {
+  border-color: var(--picker-ring);
+  color: var(--text-primary);
+}
+
+/* --- タブ: 丸いチップ。選んでいるものはアクセント（下のすべる線は出さない） --- */
+.settings-pane-tabs {
+  gap: 8px;
+  border-bottom: none;
+}
+
+.settings-pane-tab {
+  border: 1.5px solid var(--panel-line);
+  border-radius: 999px;
+  background: var(--picker-chip);
+  padding: 5px 16px;
+  font-weight: 700;
+}
+
+.settings-pane-tab.settings-pane-tab--active,
+.app-shell .settings-pane-tab.settings-pane-tab--active {
+  border-color: var(--picker-accent);
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
+  box-shadow: 0 4px 14px var(--picker-glow);
+}
+
+.settings-pane-tabs .tab-active-bar {
+  display: none;
+}
+
+/* --- 入力欄: 角丸と、うすい線。選ぶと光る --- */
+.input-full,
+.textarea-full,
+.select-sm {
+  border-color: var(--panel-line);
+  border-radius: 11px;
+}
+
+.input-full:focus,
+.textarea-full:focus {
+  border-color: var(--picker-ring);
+  box-shadow: 0 0 0 3px var(--picker-glow);
+}
+
+/* 設定の選ぶ欄: 選んでいるものを光らせる */
+.display-opt:has(input:checked) {
+  border-color: var(--picker-ring);
+  box-shadow: 0 0 0 1px var(--picker-ring), 0 0 26px var(--picker-glow);
+}
+
+/* --- 残っていた前の世代の部品（2 回目の見回りで） --- */
+
+/* 重ねて出す小さな面（メニュー・コミットの内容・アカウントのメニュー） */
+.popover,
+.commit-detail,
+.account-menu {
+  border: 2px solid var(--panel-line);
+  border-radius: 16px;
+  background: var(--panel-pattern);
+  background-color: var(--picker-bg2);
+  box-shadow: var(--panel-inset), 0 18px 48px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+}
+
+/* アクティビティ: あなたがすること（光る輪）と、日ごとのまとまり（面） */
+.av-me {
+  padding: 14px 18px;
+  border: 2px solid var(--picker-ring);
+  border-radius: 20px;
+  background: var(--panel-pattern);
+  box-shadow: var(--panel-inset), 0 0 30px var(--picker-glow);
+}
+
+.av-day {
+  margin-bottom: 16px;
+  padding: 12px 18px 14px;
+  border: 1.5px solid var(--panel-line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--picker-card) 76%, transparent);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow-color) 45%, transparent);
+}
+
+/* プルリク・リリース: 左の一覧は面、選んでいるものは光る輪 */
+.pulls-list {
+  border-right: 2px solid var(--panel-line);
+  background: color-mix(in srgb, var(--picker-card) 80%, transparent);
+}
+
+.pr-item {
+  border-radius: 12px;
+}
+
+.pr-item:hover {
+  background: var(--picker-chip);
+}
+
+.pr-item.on {
+  border-color: var(--picker-ring);
+  background: var(--picker-chip);
+  box-shadow: 0 0 0 1px var(--picker-ring), 0 0 22px var(--picker-glow);
+}
+
+/* 作業タブ: 左の欄と段は面、Issue の行はカード */
+.w-left,
+.w-steps,
+.w-tabs {
+  background: color-mix(in srgb, var(--picker-card) 80%, transparent);
+}
+
+.w-right {
+  background: transparent;
+}
+
+.w-issue-row {
+  border: 1.5px solid var(--panel-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--picker-card) 60%, var(--picker-chip));
+}
+
+.w-issue-row:hover,
+.w-issue-row:focus-visible,
+.w-issue-row.on {
+  border-color: var(--picker-ring);
+  box-shadow: 0 0 0 1px var(--picker-ring), 0 10px 30px var(--picker-glow);
+}
+
+/* コマンド（Ctrl+K）: 選ぶ画面のカード。大きな見出し・光る入力欄・打てるものの一覧 */
+.palette {
+  width: 620px;
+  padding: 22px 24px 20px;
+  border: 2px solid var(--panel-line);
+  border-radius: 22px;
+  background: var(--panel-pattern);
+  background-color: var(--picker-bg2);
+  box-shadow: var(--panel-inset), 0 24px 60px color-mix(in srgb, var(--shadow-color) 85%, transparent), 0 0 60px var(--picker-glow);
+}
+
+.palette-title {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+:root[data-theme="quest"] .palette-title {
+  font-family: var(--font-mincho);
+}
+
+.palette-input {
+  padding: 14px 18px;
+  font-size: 17px;
+  border: 2px solid var(--picker-ring);
+  border-radius: 14px;
+  background: var(--picker-chip);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 4px var(--picker-glow);
+}
+
+.palette-hints {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.palette-hints li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--panel-line);
+  border-radius: 12px;
+  background: var(--picker-chip);
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
+.palette-hints li span {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.palette-hints kbd {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--picker-accent);
+  color: var(--picker-on-accent);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+/* 設定 → 表示 → テーマ: 選ぶ画面のような大きなカード。カードは、それぞれのテーマの色と模様で描く（押すと切り替わる） */
+.theme-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px 14px;
+  border: 2px solid #ffffff1f;
+  border-radius: 18px;
+  color: var(--tc-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  background:
+    radial-gradient(260px 150px at 50% 0%, var(--tc-glow), transparent 70%),
+    var(--tc-pattern),
+    linear-gradient(180deg, var(--tc-bg1), var(--tc-bg2));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow-color) 70%, transparent);
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.theme-card:hover {
+  transform: translateY(-2px);
+}
+
+.theme-card.on {
+  border-color: var(--tc-accent);
+  box-shadow: 0 0 0 2px var(--tc-accent), 0 0 30px var(--tc-glow), 0 10px 26px color-mix(in srgb, var(--shadow-color) 70%, transparent);
+}
+
+.theme-card .display-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 46 / 30;
+  border-radius: 10px;
+  filter: drop-shadow(0 4px 10px #00000033);
+}
+
+.theme-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.theme-card-about {
+  color: var(--tc-muted);
+  font-size: var(--font-xs);
+  line-height: 1.55;
+}
+
+.theme-card-on {
+  margin-left: auto;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--tc-accent);
+  color: var(--tc-on-accent);
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.theme-card--chalk {
+  --tc-bg1: #122019; --tc-bg2: #0a110d; --tc-glow: #3fb95040; --tc-text: #eef3ee; --tc-muted: #eef3eeaa; --tc-accent: #56d364; --tc-on-accent: #0d1117;
+  --tc-pattern: radial-gradient(#ffffff1c 1.2px, transparent 1.7px) 0 0 / 18px 18px;
+}
+
+.theme-card--white {
+  --tc-bg1: #f7fafc; --tc-bg2: #dfe8f1; --tc-glow: #0969da2e; --tc-text: #1f2328; --tc-muted: #1f2328aa; --tc-accent: #0969da; --tc-on-accent: #ffffff;
+  --tc-pattern: linear-gradient(#0969da14 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, #0969da14 1px, transparent 1px) 0 0 / 16px 16px;
+  border-color: #c9d6e3;
+}
+
+.theme-card--quest {
+  --tc-bg1: #2f1f10; --tc-bg2: #140c06; --tc-glow: #e7b24a44; --tc-text: #f4e7c9; --tc-muted: #f4e7c9aa; --tc-accent: #e7b24a; --tc-on-accent: #1b120a;
+  --tc-pattern: radial-gradient(#e7b24a3a 1.2px, transparent 1.8px) 0 0 / 22px 22px, repeating-linear-gradient(90deg, transparent 0 58px, #0000002e 58px 60px);
+}
+
+.theme-card--quest .theme-card-name {
+  font-family: var(--font-mincho);
+}
+
+.theme-card--night {
+  --tc-bg1: #121a3a; --tc-bg2: #070b18; --tc-glow: #8ab4ff3a; --tc-text: #e8ecff; --tc-muted: #e8ecffaa; --tc-accent: #ffd76a; --tc-on-accent: #0b1020;
+  --tc-pattern: radial-gradient(#ffffffc0 1px, transparent 1.6px) 0 0 / 47px 41px, radial-gradient(#ffd76a90 1.2px, transparent 1.8px) 13px 21px / 61px 53px;
+}
+
+.theme-card--day {
+  --tc-bg1: #e8f4ff; --tc-bg2: #fff8ea; --tc-glow: #ffd98a80; --tc-text: #2a2620; --tc-muted: #2a2620aa; --tc-accent: #1a6cc9; --tc-on-accent: #ffffff;
+  --tc-pattern: conic-gradient(from 205deg at 88% -8%, #ffd98a55, transparent 8%, #ffd98a3a 13%, transparent 20%);
+  border-color: #e3d4b1;
+}
+
+.theme-card--spring {
+  --tc-bg1: #fff6f9; --tc-bg2: #eaf6ea; --tc-glow: #ffd3e180; --tc-text: #3a2830; --tc-muted: #3a2830aa; --tc-accent: #c2386b; --tc-on-accent: #ffffff;
+  --tc-pattern: radial-gradient(ellipse 4px 2.6px, #f49ab8b0 55%, transparent 72%) 0 0 / 70px 60px, radial-gradient(ellipse 3px 2px, #f7b4c9a8 55%, transparent 72%) 35px 28px / 86px 70px;
+  border-color: #efc0d0;
+}
+
+.theme-card--winter {
+  --tc-bg1: #dcebf8; --tc-bg2: #f5f9fd; --tc-glow: #ffffffcc; --tc-text: #1d2b3a; --tc-muted: #1d2b3aaa; --tc-accent: #2a74c2; --tc-on-accent: #ffffff;
+  --tc-pattern: radial-gradient(#ffffff 1.5px, #a9c9ea 2px, transparent 2.6px) 0 0 / 30px 28px, radial-gradient(#ffffff 1px, #b9d4ef 1.5px, transparent 2px) 15px 12px / 22px 26px;
+  border-color: #b9d0e8;
+}

@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useState } from "react";
-import { applyTheme, isTheme, type Theme } from "../lib/theme";
+import { applyStageMotion, applyTheme, isTheme, type Theme } from "../lib/theme";
+import { isMobile } from "../lib/platform";
 import { DEFAULT_BAR_COLORS, type GanttBarColors } from "../lib/ganttTypes";
 import { MILESTONE_BARS, type MilestoneBar } from "../lib/milestoneStage";
 import { NOTICE_CORNERS, type NoticeCorner } from "../lib/notices";
@@ -37,6 +38,8 @@ export interface DisplaySettings {
   noticeCorner: NoticeCorner;
   /** × を押したとき、インジケーター（タスクトレイ）に残す（はじめはこれ）か、終了する。PC だけ */
   closeToTray: boolean;
+  /** 背景（テーマの粒: チョークの粉・花びら・雪 など）を動かす（はじめはこれ）。画面の動きが少なめ・スマホでは止める */
+  stageMotion: boolean;
 }
 
 const STORAGE_KEY = "display-settings";
@@ -51,6 +54,7 @@ const DEFAULTS: DisplaySettings = {
   milestoneBar: "auto",
   noticeCorner: "top-right",
   closeToTray: true,
+  stageMotion: true,
 };
 // 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ。ボードの見た目は、そのままテーマになる）
 const OLD_BOARD_LOOK_KEY = "board-look";
@@ -90,10 +94,16 @@ export function loadDisplaySettings(): DisplaySettings {
       milestoneBar: MILESTONE_BARS.includes(saved.milestoneBar) ? saved.milestoneBar : DEFAULTS.milestoneBar,
       noticeCorner: NOTICE_CORNERS.includes(saved.noticeCorner) ? saved.noticeCorner : DEFAULTS.noticeCorner,
       closeToTray: typeof saved.closeToTray === "boolean" ? saved.closeToTray : DEFAULTS.closeToTray,
+      stageMotion: typeof saved.stageMotion === "boolean" ? saved.stageMotion : DEFAULTS.stageMotion,
     };
   } catch {
     return DEFAULTS;
   }
+}
+
+/** 背景を動かすか（設定で止めた・画面の動きが少なめ・スマホ では止める） */
+export function stageMoves(s: DisplaySettings): boolean {
+  return s.stageMotion && s.motion === "normal" && !isMobile;
 }
 
 /** 表示の設定（この PC のこのアプリだけの好みなので、ブラウザの保存領域に置く） */
@@ -104,6 +114,11 @@ export function useDisplaySettings() {
   useLayoutEffect(() => {
     applyTheme(settings.theme);
   }, [settings.theme]);
+
+  // 背景の動き（画面の動きが少なめ・スマホでは止める）
+  useLayoutEffect(() => {
+    applyStageMotion(stageMoves(settings));
+  }, [settings]);
 
   const update = useCallback((patch: Partial<DisplaySettings>) => {
     setSettings((prev) => {

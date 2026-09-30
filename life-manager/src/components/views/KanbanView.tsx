@@ -80,7 +80,35 @@ const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: s
   day: { name: "☀️ カフェのテーブル", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🌿☕" },
   spring: { name: "🌸 春の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍡🍵" },
   winter: { name: "❄️ こたつ", count: "自分の担当", drop: "こたつに入れると、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍊🍊" },
+  kingyo: { name: "🎐 縁側", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍉🍧" },
 };
+
+/** 金魚のテーマ: 水そう（ボード）の中を泳ぐ金魚。ボードごとに、色・場所・向き・速さを変える */
+const FISH: { kind: "red" | "black" | "sarasa"; x: number; y: number; dx: number; dy: number; t: number; d: number }[] = [
+  { kind: "red", x: 16, y: 56, dx: 150, dy: -14, t: 11, d: 0 },
+  { kind: "black", x: 58, y: 74, dx: -120, dy: 10, t: 13, d: -4 },
+  { kind: "sarasa", x: 30, y: 86, dx: 170, dy: -6, t: 15, d: -2 },
+];
+
+function Fishes({ seed }: { seed: number }) {
+  const count = seed % 2 === 0 ? 3 : 2;
+  return (
+    <div className="bd-fishes" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => {
+        const f = FISH[(seed + i) % FISH.length];
+        const style = {
+          left: `${(f.x + seed * 17) % 60 + 8}%`,
+          top: `${f.y - (seed % 3) * 7}%`,
+          "--dx": `${f.dx}px`,
+          "--dy": `${f.dy}px`,
+          "--t": `${f.t + (seed % 3)}s`,
+          "--d": `${f.d - seed * 1.3}s`,
+        } as CSSProperties;
+        return <span key={i} className={`bd-fish ${f.kind}`} style={style} />;
+      })}
+    </div>
+  );
+}
 
 /** 付箋の色（ホワイトボード・黒板）: 種別で分ける */
 function noteColor(issue: GitHubIssue): string {
@@ -423,10 +451,11 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
 
       <div className={`bd-wall look-${look}`}>
         {cols.length === 0 && <p className="bd-none">このボードに置く区画がありません（⚙ 区画の設定 で選べます）</p>}
-        {cols.map((col) => {
+        {cols.map((col, ci) => {
           const list = issuesOf(col);
           return (
             <section key={col.key} ref={target(col.key)} className={`bd-board${over === col.key ? " over" : ""}`}>
+              {look === "kingyo" && <Fishes seed={ci} />}
               <header className="bd-head">
                 <span className="bd-title">
                   {col.emoji} {col.title}

@@ -2,7 +2,7 @@
  * アプリのテーマ。ボードと、ボードの下の机もテーマのものになる（黒板 = 勉強机、ホワイトボード = オフィスのデスク、クエスト = ギルドの受付、
  * ナイト = 夜の机、デイタイム = カフェのテーブル、スプリング = 春の机、ウィンター = こたつ）
  */
-export type Theme = "chalk" | "white" | "quest" | "night" | "day" | "spring" | "winter";
+export type Theme = "chalk" | "white" | "quest" | "night" | "day" | "spring" | "winter" | "kingyo";
 
 export const THEMES: { key: Theme; label: string; about: string }[] = [
   { key: "chalk", label: "黒板", about: "暗い色。ボードは黒板、机は勉強机。はじめはこれ" },
@@ -12,6 +12,7 @@ export const THEMES: { key: Theme; label: string; about: string }[] = [
   { key: "day", label: "デイタイム", about: "日の当たる部屋の明るい色。ボードは日ざしの入るコルクボード（画びょう）、机はカフェのテーブル" },
   { key: "spring", label: "スプリング", about: "桜と若葉の明るい色。ボードは桜の掲示板（花びら・和紙のテープ）、机は春の机" },
   { key: "winter", label: "ウィンター", about: "雪の青と白。ボードは雪の窓の掲示板（すりガラスに雪の結晶）、机はこたつ" },
+  { key: "kingyo", label: "金魚", about: "白と赤の夏まつり。ボードは金魚の泳ぐ水そう、机は風鈴のゆれる縁側。タスクを終えると「すくえた！」" },
 ];
 
 export function isTheme(v: unknown): v is Theme {

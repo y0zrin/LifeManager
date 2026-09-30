@@ -12,8 +12,8 @@ interface MilestoneCelebrationProps {
   onCloseMilestone: (n: number) => Promise<void>;
 }
 
-/** 演出の種類: トロフィー・花火・ステージクリア（クエストはボス撃破）・大きなはんこ */
-type Pattern = "trophy" | "fireworks" | "clear" | "stamp";
+/** 演出の種類: トロフィー・花火・ステージクリア（クエストはボス撃破）・大きなはんこ。金魚のテーマは、いつも夜の夏まつり */
+type Pattern = "trophy" | "fireworks" | "clear" | "stamp" | "matsuri";
 const PATTERNS: Pattern[] = ["trophy", "fireworks", "clear", "stamp"];
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -138,10 +138,14 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
   useEffect(() => {
     function onClear(e: Event) {
       const detail = (e as CustomEvent<MilestoneClearDetail>).detail;
+      setClosing(false);
+      if (document.documentElement.dataset.theme === "kingyo") {
+        setCel({ detail, pattern: "matsuri", id: Date.now() });
+        return;
+      }
       let n = Math.floor(Math.random() * PATTERNS.length);
       if (n === lastPattern.current) n = (n + 1) % PATTERNS.length;
       lastPattern.current = n;
-      setClosing(false);
       setCel({ detail, pattern: PATTERNS[n], id: Date.now() });
     }
     window.addEventListener(MILESTONE_CLEAR_EVENT, onClear);
@@ -211,6 +215,21 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
         {team}
       </>
     );
+  } else if (pattern === "matsuri") {
+    body = (
+      <>
+        <div className="ms-cel-lanterns" aria-hidden="true">
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={i} style={{ animationDelay: `${0.2 + i * 0.18}s` }}>祭</span>
+          ))}
+        </div>
+        <div className="ms-cel-kick sky">SUMMER FESTIVAL</div>
+        <div className="ms-cel-title sky">{d.title} 達成！</div>
+        <div className="ms-cel-sub">夏まつりだ。おつかれさまでした</div>
+        {stats}
+        {team}
+      </>
+    );
   } else if (pattern === "clear") {
     body = quest ? (
       <>
@@ -248,7 +267,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
     <div className={`ms-cel p-${pattern}${still ? " still" : ""}`} role="dialog" aria-label={`${d.title} を達成しました`} onClick={() => setCel(null)}>
       <div className="ms-cel-dim" />
       {(pattern === "trophy" || pattern === "clear") && <div className="ms-cel-rays" />}
-      {pattern === "fireworks" && <Fireworks />}
+      {(pattern === "fireworks" || pattern === "matsuri") && <Fireworks />}
       {pattern === "trophy" && <Confetti />}
       <div key={cel.id} className="ms-cel-body" onClick={(e) => e.stopPropagation()}>
         {body}

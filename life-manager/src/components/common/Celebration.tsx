@@ -39,6 +39,24 @@ function SenseiStamp({ lines }: { lines: string[] }) {
   );
 }
 
+/** 金魚のテーマ: 金魚すくいのポイと、はねる金魚。「すくえた！」 */
+function KingyoStamp() {
+  return (
+    <div className="cel-stamp cel-kingyo">
+      <svg viewBox="0 0 120 120" className="cel-kingyo-svg" aria-hidden="true">
+        <rect x="47" y="92" width="10" height="28" rx="5" className="k-handle" transform="rotate(-28 52 94)" />
+        <circle cx="52" cy="66" r="30" className="k-poi" />
+        <g transform="translate(56 16) rotate(-24)">
+          <path d="M10 10 L0 3 L3 10 L0 17 Z" className="k-tail" />
+          <ellipse cx="21" cy="10" rx="12" ry="7" className="k-body" />
+          <circle cx="28" cy="8" r="1.6" className="k-eye" />
+        </g>
+      </svg>
+      <span className="cel-kingyo-word">{pick(["すくえた！", "すくえた！", "すくえた！", "やったね！", "大物！"])}</span>
+    </div>
+  );
+}
+
 // スタンプの種類（毎回、前と違う種類にする）
 const STAMPS: (() => ReactNode)[] = [
   () => {
@@ -112,7 +130,9 @@ export function Celebration({ motion }: CelebrationProps) {
       if (n === lastStamp.current) n = (n + 1) % STAMPS.length;
       lastStamp.current = n;
       const id = ++seq.current;
-      setBursts((prev) => [...prev, { id, x, y, sparks: makeSparks(18, 92), stamp: STAMPS[n]() }]);
+      // 金魚のテーマでは、いつも金魚すくい
+      const stamp = document.documentElement.dataset.theme === "kingyo" ? <KingyoStamp /> : STAMPS[n]();
+      setBursts((prev) => [...prev, { id, x, y, sparks: makeSparks(18, 92), stamp }]);
       window.setTimeout(() => setBursts((prev) => prev.filter((b) => b.id !== id)), 1800);
     }
     window.addEventListener(CELEBRATE_EVENT, onCelebrate);

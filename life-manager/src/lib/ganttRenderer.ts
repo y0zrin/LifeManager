@@ -38,37 +38,54 @@ function readThemeColors(): ThemeColors {
   };
 }
 
+/** 矢印の頭の向き（right: 左から後続の左端に入る。down・up: 後続の帯に上・下から入る） */
+export type ArrowHead = "right" | "down" | "up";
+
 /**
- * 先行 → 後続 の矢印の道すじ（折れ線の点）。帯の中を通らないように:
- * 間があるときは、縦の線を、あいだの行の帯にかからない所に。間がない（後続が先にはじまる）ときは、先行の行のすぐ横の、
- * 行と行のあいだの溝で折り返す（後続の帯の中を通って裏へ回らない）。最後は、いつも左から後続の左端に入る
+ * 先行 → 後続 の矢印の道すじ（折れ線の点）と、頭の向き。帯の中を通らないように:
+ * ふつうは、先行の行に沿って横に出て、後続の帯のはじまりに上（後続が上の行なら下）から入る。
+ * 同じ先行から出る線は先行の行の上で、同じ後続に入る線は縦の線で重なるので、何本あっても 1 本に見える
+ * （縦の線を矢印ごとにずらすと、平行な線の束になって読めない）。縦の線は、あいだの行の帯にかからない所を左から探す。
+ * 上下から入れないとき（後続が先行の終わるより前に終わる・縦の線を引ける所がない）は、左から後続の左端に入る:
+ * 間があるときは縦の線を帯にかからない所に、間がないときは先行の行のすぐ横の、行と行のあいだの溝で折り返す
  */
 export function routeDependency(o: {
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
+  /** 後続の帯の右端 */
+  toEnd: number;
+  /** 上下から入るときの、後続の帯の端の y（後続が下の行なら上端、上の行なら下端） */
+  toEdgeY: number;
   /** 折り返すときの溝の y（先行の行の、後続のある側の境目） */
   gutterY: number;
   /** その x に縦の線を引いても、あいだの行の帯にかからないか */
   free: (x: number) => boolean;
   stub: number;
-}): [number, number][] {
-  const { fromX, fromY, toX, toY, gutterY, free, stub } = o;
+}): { points: [number, number][]; head: ArrowHead } {
+  const { fromX, fromY, toX, toY, toEnd, toEdgeY, gutterY, free, stub } = o;
+  // 上下から入る: 後続の帯の左端から少し入った所（先行の終わりより右）から、帯の中で縦の線を引ける所を探す
+  const width = toEnd - toX;
+  const left = Math.max(toX + Math.min(stub, width / 2), fromX + Math.min(stub, 4));
+  const right = toEnd - Math.min(3, width / 4);
+  for (let x = left; x <= right; x += 4) {
+    if (free(x)) return { points: [[fromX, fromY], [x, fromY], [x, toEdgeY]], head: toY > fromY ? "down" : "up" };
+  }
   if (toX >= fromX + stub * 2) {
     // 間がある: まん中から試し、だめなら先行の終わりから後続のはじまりまでを順に
     const span = toX - fromX - stub * 2;
     const candidates = [fromX + stub + span / 2];
     for (let k = 0; k <= 8; k++) candidates.push(fromX + stub + (span * k) / 8);
     const x = candidates.find(free) ?? fromX + stub + span / 2;
-    return [[fromX, fromY], [x, fromY], [x, toY], [toX, toY]];
+    return { points: [[fromX, fromY], [x, fromY], [x, toY], [toX, toY]], head: "right" };
   }
   // 間がない: 先行のすぐ横で溝へ出て、後続の左へ戻り、左から入る
   const x1 = fromX + stub;
   let x2 = toX - stub;
   for (let k = 2; k <= 6 && !free(x2); k++) x2 = toX - stub * k;
   if (!free(x2)) x2 = toX - stub;
-  return [[fromX, fromY], [x1, fromY], [x1, gutterY], [x2, gutterY], [x2, toY], [toX, toY]];
+  return { points: [[fromX, fromY], [x1, fromY], [x1, gutterY], [x2, gutterY], [x2, toY], [toX, toY]], head: "right" };
 }
 
 /** 折れ線を、角を丸めて引く */
@@ -185,6 +202,8 @@ export class GanttRenderer {
     criticalPath?: Set<number>,
     barColors?: GanttBarColors,
     showCPLabel?: boolean,
+    /** マウスが乗っているタスクの番号（そのタスクに出入りする矢印を目立たせる） */
+    focus: number | null = null,
   ) {
     const ctx = this.ctx;
     ctx.save();
@@ -194,7 +213,7 @@ export class GanttRenderer {
     this.drawTodayLine(config, scrollX, canvasHeight);
     this.drawDeadline(config, scrollX, canvasHeight);
     this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false);
-    this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow);
+    this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus);
     this.drawHeader(config, scrollX, canvasWidth);
 
     ctx.restore();
@@ -531,13 +550,17 @@ export class GanttRenderer {
     scrollY: number,
     startRow: number,
     endRow: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    focus: number | null,
   ) {
     const ctx = this.ctx;
     const taskIndex = new Map<number, number>();
     tasks.forEach((t, i) => taskIndex.set(t.issueNumber, i));
 
     const barHeight = config.rowHeight * 0.6;
-    const barMidY = (config.rowHeight - barHeight) / 2 + barHeight / 2;
+    const barMargin = (config.rowHeight - barHeight) / 2;
+    const barMidY = barMargin + barHeight / 2;
     // 帯の端から、曲がるまでの長さ
     const stub = 8;
     // 見えている帯の右端（期限を過ぎた帯は、赤い延長と、外に出る「+3d」の字まで）
@@ -555,9 +578,10 @@ export class GanttRenderer {
 
     // 見えている行を通る矢印をぜんぶ引く（後続・先行のどちらかが画面の外でも。前は後続が見えているものだけで、
     // 見えている先行から画面の下の後続へ向かう矢印が出なかった）。画面の外の分は、キャンバスの外・見出しの下に隠れる
+    const arrows: { points: [number, number][]; head: ArrowHead; tip: [number, number]; broken: boolean; focused: boolean }[] = [];
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
-      if (task.dependencies.length === 0 || !task.startDate) continue;
+      if (task.dependencies.length === 0 || !task.startDate || !task.endDate) continue;
 
       for (const depNum of task.dependencies) {
         const depIdx = taskIndex.get(depNum);
@@ -566,12 +590,15 @@ export class GanttRenderer {
         const dep = tasks[depIdx];
         if (!dep.startDate || !dep.endDate) continue;
 
-        // 先行タスクの（見えている）右端 → 後続タスクの左端
+        // 先行タスクの（見えている）右端 → 後続タスクのはじまり
         const plannedEnd = this.dateToX(dep.endDate, config, scrollX) + config.pixelsPerDay;
         const fromX = visibleEnd(dep);
         const fromY = this.rowToY(depIdx, config, scrollY) + barMidY;
         const toX = this.dateToX(task.startDate, config, scrollX);
         const toY = this.rowToY(i, config, scrollY) + barMidY;
+        const toEnd = this.dateToX(task.endDate, config, scrollX) + config.pixelsPerDay;
+        const toTop = this.rowToY(i, config, scrollY) + barMargin;
+        const toEdgeY = i > depIdx ? toTop : toTop + barHeight;
         const lo = Math.min(depIdx, i);
         const hi = Math.max(depIdx, i);
         const free = (x: number) => {
@@ -583,36 +610,72 @@ export class GanttRenderer {
         };
         // 折り返すときの、行と行のあいだの溝（先行の行の、後続のある側）
         const gutterY = this.rowToY(i > depIdx ? depIdx + 1 : depIdx, config, scrollY);
-        const points = routeDependency({ fromX, fromY, toX, toY, gutterY, free, stub });
-        // 後続が、先行の終わる予定より前にはじまる（順番が守られていない）: 赤の点線
-        const broken = toX < plannedEnd;
-
-        // 下地（背景の色の太い線）を先に引いて、格子や帯の上でも線が読めるように
-        ctx.save();
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.strokeStyle = this.colors.bgPrimary;
-        ctx.globalAlpha = 0.75;
-        ctx.lineWidth = 4.5;
-        strokeRounded(ctx, points, 5);
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = broken ? this.colors.accentRed : this.colors.textSecondary;
-        ctx.lineWidth = 1.5;
-        if (broken) ctx.setLineDash([4, 3]);
-        strokeRounded(ctx, points, 5);
-        ctx.setLineDash([]);
-
-        // 矢印の頭（いつも右向き。後続タスクの左端に向かう）
-        ctx.fillStyle = broken ? this.colors.accentRed : this.colors.textSecondary;
-        ctx.beginPath();
-        ctx.moveTo(toX, toY);
-        ctx.lineTo(toX - 6, toY - 3.5);
-        ctx.lineTo(toX - 6, toY + 3.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        const { points, head } = routeDependency({ fromX, fromY, toX, toY, toEnd, toEdgeY, gutterY, free, stub });
+        const tip = points[points.length - 1];
+        // 頭の三角の分だけ線を手前で止める（線の端が頭の先から出ないように）
+        const back = 5;
+        const last: [number, number] = head === "right" ? [tip[0] - back, tip[1]] : head === "down" ? [tip[0], tip[1] - back] : [tip[0], tip[1] + back];
+        arrows.push({
+          points: [...points.slice(0, -1), last],
+          head,
+          tip,
+          // 後続が、先行の終わる予定より前にはじまる（順番が守られていない）: 赤の点線
+          broken: toX < plannedEnd,
+          focused: focus !== null && (depNum === focus || task.issueNumber === focus),
+        });
       }
     }
+    if (arrows.length === 0) return;
+
+    ctx.save();
+    // 帯の上には線を引かない（帯の形をくり抜く。線は帯の裏を通るように見え、帯の字も欠けない）
+    ctx.beginPath();
+    ctx.rect(0, 0, canvasWidth, canvasHeight);
+    for (let r = 0; r < tasks.length; r++) {
+      const sp = spans[r];
+      if (!sp) continue;
+      const y = this.rowToY(r, config, scrollY) + barMargin;
+      if (y + barHeight < 0 || y > canvasHeight) continue;
+      ctx.rect(sp[0], y, sp[1] - sp[0], barHeight);
+    }
+    ctx.clip("evenodd");
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    // 下地（背景の色の太い線）を、全部の矢印の分だけ先に引く（格子の上でも線が読めるように。
+    // 1 本ずつ下地と線を引くと、あとの矢印の下地が、前の矢印の線を切ってしまう）
+    ctx.strokeStyle = this.colors.bgPrimary;
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = 4.5;
+    for (const a of arrows) strokeRounded(ctx, a.points, 5);
+
+    // 線と頭。タスクに乗っているときは、そのタスクに出入りする矢印を濃く・太くし、ほかは薄く（どれとどれがつながっているか追えるように）
+    const draw = (a: (typeof arrows)[number]) => {
+      const color = a.broken ? this.colors.accentRed : a.focused ? this.colors.textPrimary : this.colors.textSecondary;
+      ctx.globalAlpha = focus === null || a.focused ? 1 : 0.22;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = a.focused ? 2.25 : 1.5;
+      if (a.broken) ctx.setLineDash([4, 3]);
+      strokeRounded(ctx, a.points, 5);
+      ctx.setLineDash([]);
+      const [x, y] = a.tip;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      if (a.head === "right") {
+        ctx.lineTo(x - 6, y - 3.5);
+        ctx.lineTo(x - 6, y + 3.5);
+      } else {
+        const dy = a.head === "down" ? -6 : 6;
+        ctx.lineTo(x - 3.5, y + dy);
+        ctx.lineTo(x + 3.5, y + dy);
+      }
+      ctx.closePath();
+      ctx.fill();
+    };
+    for (const a of arrows) if (!a.focused) draw(a);
+    for (const a of arrows) if (a.focused) draw(a);
+    ctx.restore();
   }
 
   /** クリック位置からタスクを特定 */

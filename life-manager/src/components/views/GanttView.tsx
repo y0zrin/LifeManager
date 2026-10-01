@@ -74,6 +74,9 @@ export function GanttView({
     if (nearest) setSelectedMilestone(nearest.number);
   }, [milestones, selectedMilestone]);
 
+  // マウスが乗っているタスク（帯か左の一覧の行）。そのタスクに出入りする矢印を目立たせる
+  const [focusIssue, setFocusIssue] = useState<number | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const taskListRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<GanttRenderer | null>(null);
@@ -214,8 +217,8 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath);
-  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors]);
+    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue);
+  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focusIssue]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -251,12 +254,14 @@ export function GanttView({
     if (!hit) {
       setCanvasCursor("grab");
       setTooltip(null);
+      setFocusIssue(null);
       return;
     }
     if (hit.part === "move") setCanvasCursor("move");
     else setCanvasCursor("col-resize");
     const task = ganttTasks[hit.taskIndex];
     setTooltip({ x: e.clientX, y: e.clientY, task });
+    setFocusIssue(task.issueNumber);
   }, [ganttTasks, config, scrollX, scrollY, dragging]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -336,7 +341,7 @@ export function GanttView({
         if (renderer && canvasSize.width > 0) {
           const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
           const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
-          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath);
+          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue);
         }
       }
     };
@@ -364,7 +369,7 @@ export function GanttView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody]);
+  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focusIssue]);
 
   // 仮の帯を押したときの吹き出し（この日程で決める・詳細を開く）
   const [tentativePop, setTentativePop] = useState<{ x: number; y: number; flipX: boolean; flipY: boolean; task: typeof ganttTasks[0] } | null>(null);
@@ -566,6 +571,8 @@ export function GanttView({
                       overflow: "hidden",
                     }}
                     onClick={() => onSelectIssue(task.issueNumber)}
+                    onMouseEnter={() => setFocusIssue(task.issueNumber)}
+                    onMouseLeave={() => setFocusIssue(null)}
                   >
                     <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{issueRef(task.issueNumber)}</span>
                     <span style={{
@@ -641,7 +648,10 @@ export function GanttView({
                 onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMoveCanvas}
-                onMouseLeave={() => setTooltip(null)}
+                onMouseLeave={() => {
+                  setTooltip(null);
+                  setFocusIssue(null);
+                }}
                 onClick={handleCanvasClick}
               />
               {tooltip && (

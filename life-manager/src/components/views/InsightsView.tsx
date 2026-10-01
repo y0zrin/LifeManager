@@ -39,9 +39,9 @@ function loadFilters(): Filters {
 }
 
 /**
- * オーバービュー（サイドバーのタスクの一番上）。いまの状況（開いている数・期限切れ・もうすぐ・担当なし、状態ごと・担当ごと、
+ * オーバービュー（サイドバーのタスクの一番上）。タスクの数（開いている数・期限切れ・もうすぐ・担当なし、状態ごと・担当ごと、
  * 8 週の作った数と閉じた数）と、チームのペース（ベロシティ・サイクルタイム）を 1 つの画面で見る。
- * いまの状況は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
+ * タスクの数は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
  */
 export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline }: InsightsViewProps) {
   const unit = useEstimateUnit();
@@ -139,7 +139,7 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
         )}
       </div>
 
-      <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} title="📈 いまの状況" foldable={false} />
+      <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} title="📈 タスクの数" foldable={false} />
 
       {all.length > 0 && (
         <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}

@@ -101,10 +101,10 @@ const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: s
 ];
 
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
-// マイルストーンの進み具合のバー
+// マイルストーンのバー
 const MILESTONE_BAR_OPTIONS: { value: MilestoneBar; label: string; note: string }[] = [
   { value: "auto", label: "テーマに合わせる（はじめはこれ）", note: "クエストは HP（ボスの残りの体力）、ほかのテーマは達成率" },
-  { value: "progress", label: "達成率（のびる）", note: "終えた分だけ、バーがのびます" },
+  { value: "progress", label: "達成率（のびる）", note: "終えた分だけバーがのびます" },
   { value: "hp", label: "HP（減る）", note: "残りの量を HP にして、終えた分だけ減ります。前に見たときより減った分が「−2pt」と飛びます" },
 ];
 
@@ -114,7 +114,7 @@ const NOTICE_CORNER_OPTIONS: { value: NoticeCorner; label: string; note: string;
   { value: "bottom-right", label: "右下", note: "", box: { x: 27, y: 21 } },
   { value: "top-left", label: "左上", note: "", box: { x: 5, y: 5 } },
   { value: "bottom-left", label: "左下", note: "", box: { x: 5, y: 21 } },
-  { value: "off", label: "アプリの中だけ", note: "窓の外には出さず、アプリの右上に出します（窓を閉じているあいだの知らせは 🔔 のりれきで）", box: null },
+  { value: "off", label: "アプリの中だけ", note: "窓の外には出さず、アプリの右上に出します。窓を閉じているあいだの知らせは 🔔 のりれきで見られます", box: null },
 ];
 
 const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
@@ -371,7 +371,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             <button onClick={() => setShowNewLabelForm(!showNewLabelForm)} className="btn-sm">
               {showNewLabelForm ? "×" : "+ 新規ラベル"}
             </button>
-            <button onClick={onSetupLabels} className="btn-sm" title="優先（高・中・低）と、セクション（プログラマー・デザイナー・プランナー・その他）の 7 つを作ります（もうあるラベルは、そのまま）">ラベル一括作成</button>
+            <button onClick={onSetupLabels} className="btn-sm" title="優先（高・中・低）とセクション（プログラマー・デザイナー・プランナー・その他）の 7 つを作ります。もうあるラベルはそのままです">ラベル一括作成</button>
           </div>
         </div>
 
@@ -526,8 +526,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>アプリのおしらせ</h3>
         <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-          担当になった・レビューを頼まれた・名前を呼ばれた・修正を頼まれた・承認された・期限が近い・チェックや Actions の失敗・🆘 助けを求められた・マイルストーンの達成を、
-          画面の角の小さな窓に出します（× か「開く」まで残ります）。届いた知らせは、上のバーの 🔔 に 60 日残ります。
+          担当になった・レビューを頼まれた・名前を呼ばれた・修正を頼まれた・承認された・期限が近い・チェックや Actions の失敗・🆘 助けを求められた・マイルストーンの達成を、画面の角の小さな窓に出します（× か「開く」まで残ります）。届いた知らせは上のバーの 🔔 に 60 日残ります。
         </p>
         <div className="settings-subtitle">出す場所</div>
         <div className="display-opts pos-opts">
@@ -553,7 +552,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               onChange={() => onChangeDisplaySettings({ closeToTray: true })} />
             <span>
               <b>インジケーターに残す（はじめはこれ）</b>
-              <small>画面の右下のインジケーター（タスクトレイ）に残り、おしらせを出し続けます。終えるときは、アイコンを右クリック →「終了する」</small>
+              <small>画面の右下のインジケーター（タスクトレイ）に残り、おしらせを出し続けます。終えるときはアイコンを右クリック →「終了する」</small>
             </span>
           </label>
           <label className="display-opt">
@@ -561,7 +560,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               onChange={() => onChangeDisplaySettings({ closeToTray: false })} />
             <span>
               <b>終了する</b>
-              <small>閉じているあいだは、おしらせも出ません</small>
+              <small>閉じているあいだはおしらせも出ません</small>
             </span>
           </label>
         </div>
@@ -904,7 +903,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             </svg>
             <span>
               <b>線</b>
-              <small>ブランチごとに 1 本の線。いつ切られたかが一目で分かります</small>
+              <small>ブランチごとに 1 本の線。いつ切られたかが分かります</small>
             </span>
           </label>
         </div>
@@ -930,7 +929,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          完了・クリティカルパス（遅れると全体が遅れるタスク）・優先:高・状態（進行中・ブロック）の順に効きます。どれでもない帯は デフォルト の色です。
+          完了・クリティカルパス（遅れると全体が遅れるタスク）・優先:高・状態（進行中・ブロック）の順に効きます。どれでもない帯は「デフォルト」の色です。
         </p>
       </div>
 
@@ -979,12 +978,12 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          どの場所でも、Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
+          どの場所でも Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
         </p>
       </div>
 
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>マイルストーンの進み具合</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>マイルストーンのバー</h3>
         <div className="display-opts">
           {MILESTONE_BAR_OPTIONS.map((opt) => (
             <label key={opt.value} className="display-opt">
@@ -1031,7 +1030,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               onChange={() => onChangeDisplaySettings({ stageMotion: true })} />
             <span>
               <b>動かす（はじめはこれ）</b>
-              <small>画面の後ろで、テーマの粒が動きます（黒板はチョークの粉、クエストは金の粒、ナイトは星、スプリングは花びら、ウィンターは雪 など）</small>
+              <small>画面の後ろでテーマの粒が動きます（黒板はチョークの粉、クエストは金の粒、ナイトは星、スプリングは花びら、ウィンターは雪 など）</small>
             </span>
           </label>
           <label className="display-opt">
@@ -1039,7 +1038,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               onChange={() => onChangeDisplaySettings({ stageMotion: false })} />
             <span>
               <b>止める</b>
-              <small>粒は止まったまま出ます。画面の動きを「少なめ」にしたとき・OS でアニメーションを減らしているときも止まります</small>
+              <small>粒は止まったまま出ます。画面の動きを「少なめ」にしたときも、OS でアニメーションを減らしているときも止まります</small>
             </span>
           </label>
         </div>

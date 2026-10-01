@@ -812,7 +812,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   </span>
                 </>,
                 <>
-                  <p className="idm-editor-hint">ガントの帯の進みです。はじめは、本文のチェックリストの数から出します。</p>
+                  <p className="idm-editor-hint">ガントの帯の進みです。はじめは本文のチェックリストの数から出します。</p>
                   <div className="idm-field">
                     数え方
                     <select className="select-sm" value={ganttProgressMode} onChange={(e) => {

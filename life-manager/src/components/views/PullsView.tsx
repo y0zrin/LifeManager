@@ -197,7 +197,7 @@ export function PullsView(props: PullsViewProps) {
               ) : filter === "open" ? (
                 <>
                   <p>開いているプルリクはありません。</p>
-                  <p className="hint">ブランチで作業してプッシュしたら、「＋ プルリクを作る」で、その変更を {info?.default_branch ?? "main"} に入れるお願いを出します。</p>
+                  <p className="hint">ブランチで作業してプッシュしたら、「＋ プルリクを作る」でその変更を {info?.default_branch ?? "main"} に入れるお願いを出します。</p>
                 </>
               ) : (
                 <p className="muted">{FILTER_LABELS[filter]}プルリクはありません。</p>
@@ -278,12 +278,12 @@ export function PullsView(props: PullsViewProps) {
               よければ <b>マージ</b>（合流）します。
             </p>
             <ol className="pulls-steps">
-              <li>ブランチで作業して、コミット・プッシュする（作業タブ）</li>
-              <li>「＋ プルリクを作る」でお願いを出す（Issue とつなげると、マージで閉じます）</li>
+              <li>ブランチで作業してコミットとプッシュをする（作業タブ）</li>
+              <li>「＋ プルリクを作る」でお願いを出す（Issue とつなげるとマージで閉じます）</li>
               <li>チームの人が「変更されたファイル」を見て、承認・修正の依頼・コメント</li>
               <li>よければマージ。ブランチを片づけて完了</li>
             </ol>
-            <p className="muted">左の一覧から選ぶと、ここに会話・変更されたファイル・コミットが出ます。</p>
+            <p className="muted">左の一覧から選ぶとここに会話・変更されたファイル・コミットが出ます。</p>
           </div>
         )}
       </div>

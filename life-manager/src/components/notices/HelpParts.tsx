@@ -9,8 +9,8 @@ export function CodeLine({ text }: { text: string }) {
   );
 }
 
-/** 🆘 に添えた、今のようす（ブランチ・最後に失敗した git・競合しているファイルと、git のメッセージ） */
-export function HelpContextBox({ items, log, title = "今のようす" }: { items: string[]; log: string | null; title?: string }) {
+/** 🆘 に添えた、いっしょに送ったもの（ブランチ・最後に失敗した git・競合しているファイルと、git のメッセージ） */
+export function HelpContextBox({ items, log, title = "いっしょに送ったもの" }: { items: string[]; log: string | null; title?: string }) {
   if (items.length === 0 && !log) return null;
   return (
     <div className="help-ctx">

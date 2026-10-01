@@ -152,7 +152,7 @@ export function ImageView({ bytes, path, onInfo }: ImageViewProps) {
             </div>
           )}
         </div>
-        {sprite && <div className="mv-hint">コマを押すと、そのコマで止まります</div>}
+        {sprite && <div className="mv-hint">コマを押すとそのコマで止まります</div>}
       </div>
       {sprite && (
         <div className="mv-panel">

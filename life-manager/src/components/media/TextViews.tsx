@@ -70,7 +70,7 @@ export function CodeView({ bytes, path, loadPatch, onInfo }: CodeViewProps) {
                 </span>
               </div>
             ))}
-            {long && <div className="mv-note">…（長いので、はじめのほうだけ出しています。全部は「外部のアプリで開く」か、エディターで）</div>}
+            {long && <div className="mv-note">…（長いので、はじめのほうだけ出しています。全部は「外部のアプリで開く」かエディターで）</div>}
           </pre>
         )}
       </div>
@@ -232,7 +232,7 @@ export function HtmlView({ bytes, onOpenOutside }: { bytes: ArrayBuffer; onOpenO
     <div className="mv-main full">
       <div className="mv-stage mv-html-stage">
         <div className="mv-html-note">
-          🛡 この画面の中だけで動きます（アプリや PC には触れません）。ほかのファイル（画像・CSS）は読めないことがあります
+          🛡 この画面の中だけで動きます。アプリや PC には触れません。ほかのファイル（画像・CSS）は読めないことがあります
           {onOpenOutside && <button type="button" className="btn-sm" onClick={onOpenOutside}>ブラウザで開く</button>}
         </div>
         <iframe className="mv-html" title="HTML" sandbox="allow-scripts" srcDoc={text} />

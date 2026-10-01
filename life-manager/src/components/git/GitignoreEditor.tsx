@@ -12,7 +12,7 @@ interface GitignoreEditorProps {
 // 書き方の早見表（左がパターン、右が意味）
 const HELP: [string, string][] = [
   ["*.log", "拡張子が .log のファイル（どのフォルダでも）"],
-  ["/build/", "いちばん上の build フォルダ（/ で始めると、その場所だけ）"],
+  ["/build/", "いちばん上の build フォルダ（/ で始めるとその場所だけ）"],
   ["build/", "どこにある build フォルダでも"],
   ["!keep.log", "! で始めると例外（無視しない）"],
   ["# メモ", "# で始まる行はメモ"],
@@ -85,8 +85,8 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
       <div className="git-dialog gi-editor" role="dialog" aria-modal="true" aria-label=".gitignore を編集" onClick={(e) => e.stopPropagation()}>
         <h3>.gitignore を編集</h3>
         <p className="git-dialog-note">
-          git で記録しない（無視する）ファイルを、1 行に 1 つ書きます。
-          {!exists && " まだ .gitignore はありません。保存すると、リポジトリのいちばん上に作ります。"}
+          git で記録しない（無視する）ファイルを 1 行に 1 つ書きます。
+          {!exists && " まだ .gitignore はありません。保存するとリポジトリのいちばん上に作ります。"}
         </p>
         {loaded ? (
           <textarea

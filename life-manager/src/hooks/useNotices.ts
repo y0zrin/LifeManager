@@ -148,8 +148,8 @@ export function useNotices(o: {
       kind: "summary",
       icon: "🔔",
       tone: "",
-      title: "おしらせは、ここに出ます",
-      body: "× か「開く」で消えます。出す角は、設定 → 通知 で変えられます",
+      title: "おしらせはここに出ます",
+      body: "× か「開く」で消えます。出す角は 設定 → 通知 で変えられます",
       at: new Date().toISOString(),
       repo,
     };

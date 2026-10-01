@@ -176,7 +176,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
             </label>
             {state?.inside && (
               <p className="git-dialog-error">
-                このフォルダは、ほかのリポジトリ（{state.inside}）の中にあります。リポジトリの中に、別のリポジトリは作れません。
+                このフォルダは、ほかのリポジトリ（{state.inside}）の中にあります。リポジトリの中に別のリポジトリは作れません。
               </p>
             )}
             {state && !state.inside && (
@@ -223,7 +223,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
 
         {step === 1 && (
           <>
-            <p className="git-dialog-message">GitHub に、空のリポジトリを作ります。</p>
+            <p className="git-dialog-message">GitHub に空のリポジトリを作ります。</p>
             <label className="git-dialog-label">
               名前
               <input className="input-full" value={name} spellCheck={false} onChange={(e) => setName(e.target.value)} disabled={busy} />
@@ -234,7 +234,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
             </label>
             <label className="chk">
               <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} disabled={busy} />
-              非公開にする（学校の課題やチーム制作は、こちら）
+              非公開にする（学校の課題やチーム制作はこちら）
             </label>
             <div className="publish-open">
               <button
@@ -266,8 +266,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
               </code>
             </div>
             <p className="hint">
-              <code>origin</code> は、GitHub の置き場所につける名前です。<code>-u</code> を付けると、次からは「プッシュ」だけで同じ所へ送れます。初めてのときは、ブラウザで
-              GitHub へのログインを求められることがあります。
+              <code>origin</code> は GitHub の置き場所につける名前です。<code>-u</code> を付けると次からは「プッシュ」だけで同じ所へ送れます。初めてのときはブラウザで GitHub へのログインを求められることがあります。
             </p>
           </>
         )}

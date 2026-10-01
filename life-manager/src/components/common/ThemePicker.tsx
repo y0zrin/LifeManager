@@ -91,7 +91,7 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
       </div>
       <h2 className="picker-title">好きな見た目を選んでください</h2>
       <p className="tp-sub">
-        アプリぜんたいの色と、ボード・机が変わります。<b>あとから 設定 → 表示 で、いつでも変えられます</b>
+        アプリぜんたいの色、ボード、机が変わります。<b>あとから 設定 → 表示 でいつでも変えられます</b>
       </p>
 
       <div className="picker-deck">

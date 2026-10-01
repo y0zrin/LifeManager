@@ -32,7 +32,7 @@ export interface DisplaySettings {
   theme: Theme;
   /** ガントの帯の色 */
   ganttColors: GanttBarColors;
-  /** マイルストーンの進み具合のバー: テーマに合わせる（クエストは HP）・達成率（のびる）・HP（減る） */
+  /** マイルストーンのバー: テーマに合わせる（クエストは HP）・達成率（のびる）・HP（減る） */
   milestoneBar: MilestoneBar;
   /** おしらせの窓を出す角（off = 窓を出さず、アプリの中だけ）。PC だけ */
   noticeCorner: NoticeCorner;

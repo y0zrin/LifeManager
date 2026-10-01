@@ -64,7 +64,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       run.output === "created"
         ? `${e.name} をこの PC に作りました（切り替えていません）`
         : run.output === "local-ahead"
-          ? `${e.name} は、この PC の方が進んでいます（まだプッシュしていないコミットがあります）`
+          ? `${e.name} はこの PC の方が進んでいます（まだプッシュしていないコミットがあります）`
           : `${e.name} を GitHub の最新にしました（${branch || "今のブランチ"} のまま）`,
     );
   }
@@ -123,7 +123,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         {
           key: "bring",
           title: `変更を持って ${to} に切り替える`,
-          detail: "作業中の変更をそのまま持っていきます（同じファイルがぶつかると切り替えられません）",
+          detail: "作業中の変更をそのまま持っていきます。同じファイルがぶつかると切り替えられません",
           command: git.displayCommand(["switch", to]),
         },
       ],
@@ -257,12 +257,12 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
 
     const rm = git.displayCommand(["rm", ...(rule.recursive ? ["-r"] : []), "--cached", "--", rule.pathspec]);
     const kept =
-      "ファイルはこの PC に残り、次のコミットで記録から外れます（GitHub からも消えるので、ほかの人がプルすると、その人の手元からも消えます）。";
+      "ファイルはこの PC に残り、次のコミットで記録から外れます。GitHub からも消えるので、ほかの人がプルすると、その人の手元からも消えます。";
     if (rule.kind === "file") {
       setDialog({
         kind: "confirm",
         title: `${rule.label} を無視する`,
-        message: `${rule.pathspec} は、すでに git で管理しているファイルです。.gitignore に書くだけでは無視されないので、管理から外します。${kept}`,
+        message: `${rule.pathspec} はすでに git で管理しているファイルです。.gitignore に書くだけでは無視されないので、管理から外します。${kept}`,
         okLabel: "管理から外して無視する",
         commandFor: () => rm,
         submit: () => add(true),
@@ -279,7 +279,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         {
           key: "keep",
           title: ".gitignore に書くだけにする",
-          detail: "管理しているファイルは、これまでどおり記録されます。まだ管理していないファイルだけが無視されます。",
+          detail: "管理しているファイルはこれまでどおり記録されます。まだ管理していないファイルだけが無視されます。",
           command: "",
         },
       ],
@@ -316,7 +316,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
 
   /** 選んだ内容を書いて、ステージする（「直した」という合図） */
   function resolveConflict(file: string, text: string) {
-    return g.exec("書き込んでいます", (p) => git.resolveConflict(p, file, text), `${file} を直して、ステージしました`);
+    return g.exec("書き込んでいます", (p) => git.resolveConflict(p, file, text), `${file} を直してステージしました`);
   }
 
   /** ファイルをまるごと片方の内容にする（か所ごとに選ばない。文字でないファイルはこれだけ）。捨てる側があるので確かめる */
@@ -324,14 +324,14 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     const message =
       side === "delete"
         ? `${file} を消したままにします（片方で消されていたファイルです）。`
-        : `${file} を、まるごと「${sideLabel}」の内容にします。もう一方の変更は、このファイルには入りません（そのブランチ・コミットには残るので、あとで要るときは手で入れます）。`;
+        : `${file} をまるごと「${sideLabel}」の内容にします。もう一方の変更はこのファイルには入りません。そのブランチやコミットには残るので、あとで要るときは手で入れます。`;
     setDialog({
       kind: "confirm",
       title: side === "delete" ? "消したままにする" : `まるごと${sideLabel}にする`,
       message,
       okLabel: side === "delete" ? "消したままにする" : "この内容にする",
       commandFor: () => (side === "delete" ? git.displayCommand(["rm", "--", file]) : `${git.displayCommand(["checkout", `--${side}`, "--", file])} && ${git.displayCommand(["add", "--", file])}`),
-      submit: () => g.exec("書き込んでいます", (p) => git.takeSide(p, file, side), side === "delete" ? `${file} を消したままにしました` : `${file} を${sideLabel}の内容にして、ステージしました`, { inlineError: true }),
+      submit: () => g.exec("書き込んでいます", (p) => git.takeSide(p, file, side), side === "delete" ? `${file} を消したままにしました` : `${file} を${sideLabel}の内容にしてステージしました`, { inlineError: true }),
     });
   }
 
@@ -414,7 +414,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       kind: "confirm",
       title: "リベース（付け替え）",
       message:
-        `${branch} で作ったコミットを、${target} の先に付け替えます。コミットは作り直されるので、履歴が書き換わります。` +
+        `${branch} で作ったコミットを ${target} の先に付け替えます。コミットは作り直されるので、履歴が書き換わります。` +
         (st?.upstream ? "すでに GitHub に送ったコミットがあると、送り直すのに強制プッシュが必要になります。" : ""),
       okLabel: "付け替える",
       commandFor: () => git.displayCommand(["rebase", target]),
@@ -441,7 +441,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       label: "新しい名前",
       placeholder: e.name,
       initial: e.name,
-      note: e.onGitHub ? "この PC のブランチの名前だけが変わります（GitHub のブランチの名前はそのままです）。" : undefined,
+      note: e.onGitHub ? "この PC のブランチの名前だけが変わります。GitHub のブランチの名前はそのままです。" : undefined,
       okLabel: "変更する",
       commandFor: (to) => git.displayCommand(["branch", "-m", e.name, to]),
       submit: (to) =>

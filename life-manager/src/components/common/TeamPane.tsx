@@ -27,7 +27,7 @@ function ago(iso: string): string {
 function resultText({ name, outcome }: Result): { mark: string; tone: string; text: string } {
   switch (outcome.status) {
     case "invited":
-      return { mark: "✔", tone: "ok", text: `${name} — 招待しました（GitHub からメールで届きます。メンバーは、メールの View invitation から参加します）` };
+      return { mark: "✔", tone: "ok", text: `${name} — 招待しました。GitHub からメールで届きます。メンバーはメールの View invitation から参加します` };
     case "already":
       return { mark: "―", tone: "warn", text: `${name} — もうこのリポジトリを使えます` };
     case "no_user":
@@ -92,7 +92,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
     `Life Manager で「${owner}/${repo}」を使います。`,
     `① アプリを入れる：${DOWNLOAD_URL}`,
     "② アプリを開いて「GitHub でログイン」→「招待を受ける」（アカウントがなければ「GitHub で作る」）",
-    `③ 画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
+    `③ 画面に出る「あなたの GitHub の名前」を ${login} に伝える`,
     "④ 招待のメールが届いたら「View invitation」→「Accept invitation」",
     `　（このリンクからも受けられます：https://github.com/${owner}/${repo}/invitations）`,
     "⑤ アプリが気づくので「このリポジトリではじめる」",
@@ -194,7 +194,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                   </button>
                 </div>
                 <pre className="team-guide-text">{joinGuide}</pre>
-                <p className="team-note">チャット・メール・授業のページなどに貼ります。届いた名前を、下に貼って招待します。</p>
+                <p className="team-note">チャット、メール、授業のページなどに貼ります。届いた名前を下に貼って招待します。</p>
               </div>
               <textarea
                 className="team-names"
@@ -205,7 +205,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
               />
               <div className="team-form">
                 <span className="team-note">
-                  改行・カンマ・空白で区切れます
+                  改行、カンマ、空白で区切れます
                   {parsed.names.length > 0 && <>（{parsed.names.length} 人{parsed.invalid.length > 0 && `・名前に使えない文字 ${parsed.invalid.length} 件`}）</>}
                 </span>
                 <span className="team-form-right">
@@ -219,7 +219,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                       </select>
                     </label>
                   ) : (
-                    <span className="team-note" title="個人のリポジトリでは、招待した人はみな書き込みの権限になります">権限: 書き込み</span>
+                    <span className="team-note" title="個人のリポジトリでは招待した人はみな書き込みの権限になります">権限: 書き込み</span>
                   )}
                   <button type="button" className="btn-primary" disabled={parsed.names.length === 0 || sending !== null} onClick={send}>
                     {sending ?? "招待を送る"}
@@ -244,7 +244,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
             <div className="form-card team-card">
               <h3 className="team-h">{owner}/{repo} に招待する</h3>
               <p className="team-note">
-                招待できるのは、このリポジトリの管理者だけです。チームに入れてほしい人は、リーダーに GitHub の名前を伝えてもらいます。あなたの名前:{" "}
+                招待できるのはこのリポジトリの管理者だけです。チームに入れてほしい人は、リーダーに GitHub の名前を伝えてもらいます。あなたの名前:{" "}
                 <b>{login}</b>{" "}
                 <button type="button" className="btn-sm" onClick={() => copy(login, "me")}>{copied === "me" ? "コピーしました" : "コピー"}</button>
               </p>
@@ -336,8 +336,8 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                 {removeError && <p className="token-error">{removeError}</p>}
                 <p className="team-note">
                   {overview.admin
-                    ? "外した人は、このリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。"
-                    : "メンバーを外せるのは、このリポジトリの管理者です。"}
+                    ? "外した人はこのリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。"
+                    : "メンバーを外せるのはこのリポジトリの管理者です。"}
                 </p>
                 {overview.admin && <div className="team-cmd">GitHub に送る内容: DELETE /repos/{owner}/{repo}/collaborators/名前</div>}
               </div>

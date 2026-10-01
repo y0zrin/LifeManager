@@ -409,9 +409,9 @@ export function PullDetail(props: PullDetailProps) {
             <p className="muted">チェックを読み込んでいます…</p>
           ) : checks.checks.length + checks.statuses.length === 0 ? (
             <div className="pulls-empty">
-              <p>このコミットには、チェックがありません。</p>
+              <p>このコミットにはチェックがありません。</p>
               <p className="hint">
-                Actions のワークフロー（<code>.github/workflows/*.yml</code>）に <code>pull_request</code> と書いておくと、プルリクのたびにテストなどが動いて、ここに結果が出ます。
+                Actions のワークフロー（<code>.github/workflows/*.yml</code>）に <code>pull_request</code> と書いておくと、プルリクのたびにテストなどが動きます。結果はここに出ます。
               </p>
             </div>
           ) : (
@@ -467,7 +467,7 @@ export function PullDetail(props: PullDetailProps) {
             <p className="muted">コミットを読み込んでいます…</p>
           ) : (
             <>
-              <p className="hint">押すと、そのコミットで何を変えたかを見られます（古い順）。</p>
+              <p className="hint">押すとそのコミットで何を変えたかを見られます（古い順）。</p>
               <ol className="pr-commit-list">
                 {commits.map((c) => (
                   <li key={c.sha}>

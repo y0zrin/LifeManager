@@ -84,13 +84,13 @@ export function ConflictNotice({ folder, status, onFix, onAbort, onClose }: Conf
           <li>作業タブで競合のファイルを選ぶと、右に「競合を直す」が出ます</li>
           <li>か所ごとに、<b>どちらを使うか</b>を選びます（両方を残す・自分で書く もできます）</li>
           <li>
-            「直したので、ステージする」を押し、
-            {op === "merge" || !op ? "コミットすると終わります" : `「続ける」を押すと、${OPERATION_NAMES[op]}の続きが進みます`}
+            「直したのでステージする」を押し、
+            {op === "merge" || !op ? "コミットすると終わります" : `「続ける」を押すと${OPERATION_NAMES[op]}の続きが進みます`}
           </li>
         </ol>
         {hunk && (
           <>
-            <p className="conflict-notice-sub">ファイルの中には、こんな印が入っています（{first}）</p>
+            <p className="conflict-notice-sub">ファイルの中にはこんな印が入っています（{first}）</p>
             <pre className="conflict-notice-sample">
               <span className="m">{"<<<<<<< "}{hunk.oursLabel}</span>{"\n"}
               {hunk.ours.join("\n")}{hunk.ours.length > 0 ? "\n" : ""}

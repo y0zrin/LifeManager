@@ -66,7 +66,7 @@ export function BoardColumnsSetting({ boardConfig, labels, onSave }: BoardColumn
     <div className="form-card" id="settings-board">
       <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>ボードの区画</h3>
       <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-        状態ごとの区画を、どのボード（📥 未整理・🔥 着手済み・🔍 確認待ち）に置くかと、並びを決めます。チームで一つの決まりです（リポジトリの <code>config/board.yaml</code> に置き、GitHub に送ります）。
+        状態ごとの区画をどのボード（📥 未整理・🔥 着手済み・🔍 確認待ち）に置くかと、並びを決めます。チームで一つの決まりです。リポジトリの <code>config/board.yaml</code> に置き、GitHub に送ります。
       </p>
       <div className="board-cols">
         {columns.map((col, index) => (

@@ -206,7 +206,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
           </label>
         </div>
         {initialHead && info && !branches.includes(initialHead) && (
-          <p className="git-dialog-error">ブランチ {initialHead} は、まだ GitHub にありません。先にプッシュします。</p>
+          <p className="git-dialog-error">ブランチ {initialHead} はまだ GitHub にありません。先にプッシュします。</p>
         )}
 
         {head && base && head !== base && (
@@ -217,7 +217,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
               <p className="muted">違いを読み込んでいます…</p>
             ) : noDiff ? (
               <p className="git-dialog-error">
-                <b>{head}</b> には、<b>{base}</b> に無いコミットがありません。先に変更をコミットして、プッシュします。
+                <b>{head}</b> には、<b>{base}</b> に無いコミットがありません。先に変更をコミットしてプッシュします。
               </p>
             ) : (
               <>
@@ -225,8 +225,8 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
                   <span>
                     <b>{cmp.ahead_by}</b> コミット・<b>{cmp.files.length}</b> ファイル <span className="add">+{added}{uncounted > 0 && " 以上"}</span> <span className="del">−{deleted}{uncounted > 0 && " 以上"}</span>
                   </span>
-                  {cmp.behind_by > 0 && <span className="muted">（{base} には、このブランチに無いコミットが {countOf(cmp.behind_by, "件")}あります）</span>}
-                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません。正しい数は、作ったあとに出ます）</span>}
+                  {cmp.behind_by > 0 && <span className="muted">（{base} にはこのブランチに無いコミットが {countOf(cmp.behind_by, "件")}あります）</span>}
+                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません。正しい数は作ったあとに出ます）</span>}
                   <span className="grow" />
                   <button type="button" className="btn-sm" onClick={() => setShowDiff((v) => !v)} aria-expanded={showDiff}>
                     {showDiff ? "差分をたたむ ▴" : "変更を見る ▾"}
@@ -249,7 +249,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
             )}
             {already && (
               <p className="pr-dialog-exists">
-                このブランチのプルリクは、もうあります: <b>#{already.number} {already.title}</b>{" "}
+                このブランチのプルリクはもうあります: <b>#{already.number} {already.title}</b>{" "}
                 {onOpenExisting && (
                   <button type="button" className="btn-sm" onClick={() => onOpenExisting(already.number)}>
                     開く

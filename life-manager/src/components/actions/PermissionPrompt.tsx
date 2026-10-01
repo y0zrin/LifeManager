@@ -38,7 +38,7 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
   const names = need.map((p) => `${p.name}（${p.access === "write" ? "Read and write" : "Read-only"}）`).join("・");
   const missing = info?.kind === "app" && info.installed ? need.filter((p) => !hasPermission(info.permissions, p)) : [];
   const mine = owner.toLowerCase() === currentUser.toLowerCase();
-  const leaderText = `Life Manager で使えるように、GitHub の Settings → Applications → Installed GitHub Apps → Life Manager App（Configure）で、権限の更新（${need.map((p) => p.name).join("・")}）を承認してください。`;
+  const leaderText = `Life Manager で使えるように、権限の更新（${need.map((p) => p.name).join("・")}）を承認してください。GitHub の Settings → Applications → Installed GitHub Apps → Life Manager App（Configure）で承認できます。`;
 
   async function copy() {
     try {
@@ -126,7 +126,7 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
       {onRetry && (
         <div className="ac-setup-actions">
           <button type="button" className="btn-sm" onClick={onRetry}>
-            承認したので、もう一度読み込む
+            承認したのでもう一度読み込む
           </button>
         </div>
       )}

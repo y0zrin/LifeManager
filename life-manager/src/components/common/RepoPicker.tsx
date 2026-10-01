@@ -337,7 +337,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
               {askClone ? (
                 <div className="picker-ask">
                   <b>この PC にまだありません。クローンして開きますか？</b>
-                  <span>クローンしておくと、この PC でコミット・プッシュ・プルができます。タスクだけなら、クローンしなくても使えます</span>
+                  <span>クローンしておくと、この PC でコミット、プッシュ、プルができます。タスクだけなら、クローンしなくても使えます</span>
                 </div>
               ) : (
                 renderFacts(card)
@@ -375,7 +375,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
               {menuOpen && renderMenu(p)}
               {busy === k && (
                 <p className="picker-card-note">
-                  <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは、大きなリポジトリだと時間がかかります）
+                  <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは大きなリポジトリだと時間がかかります）
                 </p>
               )}
               {note?.key === k && busy !== k && (

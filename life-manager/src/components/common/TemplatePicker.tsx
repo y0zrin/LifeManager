@@ -25,7 +25,7 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
     setMessage(null);
     try {
       await onPlaceBuiltins();
-      setMessage({ text: "テンプレートを置きました。GitHub の「New issue」でも選べます（作業タブでプルすると、手元にも来ます）" });
+      setMessage({ text: "テンプレートを置きました。GitHub の「New issue」でも選べます（作業タブでプルすると手元にも来ます）" });
     } catch (e) {
       setMessage({ text: String(e), error: true });
     } finally {
@@ -53,7 +53,7 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
       </div>
       {none && (
         <div className="issue-templates-none">
-          <b>このリポジトリには、まだテンプレートがありません。</b>見本の 3 つを使えます。{" "}
+          <b>このリポジトリにはまだテンプレートがありません。</b>見本の 3 つを使えます。{" "}
           <button type="button" className="link-button" disabled={busy} onClick={place}>
             このリポジトリに置く
           </button>

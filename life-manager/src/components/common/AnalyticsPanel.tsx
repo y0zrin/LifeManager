@@ -46,7 +46,7 @@ interface AnalyticsPanelProps {
 }
 
 /**
- * オーバービューの「いまの状況」。今の絞り込みの範囲で、開いている数と見積もり・期限切れ・もうすぐ・担当なし、
+ * オーバービューの「タスクの数」。今の絞り込みの範囲で、開いている数と見積もり・期限切れ・もうすぐ・担当なし、
  * 状態ごとの割合、担当ごとの数、8 週の「作った数と閉じた数」を出す。たたむと数字の 1 行だけになる
  */
 export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, title = "📈 分析", foldable = true }: AnalyticsPanelProps) {
@@ -109,7 +109,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
     <section className={`analytics${folded ? " analytics--folded" : ""}`} aria-label="分析">
       <div className="analytics-head">
         <b>{title}</b>
-        <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます（8 週の流れは閉じた Issue も入れます）">
+        <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます。8 週の流れは閉じた Issue も入れます">
           {scopeLabel}
         </span>
         {folded && (

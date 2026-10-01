@@ -149,7 +149,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
           }}>
           <div className="memo-pop-head">
             <b>📝 メモを投入</b>
-            <span className="memo-pop-repo" title="メモは、このリポジトリの Issue（種別:メモ・状態:未整理）になります">{repoName}</span>
+            <span className="memo-pop-repo" title="メモはこのリポジトリの Issue（種別:メモ・状態:未整理）になります">{repoName}</span>
           </div>
           <input ref={inputRef} className="memo-pop-input" value={text} placeholder="思いついたことを 1 行で"
             onChange={(e) => setText(e.target.value)}
@@ -173,7 +173,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
           ) : result?.kind === "ok" ? (
             <p className="memo-pop-note ok">✔ 「{result.text}」を投入しました</p>
           ) : result?.kind === "error" ? (
-            <p className="memo-pop-note err">⚠ 「{result.text}」を送れませんでした。タスク一覧・ボードの「もう一度」で送り直せます</p>
+            <p className="memo-pop-note err">⚠ 「{result.text}」を送れませんでした。タスク一覧やボードの「もう一度」で送り直せます</p>
           ) : (
             <p className="memo-pop-note">Enter で投入（続けて書けます）・Esc で閉じる</p>
           )}

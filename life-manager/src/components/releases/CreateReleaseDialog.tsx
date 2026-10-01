@@ -204,7 +204,7 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
 
         {source === "milestone" && (
           <label>
-            <span className="git-dialog-label">マイルストーン（閉じた Issue を、種別: のラベルで「新しい機能」「直した不具合」に分けます）</span>
+            <span className="git-dialog-label">マイルストーン（閉じた Issue を種別: のラベルで「新しい機能」「直した不具合」に分けます）</span>
             <select className="select-sm" value={milestone ?? ""} onChange={(e) => setMilestone(Number(e.target.value))} disabled={!milestones}>
               {!milestones && <option value="">読み込んでいます…</option>}
               {milestones?.map((m) => (
@@ -250,7 +250,7 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
           </label>
         </div>
         {tag && tagProblem && <p className="git-dialog-error">{tagProblem}</p>}
-        {duplicate && <p className="git-dialog-error">タグ {tag} のリリースは、もうあります。</p>}
+        {duplicate && <p className="git-dialog-error">タグ {tag} のリリースはもうあります。</p>}
 
         <label>
           <span className="git-dialog-label">題名</span>

@@ -122,7 +122,7 @@ export function AllowRepoStep({ me, installUrl, installations, target, onAllowed
           </span>
           <p className="allow-step-how">
             {isOrg ? (
-              <>GitHub の画面で組織 <b>{target.owner}</b> を選び、<b>{target.repo}</b> を選んで「Install」（または「Save」）を押します。組織のリポジトリは、組織の持ち主が許可します。</>
+              <>GitHub の画面で組織 <b>{target.owner}</b> を選び、<b>{target.repo}</b> を選んで「Install」（または「Save」）を押します。組織のリポジトリは組織の持ち主が許可します。</>
             ) : mine ? (
               <>GitHub の画面で <b>{target.repo}</b> にチェックを入れて（足して）「Save」を押します。</>
             ) : (
@@ -133,7 +133,7 @@ export function AllowRepoStep({ me, installUrl, installations, target, onAllowed
       )}
       {state === "watching" && (
         <p className="setup-wait">
-          <i className="spinner" aria-hidden="true" /> 許可を待っています…（許可すると、自分で気づいて次へ進みます）
+          <i className="spinner" aria-hidden="true" /> 許可を待っています…（許可すると自動で次へ進みます）
           <button type="button" className="link-button" onClick={stop}>やめる</button>
         </p>
       )}

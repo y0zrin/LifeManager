@@ -102,8 +102,7 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
         </div>
       </div>
       <p className="hint">
-        <b>トークン</b>は、アプリが自分の代わりに GitHub を使うための「合鍵」です。人に見せたり、コードに書いたりしないでください。アプリは PC
-        の鍵の保管場所（キーチェーン）にしまいます。ほかの人のトークンは使わず、自分のアカウントで作ります。
+        <b>トークン</b>はアプリが自分の代わりに GitHub を使うための「合鍵」です。人に見せたり、コードに書いたりしないでください。アプリは PC の鍵の保管場所（キーチェーン）にしまいます。ほかの人のトークンは使わず、自分のアカウントで作ります。
       </p>
       <div className="token-entry-actions">
         {onCancel && (

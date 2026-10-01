@@ -120,9 +120,9 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
       <div className="mt">
         <div className="mt-head"><b>競合を直す — {file}</b></div>
         {data.missing ? (
-          <p>このファイルは、片方で消され、もう片方では変えられていました。消したままにするか、どちらかの内容で残すかを選びます。</p>
+          <p>このファイルは片方で消され、もう片方では変えられていました。消したままにするか、どちらかの内容で残すかを選びます。</p>
         ) : data.binary ? (
-          <p>文字でないファイル（画像など）なので、か所ごとには選べません。どちらか片方を、まるごと選びます。</p>
+          <p>文字でないファイル（画像など）なので、か所ごとには選べません。どちらか片方をまるごと選びます。</p>
         ) : (
           <p>
             競合の印（<code>{"<<<<<<<"}</code>）が見つかりません。エディタなどで、もう直してあるなら、このままステージします。
@@ -222,7 +222,7 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
             )}
             {dropped && (
               <p className="mt-drop-note">
-                捨てる内容（{dropped}）は、そのブランチ・コミットに残っています。あとで要るときは、そちらのファイルを見て手で入れます。
+                捨てる内容（{dropped}）はそのブランチやコミットに残っています。あとで要るときはそちらのファイルを見て手で入れます。
               </p>
             )}
           </div>
@@ -232,7 +232,7 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
       <div className="mt-foot">
         <button type="button" className="btn-primary" disabled={busy || resolved === null} onClick={() => resolved !== null && actions.resolveConflict(file, resolved)}
           title={resolved === null ? "すべてのか所で、使う方を選ぶと押せます" : undefined}>
-          直したので、ステージする
+          直したのでステージする
         </button>
         <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.openFile(file)}>エディタで開く</button>
         {wholeSideButtons}
@@ -241,7 +241,7 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
       </div>
       <p className="hint">
         ファイルの中では、競合したところに <code>{"<<<<<<<"}</code>（ここから今のブランチ）・<code>=======</code>（区切り）・
-        <code>{">>>>>>>"}</code>（ここまで取り込む側）の印が入っています。ここで選ぶと、印を消して、選んだ内容だけを書き込みます。
+        <code>{">>>>>>>"}</code>（ここまで取り込む側）の印が入っています。ここで選ぶと印を消して、選んだ内容だけを書き込みます。
       </p>
     </div>
   );

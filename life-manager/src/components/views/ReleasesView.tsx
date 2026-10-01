@@ -159,7 +159,7 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
             <div className="pulls-empty">
               <p>まだリリースはありません。</p>
               <p className="hint">
-                リリースは「この版をみんなに配る」印です。「＋ リリースを作る」で、マイルストーンの閉じた Issue からノートを作り、タグを付けて、配るファイル（インストーラーなど）を添えます。
+                リリースは「この版をみんなに配る」印です。「＋ リリースを作る」でマイルストーンの閉じた Issue からノートを作ります。タグを付けて、配るファイル（インストーラーなど）を添えます。
               </p>
             </div>
           ) : (
@@ -298,7 +298,7 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
                 )}
               </div>
               {selected.assets.length === 0 ? (
-                <p className="muted">まだファイルはありません（GitHub が、ソースコードの zip・tar.gz は自動で付けます）。</p>
+                <p className="muted">まだファイルはありません。ソースコードの zip と tar.gz は GitHub が自動で付けます。</p>
               ) : (
                 selected.assets.map((a) => (
                   <div key={a.id} className="rl-asset">
@@ -320,13 +320,13 @@ export function ReleasesView({ owner, repo, currentUser, issueTitle, onOpenIssue
         ) : (
           <div className="pulls-intro">
             <h3>リリースとは</h3>
-            <p>「この版をみんなに配る」印です。コミットに付ける名前（タグ。例: 1.0.0）に、何が変わったか（ノート）と、配るファイル（インストーラーなど）をまとめます。</p>
+            <p>「この版をみんなに配る」印です。コミットに付ける名前（タグ。例: 1.0.0）に、何が変わったか（ノート）と配るファイル（インストーラーなど）をまとめます。</p>
             <ol className="pulls-steps">
               <li>マイルストーンの Issue を終えて、main にまとめる（プルリクをマージ）</li>
               <li>「＋ リリースを作る」でマイルストーンを選ぶと、閉じた Issue からノートができる（新しい機能・直した不具合）</li>
               <li>タグを決め、ファイルを添えて「リリースする」。マイルストーンも閉じられる</li>
             </ol>
-            <p className="muted">左の一覧から選ぶと、ここにノートと添えたファイルが出ます。</p>
+            <p className="muted">左の一覧から選ぶとここにノートと添えたファイルが出ます。</p>
           </div>
         )}
       </div>

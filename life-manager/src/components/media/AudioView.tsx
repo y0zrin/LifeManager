@@ -138,7 +138,7 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
   return (
     <div className="mv-main full">
       <div className="mv-stage mv-audio">
-        <canvas ref={canvasRef} className="mv-wave" onClick={seek} title="押すと、そこから再生します" />
+        <canvas ref={canvasRef} className="mv-wave" onClick={seek} title="押すとそこから再生します" />
         {error && <p className="mv-note">{error}</p>}
         <audio ref={audioRef} src={url} loop={loop} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onEnded={() => { setPlaying(false); setTime(0); }} />

@@ -540,7 +540,7 @@ function App() {
 
   async function handleForgetAccount(login: string) {
     await forgetAccount(login);
-    gh.setStatus(`${login} を、${THIS_DEVICE}から外しました`);
+    gh.setStatus(`${login} を${THIS_DEVICE}から外しました`);
   }
 
   // ログアウト: 今のアカウントだけ。ほかにしまってあるアカウントがあれば、そちらに切り替える
@@ -659,7 +659,7 @@ function App() {
   useEffect(() => {
     if (!isMobile) invoke("set_close_to_tray", { on: display.settings.closeToTray }).catch(() => {});
   }, [display.settings.closeToTray]);
-  // 🆘 助けを求める（Issue の詳細・作業タブから）。いっしょに送れる今のようすは、開いたときのもの
+  // 🆘 助けを求める（Issue の詳細・作業タブから）。いっしょに送れるものは、開いたときのもの
   const [helpFor, setHelpFor] = useState<{ number: number; title: string; context: HelpContext } | null>(null);
   // 🆘 を送ったら、開いている詳細のコメントを読み直す
   const [commentsVersion, setCommentsVersion] = useState(0);
@@ -987,7 +987,7 @@ function App() {
           <button
             className="sidebar-item sidebar-toggle"
             onClick={toggleSidebar}
-            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）。たたむと、画面の端にマウスを寄せたときだけ出てきます"}
+            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）。たたむと画面の端にマウスを寄せたときだけ出てきます"}
           >
             <span className="sidebar-icon">{sidebarCollapsed ? "📌" : HIDE_ARROW[display.settings.sidebarPosition]}</span>
             <span className="sidebar-label">{sidebarCollapsed ? "固定する" : "たたむ"}</span>
@@ -1106,7 +1106,7 @@ function App() {
             <div className="repo-screen">
               {hist.history?.source === "github" && !isMobile && (
                 <div className="repo-source">
-                  GitHub にある状態を表示しています。この PC の作業フォルダを決めると、手元の git の状態を表示して、操作もできます。
+                  GitHub にある状態を表示しています。この PC の作業フォルダを決めると、手元の git の状態を表示して操作もできます。
                   <button type="button" className="btn-sm" onClick={() => setView("work")}>
                     作業フォルダを決める
                   </button>
@@ -1221,7 +1221,7 @@ function App() {
               team={gh.collaborators} motion={display.settings.motion === "normal"} />
           )}
 
-          {/* オーバービュー（いまの状況・チームのペース） */}
+          {/* オーバービュー（タスクの数・チームのペース） */}
           {view === "insights" && gh.connected && (
             <InsightsView
               issues={gh.issues}

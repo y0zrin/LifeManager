@@ -162,7 +162,7 @@ function ConflictView({
 
   function sendDraft() {
     if (isText && [MARK_LOCAL, MARK_SPLIT, MARK_REMOTE].some((m) => draft.split("\n").includes(m))) {
-      setError("印（<<<<<<< ・ ======= ・ >>>>>>>）が残っています。どちらを残すか決めて、印の行を消してください");
+      setError("印（<<<<<<< ・ ======= ・ >>>>>>>）が残っています。どちらを残すか決めて印の行を消してください");
       return;
     }
     if (conflict.field === "title" && !draft.trim()) {

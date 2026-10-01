@@ -111,7 +111,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       const child = await api.create(issue, title);
       setChildren((prev) => [...(prev ?? []), child]);
       setText("");
-      return `${issueRef(child.number)} を作って、子にしました`;
+      return `${issueRef(child.number)} を作って子にしました`;
     });
   }
 
@@ -252,8 +252,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       )}
       {message && <p className={`sub-issues-note${message.error ? " sub-issues-note--error" : " sub-issues-note--ok"}`}>{message.text}</p>}
       <p className="hint">
-        <b>サブイシュー</b>は、大きな Issue を小さく分けた「子」の Issue です。GitHub の画面でも同じ親子で見えます。× は親子のつながりを外すだけで、Issue
-        は消えません。子を全部クローズしても、親は自動では閉じません。
+        <b>サブイシュー</b>は大きな Issue を小さく分けた「子」の Issue です。GitHub の画面でも同じ親子で見えます。× は親子のつながりを外すだけで、Issue は消えません。子を全部クローズしても、親は自動では閉じません。
       </p>
     </div>
   );

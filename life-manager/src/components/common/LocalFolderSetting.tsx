@@ -73,7 +73,7 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
           kind: "ok",
           text: samePath(picked, check.top_level)
             ? "作業フォルダを設定しました"
-            : `作業フォルダを設定しました（選んだフォルダはリポジトリの中なので、いちばん上の ${check.top_level} にしました）`,
+            : `作業フォルダを設定しました。選んだフォルダはリポジトリの中なので、いちばん上の ${check.top_level} にしました`,
         });
       }
     } catch (e) {
@@ -93,7 +93,7 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
       const result = await cloneRepo(parent, owner, repo);
       await onSetFolder(result.path);
       setLastRun(result.run);
-      setMessage({ kind: "ok", text: `${result.path} にクローンして、作業フォルダにしました` });
+      setMessage({ kind: "ok", text: `${result.path} にクローンして作業フォルダにしました` });
     } catch (e) {
       setMessage({ kind: "error", text: String(e) });
     } finally {

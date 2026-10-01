@@ -402,7 +402,7 @@ async fn switch_account(
     target: String,
 ) -> Result<(), String> {
     if !tokens::has_saved_keys(&target) {
-        return Err(format!("{} の鍵が、この PC にありません。「別のアカウントを追加」からログインしてください", target));
+        return Err(format!("{} の鍵がこの PC にありません。「別のアカウントを追加」からログインしてください", target));
     }
     tokens::stash_active(&current, current_avatar)?;
     if let Err(e) = tokens::restore(&target) {
@@ -443,7 +443,7 @@ async fn check_token(
     repo: Option<String>,
     repos: Vec<github::token_check::RepoRef>,
 ) -> Result<github::token_check::TokenReport, String> {
-    const NO_TOKEN: &str = "トークンがありません（ログインの期限が来たときは、もう一度ログインしてください）";
+    const NO_TOKEN: &str = "トークンがありません。ログインの期限が来たときは、もう一度ログインしてください";
     let project = match (owner.as_deref(), repo.as_deref(), &token) {
         (Some(o), Some(r), None) => tokens::project_token(o, r),
         _ => None,
@@ -462,7 +462,7 @@ async fn check_token(
             return github::token_check::check(&fresh, &repos).await;
         }
         if tokens::default_token().is_none() {
-            return Err("ログインの鍵が使えなくなりました（期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください".into());
+            return Err("ログインの鍵が使えなくなりました。期限が切れたか、GitHub で取り消されました。もう一度ログインしてください".into());
         }
     }
     report
@@ -614,9 +614,9 @@ async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, na
             format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
         } else if e.contains("not accessible by integration") {
             // GitHub でログインしたとき: 自分のアカウントに Life Manager が入っていない（入れたリポジトリにしか触れない）
-            "Life Manager が、あなたのアカウントにまだ入っていないため、ここでは作れません。先に「使用するリポジトリを選ぶ」で Life Manager を入れてください（入れたあとは、ここで作れます）".to_string()
+            "Life Manager があなたのアカウントにまだ入っていないため、ここでは作れません。先に「使用するリポジトリを選ぶ」で Life Manager を入れてください。入れたあとは、ここで作れます".to_string()
         } else if e.contains("not accessible by personal access token") {
-            format!("{}（GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです）", token_permission_message(&e, "リポジトリを作ること"))
+            format!("{}。GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです", token_permission_message(&e, "リポジトリを作ること"))
         } else {
             e
         }
@@ -680,7 +680,7 @@ fn invite_outcome(status: u16, body: &str, user_exists: Option<bool>) -> InviteO
         201 => outcome("invited", None),
         204 => outcome("already", None),
         404 if user_exists == Some(false) => outcome("no_user", None),
-        404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます（リポジトリが見つからないか、管理者の権限がありません）".into())),
+        404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます。リポジトリが見つからないか、管理者の権限がありません".into())),
         403 => {
             let raw = github_message.unwrap_or_default();
             let message = if raw.contains("not accessible by personal access token") {
@@ -729,7 +729,7 @@ async fn remove_member(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, own
     let username = username.trim().trim_start_matches('@');
     client.remove_collaborator(&owner, &repo, username).await.map_err(|e| {
         if e.starts_with("HTTP 403") && !e.contains("not accessible by") {
-            "メンバーを外せるのは、このリポジトリの管理者だけです".to_string()
+            "メンバーを外せるのはこのリポジトリの管理者だけです".to_string()
         } else {
             token_permission_message(&e, "メンバーを外すこと")
         }

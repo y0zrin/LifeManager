@@ -102,7 +102,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
         } else if (r.status === "expired") {
           setMessage("コードの期限（15 分）が切れました。もう一度「" + label + "」を押してください");
         } else if (r.status === "denied") {
-          setMessage("GitHub の画面で、ログインをやめました。もう一度押すと、やり直せます");
+          setMessage("GitHub の画面でログインをやめました。もう一度押すとやり直せます");
         } else {
           setMessage(r.message);
         }
@@ -201,7 +201,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
         {starting ? "GitHub に問い合わせています…" : label}
       </button>
       <p className="gh-login-note">
-        アプリが触れるのは、Life Manager に選んだリポジトリだけです。鍵は 8 時間ごとに自動で新しくなり、期限が来たらログインし直します。
+        アプリが触れるのは Life Manager に選んだリポジトリだけです。鍵は 8 時間ごとに自動で新しくなり、期限が来たらログインし直します。
       </p>
       {message && <p className="gh-login-error">{message}</p>}
     </div>

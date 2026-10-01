@@ -212,8 +212,7 @@ export function WorkView(props: WorkViewProps) {
         <div className="work-setup">
           <h2>作業を始める準備</h2>
           <p>
-            作業タブでは、取り組む Issue を決めて、ファイルの変更 → コミット → プッシュ までを、実行する git
-            のコマンドを見ながら進められます。まず、このリポジトリを置く、この PC 上のフォルダを決めましょう。
+            作業タブでは、取り組む Issue を決めて、ファイルの変更 → コミット → プッシュ まで進められます。そのあいだ、実行する git のコマンドが見られます。まず、このリポジトリをこの PC のどのフォルダに置くかを決めましょう。
           </p>
           <LocalFolderSetting
             owner={owner}
@@ -420,7 +419,7 @@ function Workspace({
             <code>git switch {defaultBranch}</code> → <code>git pull</code>）。そのあと、何をするか（Issue）を選びます。
           </>
         ) : (
-          <>最初に、何をするか（Issue）を選びます。タスク管理と git の作業が、ここでつながります。</>
+          <>最初に、何をするか（Issue）を選びます。タスク管理と git の作業がここでつながります。</>
         ),
       2: (
         <>
@@ -432,24 +431,23 @@ function Workspace({
       4: <>要約を書いて「コミット」を押すと、変更が履歴に記録されます（<code>git commit</code>）。</>,
       5:
         st.behind > 0 ? (
-          <>GitHub 側に新しいコミットがあります。先に「プル」で取り込んでから、プッシュします（<code>git pull</code>）。</>
+          <>GitHub 側に新しいコミットがあります。先に「プル」で取り込んでからプッシュします（<code>git pull</code>）。</>
         ) : (
           <>「プッシュ」で、記録したコミットを GitHub に送ります（<code>git push</code>）。</>
         ),
       6: (
         <>
-          GitHub に送れました。「プルリクを作る」で、この変更を <b>{defaultBranch}</b> に入れるお願いを出します。チームの人が変更を見て
+          GitHub に送れました。「プルリクを作る」でこの変更を <b>{defaultBranch}</b> に入れるお願いを出します。チームの人が変更を見て
           （レビュー）、よければマージします。
           いくつかのコミットをまとめて 1 つのプルリクにするときは「今回はプルリクしない」で{issue ? `、#${issue.number} を完了にします` : "、次の作業に進みます"}
-          （このブランチに続けてコミット・プッシュすると、またここに来て、まとめてプルリクにできます）。
-          {pr && pr.state === "closed" && !pr.merged && <> 前のプルリク #{pr.number} は、マージせずに閉じられています。</>}
+          。このブランチに続けてコミットとプッシュをすると、またここに来て、まとめてプルリクにできます。
+          {pr && pr.state === "closed" && !pr.merged && <> 前のプルリク #{pr.number} はマージせずに閉じられています。</>}
           {prError && <span className="w-flow-warn">{prError}</span>}
         </>
       ),
       7: pr ? (
         <>
-          プルリク <b>#{pr.number}</b> を出しました。レビューしてもらい、よければマージします（ひとりなら、差分を自分で確かめてマージしてかまいません）。
-          直すときは、このブランチでコミット・プッシュすると、プルリクに足されます。
+          プルリク <b>#{pr.number}</b> を出しました。レビューしてもらい、よければマージします。ひとりなら、差分を自分で確かめてマージしてかまいません。直すときはこのブランチでコミットとプッシュをすると、プルリクに足されます。
           {pr.checks && pr.checks.failure > 0 && <span className="w-flow-warn">✖ チェック（Actions のテストなど）が {countOf(pr.checks.failure, "件")}失敗しています。プルリクの「チェック」か Actions で、どこで失敗したかを見られます。</span>}
         </>
       ) : null,
@@ -577,14 +575,13 @@ function Workspace({
             {st.operation && <b>{OPERATION_NAMES[st.operation]}の途中です。</b>}
             {st.conflicted ? (
               <>
-                ⚠ 競合（コンフリクト）しているファイルがあります。ファイルを選ぶと右に「競合を直す」が出るので、
-                か所ごとに使う方を選んで「直したので、ステージする」を押します（<code>git add</code>）。
+                ⚠ 競合（コンフリクト）しているファイルがあります。ファイルを選ぶと右に「競合を直す」が出ます。か所ごとに使う方を選んで「直したのでステージする」を押します（<code>git add</code>）。
               </>
             ) : (
               "競合はすべて直してあります。"
             )}
             {st.operation === "merge"
-              ? "そのあとコミットすると、マージが完了します。"
+              ? "そのあとコミットするとマージが完了します。"
               : st.operation
                 ? <>そのあと「続ける」を押します（<code>git {st.operation} --continue</code>）。</>
                 : "そのあとコミットします。"}
@@ -875,7 +872,7 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
         <input
           type="checkbox"
           checked={side === "staged"}
-          aria-label={side === "staged" ? "ステージから外す" : conflict ? "直したので、ステージする" : "ステージする"}
+          aria-label={side === "staged" ? "ステージから外す" : conflict ? "直したのでステージする" : "ステージする"}
           onClick={(e) => e.stopPropagation()}
           onChange={toggle}
         />
@@ -892,11 +889,11 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
     <div className="w-pane">
       <p className="hint">
         チェックを入れたファイル（ステージ済み）が、次のコミットに入ります。チェックを入れるのは <code>git add</code>、外すのは{" "}
-        <code>git restore --staged</code> にあたります。記録しないファイルは、右クリックで <code>.gitignore</code> に書いて無視できます。
+        <code>git restore --staged</code> にあたります。記録しないファイルは右クリックで <code>.gitignore</code> に書いて無視できます。
       </p>
       {total === 0 ? (
         <div className="ws-none">
-          作業中の変更はありません。ファイルを編集すると、ここに表示されます。
+          作業中の変更はありません。ファイルを編集するとここに表示されます。
           <button type="button" className="btn-sm" onClick={onEmptyCommit}>
             空コミット…
           </button>
@@ -927,7 +924,7 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
             )}
           </div>
           {unstaged.map((f) => row(f, "unstaged"))}
-          <div className="dr-empty-note">空コミットでは、ファイルの変更は含めません</div>
+          <div className="dr-empty-note">空コミットではファイルの変更は含めません</div>
         </div>
       )}
       {lastCommand && (
@@ -945,7 +942,7 @@ function StashPane({ stashes, actions, busy }: { stashes: GitStash[]; actions: G
   return (
     <div className="w-pane">
       <p className="hint">
-        退避（スタッシュ）は、コミットせずに変更を一時的にしまっておく機能です。ブランチを切り替えるときなどに使います（
+        退避（スタッシュ）はコミットせずに変更を一時的にしまっておく機能です。ブランチを切り替えるときなどに使います（
         <code>git stash</code>）。
       </p>
       <div className="ws-stash">
@@ -1026,7 +1023,7 @@ function CommitForm({
   return (
     <div className="dr-form">
       <p className="hint">
-        コミットは、ステージ済みの変更に要約を付けて、履歴に記録することです（<code>git commit</code>）。
+        コミットはステージ済みの変更に要約を付けて、履歴に記録することです（<code>git commit</code>）。
       </p>
       <input
         ref={summaryRef}
@@ -1062,7 +1059,7 @@ function CommitForm({
         )}
         <label
           className="chk"
-          title={lastPushed ? "直前のコミットはもう GitHub に送ってあるので、修正できません（送り直すには強制プッシュが必要になります）" : "直前のコミットに、今の変更と要約を入れ直します"}
+          title={lastPushed ? "直前のコミットはもう GitHub に送ってあるので、修正できません。送り直すには強制プッシュが必要になります" : "直前のコミットに今の変更と要約を入れ直します"}
         >
           <input type="checkbox" checked={draft.amend} disabled={lastPushed} onChange={(e) => set({ amend: e.target.checked })} />
           直前のコミットを修正する（amend）

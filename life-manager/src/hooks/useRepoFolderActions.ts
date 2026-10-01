@@ -64,7 +64,7 @@ export function useRepoFolderActions(
     try {
       const result = await cloneRepo(parent, p.owner, p.repo);
       await onSetFolder(p.owner, p.repo, result.path);
-      setNote({ key: k, kind: "ok", text: `${result.path} にクローンして、作業フォルダにしました`, command: result.run.command });
+      setNote({ key: k, kind: "ok", text: `${result.path} にクローンして作業フォルダにしました`, command: result.run.command });
       return true;
     } catch (e) {
       setNote({ key: k, kind: "error", text: String(e) });

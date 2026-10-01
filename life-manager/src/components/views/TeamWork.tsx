@@ -111,7 +111,7 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
       </div>
       <div className="tw-body">
         <div>
-          <div className="tw-lead">これまでに、チームで積み重ねたこと</div>
+          <div className="tw-lead">これまでにチームで積み重ねたこと</div>
           <div className="tw-num">
             <b>{fmt(now)}</b>
             <span>件</span>

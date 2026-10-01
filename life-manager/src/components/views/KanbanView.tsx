@@ -77,22 +77,22 @@ function useIsMobile(breakpoint = 640) {
 
 /** 空の区画に出す、どうすれば入るか */
 const EMPTY_HINTS: Record<string, string> = {
-  "状態:進行中": "作業タブで始めると、ここに入ります",
-  "状態:チェック待ち": "プルリクを作ると、ここに入ります",
+  "状態:進行中": "作業タブで始めるとここに入ります",
+  "状態:チェック待ち": "プルリクを作るとここに入ります",
 };
 
 /** ボードの下の机（テーマごと）。付箋を置くと、自分の担当になる */
 const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: string; deco: string }> = {
-  chalk: { name: "✏️ 自分の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "📓✏️" },
-  white: { name: "🖥 自分のデスク", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "⌨️☕" },
-  quest: { name: "🛎 ギルドの受付", count: "受注した依頼", drop: "受付に出すと、受注します（自分の担当になります）", empty: "受注した依頼はありません。依頼書をここへ持ってくると、受注します", deco: "🛎🪶" },
-  night: { name: "🌙 夜の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🕯️☕" },
-  day: { name: "☀️ カフェのテーブル", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🌿☕" },
-  spring: { name: "🌸 春の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍡🍵" },
-  winter: { name: "❄️ こたつ", count: "自分の担当", drop: "こたつに入れると、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍊🍊" },
-  kingyo: { name: "🎐 縁側", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍉🍧" },
+  chalk: { name: "✏️ 自分の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "📓✏️" },
+  white: { name: "🖥 自分のデスク", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "⌨️☕" },
+  quest: { name: "🛎 ギルドの受付", count: "受注した依頼", drop: "受付に出すと受注します（自分の担当になります）", empty: "受注した依頼はありません。依頼書をここへ持ってくると、受注します", deco: "🛎🪶" },
+  night: { name: "🌙 夜の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🕯️☕" },
+  day: { name: "☀️ カフェのテーブル", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🌿☕" },
+  spring: { name: "🌸 春の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍡🍵" },
+  winter: { name: "❄️ こたつ", count: "自分の担当", drop: "こたつに入れると自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍊🍊" },
+  kingyo: { name: "🎐 縁側", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍉🍧" },
   // 文机の上の小物（手紙・一輪挿し・湯のみ）は App.css の絵
-  buncho: { name: "🪶 文机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "" },
+  buncho: { name: "🪶 文机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "" },
 };
 
 /**
@@ -324,7 +324,7 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
         <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
           やめる
         </button>
-        <small>Enter で貼って、続けて書けます</small>
+        <small>Enter で貼って続けて書けます</small>
       </div>
     </div>
   );
@@ -668,7 +668,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                   </div>
                 ))}
               </div>
-              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
+              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」でここに移せます" : "ここへドラッグして貼ります")}</div>}
               <AddHere look={look} open={addingTo === col.key} target={typeof milestone === "number" ? milestones.find((m) => m.number === milestone)?.title ?? null : null} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
           );

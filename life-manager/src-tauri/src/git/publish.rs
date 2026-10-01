@@ -54,7 +54,7 @@ pub fn clone_url(parent: &Path, url: &str) -> Result<CloneUrlResult, String> {
             let last = url.trim_end_matches(|c| c == '/' || c == '\\').rsplit(|c| c == '/' || c == '\\' || c == ':').next().unwrap_or("");
             let name = last.strip_suffix(".git").unwrap_or(last).to_string();
             if name.is_empty() {
-                return Err(format!("「{}」からは、フォルダの名前を決められません", url));
+                return Err(format!("「{}」からはフォルダの名前を決められません", url));
             }
             (url.to_string(), name)
         }
@@ -256,7 +256,7 @@ fn prepare_with_limit(path: &Path, template: &str, message: &str, limit: u64) ->
     let state = folder_state(path)?;
     if let Some(top) = &state.inside {
         return Err(format!(
-            "このフォルダは、ほかのリポジトリ（{}）の中にあります。リポジトリの中に、別のリポジトリは作れません",
+            "このフォルダは、ほかのリポジトリ（{}）の中にあります。リポジトリの中に別のリポジトリは作れません",
             top
         ));
     }

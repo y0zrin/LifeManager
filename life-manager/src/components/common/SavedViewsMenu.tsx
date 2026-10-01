@@ -81,7 +81,7 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
         <div className="views-menu-pop popover">
           <div className="views-menu-title">このリポジトリの見方（チームで共有）</div>
           {views.length === 0 && (
-            <div className="views-menu-empty">まだありません。今の絞り込み・並び・まとめ方に名前を付けて保存できます</div>
+            <div className="views-menu-empty">まだありません。今の絞り込み、並び、まとめ方に名前を付けて保存できます</div>
           )}
           {views.map((v) => (
             <button
@@ -119,7 +119,7 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
             {busy && <div className="views-menu-note">保存しています…</div>}
             {error && <div className="views-menu-error">{error}</div>}
             <div className="views-menu-note">
-              保存すると <code>config/views.yaml</code> に書いて GitHub に送ります。「担当: 自分」は、開いた人に読み替えます
+              保存すると <code>config/views.yaml</code> に書いて GitHub に送ります。「担当: 自分」は開いた人に読み替えます
             </div>
           </div>
         </div>

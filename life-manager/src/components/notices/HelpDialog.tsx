@@ -10,7 +10,7 @@ interface HelpDialogProps {
   me: string;
   /** 呼べる人（リポジトリのメンバー） */
   collaborators: GitHubUser[];
-  /** いっしょに送れる、今のようす（ないものは出さない） */
+  /** いっしょに送れるもの（ないものは出さない） */
   context: HelpContext;
   /** コメントを送る（送れたら閉じる） */
   onSend: (body: string, to: string[]) => Promise<void>;
@@ -79,12 +79,12 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
       <div className="git-dialog help-dialog" role="dialog" aria-modal="true" aria-label="助けを求める" onClick={(e) => e.stopPropagation()}>
         <h3>🆘 助けを求める</h3>
         <p className="git-dialog-note">
-          {issueRef(issue.number)} {issue.title} に、呼んだ人あてのコメントとして残します（GitHub にも残ります）。呼ばれた人のアプリには、赤い 🆘 の知らせが出ます
+          {issueRef(issue.number)} {issue.title} に、呼んだ人あてのコメントとして残します（GitHub にも残ります）。呼ばれた人のアプリには赤い 🆘 の知らせが出ます
         </p>
 
         <div className="help-label">だれに</div>
         {people.length === 0 ? (
-          <p className="git-dialog-note">このリポジトリには、ほかのメンバーがいません（設定 → 接続 で招待できます）</p>
+          <p className="git-dialog-note">このリポジトリにはほかのメンバーがいません（設定 → 接続 で招待できます）</p>
         ) : (
           <div className="help-who" role="group" aria-label="だれに">
             {people.map((p) => (
@@ -103,7 +103,7 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
           className="textarea-full help-message"
           value={message}
           readOnly={busy}
-          placeholder="例: プッシュしようとしたら rejected と出て、進めません（Ctrl+Enter で送る）"
+          placeholder="例: プッシュしようとしたら rejected と出て進めません（Ctrl+Enter で送る）"
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
             if (isEnter(e) && (e.ctrlKey || e.metaKey)) send();
@@ -157,7 +157,7 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
         <div className="help-preview">
           送るコメント: <b>🆘 助けてください</b> {to.length > 0 ? to.map((l) => `@${l}`).join(" ") : <em>（だれかを選んでください）</em>}
           {firstLine && <> ／ {firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : firstLine}</>}
-          {anyContext && <> ／ ▸ 今のようす</>}
+          {anyContext && <> ／ ▸ いっしょに送るもの</>}
         </div>
 
         {error && <p className="git-dialog-error">{error}</p>}

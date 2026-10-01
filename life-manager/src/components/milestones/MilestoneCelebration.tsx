@@ -203,7 +203,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
         <Trophy />
         <div className="ms-cel-kick">{quest ? "BOSS DEFEATED" : "MILESTONE COMPLETE"}</div>
         <div className="ms-cel-title">{d.title} {quest ? "撃破！" : "達成！"}</div>
-        <div className="ms-cel-sub">{d.doneCount} 件のタスクを、ぜんぶ終えました</div>
+        <div className="ms-cel-sub">{d.doneCount} 件のタスクをぜんぶ終えました</div>
         {stats}
         {team}
       </>
@@ -280,7 +280,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
       <>
         <Stamp theme={theme} title={d.title} />
         <div className="ms-cel-title plain">おつかれさまでした！</div>
-        <div className="ms-cel-sub">{d.title} のタスク {d.doneCount} 件を、ぜんぶ終えました</div>
+        <div className="ms-cel-sub">{d.title} のタスク {d.doneCount} 件をぜんぶ終えました</div>
         {team}
       </>
     );

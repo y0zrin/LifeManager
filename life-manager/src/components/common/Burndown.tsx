@@ -86,7 +86,7 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
         <div className="bd-kpi">
           <div className="bd-kpi-k">経過</div>
           <div className="bd-kpi-v">{b.totalDays ? `${Math.min(b.elapsed, b.totalDays)} / ${b.totalDays} 日` : `${b.elapsed} 日`}</div>
-          <div className="bd-kpi-s">{b.idealNow !== null ? `理想なら残り ${fmt(Math.round(b.idealNow * 10) / 10)}` : "期限を決めると、理想の線が出ます"}</div>
+          <div className="bd-kpi-s">{b.idealNow !== null ? `理想なら残り ${fmt(Math.round(b.idealNow * 10) / 10)}` : "期限を決めると理想の線が出ます"}</div>
         </div>
         <div className={`bd-kpi${late ? " bd-kpi--late" : ""}`}>
           <div className="bd-kpi-k">このペースだと</div>
@@ -149,7 +149,7 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
             <span><i className="bd-leg-ideal" />理想（期限にちょうど 0）</span>
             <span><i className="bd-leg-actual" />実際の残り</span>
             <span><i className="bd-leg-proj" />このペースの見込み</span>
-            <span className="bd-legend-note">Issue は作った日から数えます（途中で足した分は、線が上がります）</span>
+            <span className="bd-legend-note">Issue は作った日から数えます（途中で足した分は線が上がります）</span>
           </div>
         </div>
       )}

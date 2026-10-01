@@ -20,7 +20,7 @@ const ratioOf = (v: Seen, hp: boolean) => (v.total > 0 ? (hp ? v.remaining / v.t
 const pct = (r: number) => `${Math.max(0, Math.min(1, r)) * 100}%`;
 
 /**
- * マイルストーンの進み具合のバー。ふと見たときに、前に見たときの量から今の量まで動かす（HP なら、減った分が「−2pt」と飛ぶ）。
+ * マイルストーンのバー。ふと見たときに、前に見たときの量から今の量まで動かす（HP なら、減った分が「−2pt」と飛ぶ）。
  * はじめて見るときは 0 からのびる（HP は、ボスが現れたように満ちる）。見ているあいだに変わったときも、そこから動かす
  */
 export function StageMeter({ seenKey, remaining, total, hp, fmt, onHit }: StageMeterProps) {

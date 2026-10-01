@@ -195,7 +195,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
   if (pull.draft) {
     status = { icon: "📝", tone: "draft", title: "下書きです", text: "仕上がったら「レビューをお願いする」にします。下書きのあいだはマージできません。" };
   } else if (checking) {
-    status = { icon: "⏳", tone: "wait", title: "マージできるか、GitHub が調べています…", text: "少し待つと表示されます。" };
+    status = { icon: "⏳", tone: "wait", title: "マージできるか GitHub が調べています…", text: "少し待つと表示されます。" };
   } else if (conflict) {
     status = {
       icon: "⚠",
@@ -203,8 +203,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       title: "競合（コンフリクト）があります",
       text: (
         <>
-          <code>{pull.base}</code> でも同じところが変わっています。この PC で <code>{pull.base}</code> を <code>{pull.head}</code> に取り込み、
-          競合を直してコミット・プッシュすると、マージできるようになります（<code>git switch {pull.head}</code> → <code>git pull</code> →{" "}
+          <code>{pull.base}</code> でも同じところが変わっています。この PC で <code>{pull.base}</code> を <code>{pull.head}</code> に取り込みます。競合を直してコミットとプッシュをすると、マージできるようになります（<code>git switch {pull.head}</code> → <code>git pull</code> →{" "}
           <code>git merge origin/{pull.base}</code> → 直す → コミット → プッシュ）。
         </>
       ),
@@ -224,7 +223,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       text: "ブランチの保護ルールで、承認や、チェックの成功が必要です。",
     };
   } else if (state === "unstable") {
-    status = { icon: "⚠", tone: "warn", title: "失敗したチェックがあります", text: "マージはできますが、先に確かめておくと安心です。" };
+    status = { icon: "⚠", tone: "warn", title: "失敗したチェックがあります", text: "マージはできますが、先に確かめておきましょう。" };
   } else {
     status = { icon: "✔", tone: "ok", title: "マージできます", text: "競合はありません。" };
   }
@@ -272,11 +271,11 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
             </span>
           ))}
           <span className="muted">
-            {state === "blocked" ? "保護ルールで、チェックの成功が決まっています。直すまでマージできません。" : "マージはできますが、先に直すと安心です。"}
+            {state === "blocked" ? "保護ルールでチェックの成功が必要です。直すまでマージできません。" : "マージはできますが、先に直しておきましょう。"}
           </span>
         </div>
       )}
-      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）。終わってからマージすると安心です。</p>}
+      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）。終わってからマージしましょう。</p>}
       {conflict && onFixLocally && (
         <div className="mb-row">
           <span>この PC の作業フォルダで取り込むと、作業タブの「競合を直す」で直せます。</span>
@@ -322,7 +321,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           </p>
           {canDeleteBranch &&
             (info?.delete_branch_on_merge ? (
-              <p className="muted">マージすると、ブランチ <code>{pull.head}</code> は GitHub の設定で自動で消えます。</p>
+              <p className="muted">マージするとブランチ <code>{pull.head}</code> は GitHub の設定で自動で消えます。</p>
             ) : (
               <label className="mb-check">
                 <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />
@@ -361,7 +360,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           </div>
         </div>
       )}
-      {!canPush && info && <p className="muted">マージできるのは、このリポジトリに書き込める人です。</p>}
+      {!canPush && info && <p className="muted">マージできるのはこのリポジトリに書き込める人です。</p>}
 
       {(canPush || mine) && (
         <div className="mb-close">

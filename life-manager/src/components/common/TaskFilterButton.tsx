@@ -76,7 +76,7 @@ export function TaskFilterButton(props: TaskFilterProps) {
         <div className="task-filter-pop" role="dialog" aria-label="フィルタ">
           <div className="task-filter-head">
             <b>フィルタ</b>
-            <span className="task-filter-hint">押すと、すぐに一覧に反映されます</span>
+            <span className="task-filter-hint">押すと一覧に反映されます</span>
           </div>
           <div className="task-filter-grid">
             {categories.map((c) => {

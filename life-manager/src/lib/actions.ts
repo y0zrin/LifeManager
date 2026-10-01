@@ -445,7 +445,7 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
             ? `${branch} はみんなが使うブランチです。最初に直します`
             : `${branch} は保護されたブランチです。最初に直します`
           : level === 2
-            ? "直すまで、マージしない方が安全です"
+            ? "直してからマージします"
             : `まだプルリクのないブランチです。作業している人が直します（${last.actor?.login ?? "?"}）`;
       cards.push({
         key,

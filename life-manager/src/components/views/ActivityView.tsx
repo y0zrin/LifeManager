@@ -98,7 +98,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                 {t.detail && <span className="av-detail">「{commentPreview(t.detail).slice(0, 80)}」</span>}
               </button>
               <span className="muted av-when">{t.at ? ago(t.at) : ""}</span>
-              <button type="button" className="pr-reviewer-x" title="見た（中身が変わると、また出ます）" aria-label="見た" onClick={() => dismiss(t.key)}>
+              <button type="button" className="pr-reviewer-x" title="見た（中身が変わるとまた出ます）" aria-label="見た" onClick={() => dismiss(t.key)}>
                 ×
               </button>
             </div>
@@ -125,7 +125,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
           ))}
         </select>
         <span className="muted">
-          チームの動き {feed && <b className="av-count">{shown.length} 件</b>}（GitHub が残している、最近の 90 日ほど）
+          チームの動き {feed && <b className="av-count">{shown.length} 件</b>}（GitHub が残している最近の 90 日ほど）
         </span>
       </div>
 

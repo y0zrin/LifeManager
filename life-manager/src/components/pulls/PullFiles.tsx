@@ -286,7 +286,7 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
       <p className="pf-message">
         {file.status === "renamed" && file.additions + file.deletions === 0
           ? "（名前だけの変更です）"
-          : "（画像などのバイナリか、大きすぎる変更なので、GitHub が差分を出していません）"}
+          : "（画像などのバイナリか大きすぎる変更なので、GitHub が差分を出していません）"}
       </p>
     );
   }
@@ -420,7 +420,7 @@ function LineComposer({ label, onSubmit, onCancel }: { label: string; onSubmit: 
       />
       {error && <p className="git-dialog-error">{error}</p>}
       <div className="pf-composer-actions">
-        <span className="muted">その場で送られます（レビューのコメントになります）</span>
+        <span className="muted">「コメントする」を押すと送られます（レビューのコメントになります）</span>
         <span className="grow" />
         <button type="button" className="btn-sm" disabled={busy} onClick={onCancel}>
           やめる

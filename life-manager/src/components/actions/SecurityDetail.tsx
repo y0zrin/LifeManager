@@ -109,7 +109,7 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
               ) : (
                 <li>直った版はまだありません。GitHub の説明を読み、危ない使い方をしていないかを確かめるか、ほかのライブラリに替えます。</li>
               )}
-              <li>上げたらテストを動かして、こわれていないかを確かめてからコミット・プッシュします（Actions が確かめます）。</li>
+              <li>上げたらテストを動かして、こわれていないかを確かめてからコミットとプッシュをします（Actions が確かめます）。</li>
               <li>直ると、このお知らせは GitHub が自動で閉じ、山から消えます。</li>
             </ol>
           </div>
@@ -140,8 +140,8 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
           <div className={`ac-todo l${card.level}`}>
             <b>何をすればよいか</b>
             <ol>
-              <li>GitHub で開くと、なぜ危ないかと、直し方の例が見られます。</li>
-              <li>その場所を直してコミット・プッシュすると、次のスキャンで閉じます。</li>
+              <li>GitHub で開くと、なぜ危ないかと直し方の例が見られます。</li>
+              <li>その場所を直してコミットとプッシュをすると、次のスキャンで閉じます。</li>
             </ol>
           </div>
         </>

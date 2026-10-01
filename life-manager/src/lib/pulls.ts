@@ -222,18 +222,18 @@ export const METHOD_LABELS: Record<MergeMethod, string> = {
 export function methodHelp(method: MergeMethod, head: string, base: string): { text: string; command: string } {
   if (method === "squash") {
     return {
-      text: `${head} のコミットを 1 つにまとめて、${base} に入れます。${base} の履歴がすっきりします`,
+      text: `${head} のコミットを 1 つにまとめて ${base} に入れます。${base} の履歴がすっきりします`,
       command: `git switch ${base} && git merge --squash ${head} && git commit`,
     };
   }
   if (method === "rebase") {
     return {
-      text: `${head} のコミットを、${base} の先に 1 つずつ並べ直して入れます（合流のコミットは作りません）`,
+      text: `${head} のコミットを ${base} の先に 1 つずつ並べ直して入れます。合流のコミットは作りません`,
       command: `git switch ${head} && git rebase ${base}（そのあと ${base} を進める）`,
     };
   }
   return {
-    text: `${head} のコミットをそのまま残して、合流のコミットを 1 つ作ります。いつ・何を入れたかが履歴に残ります`,
+    text: `${head} のコミットをそのまま残して、合流のコミットを 1 つ作ります。いつ何を入れたかが履歴に残ります`,
     command: `git switch ${base} && git merge --no-ff ${head}`,
   };
 }

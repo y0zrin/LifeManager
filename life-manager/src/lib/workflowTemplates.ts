@@ -26,10 +26,10 @@ name: ${title}
 
 on:
   push:               # プッシュしたとき
-  pull_request:       # プルリクを出した・コミットを足したとき
+  pull_request:       # プルリクを出したときやコミットを足したとき
   workflow_dispatch:  # 手で動かすとき（Life Manager の「▶ 手で実行」）
 
-# 同じブランチに続けてプッシュしたら、前の実行は止める（非公開のリポジトリの、無料の時間の節約）
+# 同じブランチに続けてプッシュしたら、前の実行は止める（非公開のリポジトリで無料の時間を節約するため）
 concurrency:
   group: \${{ github.workflow }}-\${{ github.ref }}
   cancel-in-progress: true
@@ -47,11 +47,11 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "unity",
     name: "Unity（Unity Test Framework）",
     detail:
-      "Assets と ProjectSettings があるリポジトリ。EditMode・PlayMode のテストを、GitHub のパソコンで動かします（GameCI）。テストがなくても、スクリプトのコンパイルエラーに気づけます",
+      "Assets と ProjectSettings があるリポジトリ。EditMode と PlayMode のテストを GitHub のパソコンで動かします（GameCI）。テストがなくても、スクリプトのコンパイルエラーに気づけます",
     detect: (files) => has(files, "Assets/") && has(files, "ProjectSettings/"),
     file: ".github/workflows/unity-test.yml",
     prepare: {
-      text: "リポジトリの Settings → Secrets and variables → Actions に、秘密を 3 つ登録します: UNITY_LICENSE（Unity Hub で Personal のライセンスを有効にすると、その PC の C:\\ProgramData\\Unity\\Unity_lic.ulf にできます。その中身をまるごと）・UNITY_EMAIL・UNITY_PASSWORD（そのライセンスの Unity のアカウント）。1 回目は Unity を用意するのに時間がかかります（10〜20 分ほど）。非公開のリポジトリでは、Actions の無料の時間（月 2,000 分）を使います。",
+      text: "リポジトリの Settings → Secrets and variables → Actions に、秘密を 3 つ登録します: UNITY_LICENSE・UNITY_EMAIL・UNITY_PASSWORD。Unity Hub で Personal のライセンスを有効にすると、その PC に C:\\ProgramData\\Unity\\Unity_lic.ulf ができます。UNITY_LICENSE には、その中身をまるごと入れます。UNITY_EMAIL と UNITY_PASSWORD には、そのライセンスの Unity のアカウントを入れます。1 回目は Unity を用意するのに時間がかかります（10〜20 分ほど）。非公開のリポジトリでは、Actions の無料の時間（月 2,000 分）を使います。",
       warning: "チームのリポジトリでは、書き込める人はワークフローを通して秘密を取り出せます。テスト用に別の Unity のアカウントを作って登録するのがおすすめです。",
       links: [{ label: "秘密を登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/secrets/actions` }],
     },
@@ -59,7 +59,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       const p = dir && dir !== "." ? dir : ".";
       const base = p === "." ? "" : `${p}/`;
       return (
-        HEADER("Unity テスト", "EditMode・PlayMode のテストを動かす") +
+        HEADER("Unity テスト", "EditMode と PlayMode のテストを動かす") +
         `
 jobs:
   test:
@@ -67,17 +67,17 @@ jobs:
     timeout-minutes: 45   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
     permissions:
       contents: read
-      checks: write          # テストの結果を、プルリクのチェックに出す
+      checks: write          # テストの結果をプルリクのチェックに出す
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: true          # Git LFS で入れた画像・音も取ってくる
-      - uses: actions/cache@v4   # Library を残して、2 回目から速くする
+          lfs: true          # Git LFS で入れた画像や音も取ってくる
+      - uses: actions/cache@v4   # Library を残して 2 回目から速くする
         with:
           path: ${base}Library
           key: Library-\${{ hashFiles('${base}Assets/**', '${base}Packages/**', '${base}ProjectSettings/**') }}
           restore-keys: Library-
-      - uses: game-ci/unity-test-runner@v4   # Unity を入れて、テストを動かす（版は ProjectSettings/ProjectVersion.txt から）
+      - uses: game-ci/unity-test-runner@v4   # Unity を入れてテストを動かす（版は ProjectSettings/ProjectVersion.txt から）
         env:
           UNITY_LICENSE: \${{ secrets.UNITY_LICENSE }}     # ライセンス（.ulf の中身）
           UNITY_EMAIL: \${{ secrets.UNITY_EMAIL }}         # Unity のアカウント（テスト用のものがおすすめ）
@@ -99,19 +99,19 @@ jobs:
     id: "unreal",
     name: "Unreal Engine（自動テスト）",
     detail:
-      ".uproject があるリポジトリ。Automation のテストを、Unreal の入った PC（セルフホストランナー）で動かします。GitHub のパソコンには Unreal が入っていません",
+      ".uproject があるリポジトリ。Automation のテストを Unreal の入った PC（セルフホストランナー）で動かします。GitHub のパソコンには Unreal が入っていません",
     detect: (files) => files.some((f) => f.toLowerCase().endsWith(".uproject")),
     file: ".github/workflows/unreal-test.yml",
     prepare: {
       text: "Unreal の入った Windows の PC（学校の PC など）を、このリポジトリのランナーに登録します: Settings → Actions → Runners → New self-hosted runner → Windows。出てくるコマンドをその PC の PowerShell で順に動かし、ラベルに unreal を足します。その PC の環境変数 UE_ROOT に、Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）を入れておきます。",
-      warning: "公開のリポジトリでは、セルフホストランナーを使わないでください（だれでもプルリクを通して、その PC でコードを動かせてしまいます）。",
+      warning: "公開のリポジトリではセルフホストランナーを使わないでください。だれでもプルリクを通して、その PC でコードを動かせてしまいます。",
       links: [{ label: "ランナーを登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/actions/runners/new?arch=x64&os=win` }],
     },
     yaml: (dir) => {
       const p = dir && dir !== "." ? dir : ".";
       const base = p === "." ? "" : `${p}/`;
       return (
-        HEADER("Unreal テスト", "Automation のテストを、Unreal の入った PC で動かす") +
+        HEADER("Unreal テスト", "Automation のテストを Unreal の入った PC で動かす") +
         `
 jobs:
   test:
@@ -161,7 +161,7 @@ jobs:
     detect: (files, lang) => has(files, "package.json") || lang === "TypeScript" || lang === "JavaScript",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -181,11 +181,11 @@ ${inDir(dir)}    steps:
   {
     id: "python",
     name: "Python（pytest）",
-    detail: "requirements.txt・pyproject.toml があるリポジトリ。pytest でテストを動かします",
+    detail: "requirements.txt や pyproject.toml があるリポジトリ。pytest でテストを動かします",
     detect: (files, lang) => has(files, "requirements.txt", "pyproject.toml", "setup.py") || lang === "Python",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -208,7 +208,7 @@ ${inDir(dir)}    steps:
     detect: (files, lang) => has(files, "Cargo.toml") || lang === "Rust",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -216,18 +216,18 @@ jobs:
     timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）
 ${inDir(dir)}    steps:
       - uses: actions/checkout@v4   # リポジトリの中身を取ってくる
-      - run: cargo test             # ビルドして、テストを動かす（Rust は入っています）
+      - run: cargo test             # ビルドしてテストを動かす（Rust は入っています）
 `,
   },
   {
     id: "dotnet",
     name: "C#・.NET（dotnet test）",
-    detail: ".sln・.csproj があるリポジトリ",
+    detail: ".sln や .csproj があるリポジトリ",
     // Unity のプロジェクトも C# なので、Unity は先に見分ける（上の unity）
     detect: (files, lang) => ends(files, ".sln", ".csproj") || lang === "C#",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -238,7 +238,7 @@ ${inDir(dir)}    steps:
       - uses: actions/setup-dotnet@v4   # .NET を入れる
         with:
           dotnet-version: "8.0.x"
-      - run: dotnet test                # ビルドして、テストを動かす
+      - run: dotnet test                # ビルドしてテストを動かす
 `,
   },
   {
@@ -248,7 +248,7 @@ ${inDir(dir)}    steps:
     detect: (files, lang) => has(files, "go.mod") || lang === "Go",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -269,7 +269,7 @@ ${inDir(dir)}    steps:
     detect: (files, lang) => has(files, "pom.xml") || lang === "Java",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
-      HEADER("テスト", "プッシュとプルリクのたびに、テストを動かす") +
+      HEADER("テスト", "プッシュとプルリクのたびにテストを動かす") +
       `
 jobs:
   test:
@@ -282,7 +282,7 @@ ${inDir(dir)}    steps:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - run: mvn -B test              # ビルドして、テストを動かす
+      - run: mvn -B test              # ビルドしてテストを動かす
 `,
   },
   {

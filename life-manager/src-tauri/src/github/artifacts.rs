@@ -248,7 +248,7 @@ pub async fn media_read_github(state: ClientState<'_>, owner: String, repo: Stri
     let client = client_of(&state).await?;
     let bytes = client.get_file_bytes(&owner, &repo, &sha, file.trim().trim_start_matches('/'), MAX_BYTES.min(100 * 1024 * 1024)).await?;
     if lfs_oid(&bytes).is_some() {
-        return Err("Git LFS のファイルです。GitHub からは中身を読めません（この PC にクローンして、git lfs pull をすると見られます）".into());
+        return Err("Git LFS のファイルです。GitHub からは中身を読めません。この PC にクローンして、git lfs pull をすると見られます".into());
     }
     Ok(Response::new(bytes))
 }

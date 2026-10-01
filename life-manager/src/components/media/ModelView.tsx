@@ -232,7 +232,7 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
           const msg = String(e);
           setError(
             extOf(path) === "gltf" && /buffer|uri|fetch/i.test(msg)
-              ? "この .gltf は、別のファイル（.bin・画像）を使っています。1 つにまとめた .glb なら、ここで見られます"
+              ? "この .gltf は別のファイル（.bin・画像）を使っています。1 つにまとめた .glb なら、ここで見られます"
               : `読めませんでした: ${msg}`,
           );
         }

@@ -113,7 +113,7 @@ fn hint_for(message: &str) -> &'static str {
     } else if message.contains("Could not resolve host") {
         "\n→ インターネットにつながっているか確認してください"
     } else if message.contains("[rejected]") || message.contains("non-fast-forward") {
-        "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでから、プッシュしてください"
+        "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでからプッシュしてください"
     } else if message.contains("Author identity unknown") || message.contains("Please tell me who you are") {
         "\n→ コミットに使う名前とメールアドレスが決まっていません。設定（接続）の「作業フォルダ」にある「使う準備を確かめる」から決められます"
     } else {

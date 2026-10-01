@@ -25,15 +25,15 @@ const DEPENDABOT: Permission = Permission { name: "Dependabot alerts", access: "
 const CODE_SCANNING: Permission = Permission { name: "Code scanning alerts", access: "Read-only" };
 
 const KNOWN: &[(&str, &str)] = &[
-    ("does not have 'workflow_dispatch' trigger", "このワークフローは手で動かせません（ファイルに workflow_dispatch がありません）"),
+    ("does not have 'workflow_dispatch' trigger", "このワークフローは手で動かせません。ファイルに workflow_dispatch がありません"),
     ("Unexpected inputs provided", "ワークフローにない入力があります。ワークフローを読み直してから、もう一度"),
     ("Required input", "入れなければいけない入力があります"),
     ("No ref found for", "そのブランチが GitHub にありません。先にプッシュします"),
     ("Cannot cancel a workflow run that is completed", "もう終わっているので、止められません"),
-    ("cannot be rerun", "この実行は、もう一度動かせません（古すぎる・動いている途中 など）"),
-    ("This workflow run is not re-runnable", "この実行は、もう一度動かせません（古すぎる・動いている途中 など）"),
+    ("cannot be rerun", "この実行はもう一度動かせません（古すぎる・動いている途中 など）"),
+    ("This workflow run is not re-runnable", "この実行はもう一度動かせません（古すぎる・動いている途中 など）"),
     ("already running", "もう動いています。終わるのを待ってから、もう一度"),
-    ("Actions has been disabled", "このリポジトリでは Actions が止められています（GitHub の Settings → Actions で使えるようにします）"),
+    ("Actions has been disabled", "このリポジトリでは Actions が止められています。GitHub の Settings → Actions で使えるようにします"),
 ];
 
 fn explain(err: &str, what: &str) -> String {
@@ -428,7 +428,7 @@ pub async fn set_actions_enabled(state: ClientState<'_>, owner: String, repo: St
             &e,
             if enabled { "Actions を使うようにすること" } else { "Actions を止めること" },
             &ADMIN,
-            &[("admin", "Actions を止める・使うのは、このリポジトリの管理者だけです")],
+            &[("admin", "Actions を止める・使うのはこのリポジトリの管理者だけです")],
         )
     })?;
     Ok(())
@@ -440,7 +440,7 @@ pub async fn enable_dependabot(state: ClientState<'_>, owner: String, repo: Stri
     let client = client_of(&state).await?;
     const ADMIN: Permission = Permission { name: "Administration", access: "Read and write" };
     client.enable_vulnerability_alerts(&owner, &repo).await.map_err(|e| {
-        errors::explain(&e, "Dependabot のお知らせを有効にすること", &ADMIN, &[("admin", "有効にできるのは、このリポジトリの管理者だけです")])
+        errors::explain(&e, "Dependabot のお知らせを有効にすること", &ADMIN, &[("admin", "有効にできるのはこのリポジトリの管理者だけです")])
     })?;
     Ok(())
 }
@@ -505,7 +505,7 @@ pub async fn job_log(state: ClientState<'_>, owner: String, repo: String, job_id
     let client = client_of(&state).await?;
     let text = client.job_log(&owner, &repo, job_id).await.map_err(|e| {
         if e.starts_with("HTTP 410") || e.contains("expired") {
-            "ログは、もう残っていません（GitHub が一定の日数で消します）".to_string()
+            "ログはもう残っていません。GitHub が一定の日数で消します".to_string()
         } else {
             explain(&e, "ログを読むこと")
         }

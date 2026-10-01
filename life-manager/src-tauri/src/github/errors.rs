@@ -52,7 +52,7 @@ pub fn explain(err: &str, what: &str, permission: &Permission, known: &[(&str, &
     }
     if has("not accessible by integration") {
         return format!(
-            "{}ができません。GitHub の Life Manager に「{}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認する（またはこのリポジトリを選ぶ）と使えます",
+            "{}ができません。GitHub の Life Manager に「{}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認するか、このリポジトリを選ぶと使えます",
             what, permission.name
         );
     }
@@ -62,7 +62,7 @@ pub fn explain(err: &str, what: &str, permission: &Permission, known: &[(&str, &
         }
     }
     if err.starts_with("HTTP 404") {
-        return format!("{}ができません（見つかりません。消されたか、見る権限がありません）", what);
+        return format!("{}ができません。消されたか、見る権限がないため見つかりません", what);
     }
     if err.starts_with("HTTP 403") {
         return format!("{}ができません（権限がありません）: {}", what, message);

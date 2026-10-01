@@ -251,7 +251,7 @@ export function MilestoneView({
         </button>
         <button onClick={onRefresh} className="btn-sm">更新</button>
         {(issues.length > 0 || closedIssues.length > 0) && (
-          <span className="pace-mode ms-mode" role="group" aria-label="数え方" title="バーと目安を、見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）">
+          <span className="pace-mode ms-mode" role="group" aria-label="数え方" title="バーと目安を見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）">
             {(["estimate", "count"] as PaceMode[]).map((m) => (
               <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
                 {m === "estimate" ? "見積もり" : "件数"}
@@ -331,10 +331,10 @@ export function MilestoneView({
                 <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="マイルストーン名" className="input-full" />
                 <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="説明" className="input-full" />
                 <div className="ms-dates">
-                  <DatePickerButton value={editStart} onChange={setEditStart} label={editStart ? `開始 ${editStart}` : "開始日を選択（決めなければ、作った日）"} />
+                  <DatePickerButton value={editStart} onChange={setEditStart} label={editStart ? `開始 ${editStart}` : "開始日を選択（決めなければ作った日）"} />
                   <DatePickerButton value={editDue} onChange={setEditDue} label={editDue || "期限を選択"} />
                 </div>
-                <p className="ms-dates-note">開始日は、説明の最後に「開始: 2026-09-28」の形で書きます（GitHub の画面でも読めます）。</p>
+                <p className="ms-dates-note">開始日は説明の最後に「開始: 2026-09-28」の形で書きます。GitHub の画面でも読めます。</p>
                 <div className="ms-confirm-actions">
                   <button className="btn-primary" onClick={() => handleSaveEdit(stage.ms.number)}>保存</button>
                   <button className="btn-sm" onClick={() => setEditing(false)}>キャンセル</button>
@@ -356,7 +356,7 @@ export function MilestoneView({
               </>
             )}
             {stage.open.length === 0 && stage.done.length === 0 && (
-              <p className="ms-none">このマイルストーンに入れたタスクはありません。<b>📊 ボードでタスクを足す</b> で、このマイルストーンのタスクを足せます（タスクの詳細で、マイルストーンを選んで入れることもできます）。</p>
+              <p className="ms-none">このマイルストーンに入れたタスクはありません。<b>📊 ボードでタスクを足す</b> でこのマイルストーンのタスクを足せます。タスクの詳細でマイルストーンを選んで入れることもできます。</p>
             )}
           </div>
         </>

@@ -142,7 +142,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
 
       {step === 0 && (
         <>
-          <p className="git-dialog-message">GitHub に、あなたのリポジトリを作ります。</p>
+          <p className="git-dialog-message">GitHub にあなたのリポジトリを作ります。</p>
           <label className="git-dialog-label">
             名前（英数字・ハイフン・ドット・アンダースコア）
             <span className="add-project-row">
@@ -155,7 +155,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
           {repoName && !valid && <p className="git-dialog-error">名前に使えない文字があります（英数字・ハイフン・ドット・アンダースコアだけ）</p>}
           <label className="chk">
             <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} disabled={busy} />
-            非公開にする（学校の課題やチーム制作は、こちら）
+            非公開にする（学校の課題やチーム制作はこちら）
           </label>
           {!ready && (
             <p className="git-dialog-note">
@@ -175,7 +175,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
             </>
           )}
           {ready && appCreates && byLogin && (
-            <p className="git-dialog-note">あなたのアカウントには Life Manager が入っているので、アプリが作ります（作ったリポジトリは、そのまま Life Manager で使えます）。</p>
+            <p className="git-dialog-note">あなたのアカウントには Life Manager が入っているので、アプリが作ります。作ったリポジトリはそのまま Life Manager で使えます。</p>
           )}
         </>
       )}

@@ -43,7 +43,7 @@ pub struct TokenReport {
 }
 
 /// トークンが使えないとき（401）の文
-pub const INVALID: &str = "このトークンは使えません（期限が切れたか、取り消されたか、コピーが途中で切れています）";
+pub const INVALID: &str = "このトークンは使えません。期限が切れたか、取り消されたか、コピーが途中で切れています";
 
 pub async fn check(token: &str, repos: &[RepoRef]) -> Result<TokenReport, String> {
     let client = GitHubClient::new(token.to_string());
@@ -118,7 +118,7 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: O
             out,
             "not_installed",
             format!(
-                "{} には、まだ Life Manager が入っていません。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください（名前の打ち間違いや、まだ招待を受けていないときも、こう見えます）",
+                "{} には、まだ Life Manager が入っていません。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選びます。チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください。名前の打ち間違いや、まだ招待を受けていないときも、こう見えます",
                 full
             ),
         );
@@ -127,7 +127,7 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: O
         let message = if kind == "fine-grained" {
             format!("このトークンの対象に {} が入っていません。GitHub のトークンの画面で「Repository access」に足してください", full)
         } else {
-            format!("{} が見つかりません（名前の打ち間違い、まだ招待されていない、組織の許可がまだ、のどれかです）", full)
+            format!("{} が見つかりません。名前の打ち間違い、まだ招待されていない、組織の許可がまだ、のどれかです", full)
         };
         return fail(out, "not_found", message);
     }
@@ -139,7 +139,7 @@ async fn check_repo(client: &GitHubClient, kind: &str, r: &RepoRef, installed: O
             out,
             "not_installed",
             format!(
-                "{} には、まだ Life Manager が入っていません（見ることはできても、書き込めません）。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選び、チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください",
+                "{} には、まだ Life Manager が入っていません。見ることはできても、書き込めません。自分のリポジトリなら「使用するリポジトリを選ぶ」（入れてあれば「リポジトリを追加する」）で選びます。チームのリポジトリなら、持ち主（リーダー）に Life Manager を入れてもらってください",
                 full
             ),
         );

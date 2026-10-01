@@ -227,7 +227,7 @@ export function DashboardView({
     setTemplateNote(null);
     if (titleUntouched) setIssueTitle(t?.title ?? "");
     if (bodyUntouched) setIssueBody(t?.body ?? "");
-    else if (t) setTemplateNote("本文に書いた内容があるので、テンプレートの本文は入れませんでした（本文を消してから選ぶと入ります）");
+    else if (t) setTemplateNote("本文に書いた内容があるので、テンプレートの本文は入れませんでした。本文を消してから選ぶと入ります");
     setIssueSelectedLabels(t && t.labels.length > 0 ? t.labels : ["種別:イシュー", "状態:未整理"]);
     setAppliedTemplate(t);
   }
@@ -806,8 +806,7 @@ export function DashboardView({
           </div>
           <button onClick={handleIssueCreate} className="btn-primary">作成</button>
           <p className="hint">
-            <b>テンプレート</b>は、よく書く Issue の書き出しです。GitHub では <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルで、
-            先頭に名前・説明・ラベルなどを書きます。中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。
+            <b>テンプレート</b>は、よく書く Issue の書き出しです。GitHub では <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルで、先頭に名前、説明、ラベルなどを書きます。中身を変えるときはそのファイルを直します（作業タブでコミット、または GitHub で編集）。
           </p>
         </div>
       )}
@@ -820,7 +819,7 @@ export function DashboardView({
           </div>
           <div className="task-split-grip" role="separator" aria-orientation="vertical" title="ドラッグで幅を変える" onMouseDown={startDrag} />
           <div className="task-split-detail">
-            {detail ?? <p className="task-split-empty">タスクを選ぶと、ここに詳細が出ます（↑↓ で上下のタスクへ）</p>}
+            {detail ?? <p className="task-split-empty">タスクを選ぶとここに詳細が出ます（↑↓ で上下のタスクへ）</p>}
           </div>
         </div>
       ) : (

@@ -477,7 +477,7 @@ pub async fn get_journal(app: &AppHandle, client: &GitHubClient, owner: &str, re
     match (content, store::pending_journal_notes(&store, date)) {
         (Some(md), Some(notes)) => Ok(generator::replace_notes(&md, &notes)),
         (Some(md), None) => Ok(md),
-        (None, _) if store::pending_journal_generation(&store, date) => Err(format!("{}の日誌は、つながったら作ります", date)),
+        (None, _) if store::pending_journal_generation(&store, date) => Err(format!("{}の日誌はつながったら作ります", date)),
         (None, _) => Err(format!("{}のジャーナルが見つかりません", date)),
     }
 }

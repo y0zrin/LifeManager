@@ -118,7 +118,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
       setTab("runs");
       setPicked(`run:${focus.runId}`);
     } else {
-      setNotice(`その実行は、最近の 100 件にありません。GitHub で開いて見てください（https://github.com/${owner}/${repo}/actions/runs/${focus.runId}）`);
+      setNotice(`その実行は最近の 100 件にありません。GitHub で開いて見てください（https://github.com/${owner}/${repo}/actions/runs/${focus.runId}）`);
     }
     setFocusJob(focus.jobId ?? null);
     onFocusHandled();
@@ -168,7 +168,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const runNote = actionsOff
     ? "Actions がオフです（上の「▶ 使う…」でオンにします）"
     : privateRepo && !canManage
-      ? `非公開のリポジトリで Actions を動かせるのは、持ち主（${ownerLabel}）だけです（持ち主の無料の時間を使うため）`
+      ? `非公開のリポジトリで Actions を動かせるのは、持ち主（${ownerLabel}）だけです。持ち主の無料の時間を使うためです`
       : null;
 
   const cardOrder = cards.map((c) => `card:${c.key}`);
@@ -213,7 +213,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
     setSetupError(null);
     try {
       await enableDependabot(owner, repo);
-      setNotice("🛡 Dependabot のお知らせを有効にしました。しばらくすると、見つかったものが山に入ります");
+      setNotice("🛡 Dependabot のお知らせを有効にしました。しばらくすると見つかったものが山に入ります");
       window.setTimeout(reload, 3000);
     } catch (e) {
       setSetupError(String(e));
@@ -248,7 +248,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         node: (
           <>
             <span className="ac-setup-text">
-              🛡 <b>Dependabot のお知らせが止まっています。</b>使っているライブラリに危ない版が見つかると、知らせてくれます（無料）。
+              🛡 <b>Dependabot のお知らせが止まっています。</b>使っているライブラリに危ない版が見つかると、知らせが届きます（無料）。
               {!overview.can_admin && " 有効にできるのは管理者です。"}
             </span>
             <span className="ac-setup-actions">
@@ -276,7 +276,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         node: (
           <>
             <span className="ac-setup-text">
-              🔍 <b>コードスキャンを使っていません。</b>危ない書き方（SQL の組み立てなど）を見つけてくれます。公開のリポジトリなら無料です（Settings → Code security → CodeQL analysis）。
+              🔍 <b>コードスキャンを使っていません。</b>危ない書き方（SQL の組み立てなど）を見つけるしくみです。公開のリポジトリなら無料です（Settings → Code security → CodeQL analysis）。
             </span>
             <span className="ac-setup-actions">
               <button type="button" className="btn-sm" onClick={() => openUrl(settingsUrl).catch(() => {})}>
@@ -323,17 +323,17 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
               <>
                 ⏸ <b>非公開のリポジトリなので、Actions はオフ（既定）です。</b>プッシュやプルリクをしても、テストなどは動きません（{ownerLabel} の無料の時間を使わない）。
                 {actions.autoOff && " このリポジトリはまだ Actions を使っていなかったので、Life Manager がオフにしました。"}
-                {!canManage && ` オンにできるのは、持ち主（${ownerLabel}）だけです。`}
+                {!canManage && ` オンにできるのは持ち主（${ownerLabel}）だけです。`}
               </>
             ) : (
               <>
-                ⏸ <b>このリポジトリでは、Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
+                ⏸ <b>このリポジトリでは Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
               </>
             )}
           </span>
         ) : (
           <span className="ac-setup-text">
-            🔒 <b>非公開のリポジトリ:</b> Actions は、アカウントごとに月 {FREE_MINUTES.toLocaleString()} 分の無料の時間を使います（今月このリポジトリで約 {used} 分。目安で、本当はこれより多めに数えられます）。支払いの設定がなければ、使い切ると止まるだけで、請求はされません。
+            🔒 <b>非公開のリポジトリ:</b> Actions はアカウントごとに月 {FREE_MINUTES.toLocaleString()} 分の無料の時間を使います（今月このリポジトリで約 {used} 分。目安で、本当はこれより多めに数えられます）。支払いの設定がなければ、使い切ると止まるだけで、請求はされません。
           </span>
         )}
         <span className="ac-setup-actions">
@@ -355,7 +355,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         </span>
         {confirmToggle === "off" && (
           <span className="ac-cost-confirm">
-            このリポジトリで Actions を止めます。プッシュやプルリクで、テストなどが動かなくなります（あとで「使う」に戻せます）。
+            このリポジトリで Actions を止めます。プッシュやプルリクでテストなどが動かなくなります。あとで「使う」に戻せます。
             <button type="button" className="btn-sm" onClick={() => setConfirmToggle(null)}>
               やめる
             </button>
@@ -366,12 +366,12 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         )}
         {confirmToggle === "on" && (
           <span className="ac-cost-confirm">
-            オンにすると、プッシュやプルリクのたびにワークフローが動き、{ownerLabel} の Actions の無料の時間（月 {FREE_MINUTES.toLocaleString()} 分）を使います。支払いの設定があると、使い切ったあと請求されることがあります。オンにしますか？
+            オンにするとプッシュやプルリクのたびにワークフローが動きます。{ownerLabel} の Actions の無料の時間（月 {FREE_MINUTES.toLocaleString()} 分）を使います。支払いの設定があると使い切ったあと請求されることがあります。オンにしますか？
             <button type="button" className="btn-sm" onClick={() => setConfirmToggle(null)}>
               やめる
             </button>
             <button type="button" className="btn-sm primary" disabled={setupBusy} onClick={() => toggleActions(true)}>
-              無料の時間を使って、オンにする
+              無料の時間を使ってオンにする
             </button>
           </span>
         )}
@@ -424,7 +424,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
       <div className="pulls-intro">
         <h3>Actions とは</h3>
         <p>
-          プッシュやプルリクのたびに、GitHub がテストやビルドを自動で動かすしくみです（<code>.github/workflows/*.yml</code> に書きます）。赤い ✖ は、どこかの手順が失敗したということです。
+          プッシュやプルリクのたびに、GitHub がテストやビルドを自動で動かすしくみです（<code>.github/workflows/*.yml</code> に書きます）。赤い ✖ はどこかの手順が失敗したということです。
         </p>
         <h3>解決する順の山</h3>
         <ol className="pulls-steps">
@@ -480,7 +480,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                 ) : !workflows ? (
                   <span className="muted">読み込んでいます…</span>
                 ) : dispatchable.length === 0 ? (
-                  <span className="muted">手で動かせるワークフローはありません（ファイルに workflow_dispatch と書くと動かせます）</span>
+                  <span className="muted">手で動かせるワークフローはありません。ファイルに workflow_dispatch と書くと動かせます</span>
                 ) : (
                   dispatchable.map((w) => (
                     <button
@@ -541,7 +541,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                       {setup.map((item) => (
                         <div key={item.key} className="ac-setup-item">
                           {item.node}
-                          <button type="button" className="link-button ac-setup-hide" onClick={() => hide(item.key)} title="このリポジトリでは、もう出さない（設定 → その他 で戻せます）">
+                          <button type="button" className="link-button ac-setup-hide" onClick={() => hide(item.key)} title="このリポジトリではもう出さない（設定 → その他 で戻せます）">
                             今は使わない
                           </button>
                         </div>
@@ -572,7 +572,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                     ) : (
                       <div className="ac-clear">
                         <b>✔ 直すものはありません</b>
-                        <span>テスト・ビルドの最後の結果は、すべて成功です。</span>
+                        <span>テストやビルドの最後の結果はすべて成功です。</span>
                       </div>
                     ))}
                   {cards.map(renderCard)}
@@ -664,7 +664,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                   <div className="pulls-empty">
                     <p>ワークフローはありません。</p>
                     <p className="hint">
-                      <code>.github/workflows/</code> に YAML のファイルを置くと、プッシュのたびにテストなどが動きます（GitHub の Actions タブに、言語ごとのひな形があります）。
+                      <code>.github/workflows/</code> に YAML のファイルを置くと、プッシュのたびにテストなどが動きます。GitHub の Actions タブに言語ごとのひな形があります。
                     </p>
                   </div>
                 ) : (

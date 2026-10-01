@@ -270,7 +270,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
                 <span className="wizard-choice-icon" aria-hidden="true">🌐</span>
                 <span className="wizard-choice-body">
                   <b>GitHub にある（リモート）</b>
-                  <span>チームのリポジトリや、GitHub で作ったもの。{isMobile ? "" : "この PC に持ってくる（クローン）こともできます"}</span>
+                  <span>チームのリポジトリや GitHub で作ったもの。{isMobile ? "" : "この PC に持ってくる（クローン）こともできます"}</span>
                 </span>
               </button>
               {!isMobile && (
@@ -369,7 +369,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
               <div className="wizard-case wizard-case--ok">
                 <b>✔ GitHub の {localFound.owner}/{localFound.repo} のフォルダです</b>
                 <span className="git-dialog-note">
-                  {isAdded(localFound) ? "もう一覧にあります。このフォルダを作業フォルダにして、切り替えます。" : "追加して、このフォルダを作業フォルダにします。"}
+                  {isAdded(localFound) ? "もう一覧にあります。このフォルダを作業フォルダにして切り替えます。" : "追加して、このフォルダを作業フォルダにします。"}
                   {localFound.top.replace(/[\\/]+$/, "") !== localFolder.replace(/[\\/]+$/, "") && `（選んだフォルダはリポジトリの中なので、いちばん上の ${localFound.top} にします）`}
                 </span>
               </div>

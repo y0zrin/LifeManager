@@ -299,7 +299,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
                       </button>
                       {source === "project" && (
                         <button type="button" className="btn-sm"
-                          onClick={async () => { await clearProjectToken(p.owner, p.repo); await changed(`${name} は、いつものトークンを使うようにしました`); }}>
+                          onClick={async () => { await clearProjectToken(p.owner, p.repo); await changed(`${name} はいつものトークンを使うようにしました`); }}>
                           いつものに戻す
                         </button>
                       )}
@@ -312,7 +312,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         </table>
       </div>
       <p className="settings-hint">
-        プロジェクトで使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。チームの人のトークンは使わず、それぞれが自分のアカウントでログインします（リーダーは、リポジトリに招待するだけ）。
+        プロジェクトで使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。チームの人のトークンは使わず、それぞれが自分のアカウントでログインします。リーダーはリポジトリに招待するだけです。
       </p>
 
       {dialog &&
@@ -324,7 +324,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
               </h3>
               {dialog.kind === "login" ? (
                 <>
-                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなり、{THIS_DEVICE}で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
+                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなります。{THIS_DEVICE}で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
                   <GitHubLogin label="GitHub でログイン" onDone={() => changed("GitHub にログインし直しました")} />
                 </>
               ) : dialog.kind === "default" ? (

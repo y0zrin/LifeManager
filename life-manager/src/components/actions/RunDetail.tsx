@@ -126,7 +126,7 @@ export function RunDetail(props: RunDetailProps) {
     return act(
       "もう一度動かしています…",
       () => rerunRun(owner, repo, run.id, failedOnly),
-      failedOnly ? "失敗したジョブを、もう一度動かしました。少しすると動き始めます" : "すべてのジョブを、もう一度動かしました。少しすると動き始めます",
+      failedOnly ? "失敗したジョブをもう一度動かしました。少しすると動き始めます" : "すべてのジョブをもう一度動かしました。少しすると動き始めます",
     );
   }
 
@@ -161,7 +161,7 @@ export function RunDetail(props: RunDetailProps) {
     todo = (
       <ol>
         <li>
-          下のログの<b>赤い行</b>を見ます（どこで、何が起きたか）。{failedStep && <>失敗したのは「{failedStep}」の手順です。</>}
+          下のログの<b>赤い行</b>を見ます（どこで何が起きたか）。{failedStep && <>失敗したのは「{failedStep}」の手順です。</>}
         </li>
         {run.conclusion === "startup_failure" ? (
           <li>
@@ -185,11 +185,11 @@ export function RunDetail(props: RunDetailProps) {
           </li>
         )}
         <li>
-          直してコミット・プッシュすると、自動でもう一度動きます。
+          直してコミットとプッシュをすると、自動でもう一度動きます。
           {onDefault
-            ? "急ぐときは、失敗を入れたコミットを打ち消す（リバート）こともできます。"
+            ? "急ぐときは失敗を入れたコミットを打ち消す（リバート）こともできます。"
             : card?.pull
-              ? `プルリク #${card.pull.number} のチェックも、やり直されます。`
+              ? `プルリク #${card.pull.number} のチェックもやり直されます。`
               : ""}
           ネットの不調などたまたまの失敗なら「失敗したものをもう一度」。
         </li>
@@ -234,7 +234,7 @@ export function RunDetail(props: RunDetailProps) {
             やめる
           </button>
           <button type="button" className="btn-sm primary" disabled={busy !== null} onClick={() => rerun(confirmRerun === "failed")}>
-            無料の時間を使って、動かす
+            無料の時間を使って動かす
           </button>
         </div>
       )}
@@ -266,7 +266,7 @@ export function RunDetail(props: RunDetailProps) {
           {failures[failures.length - 1].actor?.login ?? ""} から）
         </div>
       )}
-      {card?.rerunning && <div className="ac-rerunning">● 今、もう一度動いています（#{card.rerunning.run_number}）。終わると、この山から消えるか残るかが決まります。</div>}
+      {card?.rerunning && <div className="ac-rerunning">● 今もう一度動いています（#{card.rerunning.run_number}）。終わると、この山から消えるか残るかが決まります。</div>}
       {todo && (
         <div className={`ac-todo${card ? ` l${card.level}` : ""}`}>
           <b>何をすればよいか</b>

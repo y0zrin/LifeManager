@@ -32,7 +32,7 @@ interface SetupViewProps {
 type Path = "team" | "join" | "solo";
 
 const PATHS: { id: Path; icon: string; label: string; desc: string }[] = [
-  { id: "team", icon: "👥", label: "チームを作る", desc: "リーダー向け。リポジトリを用意して、メンバーを招待します" },
+  { id: "team", icon: "👥", label: "チームを作る", desc: "リーダー向け。リポジトリを用意してメンバーを招待します" },
   { id: "join", icon: "📨", label: "招待を受ける", desc: "メンバー向け。名前をリーダーに伝えて、届いた招待で参加します" },
   { id: "solo", icon: "👤", label: "個人で使う", desc: "自分だけのリポジトリで使います（あとからチームにもできます）" },
 ];
@@ -368,7 +368,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
   async function copyJoinText() {
     if (!joinProblem) return;
     const [, repo] = joinProblem.fullName.split("/");
-    const text = `${joinProblem.fullName} に参加しました。Life Manager で使えるように、このリポジトリに Life Manager App を入れてください（Life Manager の「使用するリポジトリを選ぶ」か「リポジトリを追加する」で ${repo} を選びます）。`;
+    const text = `${joinProblem.fullName} に参加しました。Life Manager で使えるように、このリポジトリに Life Manager App を入れてください。Life Manager の「使用するリポジトリを選ぶ」か「リポジトリを追加する」で ${repo} を選びます。`;
     try {
       await navigator.clipboard.writeText(text);
       setJoinTextCopied(true);
@@ -381,7 +381,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
 
   const signupTips = (
     <ul className="setup-tips">
-      <li>メールに届く数字のコードを入れると、登録が終わります。届かないときは、迷惑メールのフォルダも見てください。</li>
+      <li>メールに届く数字のコードを入れると、登録が終わります。届かないときは迷惑メールのフォルダも見てください。</li>
       <li>使い方などの質問が出たら、飛ばして（Skip）かまいません。</li>
       <li>
         ブラウザが開かないとき:{" "}
@@ -396,7 +396,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
     <div className="setup-view">
       <div className="setup-card">
         <h1 className="setup-title">Life Manager へようこそ</h1>
-        <p className="setup-sub">タスク（GitHub の Issue）と git の作業を、ひとつの画面で。</p>
+        <p className="setup-sub">タスク（GitHub の Issue）と git の作業をひとつの画面で。</p>
         <ol className="setup-steps">
           {onLook && (
             <li className="done">
@@ -506,8 +506,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                   </div>
                 </div>
                 <p className="hint">
-                  <b>ログイン</b>すると、このアプリが、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルを、あなたの代わりに読み書きできるようになります。
-                  GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。
+                  <b>ログイン</b>すると、このアプリがあなたの代わりに読み書きできるようになります。読み書きできるのは、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルです。GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。
                 </p>
                 <p className="setup-alt">
                   学校から「トークンを使って」と言われたとき：
@@ -596,7 +595,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
               <li>
                 招待のメールが届いたら「<b>View invitation</b>」→「<b>Accept invitation</b>」（リーダーから届いたリンクを開いても同じ）
               </li>
-              <li>参加すると、アプリが自分で気づきます</li>
+              <li>参加するとアプリが自動で見つけます</li>
             </ol>
             {newlyJoined.length === 0 ? (
               <p className="setup-wait">
@@ -647,22 +646,21 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
               </div>
             )}
             <p className="setup-note">
-              招待はアプリの中には出ません（参加する前のリポジトリは、GitHub の決まりでアプリから見えないため）。
-              参加したのに、しばらくしても出てこないときは、リーダーに「そのリポジトリに Life Manager を入れて」と伝えてください。
+              招待はアプリの中には出ません。参加する前のリポジトリは、GitHub の決まりでアプリから見えないためです。参加したのに、しばらくしても出てこないときは、リーダーに「そのリポジトリに Life Manager を入れて」と伝えてください。
             </p>
           </>
         )}
 
         {step === 2 && (path === "team" || path === "solo") && (
           <>
-            <p className="setup-lead">{team ? "チームで使うリポジトリを用意して、メンバーを招待します。" : "自分だけのリポジトリで、タスクを管理します。"}</p>
+            <p className="setup-lead">{team ? "チームで使うリポジトリを用意して、メンバーを招待します。" : "自分だけのリポジトリでタスクを管理します。"}</p>
             {mode === null && (
               <div className="wizard-choices">
                 <button type="button" className="wizard-choice" onClick={() => { setMode("existing"); setError(null); }}>
                   <span className="wizard-choice-icon" aria-hidden="true">📂</span>
                   <span className="wizard-choice-body">
                     <b>もうあるリポジトリを使う</b>
-                    <span>GitHub にあるリポジトリを、Life Manager に許可して使います</span>
+                    <span>GitHub にあるリポジトリを Life Manager に許可して使います</span>
                   </span>
                 </button>
                 <button type="button" className="wizard-choice" onClick={() => { setMode("new"); setError(null); }}>
@@ -705,7 +703,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                           ))}
                         </select>
                       ) : (
-                        <span className="setup-note">{repos === null ? "読んでいます…" : byLogin ? "まだありません（上で許可すると、ここに出ます）" : "まだありません"}</span>
+                        <span className="setup-note">{repos === null ? "読んでいます…" : byLogin ? "まだありません（上で許可するとここに出ます）" : "まだありません"}</span>
                       )}
                       <button type="button" className="link-button" onClick={() => { loadRepos(); if (byLogin) loadInstallations(); }}
                         title="GitHub で許可したあとなど、使えるリポジトリをもう一度読みます">

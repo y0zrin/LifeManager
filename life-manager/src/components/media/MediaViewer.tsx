@@ -162,7 +162,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
 
   let content;
   if (removed) {
-    content = <div className="mv-main full"><p className="mv-note center">このコミットで消えたファイルです（消す前の中身は、ひとつ前のコミットにあります）</p></div>;
+    content = <div className="mv-main full"><p className="mv-note center">このコミットで消えたファイルです。消す前の中身はひとつ前のコミットにあります</p></div>;
   } else if (!now) {
     content = <div className="mv-main full"><p className="mv-note center"><i className="spinner" aria-hidden="true" /> 読み込んでいます…</p></div>;
   } else if (now.error) {
@@ -183,7 +183,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
       : (
         <div className="mv-main full">
           <div className="mv-note center">
-            この形式（.{ext || "?"}）は、ここでは見られません。
+            この形式（.{ext || "?"}）はここでは見られません。
             {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => openOutside(p)}>外部のアプリで開く</button></div>}
           </div>
         </div>
@@ -208,7 +208,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
           {file.commitLabel && <span className="mv-commit" title={file.commitLabel}>{file.commitLabel}</span>}
           {folder && (
             <button type="button" className="btn-sm" onClick={() => void revealItemInDir(joinPath(folder, file.path)).catch(() => {})}
-              title={file.source.kind === "commit" ? "作業フォルダの今のファイルを、エクスプローラーで表示します" : undefined}>
+              title={file.source.kind === "commit" ? "作業フォルダの今のファイルをエクスプローラーで表示します" : undefined}>
               🗂 エクスプローラーで表示
             </button>
           )}

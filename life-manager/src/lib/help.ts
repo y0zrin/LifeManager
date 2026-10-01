@@ -2,7 +2,7 @@
 // （GitHub の画面でも読める形。アプリは、見えない印で見分けて、赤い 🆘 で出す）
 import { HELP_DONE_MARK, HELP_MARK } from "./activity";
 
-/** いっしょに送る、今のようす */
+/** いっしょに送るもの */
 export interface HelpContext {
   /** 今のブランチと、作業中の変更の数 */
   branch?: { name: string; changes: number };
@@ -12,7 +12,7 @@ export interface HelpContext {
   conflicts?: string[];
 }
 
-const SUMMARY = "今のようす（Life Manager から）";
+const SUMMARY = "いっしょに送ったもの（Life Manager から）";
 const FAILURE_HEAD = "最後に失敗した git: ";
 
 /** 困っていることは、長すぎないように */

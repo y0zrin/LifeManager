@@ -22,9 +22,9 @@ const KNOWN: &[(&str, &str)] = &[
     ("already_exists", "同じタグのリリースが、もうあります（一覧から開いて直せます）"),
     ("tag_name is not a valid tag", "タグの名前に使えない文字があります（空白や ~ ^ : ? * [ \\ など）"),
     ("target_commitish is invalid", "元にするブランチが見つかりません"),
-    ("Published releases must have a valid tag", "公開するリリースには、タグが要ります"),
+    ("Published releases must have a valid tag", "公開するリリースにはタグが要ります"),
     ("Bad Content-Length", "ファイルを送れませんでした（大きすぎるか、読めません）"),
-    ("name already exists", "同じ名前のファイルが、もう添えてあります（GitHub の画面で消してから、もう一度）"),
+    ("name already exists", "同じ名前のファイルがもう添えてあります。GitHub の画面で消してから、もう一度添えてください"),
 ];
 
 fn explain(err: &str, what: &str) -> String {

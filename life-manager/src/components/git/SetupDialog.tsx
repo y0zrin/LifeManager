@@ -141,9 +141,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
           <>
             <h3>Git をインストールしますか？</h3>
             <p className="git-dialog-message">
-              LifeManager の「作業」「ブランチ」「全体図」では、Git（ギット）を使います。Git
-              は、ファイルの変更を記録して、いつ・だれが・何を変えたかを残すための道具です。この PC には Git
-              が入っていないようです。
+              LifeManager の「作業」「ブランチ」「全体図」では、Git（ギット）を使います。Git はファイルの変更を記録する道具です。いつ、だれが、何を変えたかが残ります。この PC には Git が入っていないようです。
             </p>
             {status.installer ? (
               <>
@@ -196,8 +194,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
             <h3>コミットに使う名前とメールアドレス</h3>
             {installedNote && <p className="local-folder-message local-folder-message--ok">{installedNote}</p>}
             <p className="git-dialog-message">
-              コミットには、だれが変更したかを残すため、名前とメールアドレスを付けます。この PC
-              で一度決めれば、すべてのリポジトリで使われます。
+              だれが変更したかを残すため、コミットには名前とメールアドレスを付けます。この PC で一度決めれば、すべてのリポジトリで使われます。
             </p>
             <label className="git-dialog-label">
               名前

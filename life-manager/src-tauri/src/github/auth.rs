@@ -170,7 +170,7 @@ fn read_refresh(json: &serde_json::Value) -> Result<Tokens, RefreshError> {
     let code = json["error"].as_str().unwrap_or("unknown");
     let message = match code {
         // 更新の鍵が取り消されたときも、こう返る（デバイスフローの鍵だと GitHub が確かめられず、Client secret を求めるため）
-        "incorrect_client_credentials" => "GitHub が鍵の更新を受け付けませんでした（更新の鍵が取り消されたか、使えなくなっています）。もう一度ログインしてください".into(),
+        "incorrect_client_credentials" => "GitHub が鍵の更新を受け付けませんでした。更新の鍵が取り消されたか、使えなくなっています。もう一度ログインしてください".into(),
         _ => describe_error(code, json["error_description"].as_str()),
     };
     Err(RefreshError::Rejected(message))

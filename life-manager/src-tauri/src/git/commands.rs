@@ -531,7 +531,7 @@ fn operation_command(operation: &str) -> Result<&'static str, String> {
         "rebase" => Ok("rebase"),
         "cherry-pick" => Ok("cherry-pick"),
         "revert" => Ok("revert"),
-        _ => Err(format!("「{}」は中止・続行できる操作ではありません", operation)),
+        _ => Err(format!("「{}」は中止や続行ができる操作ではありません", operation)),
     }
 }
 
@@ -547,7 +547,7 @@ pub async fn git_abort(path: String, operation: String) -> Result<GitRun, String
 pub async fn git_continue(path: String, operation: String) -> Result<GitRun, String> {
     let op = operation_command(&operation)?;
     if op == "merge" {
-        return Err("マージは、コミットすると完了します".into());
+        return Err("マージはコミットすると完了します".into());
     }
     blocking(move || run(Path::new(&path), &[op, "--continue"])).await
 }

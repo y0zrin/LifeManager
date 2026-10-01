@@ -80,7 +80,7 @@ fn read_lfs_object(repo: &Path, oid: &str) -> Result<Vec<u8>, String> {
     match std::fs::metadata(&object) {
         Ok(m) if m.len() > MAX_BYTES => Err(format!("大きすぎるので開けません（{} MB）", m.len() / 1024 / 1024)),
         Ok(_) => std::fs::read(&object).map_err(|e| e.to_string()),
-        Err(_) => Err("Git LFS のファイルです。この PC に中身がまだありません（作業フォルダで git lfs pull をすると見られます）".into()),
+        Err(_) => Err("Git LFS のファイルです。この PC に中身がまだありません。作業フォルダで git lfs pull をすると見られます".into()),
     }
 }
 
@@ -139,7 +139,7 @@ pub async fn media_open_local(app: tauri::AppHandle, path: String, file: String)
     }
     let ext = target.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     if !OPEN_OUTSIDE.contains(&ext.as_str()) {
-        return Err(format!("この形式（.{}）は、アプリからは開きません（エクスプローラーで表示して、確かめてから開いてください）", ext));
+        return Err(format!("この形式（.{}）はアプリからは開きません。エクスプローラーで表示して、確かめてから開いてください", ext));
     }
     // canonicalize は \\?\ で始まるので、ふつうのパスに戻してから渡す
     let shown = target.to_string_lossy().trim_start_matches(r"\\?\").to_string();

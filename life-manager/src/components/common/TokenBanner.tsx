@@ -26,7 +26,7 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
         else if (expiry && expiry.days <= EXPIRY_WARN_DAYS) {
           setText(
             report.kind === "app"
-              ? `${THIS_DEVICE}で使うログインの期限まで、あと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
+              ? `${THIS_DEVICE}で使うログインの期限まであと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
               : `${owner}/${repo} で使うトークンは、あと ${expiry.days} 日で期限が切れます（${report.login}）。`,
           );
         }

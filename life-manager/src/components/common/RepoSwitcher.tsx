@@ -171,7 +171,7 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                   )}
                   {busy === k && (
                     <p className="repo-note">
-                      <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは、大きなリポジトリだと時間がかかります）
+                      <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは大きなリポジトリだと時間がかかります）
                     </p>
                   )}
                   {note?.key === k && (

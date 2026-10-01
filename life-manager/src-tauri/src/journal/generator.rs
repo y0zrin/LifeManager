@@ -16,6 +16,22 @@ fn weekday_jp(date: &chrono::NaiveDate) -> &'static str {
     }
 }
 
+/// GitHub の時刻（UTC の ISO 8601）が、tz の時刻帯でその日のものか。
+/// 日誌の日付は、この PC の時刻で区切る（UTC の日付で切ると、日本時間の 0:00〜8:59 のことが前の日になり、
+/// 前の日の日誌は 23:59 に作り終わっているので、どちらの日誌にも出なくなる）
+fn on_day<Tz: chrono::TimeZone>(iso: &str, day: chrono::NaiveDate, tz: &Tz) -> bool {
+    return chrono::DateTime::parse_from_rfc3339(iso)
+        .map(|t| t.with_timezone(tz).date_naive() == day)
+        .unwrap_or(false);
+}
+
+/// GitHub に「この時刻より後に変わった Issue」を聞くときの時刻。どの時刻帯のその日の 0:00 よりも前になるよう、
+/// UTC の前の日の 0:00 にする（多めに読み、on_day で選ぶ）
+fn since_for(day: chrono::NaiveDate) -> String {
+    let prev = day.pred_opt().unwrap_or(day);
+    return format!("{}T00:00:00Z", prev.format("%Y-%m-%d"));
+}
+
 /// 指定日のジャーナルMarkdownを生成しGitHubにアップロードする
 pub async fn generate_journal(
     client: &GitHubClient,
@@ -26,8 +42,9 @@ pub async fn generate_journal(
     let parsed_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| format!("日付パースエラー: {}", e))?;
 
-    // since: 対象日の開始時刻（UTC）。GitHub APIのsinceパラメータで取得範囲を限定
-    let since = format!("{}T00:00:00Z", date);
+    // その日（この PC の時刻帯）のものを選ぶ。since で読む量をしぼり、on_day で選ぶ
+    let tz = chrono::Local;
+    let since = since_for(parsed_date);
 
     // その日にクローズされたIssueを取得（since以降に更新されたclosedのみ）
     let closed_json = client.list_issues_since(owner, repo, "closed", &since).await?;
@@ -39,7 +56,7 @@ pub async fn generate_journal(
         .iter()
         .filter(|issue| {
             if let Some(closed_at) = issue["closed_at"].as_str() {
-                return closed_at.starts_with(date);
+                return on_day(closed_at, parsed_date, &tz);
             }
             return false;
         })
@@ -56,7 +73,7 @@ pub async fn generate_journal(
             // created_atがその日であること
             let created_today = issue["created_at"]
                 .as_str()
-                .map(|s| s.starts_with(date))
+                .map(|s| on_day(s, parsed_date, &tz))
                 .unwrap_or(false);
             if !created_today {
                 return false;
@@ -80,7 +97,7 @@ pub async fn generate_journal(
         .filter(|issue| {
             issue["created_at"]
                 .as_str()
-                .map(|s| s.starts_with(date))
+                .map(|s| on_day(s, parsed_date, &tz))
                 .unwrap_or(false)
         })
         .count();
@@ -260,6 +277,31 @@ pub async fn save_journal_notes(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn days_are_cut_by_the_local_time_zone() {
+        let jst = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 2).unwrap();
+        // 日本時間の 10/2 0:30（UTC では 10/1）は 10/2 の日誌に入る
+        assert!(on_day("2026-10-01T15:30:00Z", day, &jst));
+        // 日本時間の 10/2 23:59 も 10/2
+        assert!(on_day("2026-10-02T14:59:00Z", day, &jst));
+        // 日本時間の 10/3 0:00 は入らない。10/1 23:59 も入らない
+        assert!(!on_day("2026-10-02T15:00:00Z", day, &jst));
+        assert!(!on_day("2026-10-01T14:59:00Z", day, &jst));
+        // 読めない時刻は入れない
+        assert!(!on_day("2026-10-02", day, &jst));
+        // UTC の時刻帯なら、今までどおりの区切り
+        assert!(on_day("2026-10-02T00:00:00Z", day, &chrono::Utc));
+        assert!(!on_day("2026-10-01T23:59:59Z", day, &chrono::Utc));
+    }
+
+    #[test]
+    fn since_reads_from_the_day_before_in_utc() {
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
+        // 日本時間の 10/1 0:00 は UTC の 9/30 15:00。それより前から読む
+        assert_eq!(since_for(day), "2026-09-30T00:00:00Z");
+    }
 
     #[test]
     fn notes_are_placed_above_the_first_section() {

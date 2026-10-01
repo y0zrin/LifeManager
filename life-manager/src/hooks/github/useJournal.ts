@@ -25,6 +25,15 @@ export function useJournal({ owner, repo, setStatus }: RepoScope) {
     }
   }
 
+  /** 日誌がある日（YYYY-MM-DD。日誌のカレンダーの 📓）。読めなければ空 */
+  async function listJournalDates(): Promise<string[]> {
+    try {
+      return await invoke<string[]>("list_journal_dates", { owner, repo });
+    } catch {
+      return [];
+    }
+  }
+
   async function saveJournalNotes(date: string, notes: string): Promise<string> {
     try {
       const result = await invoke<JournalResult>("save_journal_notes", { owner, repo, date, notes });
@@ -36,5 +45,5 @@ export function useJournal({ owner, repo, setStatus }: RepoScope) {
     }
   }
 
-  return { generateJournal, getJournal, saveJournalNotes };
+  return { generateJournal, getJournal, listJournalDates, saveJournalNotes };
 }

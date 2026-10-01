@@ -1199,6 +1199,18 @@ async fn get_journal(
     return offline::get_journal(&app, &client, &owner, &repo, &date).await;
 }
 
+/// 日誌がある日（YYYY-MM-DD。日誌のカレンダーの 📓）
+#[tauri::command]
+async fn list_journal_dates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<Vec<String>, String> {
+    let client = current_client(&state).await?;
+    return offline::list_journal_dates(&app, &client, &owner, &repo).await;
+}
+
 /// つながらないときは送信待ちに並べる（pending: true）
 #[tauri::command]
 async fn save_journal_notes(
@@ -1509,6 +1521,7 @@ pub fn run() {
             save_routines,
             generate_journal,
             get_journal,
+            list_journal_dates,
             save_journal_notes,
             send_notification,
             get_notification_schedules,

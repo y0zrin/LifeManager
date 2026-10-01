@@ -138,7 +138,7 @@ export function useGitHub() {
     // コメント
     listComments: issueOps.listComments, createComment: issueOps.createComment,
     // ジャーナル
-    generateJournal: journal.generateJournal, getJournal: journal.getJournal, saveJournalNotes: journal.saveJournalNotes,
+    generateJournal: journal.generateJournal, getJournal: journal.getJournal, listJournalDates: journal.listJournalDates, saveJournalNotes: journal.saveJournalNotes,
     // 認証・設定
     setToken, signOut, reloadAccount, setupLabels: meta.setupLabels, createLabel: meta.createLabel, updateLabel: meta.updateLabel, deleteLabel: meta.deleteLabel,
     // リポジトリ設定

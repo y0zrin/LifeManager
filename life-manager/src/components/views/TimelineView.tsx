@@ -1,44 +1,58 @@
-import { useState, useEffect, useCallback, useRef, type ReactElement } from "react";
-import { DatePickerButton } from "../common/DatePickerButton";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactElement } from "react";
+import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
+import { daysUntil } from "../../lib/due";
+import { JournalCalendar, calendarMilestones, calendarTasks, fromYmd, md, ymd } from "./JournalCalendar";
 
 interface TimelineViewProps {
+  issues: GitHubIssue[];
+  closedIssues: GitHubIssue[];
+  milestones: GitHubMilestone[];
+  /** ログインしている人（自分の担当の帯に、ふちをつける） */
+  me: string;
   onGenerateJournal: (date: string) => Promise<string>;
   onGetJournal: (date: string) => Promise<string>;
+  onListJournalDates: () => Promise<string[]>;
   onSaveNotes: (date: string, notes: string) => Promise<string>;
   onSelectIssue: (n: number) => void;
 }
 
-function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
-/** "YYYY-MM-DD" をローカルタイムの Date に変換 */
-function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+/** 帯の色の順（予定の並び） */
+const KIND_ORDER = { prog: 0, check: 1, block: 2, todo: 3, done: 4 } as const;
+
+/** スマホ・せまい窓か（カレンダーを点で書き、日誌を下に並べる） */
+function useNarrow(query = "(max-width: 900px)"): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = (e: MediaQueryListEvent) => setNarrow(e.matches);
+    mq.addEventListener("change", on);
+    setNarrow(mq.matches);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return narrow;
 }
 
-/** "YYYY-MM-DD" から曜日インデックス(0=日〜6=土)を Date 非依存で計算 (Sakamoto算法) */
-function dayOfWeek(dateStr: string): number {
-  const t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
-  let [y, m, d] = dateStr.split("-").map(Number);
-  if (m < 3) y -= 1;
-  return (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + t[m - 1] + d) % 7;
-}
-
-export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onSelectIssue }: TimelineViewProps) {
-  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+/**
+ * 日誌: 左にカレンダー（タスクの期間の帯・マイルストーンの期限 🎯・日誌を書いた日の 📓）、右に選んだ日（その日の予定と、その日の日誌）。
+ * 日誌は 1 日 1 つ（リポジトリの journal/日付.md）。ノートはその場で書いて保存、「更新」でその日の動きから作り直す
+ */
+export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJournal, onGetJournal, onListJournalDates, onSaveNotes, onSelectIssue }: TimelineViewProps) {
+  const [selectedDate, setSelectedDate] = useState(ymd(new Date()));
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [journalDates, setJournalDates] = useState<Set<string>>(new Set());
   const [journalContent, setJournalContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [notesText, setNotesText] = useState("");
   const [savedNotesText, setSavedNotesText] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const narrow = useNarrow();
+  const today = ymd(new Date());
 
   function extractNotes(md: string): string {
     const marker = "## ノート\n";
@@ -53,6 +67,24 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
   // 親が描き直すたびに関数が作り直されても読み直さないよう、最新の関数を覚えておく（書きかけのノートが消えないように）
   const getJournalRef = useRef(onGetJournal);
   getJournalRef.current = onGetJournal;
+  const listDatesRef = useRef(onListJournalDates);
+  listDatesRef.current = onListJournalDates;
+
+  // 日誌がある日（📓）
+  useEffect(() => {
+    let alive = true;
+    void listDatesRef.current().then((dates) => {
+      if (alive) setJournalDates(new Set(dates));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** 日誌を読めた・作れた日を、📓 の日に足す */
+  const markJournal = useCallback((date: string) => {
+    setJournalDates((prev) => (prev.has(date) ? prev : new Set(prev).add(date)));
+  }, []);
 
   const fetchJournal = useCallback(async (date: string) => {
     setLoading(true);
@@ -62,6 +94,7 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
       const n = extractNotes(content);
       setNotesText(n);
       setSavedNotesText(n);
+      if (content) markJournal(date);
     } catch {
       setJournalContent("");
       setNotesText("");
@@ -69,26 +102,27 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [markJournal]);
 
   useEffect(() => {
     fetchJournal(selectedDate);
   }, [selectedDate, fetchJournal]);
 
-  function handlePrevDay() {
-    const d = parseLocalDate(selectedDate);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(formatDate(d));
+  /** 日を選ぶ（ほかの月の日なら、カレンダーもその月へ） */
+  function selectDate(date: string) {
+    setSelectedDate(date);
+    const d = fromYmd(date);
+    setMonth((m) => (m.getFullYear() === d.getFullYear() && m.getMonth() === d.getMonth() ? m : new Date(d.getFullYear(), d.getMonth(), 1)));
   }
 
-  function handleNextDay() {
-    const d = parseLocalDate(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(formatDate(d));
+  function moveDay(delta: number) {
+    const d = fromYmd(selectedDate);
+    d.setDate(d.getDate() + delta);
+    selectDate(ymd(d));
   }
 
-  function handleToday() {
-    setSelectedDate(formatDate(new Date()));
+  function moveMonth(delta: number) {
+    setMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
   }
 
   async function handleGenerate() {
@@ -99,6 +133,7 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
       const n = extractNotes(content);
       setNotesText(n);
       setSavedNotesText(n);
+      markJournal(selectedDate);
     } catch {
       // handled by useGitHub setStatus
     } finally {
@@ -142,21 +177,9 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      if (line.startsWith("# ")) {
-        elements.push(
-          <h2 key={i} style={{ fontSize: "var(--font-2xl)", fontWeight: 600, margin: "0 0 12px 0", color: "var(--text-primary)" }}>
-            {line.substring(2)}
-          </h2>
-        );
-        continue;
-      }
-
       if (line.startsWith("## ")) {
         elements.push(
-          <h3 key={i} style={{
-            fontSize: "var(--font-lg)", fontWeight: 600, margin: "16px 0 8px 0",
-            color: "var(--accent-blue)", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "4px",
-          }}>
+          <h3 key={i} className="jv-jsec">
             {line.substring(3)}
           </h3>
         );
@@ -217,90 +240,125 @@ export function TimelineView({ onGenerateJournal, onGetJournal, onSaveNotes, onS
     return elements;
   }
 
-  const weekday = weekdayLabels[dayOfWeek(selectedDate)];
-  const isToday = selectedDate === formatDate(new Date());
+  // カレンダーの帯とマイルストーン（開いている・閉じた Issue の両方）
+  const tasks = useMemo(() => calendarTasks([...issues, ...closedIssues], me), [issues, closedIssues, me]);
+  const calMilestones = useMemo(() => calendarMilestones(milestones), [milestones]);
 
-  return (
-    <div className="content">
-      {/* 日付ナビゲーション */}
-      <div className="flex-row flex-wrap" style={{ marginBottom: "var(--space-md)" }}>
-        <button className="btn-sm" onClick={handlePrevDay}>&#9664; 前日</button>
-        <button className="btn-sm" onClick={handleToday}>今日</button>
-        <button className="btn-sm" onClick={handleNextDay}>翌日 &#9654;</button>
-        <DatePickerButton value={selectedDate} onChange={setSelectedDate} />
-        <span style={{ color: "var(--text-muted)", fontSize: "var(--font-md)" }}>
-          {selectedDate} ({weekday || "?"})
-          {isToday && <span style={{ color: "var(--accent-blue)", marginLeft: "6px" }}>今日</span>}
-        </span>
-      </div>
+  // 選んだ日の予定: その日にかかっているタスク、その日が期限のマイルストーン（なければ次のマイルストーン）
+  const dayTasks = tasks
+    .filter((t) => t.start <= selectedDate && selectedDate <= t.end)
+    .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.number - b.number);
+  const dayMilestones = calMilestones.filter((m) => m.date === selectedDate);
+  const nextMilestone = dayMilestones.length > 0 ? null : calMilestones.filter((m) => m.open && m.date > selectedDate).sort((a, b) => a.date.localeCompare(b.date))[0] ?? null;
+  const planCount = dayTasks.length + dayMilestones.length;
 
-      {/* ツールバー */}
-      <div className="toolbar">
-        <button className="btn-primary" onClick={handleGenerate} disabled={generating}>
-          {generating ? "生成中..." : "更新"}
+  const sel = fromYmd(selectedDate);
+  const weekday = weekdayLabels[sel.getDay()];
+  const isToday = selectedDate === today;
+
+  const plans = (
+    <div className="jv-sec">
+      <h3 className="jv-sec-title">
+        この日の予定 <small>{planCount} 件</small>
+      </h3>
+      {dayTasks.map((t) => (
+        <button key={t.number} type="button" className="jv-plan" onClick={() => onSelectIssue(t.number)} title={`#${t.number} ${t.title}`}>
+          <span className={`jv-st k-${t.kind}`}>{t.status}</span>
+          <span className="jv-plan-t">
+            <span className="jv-no">#{t.number}</span> {t.title}
+          </span>
+          {t.end === selectedDate ? (
+            <span className="jv-due">この日が期限</span>
+          ) : (
+            <span className="jv-when">{t.start === selectedDate ? `この日から（〜${md(t.end)}）` : `${md(t.start)}〜${md(t.end)}`}</span>
+          )}
         </button>
-      </div>
+      ))}
+      {dayMilestones.map((m) => (
+        <div key={m.number} className="jv-plan ms">
+          <span aria-hidden="true">🎯</span>
+          <span className="jv-plan-t">{m.title}</span>
+          <span className="jv-due">この日が期限</span>
+        </div>
+      ))}
+      {nextMilestone && (
+        <div className="jv-plan ms next">
+          <span aria-hidden="true">🎯</span>
+          <span className="jv-plan-t">{nextMilestone.title}</span>
+          <span className="jv-when">
+            次の期限 {md(nextMilestone.date)}
+            {isToday ? `（あと ${daysUntil(nextMilestone.date)} 日）` : ""}
+          </span>
+        </div>
+      )}
+      {planCount === 0 && !nextMilestone && <p className="jv-none">この日の予定はありません（ガントの日付があるタスクと、マイルストーンの期限が出ます）</p>}
+    </div>
+  );
 
-      {/* ジャーナル表示 */}
+  const journal = (
+    <div className="jv-sec">
+      <h3 className="jv-sec-title">
+        📓 日誌
+        <span className="grow" />
+        <button type="button" className="btn-primary jv-btn" onClick={handleGenerate} disabled={generating || loading}>
+          {generating ? "作っています…" : journalContent ? "更新" : "日誌を作る"}
+        </button>
+      </h3>
       {loading ? (
         <div className="empty-message">読み込み中...</div>
       ) : journalContent ? (
-        <div className="form-card" style={{ padding: "var(--space-lg)" }}>
-          {/* タイトル部分（# で始まる行） */}
-          {journalContent.split("\n").filter(l => l.startsWith("# ")).map((line, i) => (
-            <h2 key={`title-${i}`} style={{ fontSize: "var(--font-2xl)", fontWeight: 600, margin: "0 0 12px 0", color: "var(--text-primary)" }}>
-              {line.substring(2)}
-            </h2>
-          ))}
-
+        <>
           {/* ノート（インライン編集） */}
-          <div style={{
-            margin: "8px 0 16px 0",
-            padding: "var(--space-sm)",
-            backgroundColor: "var(--bg-secondary)",
-            borderRadius: "var(--radius-md)",
-            borderLeft: "3px solid var(--accent-blue)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-              <span style={{ fontSize: "var(--font-sm)", fontWeight: 600, color: "var(--accent-blue)" }}>ノート</span>
+          <div className="jv-note">
+            <div className="jv-note-head">
+              <span>ノート</span>
               {notesDirty && (
-                <button
-                  className="btn-primary"
-                  onClick={handleSaveNotes}
-                  disabled={savingNotes}
-                  style={{ fontSize: "var(--font-xs)", padding: "2px 10px" }}
-                >
+                <button type="button" className="btn-primary jv-btn" onClick={handleSaveNotes} disabled={savingNotes}>
                   {savingNotes ? "保存中..." : "保存"}
                 </button>
               )}
             </div>
-            <textarea
-              value={notesText}
-              onChange={(e) => setNotesText(e.target.value)}
-              placeholder="この日のメモを自由に記入..."
-              style={{
-                width: "100%",
-                minHeight: "60px",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                backgroundColor: "var(--bg-primary)",
-                color: "var(--text-primary)",
-                padding: "var(--space-sm)",
-                fontSize: "var(--font-md)",
-                resize: "vertical",
-                fontFamily: "inherit",
-              }}
-            />
+            <textarea value={notesText} onChange={(e) => setNotesText(e.target.value)} placeholder="この日のメモを自由に記入..." />
           </div>
-
-          {/* 残りのセクション（ノートを除外して表示） */}
-          {renderMarkdown(stripNotesSection(journalContent).split("\n").filter(l => !l.startsWith("# ")).join("\n"))}
-        </div>
+          {/* 残りのセクション（題名の行とノートを除いて表示） */}
+          {renderMarkdown(stripNotesSection(journalContent).split("\n").filter((l) => !l.startsWith("# ")).join("\n"))}
+        </>
       ) : (
-        <div className="empty-message">
-          {selectedDate}のジャーナルはまだ生成されていません
-        </div>
+        <p className="jv-none">この日の日誌はまだありません。「日誌を作る」で、この日に終えた・作ったタスクから書きます</p>
       )}
+    </div>
+  );
+
+  return (
+    <div className={`content journal-view${narrow ? " narrow" : ""}`}>
+      <section className="form-card jv-cal">
+        <JournalCalendar
+          month={month}
+          selected={selectedDate}
+          today={today}
+          journals={journalDates}
+          tasks={tasks}
+          milestones={calMilestones}
+          compact={narrow}
+          onSelect={selectDate}
+          onMonth={moveMonth}
+          onToday={() => selectDate(today)}
+          onOpenIssue={onSelectIssue}
+        />
+      </section>
+      <section className="form-card jv-day" aria-label={`${sel.getMonth() + 1}月${sel.getDate()}日`}>
+        <div className="jv-day-head">
+          <h2>
+            {sel.getMonth() + 1} 月 {sel.getDate()} 日（{weekday}）
+          </h2>
+          {isToday && <span className="jv-today">今日</span>}
+          <span className="grow" />
+          <button type="button" className="btn-sm" onClick={() => moveDay(-1)} aria-label="前の日">◀</button>
+          <button type="button" className="btn-sm" onClick={() => moveDay(1)} aria-label="次の日">▶</button>
+        </div>
+        {plans}
+        {journal}
+      </section>
     </div>
   );
 }

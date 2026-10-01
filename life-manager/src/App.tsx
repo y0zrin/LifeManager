@@ -1318,8 +1318,13 @@ function App() {
           {/* タイムライン */}
           {view === "timeline" && gh.connected && (
             <TimelineView
+              issues={gh.issues}
+              closedIssues={gh.closedIssues}
+              milestones={gh.milestones}
+              me={gh.currentUser}
               onGenerateJournal={gh.generateJournal}
               onGetJournal={gh.getJournal}
+              onListJournalDates={gh.listJournalDates}
               onSaveNotes={gh.saveJournalNotes}
               onSelectIssue={setSelectedIssue}
             />

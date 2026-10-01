@@ -81,23 +81,24 @@ import "./App.css";
 import { isEscape } from "./lib/keys";
 import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib/motion";
 
-type NavItem = { key: ViewType; icon: string; label: string };
+/** phone: スマホの下の帯での名前（長いものは \n で 2 行に。となりとくっつかないように） */
+type NavItem = { key: ViewType; icon: string; label: string; phone?: string };
 
 // サイドバーの並び: ホーム（オーバービュー・ヒストリー）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下。
 // タスク系は、マイルストーンを作る → ボードでタスクを足す（マイルストーンに入れる）→ 日時・見積もりを入れてガントへ、の順。
 // ルーチンは使う回数が少なく、タスク一覧は補助なので下に
 const HOME_GROUP = "ホーム";
-const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー" };
+const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー", phone: "オーバー\nビュー" };
 const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "ヒストリー" }];
 const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
 const TASK_ITEMS: NavItem[] = [
   WORK_ITEM,
-  { key: "milestones", icon: "🎯", label: "マイルストーン" },
+  { key: "milestones", icon: "🎯", label: "マイルストーン", phone: "マイル\nストーン" },
   { key: "kanban", icon: "📊", label: "ボード" },
   { key: "gantt", icon: "📐", label: "ガント" },
   { key: "timeline", icon: "📅", label: "日誌" },
   { key: "routines", icon: "🔄", label: "ルーチン" },
-  { key: "dashboard", icon: "📋", label: "タスク一覧" },
+  { key: "dashboard", icon: "📋", label: "タスク一覧", phone: "タスク\n一覧" },
 ];
 const REPO_ITEMS: NavItem[] = [
   { key: "branches", icon: "🌿", label: "ブランチ" },
@@ -1512,10 +1513,11 @@ function App() {
             key={item.key}
             className={`bottom-nav-btn ${view === item.key ? "active" : ""}`}
             onClick={() => setView(item.key)}
+            aria-label={item.label}
           >
             {view === item.key && <span className="bottom-nav-active-bg" aria-hidden="true" />}
             <span className="bottom-nav-icon">{item.icon}</span>
-            <span className="bottom-nav-label">{item.label}</span>
+            <span className="bottom-nav-label" aria-hidden="true">{item.phone ?? item.label}</span>
           </button>
         ))}
       </nav>

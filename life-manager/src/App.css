@@ -13157,8 +13157,11 @@ button.lh:hover {
     line-height: 1;
   }
 
+  /* 長い名前は 2 行（App.tsx の NavItem の phone） */
   .bottom-nav-label {
-    line-height: 1;
+    line-height: 1.1;
+    text-align: center;
+    white-space: pre-line;
   }
 
   /* Content: add bottom padding for bottom nav */

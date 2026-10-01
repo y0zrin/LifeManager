@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CELEBRATE_EVENT, type CelebrateDetail } from "../../lib/celebrate";
+import { Buncho } from "./Buncho";
 
 interface CelebrationProps {
   /** 画面の動きが「ふつう」か（少なめなら、キラキラとスタンプは出さず、知らせだけ） */
@@ -53,6 +54,25 @@ function KingyoStamp() {
         </g>
       </svg>
       <span className="cel-kingyo-word">{pick(["すくえた！", "すくえた！", "すくえた！", "やったね！", "大物！"])}</span>
+    </div>
+  );
+}
+
+/** 文鳥のテーマ: 文鳥が手紙をくわえて跳んできて、短冊に「おつかれさま」（下に「済」の印） */
+function BunchoStamp() {
+  return (
+    <div className="cel-stamp cel-buncho">
+      <span className="cel-buncho-bird">
+        <Buncho flip ground letter />
+        <span className="cel-buncho-notes" aria-hidden="true">
+          <i>♪</i>
+          <i>♪</i>
+        </span>
+      </span>
+      <span className="cel-buncho-word">
+        {pick(["おつかれさま", "おつかれさま", "できました", "ありがとう"])}
+        <b>済</b>
+      </span>
     </div>
   );
 }
@@ -130,8 +150,9 @@ export function Celebration({ motion }: CelebrationProps) {
       if (n === lastStamp.current) n = (n + 1) % STAMPS.length;
       lastStamp.current = n;
       const id = ++seq.current;
-      // 金魚のテーマでは、いつも金魚すくい
-      const stamp = document.documentElement.dataset.theme === "kingyo" ? <KingyoStamp /> : STAMPS[n]();
+      // 金魚のテーマでは、いつも金魚すくい。文鳥のテーマでは、いつも文鳥が手紙を運んでくる
+      const theme = document.documentElement.dataset.theme;
+      const stamp = theme === "kingyo" ? <KingyoStamp /> : theme === "buncho" ? <BunchoStamp /> : STAMPS[n]();
       setBursts((prev) => [...prev, { id, x, y, sparks: makeSparks(18, 92), stamp }]);
       window.setTimeout(() => setBursts((prev) => prev.filter((b) => b.id !== id)), 1800);
     }

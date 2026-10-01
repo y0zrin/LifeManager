@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
-import { IssueSendState, isUnsent } from "../common/Sending";
+import { IssueSendState, SendingBird, isUnsent } from "../common/Sending";
+import { Buncho } from "../common/Buncho";
 import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "../common/PendingChip";
 import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
@@ -83,7 +84,43 @@ const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: s
   spring: { name: "🌸 春の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍡🍵" },
   winter: { name: "❄️ こたつ", count: "自分の担当", drop: "こたつに入れると、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍊🍊" },
   kingyo: { name: "🎐 縁側", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "🍉🍧" },
+  // 文机の上の小物（手紙・一輪挿し・湯のみ）は App.css の絵
+  buncho: { name: "🪶 文机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "" },
 };
+
+/**
+ * 文鳥のテーマ: パートナーの文鳥がとまるボードと、止まり木の上の場所。しばらくすると（26〜48 秒）、ほかのボードの止まり木へ移る。
+ * 窓が見えていないあいだと、背景の動きを止めているあいだは移らない
+ */
+function usePerch(count: number, on: boolean) {
+  const [perch, setPerch] = useState<{ at: number; x: number; flip: boolean; phase: "arrive" | "leave" }>({ at: 0, x: 18, flip: true, phase: "arrive" });
+  useEffect(() => {
+    if (!on || count === 0) return;
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(move, 26000 + Math.random() * 22000);
+    };
+    const move = () => {
+      if (document.hidden || document.documentElement.classList.contains("stage-still")) {
+        schedule();
+        return;
+      }
+      setPerch((p) => ({ ...p, phase: "leave" }));
+      timer = window.setTimeout(() => {
+        setPerch((p) => ({
+          at: count > 1 ? (p.at + 1 + Math.floor(Math.random() * (count - 1))) % count : 0,
+          x: Math.round(8 + Math.random() * 56),
+          flip: Math.random() < 0.6,
+          phase: "arrive",
+        }));
+        schedule();
+      }, 450);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [count, on]);
+  return { ...perch, at: Math.min(perch.at, Math.max(0, count - 1)) };
+}
 
 /** 金魚のテーマ: 水そう（ボード）の中を泳ぐ金魚。ボードごとに、色・場所・向き・速さを変える */
 const FISH: { kind: "red" | "black" | "sarasa"; x: number; y: number; dx: number; dy: number; t: number; d: number }[] = [
@@ -411,6 +448,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     return { ok: true, text: desk.drop };
   })();
   const cols = columnsOf(genre);
+  const perch = usePerch(cols.length, look === "buncho");
 
   const note = (issue: GitHubIssue) => (
     <BoardNote issue={issue} look={look} me={currentUser} working={issue.number === workingIssue} pull={pullOf.get(issue.number) ?? null} onOpenPull={onOpenPull} />
@@ -463,6 +501,11 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           return (
             <section key={col.key} ref={target(col.key)} className={`bd-board${over === col.key ? " over" : ""}`}>
               {look === "kingyo" && <Fishes seed={ci} />}
+              {look === "buncho" && perch.at === ci && (
+                <span key={`perch-${perch.at}-${perch.x}`} className={`bd-partner ${perch.phase}`} style={{ left: `${perch.x}%` }}>
+                  <Buncho flip={perch.flip} />
+                </span>
+              )}
               <header className="bd-head">
                 <span className="bd-title">
                   {col.emoji} {col.title}
@@ -556,7 +599,18 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 }}
               >
                 {look === "quest" && <span className="bd-desk-hanko">受注</span>}
-                <span className="bd-desk-no">{issue._sending ? <i className="sending-spin" aria-label="送っています" /> : issue._failed ? "⚠" : issueRef(issue.number)}</span>
+                <span className="bd-desk-no">
+                  {issue._sending ? (
+                    <>
+                      <i className="sending-spin" aria-label="送っています" />
+                      <SendingBird />
+                    </>
+                  ) : issue._failed ? (
+                    "⚠"
+                  ) : (
+                    issueRef(issue.number)
+                  )}
+                </span>
                 {issue.title}
               </button>
             ))}

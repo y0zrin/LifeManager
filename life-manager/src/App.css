@@ -986,12 +986,131 @@
   --picker-dust: #eddcc6;
 }
 
+/* --- テーマ: 文鳥（ライトグレーと深い緑。パートナーは文鳥）。ボードは止まり木の掛け軸、机は文机 --- */
+:root {
+  /* 文鳥のテーマの絵（どのテーマでも読めるよう、ここに置く） */
+  --bk-feather: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 14'%3E%3Cpath d='M2 11 C8 4 20 1 32 2 C27 6 17 11 5 12 Z' fill='%23ffffff' stroke='%23b9c1bb' stroke-width='.9'/%3E%3Cpath d='M1 12 C10 7 21 3.5 32 2' fill='none' stroke='%239aa39c' stroke-width='.9'/%3E%3C/svg%3E");
+  --bk-cord: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 27'%3E%3Cpath d='M45 3 L14 26 M45 3 L76 26' stroke='%232e5d4b' stroke-width='1.5' fill='none'/%3E%3Ccircle cx='45' cy='3' r='2.6' fill='%235b4a3b'/%3E%3C/svg%3E");
+  --bk-sprig: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 34'%3E%3Cpath d='M2 30 C20 26 40 18 64 6' stroke='%238a7764' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='50' cy='8' rx='10' ry='3.8' fill='%232e5d4b' transform='rotate(-24 50 8)'/%3E%3Cellipse cx='38' cy='22' rx='10' ry='3.8' fill='%234f8169' transform='rotate(22 38 22)'/%3E%3Cellipse cx='62' cy='15' rx='8' ry='3.2' fill='%233f735d' transform='rotate(30 62 15)'/%3E%3Cellipse cx='26' cy='17' rx='8' ry='3.2' fill='%232e5d4b' transform='rotate(-30 26 17)'/%3E%3C/svg%3E");
+  --bk-millet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 58'%3E%3Cpath d='M9 0 C9 8 9 12 9 17' stroke='%239c8a62' stroke-width='1.5' fill='none'/%3E%3Cg fill='%23d6b456'%3E%3Ccircle cx='9' cy='19' r='3'/%3E%3Ccircle cx='6' cy='24' r='3'/%3E%3Ccircle cx='12' cy='24.5' r='3'/%3E%3Ccircle cx='9' cy='29' r='3.1'/%3E%3Ccircle cx='5.6' cy='33.5' r='3'/%3E%3Ccircle cx='12.4' cy='33.5' r='3'/%3E%3Ccircle cx='9' cy='38' r='3.1'/%3E%3Ccircle cx='6' cy='42.5' r='2.8'/%3E%3Ccircle cx='12' cy='43' r='2.7'/%3E%3Ccircle cx='9' cy='47.5' r='2.6'/%3E%3Ccircle cx='9' cy='52.5' r='2.1'/%3E%3C/g%3E%3Cg fill='%23ecd385'%3E%3Ccircle cx='8' cy='22.5' r='1.1'/%3E%3Ccircle cx='10' cy='31.5' r='1.1'/%3E%3Ccircle cx='8' cy='40.5' r='1.1'/%3E%3Ccircle cx='9.5' cy='49' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  --bk-desk: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 62'%3E%3Cg transform='translate(4 36) rotate(-10)'%3E%3Crect x='0' y='0' width='34' height='20' rx='2' fill='%23fdfcf7' stroke='%23b9b4a6'/%3E%3Cpath d='M.5 .5 L17 12 L33.5 .5' fill='none' stroke='%23b9b4a6'/%3E%3Ccircle cx='17' cy='12' r='3' fill='%232e5d4b'/%3E%3C/g%3E%3Cg transform='translate(60 0)'%3E%3Cpath d='M17 26 C16 16 12 8 6 3' stroke='%233f735d' stroke-width='1.6' fill='none'/%3E%3Cellipse cx='9' cy='9' rx='6' ry='2.6' fill='%232e5d4b' transform='rotate(40 9 9)'/%3E%3Cellipse cx='20' cy='12' rx='6.4' ry='2.6' fill='%234f8169' transform='rotate(-30 20 12)'/%3E%3Cellipse cx='13' cy='19' rx='5' ry='2.2' fill='%233f735d' transform='rotate(20 13 19)'/%3E%3Cpath d='M13 26 h8 l2 6 c4 6 4 18 0 26 h-12 c-4 -8 -4 -20 0 -26 z' fill='%23e9ecea' stroke='%23b9c1bb'/%3E%3C/g%3E%3Cg transform='translate(106 22)'%3E%3Cpath d='M6 12 h28 l-3 22 c-1 4 -4 5 -6 5 h-10 c-2 0 -5 -1 -6 -5 z' fill='%23e3e9e4' stroke='%23aeb8b1'/%3E%3Cellipse cx='20' cy='12' rx='14' ry='3.4' fill='%237f9a62' stroke='%23aeb8b1'/%3E%3Cpath d='M10 22 c6 2 14 2 20 0' stroke='%232e5d4b' stroke-opacity='.35' fill='none'/%3E%3C/g%3E%3C/svg%3E");
+  --bk-steam: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 26'%3E%3Cpath d='M4 25 C1 19 7 15 4 9 C2 5 5 2 5 1' fill='none' stroke='%23232826' stroke-opacity='.22' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M10 25 C7 19 13 15 10 9 C8 5 11 2 11 1' fill='none' stroke='%23232826' stroke-opacity='.16' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  --bk-leaves: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 860 560'%3E%3Cdefs%3E%3Cfilter id='b' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='7'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='%232e5d4b' opacity='.1' filter='url(%23b)'%3E%3Cpath d='M860 30 C760 60 650 70 560 120' stroke='%232e5d4b' stroke-width='10' fill='none'/%3E%3Cellipse cx='760' cy='70' rx='58' ry='20' transform='rotate(-28 760 70)'/%3E%3Cellipse cx='700' cy='120' rx='64' ry='22' transform='rotate(32 700 120)'/%3E%3Cellipse cx='640' cy='88' rx='52' ry='18' transform='rotate(-40 640 88)'/%3E%3Cellipse cx='590' cy='150' rx='60' ry='20' transform='rotate(48 590 150)'/%3E%3Cellipse cx='820' cy='140' rx='50' ry='17' transform='rotate(60 820 140)'/%3E%3Cellipse cx='530' cy='110' rx='46' ry='16' transform='rotate(-18 530 110)'/%3E%3Cellipse cx='720' cy='200' rx='56' ry='19' transform='rotate(70 720 200)'/%3E%3Cellipse cx='480' cy='180' rx='50' ry='17' transform='rotate(30 480 180)'/%3E%3C/g%3E%3C/svg%3E");
+  --bk-leaves2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 620 420'%3E%3Cdefs%3E%3Cfilter id='b' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeGaussianBlur stdDeviation='7'/%3E%3C/filter%3E%3C/defs%3E%3Cg fill='%232e5d4b' opacity='.085' filter='url(%23b)'%3E%3Cellipse cx='80' cy='300' rx='60' ry='20' transform='rotate(-30 80 300)'/%3E%3Cellipse cx='150' cy='250' rx='56' ry='19' transform='rotate(25 150 250)'/%3E%3Cellipse cx='120' cy='360' rx='62' ry='21' transform='rotate(40 120 360)'/%3E%3Cellipse cx='220' cy='320' rx='50' ry='17' transform='rotate(-50 220 320)'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+:root[data-theme="buncho"] {
+  color-scheme: light;
+  --bg-primary: #f3f4f2;
+  --bg-secondary: #eceeeb;
+  --bg-tertiary: #e2e6e2;
+  --border-default: #cdd4ce;
+  --border-subtle: #e0e4e0;
+  --text-primary: #232826;
+  --text-secondary: #333a37;
+  --text-muted: #68716c;
+  --text-faint: #a3aba6;
+  --accent-blue: #2e5d4b;
+  --accent-blue-bg: #2e5d4b1a;
+  --accent-teal: #2f7d74;
+  --accent-teal-bg: #2f7d741a;
+  --accent-teal-border: #2f7d7466;
+  --accent-green: #3f8a5a;
+  --accent-green-hover: #2f7348;
+  --accent-red: #c2413b;
+  --accent-red-strong: #a3302b;
+  --accent-yellow: #8f6a12;
+  --accent-purple: #6a55a8;
+  --text-on-accent: #ffffff;
+  --accent-green-bg: #2f73481f;
+  --accent-red-bg: #c2413b1a;
+  --accent-yellow-bg: #c9a24e2e;
+  --accent-purple-bg: #6a55a81a;
+  --diff-add-bg: #e3f1e7;
+  --diff-del-bg: #f8e4e2;
+  --diff-hunk-bg: #e6ece8;
+  --shadow-popover: 0 8px 24px #2328262b;
+  --chart-created: #2e5d4b;
+  --chart-closed: #3f8a5a;
+  --state-0: #a3aba6;
+  --state-1: #2e5d4b;
+  --state-2: #b08a2e;
+  --state-3: #6a55a8;
+  --state-4: #3f8a5a;
+  --state-5: #2f7d74;
+  --state-6: #c06478;
+  --state-7: #b8653a;
+  --lane-0: #2e5d4b;
+  --lane-1: #3f8a5a;
+  --lane-2: #6a55a8;
+  --lane-3: #b8653a;
+  --lane-4: #c2413b;
+  --lane-5: #2f7d74;
+  --lane-6: #8f6a12;
+  --lane-7: #c06478;
+  --lane-8: #8fb5a3;
+  --lane-9: #7fae8c;
+  --view-work: #2e5d4b;
+  --view-insights: #2e5d4b;
+  --view-dashboard: #2e5d4b;
+  --view-kanban: #2e5d4b;
+  --view-milestones: #2e5d4b;
+  --view-routines: #2e5d4b;
+  --view-timeline: #2e5d4b;
+  --view-gantt: #2e5d4b;
+  --view-branches: #2e5d4b;
+  --view-overview: #2e5d4b;
+  --view-pulls: #2e5d4b;
+  --view-actions: #2e5d4b;
+  --view-releases: #2e5d4b;
+  --view-activity: #2e5d4b;
+  --view-settings: #2e5d4b;
+  --level-soon: #b8653a;
+  --level-soon-strong: #8f4a24;
+  --level-soon-bg: #e0a07a1f;
+  --level-later: #8f6a12;
+  --level-later-strong: #6f5208;
+  --level-later-bg: #c9a24e26;
+  --accent-blue-strong: #234a3b;
+  --log-error-text: #c2413b;
+  --merge-purple: #6a55a8;
+  --merge-purple-strong: #4f3d8a;
+  --merge-purple-bg: #6a55a81a;
+  --merge-purple-text: #4f3d8a;
+  --spark-1: #2e5d4b;
+  --spark-2: #4f8169;
+  --spark-3: #c8b98e;
+  --spark-4: #8fb5a3;
+  --spark-5: #e8707a;
+  --spark-6: #a3aba6;
+  --spark-7: #6f9a82;
+  --spark-8: #d9c78f;
+  --stamp-red: #c2413b;
+  --stamp-pink: #c06478;
+  --celebrate-text: #2e5d4b;
+  --shadow-color: #2328262b;
+  --picker-bg1: #f6f7f5;
+  --picker-bg2: #eceeeb;
+  --picker-glow: #ffffffcc;
+  --picker-text: #232826;
+  --picker-muted: #68716c;
+  --picker-faint: #a3aba6;
+  --picker-accent: #2e5d4b;
+  --picker-on-accent: #ffffff;
+  --picker-ring: #2e5d4b;
+  --picker-card: #ffffffeb;
+  --picker-card-line: #cdd4ce;
+  --picker-chip: #2e5d4b12;
+  --picker-dust: #d5dbd6;
+}
+
 /* 明るいテーマ: コードの色分けと、画像の下の市松 */
 :root[data-theme="white"],
 :root[data-theme="day"],
 :root[data-theme="spring"],
 :root[data-theme="winter"],
-:root[data-theme="kingyo"] {
+:root[data-theme="kingyo"],
+:root[data-theme="buncho"] {
   --mv-checker-a: #e6e9ed;
   --mv-checker-b: #f6f8fa;
   --hl-kw: #cf222e;
@@ -1027,6 +1146,10 @@
   background: linear-gradient(180deg, #fffaf3, #fef1e1);
 }
 
+:root[data-theme="buncho"] .sidebar {
+  background: linear-gradient(180deg, #eff1ee, #e6e9e5);
+}
+
 :root[data-theme="quest"] .sidebar {
   background: repeating-linear-gradient(90deg, transparent 0 34px, #00000026 34px 36px), linear-gradient(180deg, #2e1e10, #22160b);
 }
@@ -1059,7 +1182,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 :root[data-theme="day"] input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme="spring"] input[type="date"]::-webkit-calendar-picker-indicator,
 :root[data-theme="winter"] input[type="date"]::-webkit-calendar-picker-indicator,
-:root[data-theme="kingyo"] input[type="date"]::-webkit-calendar-picker-indicator {
+:root[data-theme="kingyo"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="buncho"] input[type="date"]::-webkit-calendar-picker-indicator {
   filter: none;
 }
 
@@ -1084,7 +1208,8 @@ select {
 :root[data-theme="day"] select,
 :root[data-theme="spring"] select,
 :root[data-theme="winter"] select,
-:root[data-theme="kingyo"] select {
+:root[data-theme="kingyo"] select,
+:root[data-theme="buncho"] select {
   color-scheme: light;
 }
 
@@ -3035,6 +3160,91 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   transform: rotate(-6deg);
 }
 
+/* 文鳥のテーマ: 文鳥が手紙をくわえて跳んできて、短冊に「おつかれさま」 */
+.cel-buncho {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cel-buncho-bird {
+  position: relative;
+  width: 118px;
+  animation: bk-hop-in 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+
+.cel-buncho-bird .bk {
+  filter: drop-shadow(0 6px 10px #23282626);
+}
+
+@keyframes bk-hop-in {
+  0% { opacity: 0; transform: translate(-40px, -20px) rotate(-10deg); }
+  45% { opacity: 1; transform: translate(-12px, -26px) rotate(-4deg); }
+  100% { transform: none; }
+}
+
+.cel-buncho-notes {
+  position: absolute;
+  top: -18px;
+  left: 74px;
+  color: #2e5d4b;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cel-buncho-notes i {
+  display: inline-block;
+  font-style: normal;
+  animation: bk-note 1.2s ease-out 0.35s both;
+}
+
+.cel-buncho-notes i + i {
+  margin-left: 4px;
+  font-size: 15px;
+  animation-delay: 0.55s;
+}
+
+@keyframes bk-note {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(-6px); }
+}
+
+/* 縦書きなので、row が上から下（字の下に「済」の印） */
+.cel-buncho-word {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px 10px;
+  border: 1px solid #dcd8cc;
+  border-top: 7px solid #2e5d4b;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fdfcf7, #f6f3ea);
+  color: #234a3b;
+  font-family: var(--font-mincho);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  writing-mode: vertical-rl;
+  box-shadow: 0 8px 18px #23282626;
+  transform: rotate(4deg);
+}
+
+.cel-buncho-word b {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #2e5d4b;
+  border-radius: 4px;
+  color: #2e5d4b;
+  font-size: 14px;
+  letter-spacing: 0;
+  writing-mode: horizontal-tb;
+  transform: rotate(-4deg);
+}
+
 /* 金魚のテーマ: マイルストーンを達成したら、夜の夏まつり（ちょうちんが 1 つずつ灯り、花火） */
 .ms-cel.p-matsuri .ms-cel-dim {
   background: radial-gradient(900px 360px at 50% 110%, #ff4d5a40, transparent 70%), linear-gradient(180deg, #0e1433f2, #241632f2 70%, #341a28f2);
@@ -3091,6 +3301,93 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 
 .ms-cel.p-matsuri .ms-cel-btn:not(.sub) {
   background: #ff4d5a;
+  color: #ffffff;
+}
+
+/* 文鳥のテーマ: マイルストーンを達成したら、朝のさえずり（チームの人数だけ文鳥が 1 羽ずつ枝にとまり、歌う） */
+.ms-cel.p-saezuri .ms-cel-dim {
+  background: radial-gradient(900px 380px at 50% 112%, #e9d9a650, transparent 70%), linear-gradient(180deg, #1c2a25f2, #2b3a33f2 65%, #3a4a40f2);
+}
+
+.ms-cel-perch {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 300px;
+  margin-bottom: 18px;
+  padding: 0 34px 6px;
+}
+
+/* 枝（両端に葉） */
+.ms-cel-perch::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ab977f, #8a7764 55%, #6f5d4b);
+  box-shadow: 0 3px 6px #0006;
+}
+
+.ms-cel-perch::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  bottom: -6px;
+  width: 70px;
+  height: 34px;
+  background: var(--bk-sprig) center / contain no-repeat;
+}
+
+.ms-cel-perch span {
+  position: relative;
+  width: 74px;
+  margin-bottom: -4px;
+}
+
+.ms-cel:not(.still) .ms-cel-perch span {
+  animation: bk-perch-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+
+@keyframes bk-perch-in {
+  from { opacity: 0; transform: translate(-24px, -46px) rotate(-12deg); }
+  60% { opacity: 1; }
+}
+
+.ms-cel-perch .ms-cel-song {
+  position: absolute;
+  top: -30px;
+  color: #e9d9a6;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ms-cel:not(.still) .ms-cel-perch .ms-cel-song {
+  animation: bk-song 2.4s ease-in-out infinite;
+}
+
+@keyframes bk-song {
+  0% { opacity: 0; transform: translateY(10px); }
+  30%, 70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+
+.ms-cel.p-saezuri .ms-cel-kick.sky {
+  color: #e9d9a6;
+}
+
+.ms-cel.p-saezuri .ms-cel-title.sky {
+  background-image: linear-gradient(180deg, #ffffff, #e9d9a6 60%, #c8b98e);
+  font-family: var(--font-mincho);
+}
+
+.ms-cel.p-saezuri .ms-cel-btn:not(.sub) {
+  background: #2e5d4b;
   color: #ffffff;
 }
 
@@ -4527,7 +4824,8 @@ button:hover {
 .look-day .bd-note,
 .look-spring .bd-note,
 .look-winter .bd-note,
-.look-kingyo .bd-note {
+.look-kingyo .bd-note,
+.look-buncho .bd-note {
   color: #262626;
   font-family: var(--bd-hand);
   box-shadow: 0 5px 8px #0005, 0 1px 1px #0002;
@@ -4539,7 +4837,8 @@ button:hover {
 .look-day .bd-note::before,
 .look-spring .bd-note::before,
 .look-winter .bd-note::before,
-.look-kingyo .bd-note::before {
+.look-kingyo .bd-note::before,
+.look-buncho .bd-note::before {
   content: "";
   position: absolute;
   top: -7px;
@@ -4574,7 +4873,8 @@ button:hover {
 .look-day .bd-mine,
 .look-spring .bd-mine,
 .look-winter .bd-mine,
-.look-kingyo .bd-mine {
+.look-kingyo .bd-mine,
+.look-buncho .bd-mine {
   color: #c2410c;
 }
 
@@ -4584,7 +4884,8 @@ button:hover {
 .look-day .bd-over,
 .look-spring .bd-over,
 .look-winter .bd-over,
-.look-kingyo .bd-over {
+.look-kingyo .bd-over,
+.look-buncho .bd-over {
   color: #d6336c;
 }
 
@@ -4595,13 +4896,15 @@ button:hover {
 .look-spring .bd-who,
 .look-winter .bd-who,
 .look-kingyo .bd-who,
+.look-buncho .bd-who,
 .look-white .bd-line,
 .look-chalk .bd-line,
 .look-night .bd-line,
 .look-day .bd-line,
 .look-spring .bd-line,
 .look-winter .bd-line,
-.look-kingyo .bd-line {
+.look-kingyo .bd-line,
+.look-buncho .bd-line {
   color: #444;
 }
 
@@ -5116,8 +5419,11 @@ html.stage-still .bd-fish,
 }
 
 .look-kingyo .bd-head,
+.look-buncho .bd-head,
 .look-kingyo .bd-notes,
-.look-kingyo .bd-empty {
+.look-buncho .bd-notes,
+.look-kingyo .bd-empty,
+.look-buncho .bd-empty {
   position: relative;
   z-index: 1;
 }
@@ -5185,6 +5491,185 @@ html.stage-still .bd-fish,
 
 .look-kingyo .bd-mine {
   color: #e0303e;
+}
+
+/* 止まり木の掛け軸（文鳥）: ボードごとに、止まり木から吊るした掛け軸（天と地は深い緑・細い金の一文字・下に軸）。
+   止まり木の上を、パートナーの文鳥が渡り歩く（.bd-partner）。付箋は白い紙に種別の色の線、ピンは白い羽根 */
+.bd-wall.look-buncho {
+  row-gap: 68px;
+  column-gap: 30px;
+  padding: 70px 28px 32px;
+}
+
+/* 2 枚ずつ並べる（横のすき間を広げた分、幅を引く）。900px 以下（せまい窓・スマホ）は、ほかのテーマと同じく 1 枚ずつ */
+@media (min-width: 901px) {
+  .bd-wall.look-buncho > .bd-board {
+    flex-basis: calc(50% - 15px);
+  }
+}
+
+.look-buncho .bd-board {
+  border-top: 7px solid #2e5d4b;
+  border-bottom: 7px solid #2e5d4b;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fdfdfb, #f6f7f4);
+  box-shadow: inset 0 2px 0 #c8b98e, inset 0 -2px 0 #c8b98e, 0 12px 26px #2328261c, 0 1px 2px #23282622;
+}
+
+/* 止まり木（節が 2 つ） */
+.look-buncho .bd-board::before {
+  content: "";
+  position: absolute;
+  top: -19px;
+  right: -12px;
+  left: -12px;
+  height: 9px;
+  border-radius: 5px;
+  background:
+    radial-gradient(2.5px 3.5px at 22% 50%, #6f5d4b 70%, transparent 76%),
+    radial-gradient(2.5px 3.5px at 64% 50%, #6f5d4b 70%, transparent 76%),
+    linear-gradient(180deg, #ab977f, #8a7764 55%, #6f5d4b);
+  box-shadow: 0 3px 4px #23282624;
+  pointer-events: none;
+}
+
+/* 吊るす紐・止まり木の端の葉・下の軸（両端は白い軸先） */
+.look-buncho .bd-board::after {
+  content: "";
+  position: absolute;
+  top: -46px;
+  right: -18px;
+  bottom: -14px;
+  left: -18px;
+  background:
+    var(--bk-cord) center top / 90px 27px no-repeat,
+    var(--bk-sprig) right 2px top 12px / 70px 34px no-repeat,
+    linear-gradient(90deg, #e9e2d0 0 9px, transparent 9px calc(100% - 9px), #e9e2d0 calc(100% - 9px)) 9px 100% / calc(100% - 18px) 9px no-repeat,
+    linear-gradient(180deg, #6a5848, #3f3229) 9px 100% / calc(100% - 18px) 9px no-repeat;
+  pointer-events: none;
+}
+
+/* いちばん初めのボードの止まり木には、文鳥のおやつの粟穂 */
+.look-buncho .bd-board:first-child::after {
+  background:
+    var(--bk-cord) center top / 90px 27px no-repeat,
+    var(--bk-sprig) right 2px top 12px / 70px 34px no-repeat,
+    var(--bk-millet) right 74px top 31px / 18px 58px no-repeat,
+    linear-gradient(90deg, #e9e2d0 0 9px, transparent 9px calc(100% - 9px), #e9e2d0 calc(100% - 9px)) 9px 100% / calc(100% - 18px) 9px no-repeat,
+    linear-gradient(180deg, #6a5848, #3f3229) 9px 100% / calc(100% - 18px) 9px no-repeat;
+}
+
+.look-buncho .bd-title {
+  color: #232826;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.look-buncho .bd-count {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #2e5d4b;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.look-buncho .est-sum {
+  color: #68716c;
+}
+
+.look-buncho .bd-empty {
+  border-color: #b9c1bb;
+  background: #ffffff80;
+  color: #68716c;
+}
+
+.look-buncho .bd-board.over {
+  box-shadow: 0 0 0 3px #2e5d4b, inset 0 2px 0 #c8b98e, inset 0 -2px 0 #c8b98e;
+}
+
+/* 付箋: 白い紙に、種別の色の線（ふつう＝黄土・バグ＝薄紅・メモ＝墨・ルーチン＝緑）。傾きは控えめに */
+.look-buncho .bd-note {
+  border: 1px solid #dde2de;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #232826;
+  font-family: inherit;
+  box-shadow: inset 3px 0 0 #c9a24e, 0 5px 12px #23282618;
+  transform: rotate(calc(var(--tilt, 0deg) * 0.4));
+}
+
+.look-buncho .bd-note.bd-pink {
+  box-shadow: inset 3px 0 0 #d8707c, 0 5px 12px #23282618;
+}
+
+.look-buncho .bd-note.bd-blue {
+  box-shadow: inset 3px 0 0 #3a403d, 0 5px 12px #23282618;
+}
+
+.look-buncho .bd-note.bd-green {
+  box-shadow: inset 3px 0 0 #2e5d4b, 0 5px 12px #23282618;
+}
+
+/* 白い羽根のピン */
+.look-buncho .bd-note::before {
+  top: -8px;
+  width: 30px;
+  height: 13px;
+  margin-left: -12px;
+  border: none;
+  background: var(--bk-feather) center / contain no-repeat;
+  transform: rotate(-12deg);
+}
+
+.look-buncho .bd-mine {
+  color: #2e5d4b;
+}
+
+.look-buncho .bd-over {
+  color: #c2413b;
+}
+
+.look-buncho .bd-who,
+.look-buncho .bd-line {
+  color: #555d59;
+}
+
+/* パートナーの文鳥（止まり木の上。しばらくすると、ほかのボードの止まり木へ移る） */
+.bd-partner {
+  position: absolute;
+  top: -66px;
+  z-index: 3;
+  width: 66px;
+  pointer-events: none;
+}
+
+.bd-partner.arrive {
+  animation: bk-arrive 0.65s cubic-bezier(0.2, 0.8, 0.3, 1.15) both;
+}
+
+.bd-partner.leave {
+  animation: bk-leave 0.45s ease-in both;
+}
+
+@keyframes bk-arrive {
+  from { opacity: 0; transform: translate(-36px, -44px) rotate(-10deg); }
+  60% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes bk-leave {
+  to { opacity: 0; transform: translate(36px, -50px) rotate(8deg); }
+}
+
+html.stage-still .bd-partner {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-partner {
+    animation: none !important;
+  }
 }
 
 .look-winter .bd-note::before {
@@ -5522,6 +6007,75 @@ html.stage-still .desk-kingyo::after,
 .desk-kingyo .bd-desk-drop.no {
   border-color: #262222;
   color: #262222;
+}
+
+/* 文机（文鳥）: 白木の机。右に手紙・一輪挿し・湯のみ（湯気がのぼる）。付箋は白い紙 */
+.desk-buncho {
+  border-top: 5px solid #c4ad8b;
+  background: repeating-linear-gradient(180deg, #ffffff12 0 3px, #00000007 3px 5px), linear-gradient(180deg, #e9ddc7, #dccbae);
+  color: #3b2f22;
+}
+
+.desk-buncho .bd-desk-deco {
+  align-self: flex-end;
+  width: 150px;
+  height: 62px;
+  background: var(--bk-desk) right bottom / contain no-repeat;
+}
+
+.desk-buncho::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 33px;
+  width: 14px;
+  height: 26px;
+  background: var(--bk-steam) center / contain no-repeat;
+  animation: bk-steam 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bk-steam {
+  0% { opacity: 0; transform: translateY(6px) scaleX(0.85); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-8px) scaleX(1.2); }
+}
+
+html.stage-still .desk-buncho::after {
+  animation: none;
+}
+
+.desk-buncho .bd-desk-chip {
+  border: 1px solid #ddd6c4;
+  border-radius: 2px;
+  background: #fffef9;
+  color: #232826;
+  font-family: inherit;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 #c9a24e, 0 3px 6px #3b2f2226;
+}
+
+.desk-buncho .bd-desk-chip.bd-pink {
+  box-shadow: inset 3px 0 0 #d8707c, 0 3px 6px #3b2f2226;
+}
+
+.desk-buncho .bd-desk-chip.bd-blue {
+  box-shadow: inset 3px 0 0 #3a403d, 0 3px 6px #3b2f2226;
+}
+
+.desk-buncho .bd-desk-chip.bd-green {
+  box-shadow: inset 3px 0 0 #2e5d4b, 0 3px 6px #3b2f2226;
+}
+
+.desk-buncho .bd-desk-drop {
+  border-color: #2e5d4b;
+  background: #f7f3eae6;
+  color: #2e5d4b;
+}
+
+.desk-buncho .bd-desk-drop.no {
+  border-color: #c2413b;
+  color: #c2413b;
 }
 
 .desk-night .bd-desk-drop.no,
@@ -12146,6 +12700,13 @@ button.lh:hover {
 .pv-theme-kingyo .pv-t-note { fill: #ffffff; }
 .pv-theme-kingyo .pv-t-note2 { fill: #ff4d5a; }
 .pv-theme-kingyo .pv-t-desk { fill: #d9b98e; }
+.pv-theme-buncho .pv-t-win { fill: #f3f4f2; stroke: #cdd4ce; }
+.pv-theme-buncho .pv-t-side { fill: #e9ece8; }
+.pv-theme-buncho .pv-t-frame { fill: #2e5d4b; }
+.pv-theme-buncho .pv-t-board { fill: #fbfbf9; }
+.pv-theme-buncho .pv-t-note { fill: #ffffff; }
+.pv-theme-buncho .pv-t-note2 { fill: #2e5d4b; }
+.pv-theme-buncho .pv-t-desk { fill: #dccbae; }
 .pv-theme-winter .pv-t-desk { fill: #c8423a; }
 
 /* ガントの帯の色: 色と名前を並べる */
@@ -18618,6 +19179,13 @@ html.notice-window #root {
   --panel-inset: inset 0 3px 0 #ff4d5a;
 }
 
+:root[data-theme="buncho"] {
+  /* 文鳥: 白い面に、深い緑の線 */
+  --panel-pattern: linear-gradient(180deg, #ffffff, #f8f9f7);
+  --panel-line: #d5dbd6;
+  --panel-inset: inset 0 3px 0 #2e5d4b;
+}
+
 :root[data-theme="winter"] {
   /* ウィンター: すりガラス */
   --panel-pattern: linear-gradient(180deg, #ffffffe6, #f2f8fde6);
@@ -18943,6 +19511,59 @@ html.stage-still .stage-fx .fx-shoot {
   0% { transform: translate(0, 0); }
   50% { transform: translate(calc(50vw + 200px), -40px); }
   100% { transform: translate(calc(100vw + 440px), 0); }
+}
+
+/* 文鳥: ライトグレーの壁に、窓の外の葉の影がゆっくりゆれる。ときどき白い羽根が 1 枚、舞いおりる（.fx-shoot） */
+:root[data-theme="buncho"] .stage-fx i:nth-child(1) {
+  inset: -60px -80px auto auto;
+  width: 900px;
+  height: 600px;
+  background: var(--bk-leaves) right top / 860px 560px no-repeat;
+  transform-origin: 85% 0;
+  animation: fx-leaf-a 11s ease-in-out infinite alternate;
+}
+
+:root[data-theme="buncho"] .stage-fx i:nth-child(2) {
+  inset: auto auto -60px -120px;
+  width: 640px;
+  height: 440px;
+  background: var(--bk-leaves2) left bottom / 620px 420px no-repeat;
+  transform-origin: 0 100%;
+  animation: fx-leaf-b 14s ease-in-out -5s infinite alternate;
+}
+
+:root[data-theme="buncho"] .stage-fx i:nth-child(3) {
+  display: none;
+}
+
+:root[data-theme="buncho"] .stage-fx .fx-shoot {
+  display: block;
+  top: -40px;
+  left: 62%;
+  width: 34px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--bk-feather) center / contain no-repeat;
+  opacity: 0.9;
+  animation: fx-feather 28s linear infinite;
+}
+
+@keyframes fx-leaf-a {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.4deg) translate(-14px, 8px); }
+}
+
+@keyframes fx-leaf-b {
+  from { transform: rotate(1.2deg); }
+  to { transform: rotate(-1.2deg) translate(10px, -6px); }
+}
+
+@keyframes fx-feather {
+  0% { transform: translate(0, 0) rotate(-20deg); }
+  25% { transform: translate(40px, 27vh) rotate(18deg); }
+  50% { transform: translate(-10px, 54vh) rotate(-14deg); }
+  75% { transform: translate(36px, 81vh) rotate(16deg); }
+  100% { transform: translate(0, calc(100vh + 80px)) rotate(-10deg); }
 }
 
 /* ウィンター: 雪が降る（手前ほど大きく速く。白い背景でも見えるよう、ふちに青み） */
@@ -19438,6 +20059,12 @@ html.stage-still .stage-fx .fx-shoot {
   border-color: #efdcc4;
 }
 
+.theme-card--buncho {
+  --tc-bg1: #f6f7f5; --tc-bg2: #e6ebe7; --tc-glow: #2e5d4b26; --tc-text: #232826; --tc-muted: #232826aa; --tc-accent: #2e5d4b; --tc-on-accent: #ffffff;
+  --tc-pattern: radial-gradient(ellipse 14px 5px, #2e5d4b16 55%, transparent 72%) 0 0 / 80px 60px, radial-gradient(ellipse 10px 4px, #2e5d4b10 55%, transparent 72%) 40px 30px / 96px 70px;
+  border-color: #cdd4ce;
+}
+
 .theme-card--winter {
   --tc-bg1: #dcebf8; --tc-bg2: #f5f9fd; --tc-glow: #ffffffcc; --tc-text: #1d2b3a; --tc-muted: #1d2b3aaa; --tc-accent: #2a74c2; --tc-on-accent: #ffffff;
   --tc-pattern: radial-gradient(#ffffff 1.5px, #a9c9ea 2px, transparent 2.6px) 0 0 / 30px 28px, radial-gradient(#ffffff 1px, #b9d4ef 1.5px, transparent 2px) 15px 12px / 22px 26px;
@@ -19844,6 +20471,62 @@ html.stage-still .stage-fx .fx-shoot {
   animation: kingyo-furin 2.6s ease-in-out infinite alternate;
 }
 
+/* 文鳥: ボードは止まり木の掛け軸（天と地が深い緑）。止まり木の上に文鳥。机は文机 */
+.tm--buncho {
+  --tm-win: #f3f4f2; --tm-side: #e9ece8; --tm-line: #d5dbd6; --tm-text: #232826; --tm-accent: #2e5d4b; --tm-frame: #2e5d4b;
+  --tm-board: linear-gradient(180deg, #fdfdfb, #f6f7f4);
+  --tm-board-text: #232826; --tm-note: #ffffff; --tm-note2: #ffffff;
+  --tm-desk: linear-gradient(180deg, #e9ddc7, #dccbae); --tm-desk-text: #3b2f22;
+}
+
+.tm--buncho .tm-boards {
+  padding-top: 26px;
+}
+
+.tm--buncho .tm-board {
+  overflow: visible;
+  border-width: 5px 0 4px;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #c8b98e, inset 0 -1px 0 #c8b98e, 0 6px 12px #2328261f;
+}
+
+.tm--buncho .tm-board::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  right: -7px;
+  left: -7px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ab977f, #74624f);
+}
+
+.tm--buncho .tm-note {
+  border: 1px solid #dde2de;
+  box-shadow: inset 2px 0 0 #c9a24e, 0 3px 6px #23282626;
+}
+
+.tm--buncho .tm-note.n2 {
+  box-shadow: inset 2px 0 0 #d8707c, 0 3px 6px #23282626;
+}
+
+.tm--buncho .tm-stage i:nth-child(1) {
+  inset: -20px -40px auto auto;
+  width: 430px;
+  height: 280px;
+  background: var(--bk-leaves) right top / 430px 280px no-repeat;
+  transform-origin: 85% 0;
+  animation: fx-leaf-a 11s ease-in-out infinite alternate;
+}
+
+.tm-bird {
+  position: absolute;
+  top: -44px;
+  left: 18%;
+  z-index: 3;
+  width: 38px;
+}
+
 /* ===== はじめに見た目を選ぶ（ThemePicker）: 選ぶ画面と同じ作り。後ろは、そのテーマの舞台（動く背景）が透けて見える ===== */
 .picker.tp {
   background: transparent;
@@ -20067,7 +20750,8 @@ html.stage-still .stage-fx .fx-shoot {
 :root[data-theme="day"] .tw-delta b,
 :root[data-theme="spring"] .tw-delta b,
 :root[data-theme="winter"] .tw-delta b,
-:root[data-theme="kingyo"] .tw-delta b {
+:root[data-theme="kingyo"] .tw-delta b,
+:root[data-theme="buncho"] .tw-delta b {
   color: var(--accent-blue);
 }
 
@@ -20083,7 +20767,8 @@ html.stage-still .stage-fx .fx-shoot {
 :root[data-theme="day"] .tw-reach,
 :root[data-theme="spring"] .tw-reach,
 :root[data-theme="winter"] .tw-reach,
-:root[data-theme="kingyo"] .tw-reach {
+:root[data-theme="kingyo"] .tw-reach,
+:root[data-theme="buncho"] .tw-reach {
   color: var(--accent-blue);
 }
 
@@ -20239,7 +20924,8 @@ html.stage-still .stage-fx .fx-shoot {
 :root[data-theme="day"] .sending-chip,
 :root[data-theme="spring"] .sending-chip,
 :root[data-theme="winter"] .sending-chip,
-:root[data-theme="kingyo"] .sending-chip {
+:root[data-theme="kingyo"] .sending-chip,
+:root[data-theme="buncho"] .sending-chip {
   color: var(--accent-blue);
 }
 
@@ -20288,7 +20974,8 @@ html.stage-still .stage-fx .fx-shoot {
 :root[data-theme="day"] .sending-top,
 :root[data-theme="spring"] .sending-top,
 :root[data-theme="winter"] .sending-top,
-:root[data-theme="kingyo"] .sending-top {
+:root[data-theme="kingyo"] .sending-top,
+:root[data-theme="buncho"] .sending-top {
   color: var(--accent-blue);
   border-color: var(--accent-blue);
 }
@@ -20404,4 +21091,179 @@ html.stage-still .stage-fx .fx-shoot {
   margin: 0;
   padding: 6px 16px;
   border-bottom: 1px solid var(--border-default);
+}
+
+/* ===== 文鳥（Buncho.tsx。文鳥のテーマのパートナー）: 太い輪郭・大きな丸い頭・丸い赤いくちばし・黒い目・白いほお =====
+   色は 4 羽（桜・白・シルバー・シナモン）。絵は左向きで、.bk--flip で右向き。うごきは、体ごと首をかしげる・まばたき・ときどき跳ねる */
+.bk {
+  --bk-ol: #1d1c1d;
+  --bk-cap: #3f3839;
+  --bk-cap-hi: #77767a;
+  --bk-throat: #858489;
+  --bk-cheek: #f0f0ee;
+  --bk-body: #a39e9c;
+  --bk-body-hi: #bebfbf;
+  --bk-belly: #d9b498;
+  --bk-tail: #2b2a2c;
+  --bk-under: #ecebea;
+  --bk-beak: #cb4825;
+  --bk-beak-hi: #fbd0b8;
+  --bk-foot: #b98468;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.bk--shiro {
+  --bk-cap: #f3f2ee;
+  --bk-cap-hi: #ffffff;
+  --bk-throat: #e6e4df;
+  --bk-body: #f5f4f0;
+  --bk-body-hi: #ffffff;
+  --bk-belly: #f6eee6;
+  --bk-tail: #e4e2dc;
+  --bk-under: #ffffff;
+  --bk-beak: #d9442c;
+}
+
+.bk--silver {
+  --bk-cap: #6d696b;
+  --bk-cap-hi: #9a979a;
+  --bk-throat: #a9a6a7;
+  --bk-body: #c9c6c4;
+  --bk-body-hi: #dddbda;
+  --bk-belly: #e8d4c3;
+  --bk-tail: #5d5a5c;
+}
+
+.bk--cinnamon {
+  --bk-cap: #77533f;
+  --bk-cap-hi: #a07e6b;
+  --bk-throat: #a78a77;
+  --bk-body: #c8ad9a;
+  --bk-body-hi: #dcc8b9;
+  --bk-belly: #ecccb2;
+  --bk-tail: #6b4b3c;
+}
+
+.bk--flip {
+  transform: scaleX(-1);
+}
+
+.bk-ol {
+  fill: none;
+  stroke: var(--bk-ol);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bk-body { fill: var(--bk-body); }
+.bk-cap { fill: var(--bk-cap); }
+.bk-throat { fill: var(--bk-throat); }
+.bk-cheek { fill: var(--bk-cheek); }
+.bk-belly { fill: var(--bk-belly); }
+.bk-tail { fill: var(--bk-tail); }
+.bk-under { fill: var(--bk-under); }
+.bk-beak { fill: var(--bk-beak); }
+.bk-hi { fill: var(--bk-body-hi); }
+.bk-caphi { fill: var(--bk-cap-hi); }
+.bk-eye { fill: #070707; }
+.bk-beak-shade { fill: #00000020; }
+.bk-beak-hi { fill: none; stroke: var(--bk-beak-hi); stroke-width: 7; stroke-linecap: round; }
+.bk-beak-dot { fill: #ffffff; }
+.bk-shadow { fill: #23282624; }
+.bk-foot-ol { fill: none; stroke: var(--bk-ol); stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; }
+.bk-foot { fill: none; stroke: var(--bk-foot); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.bk-letter rect { fill: #fdfcf7; stroke: var(--bk-ol); stroke-width: 6; }
+.bk-flap { fill: none; stroke: var(--bk-ol); stroke-width: 5; stroke-linejoin: round; }
+.bk-seal { fill: #2e5d4b; }
+
+/* 白文鳥: ほおの白い所と黒い頭はない（白い頭のふちだけ線） */
+.bk--shiro .bk-cheek {
+  fill: none;
+}
+
+.bk-lean {
+  transform-origin: 200px 300px;
+  animation: bk-tilt 7s ease-in-out var(--bk-d, 0s) infinite;
+}
+
+.bk-all {
+  animation: bk-hop 9s ease-in-out var(--bk-d, 0s) infinite;
+}
+
+.bk-eyes {
+  transform-origin: 160px 96px;
+  animation: bk-blink 4.6s var(--bk-d, 0s) infinite;
+}
+
+@keyframes bk-tilt {
+  0%, 30%, 100% { transform: rotate(0); }
+  36%, 52% { transform: rotate(-7deg); }
+  58%, 66% { transform: rotate(4deg); }
+  72% { transform: rotate(0); }
+}
+
+@keyframes bk-hop {
+  0%, 80%, 100% { transform: translateY(0); }
+  84% { transform: translateY(-34px); }
+  88% { transform: translateY(0); }
+  91% { transform: translateY(-18px); }
+  94% { transform: translateY(0); }
+}
+
+@keyframes bk-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+
+html.stage-still .bk-lean,
+html.stage-still .bk-all,
+html.stage-still .bk-eyes {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-lean,
+  .bk-all,
+  .bk-eyes {
+    animation: none;
+  }
+}
+
+/* 上のバーの文鳥（文鳥のテーマで、ボード以外の画面。バーの下の線にとまる） */
+.topbar-partner {
+  flex: none;
+  align-self: flex-end;
+  width: 44px;
+  margin: 0 4px -3px 0;
+  pointer-events: none;
+}
+
+/* 送っているあいだ: 文鳥のテーマでは、くるくるの代わりに、文鳥が手紙（文）を運ぶ */
+.sending-bird {
+  display: none;
+}
+
+:root[data-theme="buncho"] .sending-bird {
+  display: inline-block;
+  flex: none;
+  width: 28px;
+  margin: -6px 0 -4px;
+  animation: bk-carry 1.2s ease-in-out infinite alternate;
+}
+
+:root[data-theme="buncho"] .sending-spin {
+  display: none;
+}
+
+@keyframes bk-carry {
+  from { transform: translateY(1px) rotate(-4deg); }
+  to { transform: translateY(-2px) rotate(-10deg); }
+}
+
+html.stage-still .sending-bird {
+  animation: none !important;
 }

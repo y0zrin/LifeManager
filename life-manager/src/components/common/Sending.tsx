@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { GitHubIssue } from "../../lib/types";
+import { Buncho } from "./Buncho";
 
 /** 送れなかった仮の Issue の「もう一度」「やめる」（App が渡す） */
 export const SendingContext = createContext<{ retry: (n: number) => void; discard: (n: number) => void }>({
@@ -7,12 +8,22 @@ export const SendingContext = createContext<{ retry: (n: number) => void; discar
   discard: () => {},
 });
 
-/** 「送っています…」（くるくる） */
+/** 「送っています…」（くるくる。文鳥のテーマでは、くるくるの代わりに文鳥が手紙を運ぶ） */
 export function SendingChip({ label = "送っています…" }: { label?: string }) {
   return (
     <span className="sending-chip" role="status">
       <i className="sending-spin" aria-hidden="true" />
+      <SendingBird />
       {label}
+    </span>
+  );
+}
+
+/** 手紙を運ぶ文鳥（文鳥のテーマのときだけ見える。App.css の .sending-bird） */
+export function SendingBird() {
+  return (
+    <span className="sending-bird" aria-hidden="true">
+      <Buncho letter flip />
     </span>
   );
 }

@@ -4,6 +4,8 @@ import { MILESTONE_CLEAR_EVENT, type MilestoneClearDetail } from "../../lib/cele
 import { isEscape } from "../../lib/keys";
 import { usePortalHost } from "../../hooks/usePortalHost";
 import { StageArt } from "./StageArt";
+import { Buncho } from "../common/Buncho";
+import { bunchoFlock } from "../../lib/buncho";
 
 interface MilestoneCelebrationProps {
   /** 画面の動きが「ふつう」か（少なめなら、動かさずに出す） */
@@ -12,8 +14,8 @@ interface MilestoneCelebrationProps {
   onCloseMilestone: (n: number) => Promise<void>;
 }
 
-/** 演出の種類: トロフィー・花火・ステージクリア（クエストはボス撃破）・大きなはんこ。金魚のテーマは、いつも夜の夏まつり */
-type Pattern = "trophy" | "fireworks" | "clear" | "stamp" | "matsuri";
+/** 演出の種類: トロフィー・花火・ステージクリア（クエストはボス撃破）・大きなはんこ。金魚のテーマは、いつも夜の夏まつり。文鳥のテーマは、いつも朝のさえずり */
+type Pattern = "trophy" | "fireworks" | "clear" | "stamp" | "matsuri" | "saezuri";
 const PATTERNS: Pattern[] = ["trophy", "fireworks", "clear", "stamp"];
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -139,8 +141,9 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
     function onClear(e: Event) {
       const detail = (e as CustomEvent<MilestoneClearDetail>).detail;
       setClosing(false);
-      if (document.documentElement.dataset.theme === "kingyo") {
-        setCel({ detail, pattern: "matsuri", id: Date.now() });
+      const theme = document.documentElement.dataset.theme;
+      if (theme === "kingyo" || theme === "buncho") {
+        setCel({ detail, pattern: theme === "kingyo" ? "matsuri" : "saezuri", id: Date.now() });
         return;
       }
       let n = Math.floor(Math.random() * PATTERNS.length);
@@ -226,6 +229,26 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
         <div className="ms-cel-kick sky">SUMMER FESTIVAL</div>
         <div className="ms-cel-title sky">{d.title} 達成！</div>
         <div className="ms-cel-sub">夏まつりだ。おつかれさまでした</div>
+        {stats}
+        {team}
+      </>
+    );
+  } else if (pattern === "saezuri") {
+    // チームの人数だけ（3〜7 羽）、文鳥が 1 羽ずつ枝にとまって歌う
+    const flock = bunchoFlock(Math.min(7, Math.max(3, d.team.length)));
+    body = (
+      <>
+        <div className="ms-cel-perch" aria-hidden="true">
+          {flock.map((kind, i) => (
+            <span key={i} style={{ animationDelay: `${0.25 + i * 0.22}s` }}>
+              <Buncho kind={kind} flip={i % 2 === 0} />
+              {i % 2 === 1 && <i className="ms-cel-song" style={{ animationDelay: `${1.2 + i * 0.3}s` }}>{i % 4 === 1 ? "♪" : "♫"}</i>}
+            </span>
+          ))}
+        </div>
+        <div className="ms-cel-kick sky">MORNING SONG</div>
+        <div className="ms-cel-title sky">{d.title} 達成！</div>
+        <div className="ms-cel-sub">朝のさえずり。おつかれさまでした</div>
         {stats}
         {team}
       </>

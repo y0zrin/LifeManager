@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Theme } from "../../lib/theme";
+import { Buncho } from "./Buncho";
 
 /** ミニの画面の、もとの大きさ（入れ物の幅に合わせて縮める） */
 const W = 560;
@@ -14,6 +15,7 @@ const DESK: Record<Theme, { name: string; items: string[]; glow?: number; steam?
   spring: { name: "春の机", items: ["🍡", "🍵"], steam: 1 },
   winter: { name: "こたつ", items: ["🍊", "🍵"], steam: 1 },
   kingyo: { name: "縁側", items: ["🍉", "🍧"] },
+  buncho: { name: "文机", items: ["✉️", "🍵"], steam: 1 },
 };
 
 /** ボードの右上の飾り（テーマごと） */
@@ -21,7 +23,8 @@ const DECO: Partial<Record<Theme, string>> = { quest: "⚔️", night: "🌙", d
 
 /**
  * テーマのミニの画面（動く）: サイドバー・ボード 2 枚（付箋が 1 枚、となりのボードへ運ばれる）・机・後ろの粒。
- * 金魚のテーマでは、水そうの中を金魚が泳ぐ。はじめに見た目を選ぶ画面と、設定 → 表示 のテーマのカードで使う。still で止める
+ * 金魚のテーマでは、水そうの中を金魚が泳ぐ。文鳥のテーマでは、止まり木に文鳥がいる。
+ * はじめに見た目を選ぶ画面と、設定 → 表示 のテーマのカードで使う。still で止める
  */
 export function ThemeMini({ theme, still = false }: { theme: Theme; still?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -65,6 +68,11 @@ export function ThemeMini({ theme, still = false }: { theme: Theme; still?: bool
                   <span className="tm-fish" />
                   <span className="tm-fish f2" />
                 </>
+              )}
+              {theme === "buncho" && (
+                <span className="tm-bird">
+                  <Buncho flip />
+                </span>
               )}
               <b>進行中</b>
               {deco && <span className="tm-deco">{deco}</span>}

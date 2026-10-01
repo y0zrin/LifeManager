@@ -37,7 +37,8 @@ import { NoticesDrawer } from "./components/notices/NoticesDrawer";
 import { HelpDialog } from "./components/notices/HelpDialog";
 import { lastGitFailure } from "./lib/gitFailure";
 import { useSendingCount } from "./lib/sending";
-import { SendingContext } from "./components/common/Sending";
+import { SendingBird, SendingContext } from "./components/common/Sending";
+import { Buncho } from "./components/common/Buncho";
 import type { HelpContext } from "./lib/help";
 import type { Notice } from "./lib/notices";
 import type { PullDetail } from "./lib/pulls";
@@ -1004,6 +1005,12 @@ function App() {
             <GitToolbar git={git} actions={gitActions} onOpenCommit={handleOpenCommit} />
           )}
           <div className="topbar-right">
+            {/* 文鳥のテーマ: パートナーの文鳥は、ボード以外の画面では上のバーにとまる（ボードでは止まり木にいる） */}
+            {display.settings.theme === "buncho" && view !== "kanban" && (
+              <span className="topbar-partner" aria-hidden="true">
+                <Buncho />
+              </span>
+            )}
             {/* git の操作の結果は右下に出すので、リポジトリの画面では場所をツールバーにゆずる */}
             {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
             {view === "work" && workIssue && (
@@ -1014,6 +1021,7 @@ function App() {
             {sendingCount > 0 && (
               <span className="sending-top" role="status" title="GitHub に送っています（返事が来るまで）">
                 <i className="sending-spin" aria-hidden="true" />
+                <SendingBird />
                 送っています {sendingCount}
               </span>
             )}

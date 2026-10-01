@@ -12,6 +12,8 @@
 | 前に登録した OAuth アプリ「Life Manager」（`Ov23liu0oRzKR4l5kDMZ`） | — | **使わなくなった**（0.9.0 の途中で GitHub App に替えた。全部のリポジトリに届く・期限なしのため） | GitHub の Developer settings → OAuth Apps で消してよい |
 | 更新の署名の秘密鍵（minisign） | **秘密** | 開発 PC のユーザー環境変数 `TAURI_SIGNING_PRIVATE_KEY`（鍵の中身そのもの。パスワードは空） | 失くすと、入っているアプリに更新を届けられなくなる。漏れると、偽の更新を作られる → **控えを取る**（下） |
 | 更新の署名の公開鍵 | 秘密ではない | `life-manager/src-tauri/tauri.conf.json` の `plugins.updater.pubkey` | 変えない。変えた版は、古い版の自動更新で受け取れない（手で入れ直しになる） |
+| Android 版の署名の鍵 | **秘密** | 開発 PC の `%USERPROFILE%\.life-manager\android\`（鍵の `life-manager-release.jks` と、パスワードの入った `key.properties`）。`gen/android/app/build.gradle.kts` が読む（環境変数 `LM_ANDROID_KEY_PROPERTIES` で場所を変えられる。なければ署名なしの APK になる）。2026-10-01 に作った（SHA-256 の指紋は `65:68:E6:36:…:FC:43:9E:16`） | 失くすと、入っている Android 版に上書きで入れられなくなる（消して入れ直しになる）。漏れると、偽の更新を作られる → **控えを取る**（下） |
+| 前の Android の鍵（`life-manager.keystore`） | — | **使わない**。パスワードといっしょに公開リポジトリに入っていた（最初のコミットから。2026-10-01 にリポジトリから消したが、履歴には残る）。3 月の 0.2.2 の APK はこの鍵 | — |
 | GitHub Releases へのアップロード | — | Web の画面で上げる（トークンは使わない） | — |
 
 ## GitHub App の登録（一度だけ）
@@ -43,6 +45,7 @@ Administration の権限は、リポジトリの設定を変える・消すこ�
   [Environment]::GetEnvironmentVariable('TAURI_SIGNING_PRIVATE_KEY','User') | Set-Clipboard
   ```
 
+- Android 版の鍵は、フォルダ `%USERPROFILE%\.life-manager\android\` ごと（2 つのファイル）をパスワード管理アプリや USB メモリに控える
 - リポジトリ・チャット・メールには入れない
 
 ## リリースのとき（抜けやすいところ）

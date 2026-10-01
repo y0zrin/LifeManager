@@ -1446,10 +1446,10 @@ pub fn run() {
             if let Err(e) = notice_window::setup(app) {
                 eprintln!("おしらせの窓を用意できませんでした: {e}");
             }
-            // アプリの中の枠（メディアビューワーの PDF など）が、外のページへ移らないようにする
+            // 窓と、その中の枠（メディアビューワーの PDF など）が、外のページへ移らないようにする（メインの窓とおしらせの窓）
             #[cfg(windows)]
-            if let Some(main) = tauri::Manager::get_webview_window(app, "main") {
-                frame_guard::guard(&main);
+            for w in tauri::Manager::webview_windows(app).values() {
+                frame_guard::guard(w);
             }
             let app_handle = app.handle().clone();
             credential::init_android_data_dir(&app_handle);

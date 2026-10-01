@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
-import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates } from "../../lib/ganttParser";
+import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
@@ -109,13 +109,15 @@ export function GanttView({
     [allIssues, showTentative, today],
   );
 
-  // Convert to GanttTasks（仮の日程があれば、その日程で描く）
+  // Convert to GanttTasks（仮の日程があれば、その日程で描く）。行は日程の順（日程のないタスクは下）
   const ganttTasks = useMemo(
     () =>
-      issuesToGanttTasks(filteredIssues).map((t) => {
-        const plan = plans.get(t.issueNumber);
-        return plan ? { ...t, startDate: plan.start, endDate: plan.end, tentative: true } : t;
-      }),
+      issuesToGanttTasks(filteredIssues)
+        .map((t) => {
+          const plan = plans.get(t.issueNumber);
+          return plan ? { ...t, startDate: plan.start, endDate: plan.end, tentative: true } : t;
+        })
+        .sort(compareGanttRows),
     [filteredIssues, plans],
   );
 

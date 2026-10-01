@@ -126,6 +126,28 @@ export function issuesToGanttTasks(issues: GitHubIssue[]): GanttTask[] {
   });
 }
 
+/** 番号の並び。まだ送っていない Issue（仮の番号 = 負の数。-1 が先に作ったもの）は、送った Issue のあとに作った順で */
+function numberOrder(n: number): number {
+  return n < 0 ? Number.MAX_SAFE_INTEGER / 2 - n : n;
+}
+
+/**
+ * ガントの行の並び: 開始日の早い順（同じなら終了日、それも同じなら番号の順）。
+ * 日程のないタスクは下に、番号の順で並べる（GitHub から返る順は作った日の新しい順で、先行タスクの順に流れないため）
+ */
+export function compareGanttRows(a: GanttTask, b: GanttTask): number {
+  if (a.startDate && b.startDate) {
+    return (
+      a.startDate.localeCompare(b.startDate) ||
+      (a.endDate ?? "").localeCompare(b.endDate ?? "") ||
+      numberOrder(a.issueNumber) - numberOrder(b.issueNumber)
+    );
+  }
+  if (a.startDate) return -1;
+  if (b.startDate) return 1;
+  return numberOrder(a.issueNumber) - numberOrder(b.issueNumber);
+}
+
 /** body からガントメタデータ行をすべて除去 */
 export function stripGanttMetadata(body: string): string {
   return body

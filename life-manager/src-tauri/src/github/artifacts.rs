@@ -24,6 +24,28 @@ fn parse(text: &str) -> Result<Value, String> {
 /// 1 回に探すコミットの数（Issue ひとつで、これより多いことはまれ）
 const MAX_COMMITS: usize = 40;
 
+/// GitHub から読んだコミット（owner/repo@sha → 変わったファイル）。コミットはあとから変わらないので、アプリを開いているあいだ覚えておき、
+/// 成果物のタブを開くたびに GitHub に聞かない（前は開くたびに、コミットの数だけ〔40 まで〕聞いていた）
+static GITHUB_COMMITS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, LocalCommit>>> = std::sync::LazyLock::new(Default::default);
+/// 覚えておくコミットの数（超えたら、いったん忘れる）
+const KEEP_COMMITS: usize = 2000;
+
+/// GitHub のコミット（覚えていれば、聞かない）
+async fn github_commit(client: &GitHubClient, owner: &str, repo: &str, sha: &str) -> Option<LocalCommit> {
+    let key = format!("{}/{}@{}", owner, repo, sha).to_lowercase();
+    if let Some(c) = GITHUB_COMMITS.lock().ok().and_then(|m| m.get(&key).cloned()) {
+        return Some(c);
+    }
+    let commit = client.get_commit(owner, repo, sha).await.ok().and_then(|t| parse(&t).ok()).and_then(|v| from_github_commit(&v))?;
+    if let Ok(mut m) = GITHUB_COMMITS.lock() {
+        if m.len() >= KEEP_COMMITS {
+            m.clear();
+        }
+        m.insert(key, commit.clone());
+    }
+    Some(commit)
+}
+
 /// 成果物のコミット
 #[derive(Debug, Clone, Serialize)]
 pub struct ArtifactCommit {
@@ -203,7 +225,7 @@ pub async fn issue_artifacts(state: ClientState<'_>, owner: String, repo: String
         };
         let (commit, is_local) = match local {
             Some(c) => (c, true),
-            None => match client.get_commit(&owner, &repo, &sha).await.ok().and_then(|t| parse(&t).ok()).and_then(|v| from_github_commit(&v)) {
+            None => match github_commit(&client, &owner, &repo, &sha).await {
                 Some(c) => (c, false),
                 None => continue,
             },

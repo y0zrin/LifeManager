@@ -101,10 +101,44 @@ export interface MediaFile {
   commitLabel?: string;
 }
 
+/**
+ * コミットの時点の中身は、あとから変わらないので、小さいものを少しだけ覚えておく（成果物のタブを開くたびの見本・ビューワーで、
+ * GitHub に同じファイルを何度も聞かない）。古く使ったものから忘れる。作業フォルダの今の中身は変わるので覚えない
+ */
+const MEMO_BYTES = 48 * 1024 * 1024;
+const MEMO_ONE = 8 * 1024 * 1024;
+const memo = new Map<string, ArrayBuffer>();
+let memoBytes = 0;
+
+function remember(key: string, bytes: ArrayBuffer) {
+  if (bytes.byteLength > MEMO_ONE || memo.has(key)) return;
+  memo.set(key, bytes);
+  memoBytes += bytes.byteLength;
+  for (const [k, b] of memo) {
+    if (memoBytes <= MEMO_BYTES) break;
+    memo.delete(k);
+    memoBytes -= b.byteLength;
+  }
+}
+
 /** ファイルの中身（バイト列） */
 export async function readMediaBytes(file: MediaFile): Promise<ArrayBuffer> {
   const s = file.source;
   if (s.kind === "local") return invoke<ArrayBuffer>("media_read_local", { path: s.folder, file: file.path });
+  const key = `${s.owner ?? ""}/${s.repo ?? ""}|${s.folder ?? ""}@${s.sha}|${file.path}`;
+  const known = memo.get(key);
+  if (known) {
+    // 使ったものは新しい側へ（古く使ったものから忘れる）
+    memo.delete(key);
+    memo.set(key, known);
+    return known;
+  }
+  const bytes = await readCommitBytes(file, s);
+  remember(key, bytes);
+  return bytes;
+}
+
+async function readCommitBytes(file: MediaFile, s: Extract<MediaSource, { kind: "commit" }>): Promise<ArrayBuffer> {
   if (s.folder) {
     try {
       return await invoke<ArrayBuffer>("media_read_commit", { path: s.folder, sha: s.sha, file: file.path });

@@ -553,13 +553,16 @@ export class GanttRenderer {
     // 行ごとの帯の左右（あいだの行の帯にかからない縦の道を探すため）
     const spans = tasks.map((t) => (t.startDate && t.endDate ? [this.dateToX(t.startDate, config, scrollX), visibleEnd(t)] : null));
 
-    for (let i = startRow; i < endRow && i < tasks.length; i++) {
+    // 見えている行を通る矢印をぜんぶ引く（後続・先行のどちらかが画面の外でも。前は後続が見えているものだけで、
+    // 見えている先行から画面の下の後続へ向かう矢印が出なかった）。画面の外の分は、キャンバスの外・見出しの下に隠れる
+    for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
       if (task.dependencies.length === 0 || !task.startDate) continue;
 
       for (const depNum of task.dependencies) {
         const depIdx = taskIndex.get(depNum);
         if (depIdx === undefined) continue;
+        if (Math.max(depIdx, i) < startRow || Math.min(depIdx, i) >= endRow) continue;
         const dep = tasks[depIdx];
         if (!dep.startDate || !dep.endDate) continue;
 

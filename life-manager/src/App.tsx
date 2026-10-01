@@ -12,7 +12,7 @@ import { useDisplaySettings } from "./hooks/useDisplaySettings";
 import { useOverlayScrollGuard } from "./hooks/useOverlayScrollGuard";
 import { useHistory } from "./hooks/useHistory";
 import { useOffline } from "./hooks/useOffline";
-import { isMobile } from "./lib/platform";
+import { isMobile, THIS_DEVICE } from "./lib/platform";
 import { isSending, isTemporary, issueRef } from "./lib/issueRef";
 import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
 import { DashboardView } from "./components/views/DashboardView";
@@ -537,7 +537,7 @@ function App() {
 
   async function handleForgetAccount(login: string) {
     await forgetAccount(login);
-    gh.setStatus(`${login} を、この PC から外しました`);
+    gh.setStatus(`${login} を、${THIS_DEVICE}から外しました`);
   }
 
   // ログアウト: 今のアカウントだけ。ほかにしまってあるアカウントがあれば、そちらに切り替える

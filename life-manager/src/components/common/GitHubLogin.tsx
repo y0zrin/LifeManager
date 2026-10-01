@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { authPoll, authStart, loadLoginDays, LOGIN_PERIODS, storeLoginDays, type DeviceCode } from "../../lib/auth";
+import { authPoll, authStart, loadLoginDays, LOGIN_PERIODS, storeLoginDays, type DeviceCode, type Poll } from "../../lib/auth";
+import { isMobile, THIS_DEVICE } from "../../lib/platform";
 
 interface GitHubLoginProps {
   /** ログインできた（トークンはアプリの中にしまってある）。Promise を返すと、終わるまで「準備しています」を出す */
@@ -11,12 +12,30 @@ interface GitHubLoginProps {
   autoStart?: boolean;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** しばらく待つ。アプリの画面に戻ってきたら（スマホでブラウザから戻ったときなど）、すぐに起きる */
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      resolve();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") done();
+    };
+    const timer = window.setTimeout(done, ms);
+    document.addEventListener("visibilitychange", onVisible);
+  });
+}
+
+/** 通信できなかったときの知らせ（Rust の NETWORK_ERROR と同じ書き出し） */
+const NETWORK_ERROR = "通信できませんでした";
 
 /**
  * 「GitHub でログイン」（デバイスフロー）。コードをコピーしてからブラウザで GitHub を開くので、
  * 貼って「Continue」→「Authorize」を押すだけ。許可されるまで、GitHub に数秒ごとに確かめに行く。
- * この PC で使う期限（30 日・90 日・半年）を選び、過ぎたらログインし直す
+ * この PC（スマホ）で使う期限（30 日・90 日・半年）を選び、過ぎたらログインし直す。
+ * 確かめに行って通信できなかったときは、期限まで待ってやり直す（スマホでは、ブラウザで許可しているあいだ、アプリの通信が止められる）
  */
 export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStart = false }: GitHubLoginProps) {
   const [days, setDays] = useState(loadLoginDays);
@@ -26,6 +45,8 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
   const [copied, setCopied] = useState(false);
   // 許可されたあと、呼んだ側の準備（アカウントを読むなど）が終わるまで。最初のボタンに戻して見せない（失敗に見える・もう一度押せてしまう）
   const [finishing, setFinishing] = useState(false);
+  // 確かめに行って、通信できなかった（つながったら、そのまま続ける）
+  const [offline, setOffline] = useState(false);
   // 画面を離れたら、確かめに行くのをやめる
   const alive = useRef(true);
   const attempt = useRef(0);
@@ -54,9 +75,17 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
       let interval = Math.max(dc.interval, 5);
       const deadline = Date.now() + dc.expires_in * 1000;
       while (alive.current && mine === attempt.current && Date.now() < deadline) {
-        await sleep(interval * 1000);
+        await wait(interval * 1000);
         if (!alive.current || mine !== attempt.current) return;
-        const r = await authPoll(dc.device_code, days);
+        let r: Poll;
+        try {
+          r = await authPoll(dc.device_code, days);
+        } catch (e) {
+          if (!String(e).startsWith(NETWORK_ERROR)) throw e;
+          if (alive.current && mine === attempt.current) setOffline(true);
+          continue;
+        }
+        if (alive.current) setOffline(false);
         if (r.status === "pending") continue;
         if (r.status === "slow_down") {
           interval = Math.max(r.interval, interval + 5);
@@ -97,6 +126,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
     attempt.current++;
     setCode(null);
     setStarting(false);
+    setOffline(false);
   }
 
   async function copy() {
@@ -132,7 +162,9 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
     return (
       <div className="gh-login">
         <p className="gh-login-lead">
-          ブラウザで GitHub が開きました。{copied ? "コードはコピーしてあるので、貼って（Ctrl+V）" : "次のコードを入れて"}「Continue」→「Authorize」を押してください。
+          ブラウザで GitHub が開きました。
+          {copied ? (isMobile ? "コードはコピーしてあるので、欄を長押しして貼り付け、" : "コードはコピーしてあるので、貼って（Ctrl+V）") : "次のコードを入れて"}「Continue」→「Authorize」を押してください。
+          {isMobile && "許可したら、このアプリに戻ってください。"}
         </p>
         <div className="gh-login-code">
           <b>{code.user_code}</b>
@@ -141,7 +173,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
           </button>
         </div>
         <p className="gh-login-wait">
-          <i className="spinner" aria-hidden="true" /> GitHub で許可されるのを待っています…（ブラウザが開かないとき：
+          <i className="spinner" aria-hidden="true" /> {offline ? "GitHub につながるのを待っています…" : "GitHub で許可されるのを待っています…"}（ブラウザが開かないとき：
           <button type="button" className="link-button" onClick={() => openUrl(code.verification_uri)}>
             {code.verification_uri.replace(/^https:\/\//, "")}
           </button>
@@ -157,7 +189,7 @@ export function GitHubLogin({ onDone, label = "GitHub でログイン", autoStar
   return (
     <div className="gh-login">
       <label className="gh-login-period">
-        この PC で使う期限
+        {THIS_DEVICE}で使う期限
         <select className="select-sm" value={days} disabled={starting}
           onChange={(e) => { const d = Number(e.target.value); setDays(d); storeLoginDays(d); }}>
           {LOGIN_PERIODS.map((p) => (

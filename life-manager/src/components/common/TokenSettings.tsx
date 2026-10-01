@@ -27,6 +27,7 @@ import { GitHubLogin } from "./GitHubLogin";
 import { RepoAccess } from "./RepoAccess";
 import { TokenEntry } from "./TokenEntry";
 import { TokenReportView } from "./TokenReportView";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface TokenSettingsProps {
   projects: Project[];
@@ -241,7 +242,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
             </button>
           ) : (
             <span className="token-confirm">
-              この PC から、あなたのトークンをすべて消します。
+              {THIS_DEVICE}から、あなたのトークンをすべて消します。
               <button type="button" className="btn-sm token-signout" onClick={signOutNow}>
                 ログアウトする
               </button>
@@ -323,7 +324,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
               </h3>
               {dialog.kind === "login" ? (
                 <>
-                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなり、この PC で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
+                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなり、{THIS_DEVICE}で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
                   <GitHubLogin label="GitHub でログイン" onDone={() => changed("GitHub にログインし直しました")} />
                 </>
               ) : dialog.kind === "default" ? (

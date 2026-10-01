@@ -4,6 +4,7 @@ import { checkToken, expiryOf, listAccounts, type SavedAccount, type TokenReport
 import { isEnter, isEscape } from "../../lib/keys";
 import { countOf } from "../../lib/count";
 import { usePortalHost } from "../../hooks/usePortalHost";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface AccountPickerProps {
   /** 今のアカウント */
@@ -201,13 +202,13 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
       {focused.kind === "saved" && (
         forgetting === focused.login ? (
           <div className="picker-forget-confirm">
-            {focused.login} を、この PC から外します（ログアウト）。もう一度ログインすれば、続きから使えます。
+            {focused.login} を、{THIS_DEVICE}から外します（ログアウト）。もう一度ログインすれば、続きから使えます。
             <button type="button" className="btn-danger" onClick={() => forget(focused.login)} disabled={!!busy}>外す</button>
             <button type="button" className="btn-sm" onClick={() => setForgetting(null)}>やめる</button>
           </div>
         ) : (
           <button type="button" className="picker-forget" onClick={() => setForgetting(focused.login)} disabled={!!busy}>
-            {focused.login} をこの PC から外す…
+            {focused.login} を{THIS_DEVICE}から外す…
           </button>
         )
       )}

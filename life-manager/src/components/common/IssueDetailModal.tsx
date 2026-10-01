@@ -21,6 +21,7 @@ import { helpDoneBody, parseHelp } from "../../lib/help";
 import { FailedChip, SendingChip } from "./Sending";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
+import { THIS_DEVICE } from "../../lib/platform";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -859,7 +860,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     ))
                   : none(),
                 <>
-                  <p className="idm-editor-hint">その時刻に、この PC（OS の通知）か Discord に知らせます。</p>
+                  <p className="idm-editor-hint">その時刻に、{THIS_DEVICE}（OS の通知）か Discord に知らせます。</p>
                   <div className="idm-field">
                     <input type="datetime-local" className="idm-input" value={reminderDatetime} onChange={(e) => setReminderDatetime(e.target.value)} />
                     <label className="chk">

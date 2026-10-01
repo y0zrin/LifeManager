@@ -2254,6 +2254,22 @@ body {
   color: var(--picker-text);
 }
 
+/* スマホ: 矢印を画面の中へ（左右の外に置くと、画面から見切れる） */
+@media (max-width: 640px) {
+  .picker-arrow {
+    padding: 0 4px;
+    font-size: 38px;
+  }
+
+  .picker-arrow.left {
+    left: 2px;
+  }
+
+  .picker-arrow.right {
+    right: 2px;
+  }
+}
+
 /* 下の帯: 一覧と「＋ リポジトリを追加…」 */
 .picker-strip {
   position: relative;
@@ -20764,6 +20780,38 @@ html.stage-still .stage-fx .fx-shoot {
 .tp-foot .picker-open {
   flex: none;
   margin-left: auto;
+}
+
+/* スマホ: 手順は今の 1 つだけ・名前と説明の下にボタン・キーの案内は出さない（キーボードがない） */
+@media (max-width: 640px) {
+  .tp .picker-top {
+    flex-wrap: wrap;
+  }
+
+  .tp-steps span:not(.on) {
+    display: none;
+  }
+
+  .tp-steps span.on {
+    white-space: nowrap;
+  }
+
+  .tp .picker-deck {
+    min-height: 430px;
+  }
+
+  .tp-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tp-foot .picker-open {
+    margin-left: 0;
+  }
+
+  .tp .picker-hint {
+    display: none;
+  }
 }
 
 /* 設定 → 表示 のテーマのカード: 選んでいるカードと、マウスを乗せたカードだけ動く */

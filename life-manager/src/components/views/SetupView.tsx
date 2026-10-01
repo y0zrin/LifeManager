@@ -10,6 +10,7 @@ import {
   setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type SavedAccount, type TokenReport, type UserRepo,
 } from "../../lib/auth";
 import { listMyInvitations, SIGNUP_URL } from "../../lib/team";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface SetupViewProps {
   /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → 接続 を開く。
@@ -432,7 +433,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         {/* この PC にしまってあるアカウント（足している途中で閉じた・ログアウトしたあとなど）に戻れる */}
         {step === 0 && !adding && onRestoreAccount && savedAccounts.length > 0 && (
           <div className="setup-saved">
-            <span>この PC でログインしたアカウントで続ける:</span>
+            <span>{THIS_DEVICE}でログインしたアカウントで続ける:</span>
             {savedAccounts.map((a) => (
               <button key={a.login} type="button" className="btn-sm setup-saved-account" disabled={restoring !== null} onClick={() => restore(a.login)}>
                 {a.avatar_url ? <img src={a.avatar_url} alt="" /> : <span aria-hidden="true">👤</span>}
@@ -445,10 +446,10 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         {step === 0 && notice && (
           <div className="setup-notice">
             {notice.kind === "expired" ? (
-              <>この PC で使う期限が来たので、ログインの鍵を消しました。もう一度ログインしてください。</>
+              <>{THIS_DEVICE}で使う期限が来たので、ログインの鍵を消しました。もう一度ログインしてください。</>
             ) : (
               <>
-                ログアウトしました（この PC から鍵を消しました）。
+                ログアウトしました（{THIS_DEVICE}から鍵を消しました）。
                 {notice.login && (
                   <>
                     GitHub での Life Manager の許可も取り消すときは{" "}

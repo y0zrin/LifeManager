@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkToken, expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, listAccounts, SIGNED_OUT_STORE, type SavedAccount, type TokenReport } from "../../lib/auth";
 import { isEscape } from "../../lib/keys";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface AccountMenuProps {
   /** ログインしている人の名前（トークンを読めない・つながっていないときは、これだけを出す） */
@@ -156,7 +157,7 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
               {report && (
                 <div className={`account-menu-sub${warn ? " warn" : ""}`}>
                   {expiry
-                    ? `${report.kind === "app" ? "この PC の期限" : "トークンの期限"} ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）`
+                    ? `${report.kind === "app" ? `${THIS_DEVICE}の期限` : "トークンの期限"} ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）`
                     : "期限なし"}
                 </div>
               )}
@@ -186,7 +187,7 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
           ) : (
             <div className="account-confirm">
               <span>
-                この PC から、{name} のログインの鍵を消します。
+                {THIS_DEVICE}から、{name} のログインの鍵を消します。
                 {others.length > 0 && `${others[0].login} に切り替わります。`}
               </span>
               <span className="account-confirm-actions">

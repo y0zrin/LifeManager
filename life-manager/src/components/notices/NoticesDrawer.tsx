@@ -3,6 +3,7 @@ import { NOTICE_COLORS, NOTICE_GROUPS, NOTICE_LABELS, dayHead, hhmm, type Notice
 import { parseHelp } from "../../lib/help";
 import { isEscape } from "../../lib/keys";
 import { HelpContextBox } from "./HelpParts";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface NoticesDrawerProps {
   /** りれき（新しい順） */
@@ -74,7 +75,7 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
       <div className="nt-drawer-head">
         <h2>🔔 おしらせ</h2>
         <button type="button" className="nt-drawer-x" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
-        <p>届いた知らせを、日ごとに残しています（60 日まで。この PC に）。押すと、そのときの詳しい中身が開きます</p>
+        <p>届いた知らせを、日ごとに残しています（60 日まで。{THIS_DEVICE}に）。押すと、そのときの詳しい中身が開きます</p>
       </div>
       <div className="nt-chips" role="group" aria-label="絞り込み">
         {NOTICE_GROUPS.map((g) => (

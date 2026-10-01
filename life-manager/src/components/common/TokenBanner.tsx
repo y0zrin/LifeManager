@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { checkToken, expiryOf, EXPIRY_WARN_DAYS } from "../../lib/auth";
+import { THIS_DEVICE } from "../../lib/platform";
 
 interface TokenBannerProps {
   owner: string;
@@ -25,7 +26,7 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
         else if (expiry && expiry.days <= EXPIRY_WARN_DAYS) {
           setText(
             report.kind === "app"
-              ? `この PC で使うログインの期限まで、あと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
+              ? `${THIS_DEVICE}で使うログインの期限まで、あと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
               : `${owner}/${repo} で使うトークンは、あと ${expiry.days} 日で期限が切れます（${report.login}）。`,
           );
         }

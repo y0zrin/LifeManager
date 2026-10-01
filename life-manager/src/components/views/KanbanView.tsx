@@ -141,6 +141,8 @@ function Fishes({ seed }: { seed: number }) {
           top: `${f.y - (seed % 3) * 7}%`,
           "--dx": `${f.dx}px`,
           "--dy": `${f.dy}px`,
+          // 絵は右向き。はじめに左へ進む金魚は、左を向いて泳ぎ出す
+          "--face": f.dx < 0 ? -1 : 1,
           "--t": `${f.t + (seed % 3)}s`,
           "--d": `${f.d - seed * 1.3}s`,
         } as CSSProperties;

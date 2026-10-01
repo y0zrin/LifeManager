@@ -5,20 +5,28 @@
 //! メインの窓の × は、設定でインジケーターに残す（はじめはこれ）か、終了する。スマホ版では、どれも何もしない
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+#[cfg(desktop)]
+use tauri::Manager;
 
+#[cfg(desktop)]
 pub const NOTICE_LABEL: &str = "notice";
+#[cfg(desktop)]
 const MAIN_LABEL: &str = "main";
 /// おしらせの窓の幅（画面の点。拡大率は掛ける）と、画面の端からの間
+#[cfg(desktop)]
 const NOTICE_WIDTH: f64 = 440.0;
+#[cfg(desktop)]
 const NOTICE_MARGIN: f64 = 12.0;
 /// 知らせがないときに置いておく所（どの画面にもかからない。物理の点）
+#[cfg(desktop)]
 const PARKED: i32 = -30000;
 
 /// × を押したとき、インジケーターに残すか（はじめは残す。画面の設定から変える）
 static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 
-/// メインの窓を前に出す（隠していれば出し、最小化していれば戻す）
+/// メインの窓を前に出す（隠していれば出し、最小化していれば戻す）。スマホでは何もしない（窓は 1 つで、いつも前）
+#[cfg(desktop)]
 pub fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(MAIN_LABEL) {
         set_webview_visible(&w, true);
@@ -27,6 +35,9 @@ pub fn show_main(app: &AppHandle) {
         let _ = w.set_focus();
     }
 }
+
+#[cfg(not(desktop))]
+pub fn show_main(_app: &AppHandle) {}
 
 /// WebView2 に、見えているかを伝える。隠した・最小化した窓では false にして、描くのを止める
 /// （wry は窓を隠しても見えている扱いのまま描き続ける。false のあいだも JavaScript は動く〔おしらせの問い合わせは続く〕。
@@ -38,7 +49,7 @@ pub fn set_webview_visible(w: &tauri::WebviewWindow, visible: bool) {
     });
 }
 
-#[cfg(not(windows))]
+#[cfg(all(desktop, not(windows)))]
 pub fn set_webview_visible(_w: &tauri::WebviewWindow, _visible: bool) {}
 
 /// 起動したときに: おしらせの窓（隠しておく）・インジケーター・メインの窓の × の扱い
@@ -126,7 +137,15 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-/// おしらせの窓の高さを中身に合わせ、選んだ角に置く（0 なら画面の外へ退ける）。height は画面の点（CSS の px）
+/// おしらせの窓の高さを中身に合わせ、選んだ角に置く（0 なら画面の外へ退ける）。height は画面の点（CSS の px）。
+/// スマホにはおしらせの窓がないので、何もしない
+#[cfg(not(desktop))]
+#[tauri::command]
+pub fn notice_fit(_app: AppHandle, _height: f64, _corner: String) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(desktop)]
 #[tauri::command]
 pub fn notice_fit(app: AppHandle, height: f64, corner: String) -> Result<(), String> {
     let Some(w) = app.get_webview_window(NOTICE_LABEL) else { return Ok(()) };

@@ -29,6 +29,8 @@ export function useActivity(
   const [checks, setChecks] = useState<Record<string, CheckSummary>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // プルリクと、自分のプルリクの承認・修正の依頼・チェックまで読めたか（おしらせが、消えたものの覚えを外してよいか）
+  const [pullsSettled, setPullsSettled] = useState(false);
   const seenKey = `activity-seen:${owner}/${repo}`;
   const [seen, setSeen] = useState<string[]>(() => loadSeen(seenKey));
   const target = useRef(`${owner}/${repo}`);
@@ -47,12 +49,23 @@ export function useActivity(
       setError(null);
       // 自分のプルリクの、承認・修正の依頼とチェック（どちらも読めなければ出さない）
       const mine = (f.pulls ?? []).filter((p) => p.user.toLowerCase() === me.toLowerCase());
-      if (mine.length > 0) {
-        pullVerdicts(owner, repo, mine.map((p) => p.number)).then((v) => target.current === key && setVerdicts(v)).catch(() => {});
-        commitsChecks(owner, repo, mine.map((p) => p.head_sha)).then((c) => target.current === key && setChecks(c)).catch(() => {});
+      if (f.pulls === null) {
+        setPullsSettled(false);
+      } else if (mine.length > 0) {
+        const v = pullVerdicts(owner, repo, mine.map((p) => p.number)).then((v) => {
+          if (target.current === key) setVerdicts(v);
+        });
+        const c = commitsChecks(owner, repo, mine.map((p) => p.head_sha)).then((c) => {
+          if (target.current === key) setChecks(c);
+        });
+        Promise.all([v, c]).then(
+          () => target.current === key && setPullsSettled(true),
+          () => target.current === key && setPullsSettled(false),
+        );
       } else {
         setVerdicts({});
         setChecks({});
+        setPullsSettled(true);
       }
     } catch (e) {
       if (target.current === key) setError(String(e));
@@ -65,6 +78,7 @@ export function useActivity(
     setFeed(null);
     setVerdicts({});
     setChecks({});
+    setPullsSettled(false);
     setError(null);
     if (enabled) load();
   }, [enabled, load]);
@@ -108,7 +122,7 @@ export function useActivity(
     [seen, seenKey],
   );
 
-  return { feed: filled, error, loading, reload: load, todos, all, dismiss };
+  return { feed: filled, error, loading, reload: load, todos, all, dismiss, pullsSettled };
 }
 
 export type ActivityState = ReturnType<typeof useActivity>;

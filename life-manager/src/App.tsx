@@ -638,6 +638,8 @@ function App() {
     me: gh.currentUser,
     // ヒストリーを読めてから（読む前の「あなたがすること」は、期限などだけ）
     todos: activity.feed ? activity.all : null,
+    shown: activity.todos.length,
+    pullsSettled: activity.pullsSettled,
     enabled: gh.connected && !isMobile && !initializing,
     corner: display.settings.noticeCorner,
     onOpen: openNotice,

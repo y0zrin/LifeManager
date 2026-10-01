@@ -233,7 +233,9 @@ export function buildTodos(o: {
     if (days > 3) continue;
     const ref: Part = { kind: "issue", number: i.number, title: i.title };
     const when = days < 0 ? ` の期限が ${-days} 日過ぎています` : days === 0 ? " の期限が今日です" : days === 1 ? " の期限が明日です" : ` の期限まであと ${days} 日です`;
-    out.push({ key: `due:${i.number}:${due.date}`, icon: "📅", tone: days < 0 ? "ng" : days <= 1 ? "warn" : "", parts: ["担当の ", ref, when], at: null, target: { kind: "issue", number: i.number }, order: days < 0 ? 1 : 3 });
+    // もうすぐ・今日・過ぎた、の段階ごとに鍵を変える（段階が変わると、また出る・また知らせる）
+    const stage = days < 0 ? "over" : days === 0 ? "today" : "soon";
+    out.push({ key: `due:${i.number}:${due.date}:${stage}`, icon: "📅", tone: days < 0 ? "ng" : days <= 1 ? "warn" : "", parts: ["担当の ", ref, when], at: null, target: { kind: "issue", number: i.number }, order: days < 0 ? 1 : 3 });
   }
 
   for (const c of o.stack?.cards ?? []) {

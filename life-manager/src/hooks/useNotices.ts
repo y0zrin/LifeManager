@@ -10,8 +10,8 @@ import {
   milestoneNotice,
   newNoticeId,
   noticeFromTodo,
-  noticeKeyOf,
   noticeStoreKey,
+  planNotices,
   readNoticeStore,
   saveNotice,
   setNoticeUser,
@@ -45,6 +45,10 @@ export function useNotices(o: {
   me: string;
   /** 「あなたがすること」（ぜんぶ。まだ読めていなければ null） */
   todos: Todo[] | null;
+  /** ヒストリーの「あなたがすること」に出ている数（見たものを除く。サイドバーの数と同じ。起動のときのまとめに出す） */
+  shown: number;
+  /** プルリクと、自分のプルリクの承認・修正の依頼まで読めたか（読めたときだけ、消えたレビュー・修正の依頼・承認の覚えを外す） */
+  pullsSettled: boolean;
   enabled: boolean;
   corner: NoticeCorner;
   /** 知らせの「開く」（その Issue・プルリク・Actions・画面へ） */
@@ -52,7 +56,9 @@ export function useNotices(o: {
   /** おしらせの窓の「ほか N 件」（りれきを開く） */
   onOpenHistory: () => void;
 }) {
-  const { repo, todos, enabled, me } = o;
+  const { repo, todos, enabled, me, pullsSettled } = o;
+  const shown = useRef(o.shown);
+  shown.current = o.shown;
   // 覚える鍵に使う人（読み書きの前に決めておく）
   setNoticeUser(me);
   const [history, setHistory] = useState<Notice[]>(() => loadNotices(repo));
@@ -86,25 +92,18 @@ export function useNotices(o: {
 
   // 「あなたがすること」に新しく出てきたもの（落ち着くのを待ってから）
   useEffect(() => {
-    if (!enabled || !todos || !repo) return;
+    if (!enabled || !todos || !repo || !me) return;
     const t = window.setTimeout(() => {
-      const known = new Set(loadNotified(repo));
-      const seen = new Set<string>();
-      const fresh = todos.filter((todo) => {
-        const key = noticeKeyOf(todo.key);
-        if (known.has(key) || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const { fresh, store } = planNotices(todos, loadNotified(repo), pullsSettled);
       const first = !started.current.has(`${me}@${repo}`);
       started.current.add(`${me}@${repo}`);
+      if (store) saveNotified(repo, store);
       if (fresh.length === 0) return;
-      saveNotified(repo, [...known, ...seen]);
       // 大事なもの（並びの上）が、いちばん上に来るよう、下から知らせる
       const helps = fresh.filter((todo) => todo.key.startsWith("help:"));
       const rest = fresh.filter((todo) => !todo.key.startsWith("help:"));
       if (first && rest.length > 1) {
-        void deliver(summaryNotice(rest.length, repo));
+        void deliver(summaryNotice(shown.current, fresh.length, repo));
       } else {
         for (const todo of [...rest].reverse()) void deliver(noticeFromTodo(todo, repo));
       }
@@ -112,7 +111,7 @@ export function useNotices(o: {
       for (const todo of [...helps].reverse()) void deliver(noticeFromTodo(todo, repo));
     }, SETTLE_MS);
     return () => window.clearTimeout(t);
-  }, [todos, enabled, repo, deliver]);
+  }, [todos, enabled, repo, me, pullsSettled, deliver]);
 
   // マイルストーンの達成（アプリの中では大きく祝うので、窓を隠している・ほかの窓を使っているときだけ出す）
   useEffect(() => {

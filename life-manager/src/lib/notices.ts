@@ -3,6 +3,7 @@
 import { emitTo } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Part, Todo } from "./activity";
+import { countOf } from "./count";
 import { helpSummary } from "./help";
 
 export type NoticeKind =
@@ -119,11 +120,37 @@ function kindOfTodo(key: string): NoticeKind {
 
 /**
  * 知らせたかを覚える鍵。「あなたがすること」の鍵には、プルリクが動くたびに変わる時刻が入るもの（レビュー・修正の依頼・承認）があるので、
- * それはプルリクごとに 1 回だけ知らせる。チェックの失敗（コミットごと）・Actions（実行ごと）・名前を呼ばれた（コメントごと）は、そのまま
+ * それはプルリクごとに 1 回だけ知らせる（「あなたがすること」から消えたら覚えを外すので、また頼まれたら、また知らせる）。
+ * チェックの失敗（コミットごと）・Actions（実行ごと）・名前を呼ばれた（コメントごと）・期限（段階ごと）は、そのまま
  */
 export function noticeKeyOf(todoKey: string): string {
   const [head, number] = todoKey.split(":");
   return head === "review" || head === "changes" || head === "approved" ? `${head}:${number}` : todoKey;
+}
+
+/** プルリクごとに 1 回の知らせの鍵か（レビュー・修正の依頼・承認） */
+export function isPerPullNoticeKey(key: string): boolean {
+  return /^(review|changes|approved):\d+$/.test(key);
+}
+
+/**
+ * 何を知らせるかを決める: 今の「あなたがすること」と、知らせた鍵の覚え（stored）から、新しく知らせるもの（fresh）と、次に覚える鍵（変わらなければ null）。
+ * レビュー・修正の依頼・承認は、「あなたがすること」から消えたら覚えを外す（また頼まれたら、また知らせる）。
+ * 承認・修正の依頼は読むのが遅れて届くので、外すのは読めたとき（pullsSettled）だけ。読めていないのに外すと、届いたときにまた知らせてしまう
+ */
+export function planNotices(todos: Todo[], stored: string[], pullsSettled: boolean): { fresh: Todo[]; store: string[] | null } {
+  const now = new Set(todos.map((todo) => noticeKeyOf(todo.key)));
+  const kept = pullsSettled ? stored.filter((key) => !isPerPullNoticeKey(key) || now.has(key)) : stored;
+  const known = new Set(kept);
+  const seen = new Set<string>();
+  const fresh = todos.filter((todo) => {
+    const key = noticeKeyOf(todo.key);
+    if (known.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const changed = fresh.length > 0 || kept.length !== stored.length;
+  return { fresh, store: changed ? [...known, ...seen] : null };
 }
 
 /** 「あなたがすること」の 1 つを、知らせに */
@@ -151,16 +178,20 @@ export function noticeFromTodo(todo: Todo, repo: string): Notice {
   };
 }
 
-/** 起動したときに、たまっていた「あなたがすること」を 1 つにまとめた知らせ（🆘 は、まとめずに 1 つずつ） */
-export function summaryNotice(count: number, repo: string): Notice {
+/**
+ * 起動したときに、たまっていた「あなたがすること」を 1 つにまとめた知らせ（🆘 は、まとめずに 1 つずつ）。
+ * total はヒストリーの「あなたがすること」に出ている数（サイドバーの数と同じ）、fresh はそのうち新しく出てきた数
+ */
+export function summaryNotice(total: number, fresh: number, repo: string): Notice {
+  const all = Math.max(total, fresh);
   return {
     id: newNoticeId(),
     key: `summary:${Date.now()}`,
     kind: "summary",
     icon: "📰",
     tone: "",
-    title: `あなたがすることが ${count} 件あります`,
-    body: "ヒストリーの「あなたがすること」で見られます",
+    title: `あなたがすることが ${countOf(all, "件")}あります`,
+    body: `${fresh < all ? `新しく ${countOf(fresh, "件")} ・ ` : ""}ヒストリーの「あなたがすること」で見られます`,
     at: new Date().toISOString(),
     repo,
     target: { kind: "view", view: "activity" },

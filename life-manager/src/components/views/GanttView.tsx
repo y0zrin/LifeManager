@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
-import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows } from "../../lib/ganttParser";
+import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows, parseDependencies } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
-import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
+import { GanttRenderer, dateToDays, computeCriticalPath, relatedOf, type EdgeExit } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
-import { planArrows } from "../../lib/ganttArrows";
+import { arrowKey, planArrows } from "../../lib/ganttArrows";
+import { isEscape } from "../../lib/keys";
 import { useDismiss } from "../../hooks/useDismiss";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 
@@ -34,6 +35,40 @@ function formatDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** 端の札が前と同じか（同じなら描き直しのたびに画面を作り直さない） */
+function sameExits(a: EdgeExit[], b: EdgeExit[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((e, i) => e.partner === b[i].partner && e.kind === b[i].kind && e.edge === b[i].edge && Math.round(e.x) === Math.round(b[i].x) && Math.round(e.y) === Math.round(b[i].y))
+  );
+}
+
+/** 「2026-10-12」→「10/12」 */
+function md(date: string): string {
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
+/** 札に出す題名（長ければ切る） */
+function shortTitle(title: string, max = 14): string {
+  return title.length > max ? title.slice(0, max - 1) + "…" : title;
+}
+
+/** 下の帯の 1 行に出す札の数（ほかは「ほか N つ」。札にマウスを乗せると題名が全部出る） */
+const LINKS_PER_LINE = 6;
+
+/** 下の帯に出す、先行・後続の相手 */
+interface Link {
+  n: number;
+  title: string;
+  /** 帯がない理由（帯があれば null。押して送れない） */
+  reason: string | null;
+  /** ふだん省いている矢印（乗せたときだけ点線で出す） */
+  redundant: boolean;
+  /** 順番が逆（後続が、先行の終わる前にはじまる） */
+  broken: boolean;
 }
 
 export function GanttView({
@@ -75,8 +110,26 @@ export function GanttView({
     if (nearest) setSelectedMilestone(nearest.number);
   }, [milestones, selectedMilestone]);
 
-  // マウスが乗っているタスク（帯か左の一覧の行）。そのタスクに出入りする矢印を目立たせる
+  // マウスが乗っているタスク（帯か左の一覧の行）。そのタスクに出入りする矢印を目立たせる。
+  // 帯から離れても、ほかの帯に乗るか、ガントの外へ出るか、何もない所を押すまでは続ける（下の帯や端の札を押せるように）
   const [focusIssue, setFocusIssue] = useState<number | null>(null);
+  // 押して固定したタスク（詳細を閉じたあとも目立たせたまま。何もない所を押す・Esc・下の帯の ✕ で外す）
+  const [pinnedIssue, setPinnedIssue] = useState<number | null>(null);
+  const focus = focusIssue ?? pinnedIssue;
+  // ガントの外へ出たら、少し待ってから乗せていたのを外す（札や下の帯へ動かすあいだに外れないように）
+  const leaveTimer = useRef<number | null>(null);
+  const cancelLeave = () => {
+    if (leaveTimer.current !== null) {
+      window.clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
+  };
+  const scheduleLeave = () => {
+    cancelLeave();
+    leaveTimer.current = window.setTimeout(() => setFocusIssue(null), 200);
+  };
+  // 相手が画面の外にある矢印の、画面の端から出ていくところ（札を出す）
+  const [edgeExits, setEdgeExits] = useState<EdgeExit[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const taskListRef = useRef<HTMLDivElement>(null);
@@ -220,8 +273,9 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue, arrowPlan);
-  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focusIssue, arrowPlan]);
+    const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan);
+    setEdgeExits((prev) => (sameExits(prev, exits) ? prev : exits));
+  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focus, arrowPlan]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -244,10 +298,9 @@ export function GanttView({
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
   const [canvasCursor, setCanvasCursor] = useState("grab");
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; task: typeof ganttTasks[0] } | null>(null);
 
   const handleMouseMoveCanvas = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (dragging) { setTooltip(null); return; }
+    if (dragging) return;
     const renderer = rendererRef.current;
     if (!renderer) return;
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -255,16 +308,13 @@ export function GanttView({
     const cy = e.clientY - rect.top;
     const hit = renderer.hitTestBar(cx, cy, ganttTasks, config, scrollX, scrollY);
     if (!hit) {
+      // 帯から離れても、乗せていたタスクはそのまま（矢印をたどって、相手や札まで動かせるように）
       setCanvasCursor("grab");
-      setTooltip(null);
-      setFocusIssue(null);
       return;
     }
     if (hit.part === "move") setCanvasCursor("move");
     else setCanvasCursor("col-resize");
-    const task = ganttTasks[hit.taskIndex];
-    setTooltip({ x: e.clientX, y: e.clientY, task });
-    setFocusIssue(task.issueNumber);
+    setFocusIssue(ganttTasks[hit.taskIndex].issueNumber);
   }, [ganttTasks, config, scrollX, scrollY, dragging]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -344,7 +394,7 @@ export function GanttView({
         if (renderer && canvasSize.width > 0) {
           const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
           const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
-          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue, arrowPlan);
+          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan);
         }
       }
     };
@@ -372,7 +422,7 @@ export function GanttView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focusIssue, arrowPlan]);
+  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focus, arrowPlan]);
 
   // 仮の帯を押したときの吹き出し（この日程で決める・詳細を開く）
   const [tentativePop, setTentativePop] = useState<{ x: number; y: number; flipX: boolean; flipY: boolean; task: typeof ganttTasks[0] } | null>(null);
@@ -400,10 +450,17 @@ export function GanttView({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const issueNum = renderer.hitTest(x, y, ganttTasks, config, scrollX, scrollY);
-    if (issueNum !== null) {
+    if (issueNum === null) {
+      // 何もない所を押したら、乗せていたのも固定も外す
+      setFocusIssue(null);
+      setPinnedIssue(null);
+      return;
+    }
+    {
+      // 押したタスクは固定する（詳細を閉じたあとも、そのタスクの矢印を目立たせたまま）
+      setPinnedIssue(issueNum);
       const task = ganttTasks.find((t) => t.issueNumber === issueNum);
       if (task?.tentative) {
-        setTooltip(null);
         // 吹き出しは幅 300px・高さ 140px ほど。入りきらない側では向きを変える
         setTentativePop({ x, y, flipX: x > canvasSize.width - 330, flipY: y > canvasSize.height - 160, task });
         return;
@@ -411,6 +468,83 @@ export function GanttView({
       onSelectIssue(issueNum);
     }
   }, [ganttTasks, config, scrollX, scrollY, onSelectIssue, canvasSize]);
+
+  // 乗せたタスクの先行・後続（帯のある相手。左の一覧の札に使う）
+  const rel = useMemo(() => (focus === null ? null : relatedOf(ganttTasks, focus)), [ganttTasks, focus]);
+
+  // 下の帯に出す、先行・後続の一覧（帯のない相手も、なぜ帯がないかを添えて出す）
+  const links = useMemo(() => {
+    if (focus === null) return null;
+    const self = ganttTasks.find((t) => t.issueNumber === focus);
+    if (!self) return null;
+    const taskOf = new Map(ganttTasks.map((t) => [t.issueNumber, t]));
+    const inMilestone = new Set(allIssues.map((i) => i.number));
+    const every = [...issues, ...closedIssues];
+    const issueOf = new Map(every.map((i) => [i.number, i]));
+    const reasonOf = (n: number): string | null => {
+      const t = taskOf.get(n);
+      if (t?.startDate && t.endDate) return null;
+      const issue = issueOf.get(n);
+      if (!issue) return "見つからない";
+      if (issue.state === "closed") return "閉じた";
+      if (!inMilestone.has(n)) return "ほかのマイルストーン";
+      if (!t) return "絞り込みで隠れている";
+      return "日程なし";
+    };
+    const link = (n: number, kind: "pred" | "succ"): Link => {
+      const t = taskOf.get(n);
+      const reason = reasonOf(n);
+      // 先行の終わる日より前（同じ日も）に、後続がはじまる
+      const [before, after] = kind === "pred" ? [t, self] : [self, t];
+      const broken = !reason && !!before?.endDate && !!after?.startDate && dateToDays(after.startDate) <= dateToDays(before.endDate);
+      return {
+        n,
+        title: issueOf.get(n)?.title ?? t?.title ?? "",
+        reason,
+        redundant: arrowPlan.redundant.has(kind === "pred" ? arrowKey(n, focus) : arrowKey(focus, n)),
+        broken,
+      };
+    };
+    const preds = [...new Set(self.dependencies)].filter((n) => n !== focus).map((n) => link(n, "pred"));
+    const succNums = every.filter((i) => i.number !== focus && parseDependencies(i.body).includes(focus)).map((i) => i.number);
+    const succs = [...new Set(succNums)].sort((a, b) => a - b).map((n) => link(n, "succ"));
+    return { self, preds, succs };
+  }, [focus, ganttTasks, allIssues, issues, closedIssues, arrowPlan]);
+
+  /** 相手の行まで送る（送ったあとも、乗せていたタスクの矢印を目立たせたままにする） */
+  const jumpTo = useCallback((n: number) => {
+    const idx = ganttTasks.findIndex((t) => t.issueNumber === n);
+    if (idx < 0) return;
+    if (focus !== null) setPinnedIssue(focus);
+    const maxY = Math.max(0, ganttTasks.length * ROW_HEIGHT - canvasSize.height + HEADER_HEIGHT);
+    setScrollY(Math.min(maxY, Math.max(0, idx * ROW_HEIGHT - (canvasSize.height - HEADER_HEIGHT) / 2)));
+    const t = ganttTasks[idx];
+    if (t.startDate) {
+      const x = (dateToDays(t.startDate) - dateToDays(dateRange.start) - 3) * TIME_SCALE_CONFIG[timeScale].pixelsPerDay;
+      setScrollX(Math.min(maxScrollX, Math.max(0, x)));
+    }
+  }, [ganttTasks, focus, canvasSize.height, dateRange.start, timeScale, maxScrollX]);
+
+  // Esc で、乗せていたのと固定を外す（詳細や吹き出しが開いているときは、そちらを閉じるだけ）
+  useEffect(() => {
+    if (focus === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!isEscape(e) || document.querySelector(".palette-overlay, [aria-modal='true'], .popover")) return;
+      setFocusIssue(null);
+      setPinnedIssue(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focus]);
+
+  // マイルストーンを変えたら外す。固定したタスクがガントから消えたら外す
+  useEffect(() => {
+    setFocusIssue(null);
+    setPinnedIssue(null);
+  }, [selectedMilestone]);
+  useEffect(() => {
+    if (pinnedIssue !== null && !ganttTasks.some((t) => t.issueNumber === pinnedIssue)) setPinnedIssue(null);
+  }, [ganttTasks, pinnedIssue]);
 
   // Unique assignees and label categories for filters
   const assignees = useMemo(() => {
@@ -523,6 +657,7 @@ export function GanttView({
       ) : ganttTasks.length === 0 ? (
         <div className="empty-message">該当するIssueがありません</div>
       ) : (
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} onMouseEnter={cancelLeave} onMouseLeave={scheduleLeave}>
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", borderTop: "1px solid var(--border-default)" }}>
           {/* Task list (left panel) */}
           <div
@@ -555,9 +690,13 @@ export function GanttView({
             <div ref={taskListRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
               {ganttTasks.slice(visibleStartRow, visibleEndRow).map((task, idx) => {
                 const rowIdx = visibleStartRow + idx;
+                // 乗せたタスクと、その先行・後続の行には札（線をたどらなくても、名前で読める）
+                const relKind = rel === null ? null : task.issueNumber === rel.focus ? "focus" : rel.preds.has(task.issueNumber) ? "pred" : rel.succs.has(task.issueNumber) ? "succ" : null;
+                const relLabel = relKind === "focus" ? (focusIssue === null ? "固定" : "乗せている") : relKind === "pred" ? "先行" : relKind === "succ" ? "後続" : null;
                 return (
                   <div
                     key={task.issueNumber}
+                    className={relKind ? `gantt-row-${relKind}` : undefined}
                     style={{
                       position: "absolute",
                       top: rowIdx * ROW_HEIGHT - scrollY,
@@ -573,9 +712,11 @@ export function GanttView({
                       cursor: "pointer",
                       overflow: "hidden",
                     }}
-                    onClick={() => onSelectIssue(task.issueNumber)}
+                    onClick={() => {
+                      setPinnedIssue(task.issueNumber);
+                      onSelectIssue(task.issueNumber);
+                    }}
                     onMouseEnter={() => setFocusIssue(task.issueNumber)}
-                    onMouseLeave={() => setFocusIssue(null)}
                   >
                     <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{issueRef(task.issueNumber)}</span>
                     <span style={{
@@ -588,6 +729,7 @@ export function GanttView({
                     }}>
                       {task.title}
                     </span>
+                    {relLabel && <span className={`gantt-rel ${relKind}`}>{relLabel}</span>}
                     {task.estimate && <span className="est-chip gantt-est">{task.estimate}</span>}
                     {task.tentative && <span className="gantt-kari" title="日程が決まっていないので、見積もりから仮に置いています">仮</span>}
                     {!task.startDate && !task.estimate && task.state === "open" && (
@@ -651,32 +793,30 @@ export function GanttView({
                 onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMoveCanvas}
-                onMouseLeave={() => {
-                  setTooltip(null);
-                  setFocusIssue(null);
-                }}
                 onClick={handleCanvasClick}
               />
-              {tooltip && (
-                <div className="gantt-tooltip" style={{
-                  left: tooltip.x - (canvasRef.current?.getBoundingClientRect().left ?? 0) + 12,
-                  top: tooltip.y - (canvasRef.current?.getBoundingClientRect().top ?? 0) - 8,
-                }}>
-                  <div className="gantt-tooltip-title">{issueRef(tooltip.task.issueNumber)} {tooltip.task.title}</div>
-                  {tooltip.task.startDate && tooltip.task.endDate && (
-                    <div className="gantt-tooltip-dates">
-                      {tooltip.task.tentative && "仮に "}{tooltip.task.startDate} 〜 {tooltip.task.endDate}
-                    </div>
-                  )}
-                  {tooltip.task.tentative && (
-                    <div className="gantt-tooltip-dates">見積もり {tooltip.task.estimate} から仮に置いています（押すと決められます）</div>
-                  )}
-                  <div className="gantt-tooltip-progress">進捗: {tooltip.task.progressValue}%</div>
-                  {tooltip.task.assignees.length > 0 && (
-                    <div className="gantt-tooltip-assignees">担当: {tooltip.task.assignees.map(a => a.login).join(", ")}</div>
-                  )}
-                </div>
-              )}
+              {edgeExits.map((ex) => {
+                const partner = ganttTasks.find((t) => t.issueNumber === ex.partner);
+                const arrow = { top: "↑", bottom: "↓", left: "←", right: "→" }[ex.edge];
+                const x = Math.min(canvasSize.width - 70, Math.max(70, ex.x));
+                const style: React.CSSProperties =
+                  ex.edge === "top" ? { left: x, top: HEADER_HEIGHT + 4, transform: "translateX(-50%)" }
+                  : ex.edge === "bottom" ? { left: x, bottom: 4, transform: "translateX(-50%)" }
+                  : ex.edge === "left" ? { left: 4, top: ex.y, transform: "translateY(-50%)" }
+                  : { right: 4, top: ex.y, transform: "translateY(-50%)" };
+                return (
+                  <button
+                    key={`${ex.kind}:${ex.partner}`}
+                    type="button"
+                    className={`gantt-edge ${ex.kind}`}
+                    style={style}
+                    title="押すと、その行まで送ります"
+                    onClick={() => jumpTo(ex.partner)}
+                  >
+                    {arrow} {ex.kind === "pred" ? "先行" : "後続"} {issueRef(ex.partner)} {partner ? shortTitle(partner.title) : ""} へ
+                  </button>
+                );
+              })}
               {tentativePop && (
                 <div ref={tentativePopRef} className="gantt-tentative-pop popover" style={{
                   // 右端・下端の近くでは、押した所の左・上に出す（絵の枠で切れないように）
@@ -697,6 +837,64 @@ export function GanttView({
               )}
             </div>
           </div>
+        </div>
+        {/* 下の帯: 乗せた（固定した）タスクの詳しいことと、先行・後続（帯のそばのカードは矢印にかぶるので、ここに出す） */}
+        <div className="gantt-info">
+          {links ? (
+            <>
+              <div className="gantt-info-head">
+                <span className="gantt-info-title">{issueRef(links.self.issueNumber)} {links.self.title}</span>
+                <span className="gantt-info-meta">
+                  {[
+                    links.self.startDate && links.self.endDate
+                      ? `${links.self.tentative ? "仮に " : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}`
+                      : "日程なし",
+                    links.self.estimate ? `見積 ${links.self.estimate}` : null,
+                    `進み ${links.self.progressValue}%`,
+                    links.self.assignees.length > 0 ? `担当 ${links.self.assignees.map((a) => a.login).join(", ")}` : "担当なし",
+                  ]
+                    .filter(Boolean)
+                    .join(" ・ ")}
+                </span>
+                {pinnedIssue !== null && (
+                  <button type="button" className="btn-sm gantt-info-pin" title="固定をやめます（Esc か、何もない所を押しても外れます）" onClick={() => { setPinnedIssue(null); setFocusIssue(null); }}>
+                    📌 {issueRef(pinnedIssue)} を固定中 ✕
+                  </button>
+                )}
+              </div>
+              {(["pred", "succ"] as const).map((kind) => {
+                const list = kind === "pred" ? links.preds : links.succs;
+                return (
+                  <div key={kind} className="gantt-info-links">
+                    <span className={`gantt-info-label ${kind}`}>{kind === "pred" ? "先行" : "後続"}</span>
+                    {list.length === 0 && <span>なし</span>}
+                    {list.slice(0, LINKS_PER_LINE).map((l) => (
+                      <span key={l.n} style={{ display: "contents" }}>
+                        <button
+                          type="button"
+                          className={`gantt-link ${l.reason ? "off" : kind}`}
+                          disabled={l.reason !== null}
+                          title={l.reason ? `${issueRef(l.n)} ${l.title}（${l.reason}。ガントに帯がありません）` : `${issueRef(l.n)} ${l.title}（押すと、その行まで送ります）`}
+                          onClick={() => jumpTo(l.n)}
+                        >
+                          {issueRef(l.n)} {shortTitle(l.title, 10)}
+                          {l.redundant ? "（点線）" : ""}
+                          {l.reason ? `（${l.reason}）` : ""}
+                        </button>
+                        {l.broken && <span className="gantt-link-warn" title={kind === "pred" ? "この先行が終わる前に、このタスクがはじまります" : "このタスクが終わる前に、この後続がはじまります"}>順番が逆</span>}
+                      </span>
+                    ))}
+                    {list.length > LINKS_PER_LINE && (
+                      <span title={list.slice(LINKS_PER_LINE).map((l) => `${issueRef(l.n)} ${l.title}`).join("\n")}>ほか {list.length - LINKS_PER_LINE} つ</span>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <span>帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）</span>
+          )}
+        </div>
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@ import { NoticeApp } from "./components/notices/NoticeApp";
 import { StageFx } from "./components/common/StageFx";
 import { loadDisplaySettings, stageMoves } from "./hooks/useDisplaySettings";
 import { applyStageMotion, applyTheme } from "./lib/theme";
+import { startIdleWatch } from "./lib/idle";
 
 // 描く前にテーマを当てる（明るいテーマで、起動のときに暗い色が一瞬出ないように）
 const display = loadDisplaySettings();
@@ -23,6 +24,9 @@ function windowLabel(): string {
 }
 
 const isNotice = windowLabel() === "notice";
+
+// 窓が前面にない・最小化・隠れているあいだは、くり返し動くアニメーションを止める（メインの窓だけ）
+if (!isNotice) startIdleWatch();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

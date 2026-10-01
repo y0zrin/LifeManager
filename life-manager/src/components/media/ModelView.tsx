@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { extOf } from "../../lib/media";
+import { isIdle } from "../../lib/idle";
 
 interface ModelViewProps {
   bytes: ArrayBuffer;
@@ -135,12 +136,19 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
 
         const mixer = clips.length ? new THREE.AnimationMixer(root) : null;
         let action: import("three").AnimationAction | null = null;
+        // 描き直しが要るか（動かした・見た目を変えた・大きさが変わった）。止まっている見本は描き直さない
+        let dirty = true;
+        const need = () => {
+          dirty = true;
+        };
+        controls.addEventListener("change", need);
         const resize = () => {
           const w = host.clientWidth;
           const h = host.clientHeight;
           renderer.setSize(w, h);
           camera.aspect = w / Math.max(1, h);
           camera.updateProjectionMatrix();
+          need();
         };
         const ro = new ResizeObserver(resize);
         ro.observe(host);
@@ -148,21 +156,28 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
         const clock = new THREE.Clock();
         let raf = 0;
         const loop = () => {
-          const dt = clock.getDelta();
-          mixer?.update(dt);
-          controls.update();
-          renderer.render(scene, camera);
           raf = requestAnimationFrame(loop);
+          const dt = clock.getDelta();
+          // だれも操作していない（窓が前面にない・隠れている）あいだは描かない
+          if (isIdle()) return;
+          const playing = !!(mixer && action && mixer.timeScale !== 0);
+          if (playing) mixer?.update(dt);
+          // 指を離したあとのすべり（ダンピング）と自動回転のあいだは、update() が true を返す
+          const moved = controls.update();
+          if (playing || moved || dirty) {
+            renderer.render(scene, camera);
+            dirty = false;
+          }
         };
         raf = requestAnimationFrame(loop);
 
         apiRef.current = {
-          setWire: (on) => materials.forEach((m) => { (m as import("three").MeshStandardMaterial).wireframe = on; }),
-          setGrid: (on) => { gridHelper.visible = on; },
-          setSpin: (on) => { controls.autoRotate = on; },
-          setLight: (v) => { hemi.intensity = 1.2 * v; sun.intensity = 1.6 * v; },
-          setBg: (b) => { renderer.setClearColor(b === "dark" ? 0x10141a : 0xf2f4f7, 1); },
-          reset: home,
+          setWire: (on) => { materials.forEach((m) => { (m as import("three").MeshStandardMaterial).wireframe = on; }); need(); },
+          setGrid: (on) => { gridHelper.visible = on; need(); },
+          setSpin: (on) => { controls.autoRotate = on; need(); },
+          setLight: (v) => { hemi.intensity = 1.2 * v; sun.intensity = 1.6 * v; need(); },
+          setBg: (b) => { renderer.setClearColor(b === "dark" ? 0x10141a : 0xf2f4f7, 1); need(); },
+          reset: () => { home(); need(); },
           play: (name) => {
             action?.stop();
             action = null;
@@ -171,8 +186,9 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
               action = mixer.clipAction(clip);
               action.play();
             }
+            need();
           },
-          setSpeed: (v) => { if (mixer) mixer.timeScale = v; },
+          setSpeed: (v) => { if (mixer) mixer.timeScale = v; need(); },
         };
         apiRef.current.setBg("dark");
         const names = clips.map((c, i) => c.name || `アニメーション ${i + 1}`);
@@ -196,6 +212,7 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
         cleanup = () => {
           cancelAnimationFrame(raf);
           ro.disconnect();
+          controls.removeEventListener("change", need);
           controls.dispose();
           root.traverse((o) => {
             const mesh = o as import("three").Mesh;

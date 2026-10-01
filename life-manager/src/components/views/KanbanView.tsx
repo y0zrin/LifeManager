@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, type CSSProperties } from "re
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
 import { IssueSendState, SendingBird, isUnsent } from "../common/Sending";
 import { Buncho } from "../common/Buncho";
+import { isIdle } from "../../lib/idle";
 import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "../common/PendingChip";
 import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
@@ -90,7 +91,7 @@ const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: s
 
 /**
  * 文鳥のテーマ: パートナーの文鳥がとまるボードと、止まり木の上の場所。しばらくすると（26〜48 秒）、ほかのボードの止まり木へ移る。
- * 窓が見えていないあいだと、背景の動きを止めているあいだは移らない
+ * だれも操作していないあいだ（窓が前面にない・隠れている）と、背景の動きを止めているあいだは移らない
  */
 function usePerch(count: number, on: boolean) {
   const [perch, setPerch] = useState<{ at: number; x: number; flip: boolean; phase: "arrive" | "leave" }>({ at: 0, x: 18, flip: true, phase: "arrive" });
@@ -101,7 +102,7 @@ function usePerch(count: number, on: boolean) {
       timer = window.setTimeout(move, 26000 + Math.random() * 22000);
     };
     const move = () => {
-      if (document.hidden || document.documentElement.classList.contains("stage-still")) {
+      if (isIdle() || document.documentElement.classList.contains("stage-still")) {
         schedule();
         return;
       }

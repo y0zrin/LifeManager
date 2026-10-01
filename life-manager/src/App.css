@@ -874,10 +874,13 @@
 
 /* --- テーマ: 金魚（学生のリクエストの色。白・赤・黒・クリームの夏まつり）。ボードは水そう、机は縁側 --- */
 :root {
-  /* 金魚のテーマの絵（どのテーマでも読めるよう、ここに置く） */
+  /* 金魚のテーマの絵（どのテーマでも読めるよう、ここに置く）。-still は尾の動かない絵（ピン・影・ミニ画面。動く絵は毎コマ描き直すので、水そうの中だけにする） */
   --fish-red: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 4 L6 12 L2 20 Z' fill='%23ff7a84' opacity='.92'%3E%3CanimateTransform attributeName='transform' type='rotate' values='-12 14 12;12 14 12;-12 14 12' dur='.9s' repeatCount='indefinite'/%3E%3C/path%3E%3Cpath d='M22 5 q5 -5 10 -1' fill='%23ff7a84' opacity='.9'/%3E%3Cellipse cx='27' cy='12' rx='14' ry='8' fill='%23ff4d5a'/%3E%3Cpath d='M23 18 q3 5 8 4' fill='none' stroke='%23ff7a84' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='10' r='1.8' fill='%23262222'/%3E%3C/svg%3E");
+  --fish-red-still: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 4 L6 12 L2 20 Z' fill='%23ff7a84' opacity='.92'%3E%3C/path%3E%3Cpath d='M22 5 q5 -5 10 -1' fill='%23ff7a84' opacity='.9'/%3E%3Cellipse cx='27' cy='12' rx='14' ry='8' fill='%23ff4d5a'/%3E%3Cpath d='M23 18 q3 5 8 4' fill='none' stroke='%23ff7a84' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='36' cy='10' r='1.8' fill='%23262222'/%3E%3C/svg%3E");
   --fish-black: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 3 L6 12 L2 21 Z' fill='%234a4242' opacity='.95'%3E%3CanimateTransform attributeName='transform' type='rotate' values='-10 14 12;10 14 12;-10 14 12' dur='1.1s' repeatCount='indefinite'/%3E%3C/path%3E%3Cellipse cx='26' cy='12' rx='13' ry='8' fill='%23262222'/%3E%3Ccircle cx='36' cy='7' r='3.4' fill='%23262222' stroke='%23ffffff' stroke-width='1.2'/%3E%3Ccircle cx='36.6' cy='6.6' r='1.2' fill='%23ffffff'/%3E%3C/svg%3E");
+  --fish-black-still: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 3 L6 12 L2 21 Z' fill='%234a4242' opacity='.95'%3E%3C/path%3E%3Cellipse cx='26' cy='12' rx='13' ry='8' fill='%23262222'/%3E%3Ccircle cx='36' cy='7' r='3.4' fill='%23262222' stroke='%23ffffff' stroke-width='1.2'/%3E%3Ccircle cx='36.6' cy='6.6' r='1.2' fill='%23ffffff'/%3E%3C/svg%3E");
   --fish-sarasa: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 4 L6 12 L2 20 Z' fill='%23ffffff' stroke='%23e0c8aa' stroke-width='1'%3E%3CanimateTransform attributeName='transform' type='rotate' values='-12 14 12;12 14 12;-12 14 12' dur='1s' repeatCount='indefinite'/%3E%3C/path%3E%3Cellipse cx='27' cy='12' rx='14' ry='8' fill='%23ffffff' stroke='%23e0c8aa' stroke-width='1.2'/%3E%3Cellipse cx='29' cy='9' rx='5' ry='3.4' fill='%23ff4d5a'/%3E%3Cellipse cx='21' cy='14' rx='4' ry='3' fill='%23ff4d5a'/%3E%3Ccircle cx='36' cy='10' r='1.8' fill='%23262222'/%3E%3C/svg%3E");
+  --fish-sarasa-still: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 24'%3E%3Cpath d='M14 12 L2 4 L6 12 L2 20 Z' fill='%23ffffff' stroke='%23e0c8aa' stroke-width='1'%3E%3C/path%3E%3Cellipse cx='27' cy='12' rx='14' ry='8' fill='%23ffffff' stroke='%23e0c8aa' stroke-width='1.2'/%3E%3Cellipse cx='29' cy='9' rx='5' ry='3.4' fill='%23ff4d5a'/%3E%3Cellipse cx='21' cy='14' rx='4' ry='3' fill='%23ff4d5a'/%3E%3Ccircle cx='36' cy='10' r='1.8' fill='%23262222'/%3E%3C/svg%3E");
   --furin: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 64'%3E%3Cline x1='15' y1='0' x2='15' y2='18' stroke='%235a4632' stroke-width='1.5'/%3E%3Cpath d='M4 31 a11 11 0 0 1 22 0 v3 h-22 z' fill='%23ffffffe6' stroke='%23d8c7b0'/%3E%3Cellipse cx='15' cy='27' rx='4.2' ry='2.6' fill='%23ff4d5a'/%3E%3Cline x1='15' y1='34' x2='15' y2='40' stroke='%235a4632' stroke-width='1'/%3E%3Cpath d='M11 40 h8 v17 l-4 4 l-4 -4 z' fill='%23ff4d5a'/%3E%3C/svg%3E");
 }
 
@@ -5485,7 +5488,7 @@ html.stage-still .bd-fish,
   height: 14px;
   margin-left: -13px;
   border: none;
-  background: var(--fish-red) center / contain no-repeat;
+  background: var(--fish-red-still) center / contain no-repeat;
   transform: rotate(-4deg);
 }
 
@@ -19493,7 +19496,7 @@ html.stage-still .stage-fx .fx-shoot {
   width: 170px;
   height: 94px;
   border-radius: 0;
-  background: var(--fish-red) center / contain no-repeat;
+  background: var(--fish-red-still) center / contain no-repeat;
   opacity: 0.09;
   animation: fx-bigfish 30s linear infinite;
 }
@@ -19601,10 +19604,10 @@ html.stage-still .stage-fx .fx-shoot {
 }
 
 /* --- 上のバー: 舞台が透けるガラス。画面の名前は大きく --- */
+/* すりガラス（backdrop-filter）にはしない。後ろの動く背景が動くたびに、ぼかしを作り直すことになって重い */
 .topbar {
-  background: color-mix(in srgb, var(--picker-bg1) 70%, transparent);
+  background: color-mix(in srgb, var(--picker-bg1) 94%, transparent);
   border-bottom-color: var(--panel-line);
-  backdrop-filter: blur(12px);
 }
 
 .topbar-title {
@@ -20219,10 +20222,10 @@ html.stage-still .stage-fx .fx-shoot {
 }
 
 @keyframes tm-carry {
-  0%, 22% { transform: translate(0, 0) rotate(-2deg); box-shadow: 0 3px 6px #0006; }
-  34% { transform: translate(10px, -10px) rotate(-6deg) scale(1.08); box-shadow: 0 14px 20px #0007; }
-  56% { transform: translate(207px, -58px) rotate(3deg) scale(1.08); box-shadow: 0 14px 20px #0007; }
-  64%, 88% { transform: translate(203px, -62px) rotate(2deg) scale(1); box-shadow: 0 3px 6px #0006; }
+  0%, 22% { transform: translate(0, 0) rotate(-2deg); }
+  34% { transform: translate(10px, -10px) rotate(-6deg) scale(1.08); }
+  56% { transform: translate(207px, -58px) rotate(3deg) scale(1.08); }
+  64%, 88% { transform: translate(203px, -62px) rotate(2deg) scale(1); }
   94% { opacity: 0; transform: translate(203px, -62px) rotate(2deg); }
   95% { opacity: 0; transform: translate(0, 0) rotate(-2deg); }
   100% { opacity: 1; transform: translate(0, 0) rotate(-2deg); }
@@ -20249,14 +20252,16 @@ html.stage-still .stage-fx .fx-shoot {
   flex: 1;
 }
 
+/* 灯りのゆらぎ（光は止めて置き、明るさだけ opacity でゆらす。filter を動かすと毎コマ描き直す） */
 .tm-glow {
+  filter: drop-shadow(0 0 6px #ffcf7a);
   animation: tm-flicker 2.8s ease-in-out infinite alternate;
 }
 
 @keyframes tm-flicker {
-  0% { filter: drop-shadow(0 0 2px #ffcf7a); }
-  50% { filter: drop-shadow(0 0 9px #ffcf7a); }
-  100% { filter: drop-shadow(0 0 4px #ffcf7a); }
+  0% { opacity: 0.78; }
+  50% { opacity: 1; }
+  100% { opacity: 0.88; }
 }
 
 .tm-steam {
@@ -20434,14 +20439,14 @@ html.stage-still .stage-fx .fx-shoot {
   left: 12%;
   width: 34px;
   height: 18px;
-  background: var(--fish-red) center / contain no-repeat;
+  background: var(--fish-red-still) center / contain no-repeat;
   animation: tm-fish 7s ease-in-out infinite;
 }
 
 .tm-fish.f2 {
   top: 80%;
   left: 40%;
-  background-image: var(--fish-black);
+  background-image: var(--fish-black-still);
   animation-duration: 9s;
   animation-delay: -3s;
 }
@@ -20449,7 +20454,7 @@ html.stage-still .stage-fx .fx-shoot {
 .tm-fish.f3 {
   top: 70%;
   left: 20%;
-  background-image: var(--fish-sarasa);
+  background-image: var(--fish-sarasa-still);
   animation-duration: 8s;
   animation-delay: -1.5s;
 }

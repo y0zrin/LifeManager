@@ -21,11 +21,25 @@ static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 /// メインの窓を前に出す（隠していれば出し、最小化していれば戻す）
 pub fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(MAIN_LABEL) {
+        set_webview_visible(&w, true);
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
 }
+
+/// WebView2 に、見えているかを伝える。隠した・最小化した窓では false にして、描くのを止める
+/// （wry は窓を隠しても見えている扱いのまま描き続ける。false のあいだも JavaScript は動く〔おしらせの問い合わせは続く〕。
+/// 隠れているページと同じ扱いになり、アニメーションは止まり、タイマーはゆっくりになる）
+#[cfg(windows)]
+pub fn set_webview_visible(w: &tauri::WebviewWindow, visible: bool) {
+    let _ = w.with_webview(move |webview| unsafe {
+        let _ = webview.controller().SetIsVisible(visible);
+    });
+}
+
+#[cfg(not(windows))]
+pub fn set_webview_visible(_w: &tauri::WebviewWindow, _visible: bool) {}
 
 /// 起動したときに: おしらせの窓（隠しておく）・インジケーター・メインの窓の × の扱い
 #[cfg(desktop)]
@@ -83,12 +97,13 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
 
     if let Some(main) = app.get_webview_window(MAIN_LABEL) {
         let handle = app.handle().clone();
-        main.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+        main.on_window_event(move |event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
                 if CLOSE_TO_TRAY.load(Ordering::SeqCst) {
                     api.prevent_close();
                     if let Some(w) = handle.get_webview_window(MAIN_LABEL) {
                         let _ = w.hide();
+                        set_webview_visible(&w, false);
                     }
                     // はじめて残したときは、どこに残ったかを知らせる（おしらせの窓が出す）
                     let _ = handle.emit_to(NOTICE_LABEL, "lm-to-tray", ());
@@ -97,6 +112,15 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
                     handle.exit(0);
                 }
             }
+            // 最小化したら描くのを止め、戻したら描く。最小化の直後にも Focused(true) が来るので、最小化していないかを確かめてから起こす
+            WindowEvent::Resized(_) | WindowEvent::Focused(true) => {
+                if let Some(w) = handle.get_webview_window(MAIN_LABEL) {
+                    let minimized = w.is_minimized().unwrap_or(false);
+                    let visible = w.is_visible().unwrap_or(true);
+                    set_webview_visible(&w, visible && !minimized);
+                }
+            }
+            _ => {}
         });
     }
     Ok(())

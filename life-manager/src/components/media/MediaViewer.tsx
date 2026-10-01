@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -25,6 +25,27 @@ interface MediaViewerProps {
 type Loaded = { bytes?: ArrayBuffer; error?: string };
 
 const keyOf = (f: MediaFile) => `${f.source.kind === "local" ? "local" : f.source.sha}|${f.path}`;
+
+/** 読んだ中身を覚えておく上限（1 つは 200 MB まで読める。多く・大きく読むと、前に見たものから忘れる。忘れたものは、また見るときに読み直す） */
+const KEEP_BYTES = 256 * 1024 * 1024;
+const KEEP_FILES = 30;
+
+/** 上限に収める: 見た順（recent。新しい順）に残し、あふれたものを忘れる。今見ているもの（current）は忘れない */
+function trimLoaded(m: Record<string, Loaded>, recent: string[], current: string): Record<string, Loaded> {
+  const out: Record<string, Loaded> = {};
+  let bytes = 0;
+  let count = 0;
+  for (const k of [current, ...recent.filter((r) => r !== current)]) {
+    const v = m[k];
+    if (!v) continue;
+    const size = v.bytes?.byteLength ?? 0;
+    if (k !== current && (count >= KEEP_FILES || bytes + size > KEEP_BYTES)) continue;
+    out[k] = v;
+    bytes += size;
+    count++;
+  }
+  return out;
+}
 
 /** 作業フォルダの中のファイルの場所（Windows の区切り） */
 function joinPath(folder: string, file: string): string {
@@ -84,16 +105,23 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
     return out;
   }, [files]);
 
+  // 見た順（新しい順。覚えておく上限を超えたら、古く見たものから忘れる）
+  const recent = useRef<string[]>([]);
+  const loadedNow = useRef(loaded);
+  loadedNow.current = loaded;
   useEffect(() => {
-    if (!file || removed || loaded[key]) return;
+    if (!file || removed) return;
+    recent.current = [key, ...recent.current.filter((k) => k !== key)];
+    if (loadedNow.current[key]) return;
     let alive = true;
+    const put = (v: Loaded) => alive && setLoaded((m) => trimLoaded({ ...m, [key]: v }, recent.current, key));
     readMediaBytes(file)
-      .then((bytes) => alive && setLoaded((m) => ({ ...m, [key]: { bytes } })))
-      .catch((e) => alive && setLoaded((m) => ({ ...m, [key]: { error: String(e) } })));
+      .then((bytes) => put({ bytes }))
+      .catch((e) => put({ error: String(e) }));
     return () => {
       alive = false;
     };
-  }, [file, key, removed, loaded]);
+  }, [file, key, removed]);
 
   const move = useCallback(
     (step: number) => {

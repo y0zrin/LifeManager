@@ -241,8 +241,8 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   issue_updated: "Issue編集",
 };
 
-/** ボードのジャンル: 未整理（整理して、やることを決める）・着手済み（やっていることを追う） */
-export type BoardGenre = "triage" | "doing";
+/** ボードのジャンル（タブ）: 未整理（整理して、やることを決める）・着手済み（やっていることを追う）・確認待ち（確かめて、終わらせる） */
+export type BoardGenre = "triage" | "doing" | "review";
 
 export interface BoardColumn {
   key: string;       // label name like "状態:進行中" or "none" for uncategorized
@@ -254,6 +254,8 @@ export interface BoardColumn {
 
 export interface BoardConfig {
   columns: BoardColumn[];
+  /** 何枚のボード（タブ）のときに保存したか（1.0 から 3。ないのは 2 枚のとき〔確認待ちがなかった〕） */
+  boards?: number;
 }
 
 export interface Project {

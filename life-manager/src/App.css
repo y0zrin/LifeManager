@@ -4638,6 +4638,138 @@ button:hover {
   transform: rotate(3deg) scale(1.03);
 }
 
+/* 区画の「＋ ここにタスクを追加」と、書いている白紙の付箋（字の色はテーマごと。下の .look-… .bd-add） */
+.bd-add,
+.bd-add-form {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
+}
+
+.bd-add {
+  align-self: flex-start;
+  padding: 5px 10px;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-sm);
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.bd-add:hover,
+.bd-add:focus-visible {
+  border-color: currentColor;
+  opacity: 1;
+}
+
+.bd-add-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.bd-add-note {
+  --tilt: -1deg;
+}
+
+.bd-add-input {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+}
+
+.bd-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bd-add-actions small {
+  font-size: var(--font-xs);
+  opacity: 0.85;
+}
+
+.look-white .bd-add,
+.look-white .bd-add-actions small {
+  color: #5f6f8e;
+  font-family: var(--bd-hand);
+}
+
+.look-chalk .bd-add,
+.look-chalk .bd-add-actions small {
+  color: #dfe7dc;
+  font-family: var(--bd-hand);
+}
+
+.look-quest .bd-add,
+.look-quest .bd-add-actions small {
+  color: #3b2412;
+  font-family: var(--bd-mincho);
+}
+
+/* 羊皮紙の上でも読めるように */
+.look-quest .bd-add-actions .btn-sm {
+  border-color: #8e5a2c;
+  background: #f6e7c4;
+  color: #3b2412;
+}
+
+.look-quest .bd-add-actions .btn-primary {
+  border-color: #6b3f1c;
+  background: #8e5a2c;
+  color: #fff8e7;
+}
+
+.look-quest .bd-add-actions .btn-primary:disabled {
+  opacity: 0.55;
+}
+
+.look-night .bd-add,
+.look-night .bd-add-actions small {
+  color: #d3d9f5;
+  font-family: var(--bd-hand);
+}
+
+.look-day .bd-add,
+.look-day .bd-add-actions small {
+  color: #3a2610;
+  font-family: var(--bd-hand);
+}
+
+.look-spring .bd-add,
+.look-spring .bd-add-actions small {
+  color: #8a6a76;
+  font-family: var(--bd-hand);
+}
+
+.look-winter .bd-add,
+.look-winter .bd-add-actions small {
+  color: #2c3d50;
+  font-family: var(--bd-hand);
+}
+
+.look-kingyo .bd-add,
+.look-kingyo .bd-add-actions small {
+  color: #5f554d;
+}
+
+.look-buncho .bd-add,
+.look-buncho .bd-add-actions small {
+  color: #2e5d4b;
+}
+
 /* 机の上で、置けるか（付箋の上に出す） */
 .bd-float-tag {
   position: absolute;
@@ -5697,6 +5829,22 @@ html.stage-still .bd-partner {
   /* タブの説明は、狭いときは出さない */
   .bd-tab small {
     display: none;
+  }
+}
+
+/* スマホ: 3 つのタブを 1 行に（名前を折り返さない） */
+@media (max-width: 640px) {
+  .bd-tabs {
+    padding: var(--space-sm) var(--space-sm) 0;
+  }
+
+  .bd-tab {
+    flex: 1 1 0;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 4px;
+    font-size: var(--font-sm);
+    white-space: nowrap;
   }
 }
 

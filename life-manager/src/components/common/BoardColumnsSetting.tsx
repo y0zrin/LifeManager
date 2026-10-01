@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { BoardColumn, BoardConfig, BoardGenre, GitHubLabel } from "../../lib/types";
-import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import { BOARD_COUNT, BOARD_GENRES, boardColumns, genreOf } from "../../lib/board";
 
 interface BoardColumnsSettingProps {
   boardConfig: BoardConfig | null;
@@ -13,9 +13,9 @@ function withGenre(columns: BoardColumn[]): BoardColumn[] {
   return columns.map((c) => ({ ...c, genre: genreOf(c) }));
 }
 
-/** ボードの区画（どの状態を、どちらのボードに置くか・並び）。リポジトリの config/board.yaml に置き、チームで共有する */
+/** ボードの区画（どの状態を、どのボードに置くか・並び）。リポジトリの config/board.yaml に置き、チームで共有する */
 export function BoardColumnsSetting({ boardConfig, labels, onSave }: BoardColumnsSettingProps) {
-  const saved = withGenre(boardConfig?.columns || DEFAULT_COLUMNS);
+  const saved = withGenre(boardColumns(boardConfig));
   const savedText = JSON.stringify(saved);
   const [columns, setColumns] = useState<BoardColumn[]>(saved);
   const [newKey, setNewKey] = useState("");
@@ -54,7 +54,7 @@ export function BoardColumnsSetting({ boardConfig, labels, onSave }: BoardColumn
     setSaving(true);
     setError(null);
     try {
-      await onSave({ columns });
+      await onSave({ columns, boards: BOARD_COUNT });
     } catch (e) {
       setError(String(e));
     } finally {
@@ -66,7 +66,7 @@ export function BoardColumnsSetting({ boardConfig, labels, onSave }: BoardColumn
     <div className="form-card" id="settings-board">
       <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>ボードの区画</h3>
       <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-        状態ごとの区画を、どちらのボード（📥 未整理・🔥 着手済み）に置くかと、並びを決めます。チームで一つの決まりです（リポジトリの <code>config/board.yaml</code> に置き、GitHub に送ります）。
+        状態ごとの区画を、どのボード（📥 未整理・🔥 着手済み・🔍 確認待ち）に置くかと、並びを決めます。チームで一つの決まりです（リポジトリの <code>config/board.yaml</code> に置き、GitHub に送ります）。
       </p>
       <div className="board-cols">
         {columns.map((col, index) => (

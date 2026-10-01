@@ -1286,6 +1286,7 @@ function App() {
               look={display.settings.theme}
               onAssignToMe={gh.assignToMe}
               onOpenBoardSettings={() => openSettings("tasks", "settings-board")}
+              onCreateIssue={gh.createIssue}
             />
           )}
 

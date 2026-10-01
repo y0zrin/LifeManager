@@ -5,7 +5,7 @@ import { Buncho } from "../common/Buncho";
 import { isIdle } from "../../lib/idle";
 import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "../common/PendingChip";
-import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import { BOARD_GENRES, boardColumns, genreOf } from "../../lib/board";
 import type { Theme } from "../../lib/theme";
 import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
 import { daysUntil, dueOf } from "../../lib/due";
@@ -14,6 +14,7 @@ import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../comm
 import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter } from "../../lib/savedViews";
 import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
+import { isEnter, isEscape } from "../../lib/keys";
 
 interface KanbanViewProps {
   owner: string;
@@ -35,6 +36,8 @@ interface KanbanViewProps {
   onAssignToMe: (n: number) => void;
   /** 設定 → タスク の「ボードの区画」を開く */
   onOpenBoardSettings: () => void;
+  /** 区画の「＋ ここにタスクを追加」（すぐ「送っています…」の付箋が出て、GitHub から番号が来たら置き換わる） */
+  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
 }
 
 const GENRE_KEY = "board-genre";
@@ -256,13 +259,81 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   );
 }
 
-export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings }: KanbanViewProps) {
-  const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
+/**
+ * 区画の下の「＋ ここにタスクを追加」。押すと、その区画に白紙の付箋が出て、名前を書いて Enter で貼る（続けて書ける）。
+ * Esc・やめる・空のまま外を押すと、閉じる
+ */
+function AddHere({ look, open, onOpen, onClose, onAdd }: { look: Theme; open: boolean; onOpen: () => void; onClose: () => void; onAdd: (title: string) => void }) {
+  const [text, setText] = useState("");
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (open) ref.current?.focus();
+  }, [open]);
+  if (!open) {
+    return (
+      <button type="button" className="bd-add" onClick={onOpen}>
+        ＋ ここにタスクを追加
+      </button>
+    );
+  }
+  const close = () => {
+    setText("");
+    onClose();
+  };
+  const submit = () => {
+    const title = text.trim();
+    if (!title) return;
+    onAdd(title);
+    setText("");
+    ref.current?.focus();
+  };
+  return (
+    <div className="bd-add-form">
+      <div className={`bd-note bd-${look === "quest" ? "paper" : "yellow"} bd-add-note`}>
+        <textarea
+          ref={ref}
+          className="bd-add-input"
+          value={text}
+          rows={2}
+          placeholder="タスクの名前"
+          aria-label="足すタスクの名前"
+          onChange={(e) => setText(e.target.value.replace(/[\r\n]+/g, " "))}
+          onKeyDown={(e) => {
+            if (isEnter(e)) {
+              e.preventDefault();
+              submit();
+            } else if (isEscape(e)) {
+              e.preventDefault();
+              e.stopPropagation();
+              close();
+            }
+          }}
+          onBlur={() => {
+            if (!text.trim()) close();
+          }}
+        />
+      </div>
+      <div className="bd-add-actions">
+        {/* 押しても欄から離れない（離れると、空のときは閉じてしまう） */}
+        <button type="button" className="btn-primary btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={submit} disabled={!text.trim()}>
+          追加
+        </button>
+        <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
+          やめる
+        </button>
+        <small>Enter で貼って、続けて書けます</small>
+      </div>
+    </div>
+  );
+}
+
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings, onCreateIssue }: KanbanViewProps) {
+  const baseColumns = boardColumns(boardConfig);
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
 
   // ジャンル・自分の担当だけ（この PC に覚えておく。見た目はテーマのもの）
-  const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing"] as const, "doing"));
+  const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing", "review"] as const, "doing"));
   const [mineOnly, setMineOnlyState] = useState(() => loadPref(MINE_KEY, ["1", "0"] as const, "0") === "1");
   const setGenre = (v: BoardGenre) => { setGenreState(v); savePref(GENRE_KEY, v); };
   const setMineOnly = (v: boolean) => { setMineOnlyState(v); savePref(MINE_KEY, v ? "1" : "0"); };
@@ -336,11 +407,25 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     col.key === "none" ? shown.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:"))) : shown.filter((i) => i.labels.some((l) => l.name === col.key));
   const columnsOf = (g: BoardGenre) => baseColumns.filter((c) => genreOf(c) === g);
   const countOf = (g: BoardGenre) => columnsOf(g).reduce((n, c) => n + issuesOf(c).length, 0);
-  // ジャンルのタブに落としたときの行き先（着手済み → 進行中、未整理 → 未着手。なければ最初の区画）
+  // ジャンルのタブに落としたときの行き先（着手済み → 進行中、確認待ち → チェック待ち、未整理 → 未着手。なければ最初の区画）
   const landingOf = (g: BoardGenre) => {
     const cols = columnsOf(g);
-    const prefer = g === "doing" ? "状態:進行中" : "状態:未着手";
+    const prefer = g === "doing" ? "状態:進行中" : g === "review" ? "状態:チェック待ち" : "状態:未着手";
     return (cols.find((c) => c.key === prefer) ?? cols[0])?.key ?? null;
+  };
+
+  // --- 区画の「＋ ここにタスクを追加」 ---
+  // 足したタスクが、今の絞り込みでも見えるようにする（マイルストーン・担当・種別・分野・優先のラベル）。種別がなければイシュー
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const addTask = (col: BoardColumn, title: string) => {
+    const picked = Object.entries(filters)
+      .filter(([prefix]) => prefix !== ESTIMATE_PREFIX)
+      .flatMap(([, f]) => (!f || f.values.length === 0 ? [] : f.mode === "all" ? f.values : [f.values[0]]));
+    const labels = [...new Set([...(picked.some((l) => l.startsWith("種別:")) ? [] : ["種別:イシュー"]), ...picked, ...(col.key === "none" ? [] : [col.key])])];
+    const who = mineOnly ? currentUser : assignee;
+    onCreateIssue(title, "", labels, typeof milestone === "number" ? milestone : null, who ? [who] : undefined).catch(() => {
+      // 送れなかったタスクは、付箋に「送れませんでした」で残る（知らせは上のバーに出ている）
+    });
   };
 
   // --- ドラッグ（PC。マウスで付箋を区画・タブへ） ---
@@ -573,7 +658,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                   </div>
                 ))}
               </div>
-              {list.length === 0 && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
+              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
+              <AddHere look={look} open={addingTo === col.key} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
           );
         })}

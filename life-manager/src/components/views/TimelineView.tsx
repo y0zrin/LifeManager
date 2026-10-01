@@ -202,7 +202,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
                   </span>
                 );
               }
-              const labelMatch = part.match(/\((分野:[^)]+)\)/);
+              const labelMatch = part.match(/\(((?:セクション|分野):[^)]+)\)/);
               if (labelMatch) {
                 const before = part.substring(0, part.indexOf("("));
                 const label = labelMatch[1];

@@ -22,6 +22,7 @@ import { FailedChip, SendingChip } from "./Sending";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
 import { THIS_DEVICE } from "../../lib/platform";
+import { inCategory } from "../../lib/section";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -33,7 +34,7 @@ const CONTENT_CLAMP_PX = 88;
 type EditRow = "labels" | "assignees" | "dates" | "deps" | "progress" | "reminder";
 
 /** ラベルを選ぶ欄の並び（カテゴリごとに 1 行） */
-const LABEL_GROUPS = ["種別", "状態", "優先", "分野"];
+const LABEL_GROUPS = ["種別", "状態", "優先", "セクション"];
 
 /** YYYY-MM-DD → M/D */
 function md(date: string): string {
@@ -416,10 +417,10 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           ? todoDone / todoTotal
           : 0;
   const labelGroups = [
-    ...LABEL_GROUPS.map((g) => ({ name: g, labels: availableLabels.filter((l) => l.name.startsWith(`${g}:`)) })),
+    ...LABEL_GROUPS.map((g) => ({ name: g, labels: availableLabels.filter((l) => inCategory(l.name, `${g}:`)) })),
     {
       name: "そのほか",
-      labels: availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX) && !LABEL_GROUPS.some((g) => l.name.startsWith(`${g}:`))),
+      labels: availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX) && !LABEL_GROUPS.some((g) => inCategory(l.name, `${g}:`))),
     },
   ].filter((g) => g.labels.length > 0);
 

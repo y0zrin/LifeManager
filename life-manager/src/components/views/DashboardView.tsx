@@ -22,6 +22,7 @@ import {
   type GroupKey, type LabelFilters, type ListMode, type SortKey,
 } from "../../lib/taskList";
 import { Avatar } from "../common/Avatar";
+import { inCategory, SECTION_PREFIX } from "../../lib/section";
 
 /** 並び・まとめ方・カード／表は、次に開いたときも同じにする */
 const SORT_STORE = "task-list-sort";
@@ -303,9 +304,9 @@ export function DashboardView({
     }
   }
 
-  const categories = ["種別:", "分野:", "状態:", "優先:", ESTIMATE_PREFIX] as const;
+  const categories = ["種別:", SECTION_PREFIX, "状態:", "優先:", ESTIMATE_PREFIX] as const;
   const categoryLabels: Record<string, string> = {
-    "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
+    "種別:": "種別", [SECTION_PREFIX]: "セクション", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
   };
 
   const allIssues = [...issues, ...closedIssues];
@@ -486,10 +487,10 @@ export function DashboardView({
     changeMode(v.mode);
   }
 
-  // 「フィルタ」にまとめた絞り込み（種別・分野・状態・優先・見積のラベル、担当者、マイルストーン、表示）
+  // 「フィルタ」にまとめた絞り込み（種別・セクション・状態・優先・見積のラベル、担当者、マイルストーン、表示）
   const filterProps: TaskFilterProps = {
     categories: categories
-      .map((cat) => ({ prefix: cat, name: categoryLabels[cat], labels: labels.filter((l) => l.name.startsWith(cat)) }))
+      .map((cat) => ({ prefix: cat, name: categoryLabels[cat], labels: labels.filter((l) => inCategory(l.name, cat)) }))
       .filter((c) => c.labels.length > 0),
     filters,
     onFiltersChange,

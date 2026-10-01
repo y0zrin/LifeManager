@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import type { RepoScope } from "./shared";
+import { isSectionLabel } from "../../lib/section";
 
 export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   const [labels, setLabels] = useState<GitHubLabel[]>([]);
@@ -155,7 +156,7 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   // --- 派生データ ---
 
   const customLabels = labels.filter(
-    (l) => l.name.startsWith("種別:") || l.name.startsWith("分野:") ||
+    (l) => l.name.startsWith("種別:") || isSectionLabel(l.name) ||
            l.name.startsWith("状態:") || l.name.startsWith("優先:") || l.name.startsWith(ESTIMATE_PREFIX)
   );
 

@@ -371,7 +371,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             <button onClick={() => setShowNewLabelForm(!showNewLabelForm)} className="btn-sm">
               {showNewLabelForm ? "×" : "+ 新規ラベル"}
             </button>
-            <button onClick={onSetupLabels} className="btn-sm">ラベル一括作成</button>
+            <button onClick={onSetupLabels} className="btn-sm" title="優先（高・中・低）と、セクション（プログラマー・デザイナー・プランナー・その他）の 7 つを作ります（もうあるラベルは、そのまま）">ラベル一括作成</button>
           </div>
         </div>
 
@@ -382,7 +382,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)}
                 className="color-picker-input" />
               <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)}
-                placeholder="ラベル名（例: 分野:趣味）" className="input-full" />
+                placeholder="ラベル名（例: セクション:サウンド）" className="input-full" />
             </div>
             <input value={newLabelDesc} onChange={(e) => setNewLabelDesc(e.target.value)}
               placeholder="説明（任意）" className="input-full" />

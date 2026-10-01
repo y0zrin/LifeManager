@@ -15,6 +15,7 @@ import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter } from "../../lib/savedViews";
 import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
 import { isEnter, isEscape } from "../../lib/keys";
+import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
 
 interface KanbanViewProps {
   owner: string;
@@ -201,7 +202,7 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   const quest = look === "quest";
   // 番号で決まる、少しの傾き（毎回同じ）
   const tilt = (((issue.number * 37) % 7) - 3) * 0.4;
-  const fields = issue.labels.filter((l) => l.name.startsWith("分野:")).map((l) => l.name.replace("分野:", ""));
+  const fields = issue.labels.filter((l) => isSectionLabel(l.name)).map((l) => sectionOf(l.name));
 
   return (
     <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}${issue._sending ? " sending" : ""}${issue._failed ? " failed" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
@@ -343,10 +344,10 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const [filters, setFilters] = useState<LabelFilters>({});
   const [assignee, setAssignee] = useState("");
   const [milestone, setMilestone] = useState<MilestoneFilter | null>(null);
-  const categoryNames: Record<string, string> = { "種別:": "種別", "分野:": "分野", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
+  const categoryNames: Record<string, string> = { "種別:": "種別", [SECTION_PREFIX]: "セクション", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
   const filterProps: TaskFilterProps = {
     categories: Object.keys(categoryNames)
-      .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => l.name.startsWith(prefix)) }))
+      .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => inCategory(l.name, prefix)) }))
       .filter((c) => c.labels.length > 0),
     filters,
     onFiltersChange: setFilters,
@@ -415,7 +416,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   };
 
   // --- 区画の「＋ ここにタスクを追加」 ---
-  // 足したタスクが、今の絞り込みでも見えるようにする（マイルストーン・担当・種別・分野・優先のラベル）。種別がなければイシュー
+  // 足したタスクが、今の絞り込みでも見えるようにする（マイルストーン・担当・種別・セクション・優先のラベル）。種別がなければイシュー
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const addTask = (col: BoardColumn, title: string) => {
     const picked = Object.entries(filters)

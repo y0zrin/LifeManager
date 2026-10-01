@@ -21,7 +21,7 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
     if (text.startsWith("m ")) {
       const memo = text.substring(2);
       try {
-        await onCreateMemo(memo, "分野:私用");
+        await onCreateMemo(memo, "");
         setStatus("メモ: " + memo);
       } catch {
         // 送れなかったメモは、一覧に「送れませんでした」で残る（知らせは上のバーに出ている）
@@ -53,7 +53,7 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (isEnter(e)) handleSubmit(); }}
-          placeholder="例: m 牛乳を買う ／ #12 ／ @分野:仕事 ／ ジャンプ"
+          placeholder="例: m 効果音を探す ／ #12 ／ @セクション:プログラマー ／ ジャンプ"
           className="palette-input"
         />
         {/* 打てるもの（頭の文字で切り替わる） */}

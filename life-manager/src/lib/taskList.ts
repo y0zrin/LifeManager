@@ -1,5 +1,6 @@
 import type { GitHubIssue } from "./types";
 import { dueOf } from "./due";
+import { isSectionLabel } from "./section";
 
 // --- ラベルの絞り込み（種類ごとに複数選べる。どれか＝OR、すべて＝AND） ---
 
@@ -10,7 +11,7 @@ export interface LabelFilter {
   mode: LabelFilterMode;
 }
 
-/** 種類（"分野:" など）ごとの絞り込み */
+/** 種類（"セクション:" など）ごとの絞り込み */
 export type LabelFilters = Record<string, LabelFilter>;
 
 /** 種類ごとの条件をすべて満たすか（種類どうしは AND。種類の中は、選んだ方式） */
@@ -107,7 +108,7 @@ export const GROUP_LABELS: Record<GroupKey, string> = {
   tree: "親子",
   state: "状態",
   priority: "優先",
-  field: "分野",
+  field: "セクション",
   assignee: "担当",
   milestone: "マイルストーン",
 };
@@ -122,7 +123,7 @@ export interface TaskGroup {
 const NONE_TITLE: Record<Exclude<GroupKey, "none" | "tree">, string> = {
   state: "状態なし",
   priority: "優先なし",
-  field: "分野なし",
+  field: "セクションなし",
   assignee: "担当なし",
   milestone: "マイルストーンなし",
 };
@@ -138,7 +139,7 @@ function groupTitle(issue: GitHubIssue, key: Exclude<GroupKey, "none" | "tree">)
     case "priority":
       return labelOf("優先:") ?? NONE_TITLE.priority;
     case "field":
-      return labelOf("分野:") ?? NONE_TITLE.field;
+      return names.find(isSectionLabel) ?? NONE_TITLE.field;
     case "assignee":
       return issue.assignees?.[0] ? `担当:${issue.assignees[0].login}` : NONE_TITLE.assignee;
     case "milestone":

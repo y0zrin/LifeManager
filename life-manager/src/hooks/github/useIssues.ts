@@ -8,6 +8,7 @@ import { isSending, issueRef, nextSendingNumber } from "../../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../lib/subIssues";
 import type { IssueTemplate } from "../../lib/issueTemplates";
 import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from "./shared";
+import { isSectionLabel } from "../../lib/section";
 
 /** Issue の操作に要る、ほかのフックのもの */
 interface IssueDeps {
@@ -510,9 +511,9 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     setStatus(`${issueRef(child.number)} を ${issueRef(parent)} の子にしました`);
   }
 
-  /** 子の Issue を作って、つなぐ。ラベルは「種別:イシュー」「状態:未整理」と親の「分野」、マイルストーンは親と同じ */
+  /** 子の Issue を作って、つなぐ。ラベルは「種別:イシュー」「状態:未整理」と親のセクション、マイルストーンは親と同じ */
   async function createSubIssue(parent: GitHubIssue, title: string): Promise<GitHubIssue> {
-    const labelNames = ["種別:イシュー", "状態:未整理", ...parent.labels.map((l) => l.name).filter((n) => n.startsWith("分野:"))];
+    const labelNames = ["種別:イシュー", "状態:未整理", ...parent.labels.map((l) => l.name).filter(isSectionLabel)];
     const result = await invokeWrite("create_issue", {
       owner, repo,
       title, body: "",

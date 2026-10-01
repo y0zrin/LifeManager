@@ -3,6 +3,7 @@ import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import type { LabelFilter, LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter, StateFilter } from "../../lib/savedViews";
 import { useDismiss } from "../../hooks/useDismiss";
+import { sectionOf } from "../../lib/section";
 
 /** ラベルの種類（"状態:" など）と、その見出し・ラベル */
 export interface FilterCategory {
@@ -46,7 +47,7 @@ function clearAll(p: TaskFilterProps) {
   p.onStateChange("open");
 }
 
-/** 「フィルタ」: 押すと、種別・分野・状態・優先・見積・担当者・マイルストーン・表示の一覧が開く。押すとすぐに一覧に反映する */
+/** 「フィルタ」: 押すと、種別・セクション・状態・優先・見積・担当者・マイルストーン・表示の一覧が開く。押すとすぐに一覧に反映する */
 export function TaskFilterButton(props: TaskFilterProps) {
   const { categories, filters, onFiltersChange, assignee, onAssigneeChange, currentUser, collaborators, milestone, onMilestoneChange, milestones, milestoneTitle, state, onStateChange, showState = true } = props;
   const [open, setOpen] = useState(false);
@@ -169,7 +170,7 @@ export function TaskFilterChips(props: TaskFilterProps) {
   for (const c of categories) {
     const f = filters[c.prefix];
     if (!f?.values.length) continue;
-    const names = f.values.map((v) => v.replace(c.prefix, "")).join("・");
+    const names = f.values.map((v) => (v.startsWith(c.prefix) ? v.slice(c.prefix.length) : sectionOf(v))).join("・");
     chips.push({
       key: c.prefix,
       text: `${c.name}: ${names}${f.values.length > 1 ? (f.mode === "all" ? "（すべて）" : "（どれか）") : ""}`,

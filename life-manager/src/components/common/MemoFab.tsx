@@ -2,20 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GitHubLabel } from "../../lib/types";
 import type { MemoButtonPosition } from "../../hooks/useDisplaySettings";
 import { isComposing, isEnter, isEscape } from "../../lib/keys";
+import { isSectionLabel, sectionOf } from "../../lib/section";
 
 interface MemoFabProps {
   /** ボタンを置く角（hidden ならボタンを出さず、Ctrl+M で画面の上のほうに欄を開く） */
   position: MemoButtonPosition;
-  /** このリポジトリのラベル（「分野:」のものを、メモの分野の候補にする） */
+  /** このリポジトリのラベル（セクションのものを、メモのセクションの候補にする） */
   labels: GitHubLabel[];
   /** 送り先のリポジトリ（owner/repo。見出しに出す） */
   repoName: string;
   onCreateMemo: (text: string, theme: string) => Promise<void>;
 }
 
-/** 前に選んだ分野（次に開いたときも同じにする） */
+/** 前に選んだセクション（次に開いたときも同じにする） */
 const THEME_STORE = "memo-theme";
-const THEME_PREFIX = "分野:";
 /** 打つのをやめてから、ボタンが戻ってくるまで */
 const BACK_AFTER_MS = 1500;
 /** 文字を打つ欄（ここで打っているあいだは、ボタンを画面の外へよける） */
@@ -31,9 +31,9 @@ function isTextField(t: EventTarget | null): boolean {
 
 function loadTheme(): string {
   try {
-    return localStorage.getItem(THEME_STORE) ?? "分野:私用";
+    return localStorage.getItem(THEME_STORE) ?? "";
   } catch {
-    return "分野:私用";
+    return "";
   }
 }
 
@@ -44,7 +44,7 @@ type Result = { kind: "sending" | "ok" | "error"; text: string };
  * 角は 設定 → 表示 で選ぶ（サイドバー・上のバーにかぶらない所。CSS で決める）。ほかの欄で文字を打っているあいだは、画面の外へよける
  */
 export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabProps) {
-  const themes = useMemo(() => labels.filter((l) => l.name.startsWith(THEME_PREFIX)).map((l) => l.name), [labels]);
+  const themes = useMemo(() => labels.filter((l) => isSectionLabel(l.name)).map((l) => l.name), [labels]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [theme, setTheme] = useState(loadTheme);
@@ -55,7 +55,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
   // 閉じたら、開く前にいた欄へ戻る（Esc・Ctrl+M で閉じたとき）
   const returnFocus = useRef<HTMLElement | null>(null);
 
-  // 分野は、このリポジトリにあるものから選ぶ（前に選んだものがなければ「なし」）
+  // セクションは、このリポジトリにあるものから選ぶ（前に選んだものがなければ「なし」）
   const current = themes.includes(theme) ? theme : "";
 
   function show() {
@@ -118,7 +118,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
     try {
       localStorage.setItem(THEME_STORE, value);
     } catch {
-      // 覚えられなくても、今は選んだ分野で送れる
+      // 覚えられなくても、今は選んだセクションで送れる
     }
   }
 
@@ -160,10 +160,10 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
               }
             }} />
           <div className="memo-pop-row">
-            <select className="select-sm" value={current} aria-label="分野" onChange={(e) => changeTheme(e.target.value)}>
-              <option value="">分野: なし</option>
+            <select className="select-sm" value={current} aria-label="セクション" onChange={(e) => changeTheme(e.target.value)}>
+              <option value="">セクション: なし</option>
               {themes.map((t) => (
-                <option key={t} value={t}>分野: {t.slice(THEME_PREFIX.length)}</option>
+                <option key={t} value={t}>セクション: {sectionOf(t)}</option>
               ))}
             </select>
             <button type="button" className="btn-primary" disabled={!text.trim()} onClick={submit}>投入</button>

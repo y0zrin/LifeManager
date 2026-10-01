@@ -7,6 +7,7 @@ import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
 import { useDismiss } from "../../hooks/useDismiss";
+import { isSectionLabel, sectionOf } from "../../lib/section";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -409,7 +410,7 @@ export function GanttView({
   }, [allIssues]);
 
   const statusLabels = useMemo(() => labels.filter((l) => l.name.startsWith("状態:")), [labels]);
-  const domainLabels = useMemo(() => labels.filter((l) => l.name.startsWith("分野:")), [labels]);
+  const domainLabels = useMemo(() => labels.filter((l) => isSectionLabel(l.name)), [labels]);
 
   // Visible task list rows
   const visibleStartRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
@@ -454,8 +455,8 @@ export function GanttView({
             </select>
 
             <select className="select-sm" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
-              <option value="">全分野</option>
-              {domainLabels.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
+              <option value="">全セクション</option>
+              {domainLabels.map((l) => <option key={l.name} value={l.name}>{sectionOf(l.name)}</option>)}
             </select>
 
             <div style={{ display: "flex", gap: "2px" }}>

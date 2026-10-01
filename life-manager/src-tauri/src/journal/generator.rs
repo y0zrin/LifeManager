@@ -123,13 +123,13 @@ pub async fn generate_journal(
         for issue in &completed {
             let number = issue["number"].as_u64().unwrap_or(0);
             let title = issue["title"].as_str().unwrap_or("");
-            // 分野ラベルを抽出
+            // セクションのラベル（前の「分野:」も）を添える
             let area = issue["labels"]
                 .as_array()
                 .and_then(|labels| {
                     labels.iter().find_map(|l| {
                         let name = l["name"].as_str().unwrap_or("");
-                        if name.starts_with("分野:") {
+                        if name.starts_with("セクション:") || name.starts_with("分野:") {
                             return Some(name.to_string());
                         }
                         return None;

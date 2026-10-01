@@ -5,6 +5,7 @@ import { TeamPace } from "../common/TeamPace";
 import { useEstimateUnit } from "../common/EstimateChip";
 import { estimateOf } from "../../lib/estimate";
 import { finishedMilestones, velocity, type PaceMode } from "../../lib/sprint";
+import { isSectionLabel, sectionOf } from "../../lib/section";
 
 interface InsightsViewProps {
   issues: GitHubIssue[];
@@ -23,7 +24,7 @@ interface InsightsViewProps {
 
 /** 量の数え方（見積もり／件数）。マイルストーンの画面と同じ決め方で、次に開いたときも同じ */
 const MODE_STORE = "pace-mode";
-/** 絞り込み（マイルストーン・担当・分野）。次に開いたときも同じ */
+/** 絞り込み（マイルストーン・担当・セクション）。次に開いたときも同じ */
 const FILTER_STORE = "insights-filters";
 
 type Filters = { milestone: string; assignee: string; domain: string };
@@ -40,7 +41,7 @@ function loadFilters(): Filters {
 /**
  * オーバービュー（サイドバーのタスクの一番上）。いまの状況（開いている数・期限切れ・もうすぐ・担当なし、状態ごと・担当ごと、
  * 8 週の作った数と閉じた数）と、チームのペース（ベロシティ・サイクルタイム）を 1 つの画面で見る。
- * いまの状況は、上のマイルストーン・担当・分野で絞れる（チームのペースは、リポジトリ全体）
+ * いまの状況は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
  */
 export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline }: InsightsViewProps) {
   const unit = useEstimateUnit();
@@ -63,7 +64,7 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
   const assignee = filters.assignee === "all" || filters.assignee === "none" || collaborators.some((c) => c.login === filters.assignee)
     ? filters.assignee
     : "all";
-  const domains = useMemo(() => labels.filter((l) => l.name.startsWith("分野:")).map((l) => l.name), [labels]);
+  const domains = useMemo(() => labels.filter((l) => isSectionLabel(l.name)).map((l) => l.name), [labels]);
   const domain = filters.domain === "all" || domains.includes(filters.domain) ? filters.domain : "all";
 
   const all = useMemo(() => [...issues, ...closedIssues], [issues, closedIssues]);
@@ -126,10 +127,10 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
           <option value="none">担当なし</option>
         </select>
         {domains.length > 0 && (
-          <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label="分野">
-            <option value="all">分野: 全て</option>
+          <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label="セクション">
+            <option value="all">セクション: 全て</option>
             {domains.map((d) => (
-              <option key={d} value={d}>{d}</option>
+              <option key={d} value={d}>{sectionOf(d)}</option>
             ))}
           </select>
         )}

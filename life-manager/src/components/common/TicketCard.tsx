@@ -20,7 +20,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
     : priorityLabel?.name === "優先:低" ? "var(--accent-green-hover)"
     : "transparent";
 
-  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
+  // Category labels (セクション, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
   const displayLabels = issue.labels.filter(
     (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:") && !l.name.startsWith(ESTIMATE_PREFIX)
   );

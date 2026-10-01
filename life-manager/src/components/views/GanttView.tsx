@@ -6,6 +6,7 @@ import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGan
 import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
+import { planArrows } from "../../lib/ganttArrows";
 import { useDismiss } from "../../hooks/useDismiss";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 
@@ -172,6 +173,8 @@ export function GanttView({
     setScrollX(Math.min(maxScrollX, Math.max(0, x)));
   }, [selectedMilestone, timeScale, canvasSize.width, ganttTasks.length, today, dateRange.start, maxScrollX]);
   const criticalPath = useMemo(() => computeCriticalPath(ganttTasks), [ganttTasks]);
+  // 描く矢印（余計な矢印を省く）と、右上・左下のどちらに通すか（交わりが少なくなるように）
+  const arrowPlan = useMemo(() => planArrows(ganttTasks), [ganttTasks]);
 
   // Canvas resize — re-run when canvas appears in DOM
   const canvasVisible = selectedMilestone !== null && ganttTasks.length > 0;
@@ -217,8 +220,8 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue);
-  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focusIssue]);
+    renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue, arrowPlan);
+  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focusIssue, arrowPlan]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -341,7 +344,7 @@ export function GanttView({
         if (renderer && canvasSize.width > 0) {
           const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
           const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
-          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue);
+          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focusIssue, arrowPlan);
         }
       }
     };
@@ -369,7 +372,7 @@ export function GanttView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focusIssue]);
+  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focusIssue, arrowPlan]);
 
   // 仮の帯を押したときの吹き出し（この日程で決める・詳細を開く）
   const [tentativePop, setTentativePop] = useState<{ x: number; y: number; flipX: boolean; flipY: boolean; task: typeof ganttTasks[0] } | null>(null);

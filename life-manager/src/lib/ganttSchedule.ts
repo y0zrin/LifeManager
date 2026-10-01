@@ -37,12 +37,20 @@ function firstFree(start: number, days: number, busy: [number, number][]): numbe
   return s;
 }
 
+/** 番号の並び。まだ送っていない Issue（仮の番号 = 負の数）は、送った Issue のあとに作った順で */
+function numberOrder(n: number): number {
+  return n < 0 ? Number.MAX_SAFE_INTEGER / 2 - n : n;
+}
+
 /**
  * 日程がなく見積もりのある、開いているタスクに仮の日程を置く。
  * - 長さ: 見積もりを日に直し、端数は 1 日に切り上げる（土日も数える）
- * - 始まり: 今日から。先行タスクがあれば、その終わりの次の日から（先行タスクが仮なら、先にそれを置く）
- * - 同じ担当のタスクとは重ならないよう、空いている日に置く。日程のあるタスクを先に置き、
- *   仮のタスクは優先度 → 期限 → 番号の順に置く（担当なしは、それぞれ今日から）
+ * - 始まり: 今日から。先行タスクがあれば、その終わりの次の日から
+ * - 同じ担当のタスクとは重ならないよう、空いている日に置く。日程のあるタスクを先に置く（担当なしは、それぞれ今日から）
+ * - 置く順: すぐ始められる（先行の仮の帯をもう置いた）タスクから選ぶ。選び方は
+ *   急ぐ度合い（優先度 → 期限。そのタスクに続くタスクの分も見る＝急ぐタスクの先行は、いっしょに急ぐ）
+ *   → 合流するタスク（先行が 2 つ以上）を先に → 番号の順。
+ *   合流するタスクを、先行が終わったらすぐ置くと、ガントの矢印が互い違いになりにくく、交わりが減る（#196）
  * 日程のあるタスクは動かさない
  */
 export function planTentative(tasks: GanttTask[], issues: GitHubIssue[], today: string): Map<number, TentativePlan> {
@@ -57,7 +65,6 @@ export function planTentative(tasks: GanttTask[], issues: GitHubIssue[], today: 
     if (t.state !== "open" || !t.startDate || !t.endDate) continue;
     for (const a of t.assignees) addBusy(a.login, toDays(t.startDate), toDays(t.endDate));
   }
-  const visiting = new Set<number>();
 
   const candidate = (t: GanttTask) => {
     const issue = issueOf.get(t.issueNumber);
@@ -69,15 +76,12 @@ export function planTentative(tasks: GanttTask[], issues: GitHubIssue[], today: 
     const t = taskOf.get(n);
     if (!t) return null;
     if (t.startDate && t.endDate) return toDays(t.endDate);
-    if (candidate(t)) place(t);
     const p = plans.get(n);
     return p ? toDays(p.end) : null;
   };
 
   const place = (t: GanttTask) => {
     const n = t.issueNumber;
-    if (plans.has(n) || visiting.has(n)) return;
-    visiting.add(n);
     const est = estimateOf(issueOf.get(n)!)!;
     let start = todayDays;
     for (const dep of t.dependencies) {
@@ -90,18 +94,49 @@ export function planTentative(tasks: GanttTask[], issues: GitHubIssue[], today: 
     const end = start + days - 1;
     for (const login of logins) addBusy(login, start, end);
     plans.set(n, { start: toDate(start), end: toDate(end), days, estimate: formatEstimate(est.value, est.unit) });
-    visiting.delete(n);
   };
 
-  const order = tasks
-    .filter(candidate)
-    .map((t) => ({ t, issue: issueOf.get(t.issueNumber)! }))
-    .sort(
-      (a, b) =>
-        priorityRank(a.issue) - priorityRank(b.issue) ||
-        (dueOf(a.issue)?.date ?? "9999").localeCompare(dueOf(b.issue)?.date ?? "9999") ||
-        a.issue.number - b.issue.number,
-    );
-  for (const { t } of order) place(t);
+  // 急ぐ度合い: そのタスクと、あとに続く開いたタスクのうち、いちばん急ぐもの（優先度の順位と期限）
+  const followers = new Map<number, number[]>();
+  for (const t of tasks) {
+    if (t.state !== "open") continue;
+    for (const d of t.dependencies) followers.set(d, [...(followers.get(d) ?? []), t.issueNumber]);
+  }
+  const urgencyOf = new Map<number, { rank: number; due: string }>();
+  const urgency = (n: number, seen: Set<number>): { rank: number; due: string } => {
+    const known = urgencyOf.get(n);
+    if (known) return known;
+    const issue = issueOf.get(n);
+    let rank = issue ? priorityRank(issue) : 1;
+    let due = (issue && dueOf(issue)?.date) || "9999";
+    seen.add(n);
+    for (const f of followers.get(n) ?? []) {
+      if (seen.has(f)) continue; // 先行が輪になっている
+      const u = urgency(f, seen);
+      rank = Math.min(rank, u.rank);
+      if (u.due < due) due = u.due;
+    }
+    seen.delete(n);
+    const u = { rank, due };
+    urgencyOf.set(n, u);
+    return u;
+  };
+  const merges = (t: GanttTask) => (t.dependencies.filter((d) => taskOf.has(d)).length >= 2 ? 0 : 1);
+  const compare = (a: GanttTask, b: GanttTask) => {
+    const ua = urgency(a.issueNumber, new Set());
+    const ub = urgency(b.issueNumber, new Set());
+    return ua.rank - ub.rank || ua.due.localeCompare(ub.due) || merges(a) - merges(b) || numberOrder(a.issueNumber) - numberOrder(b.issueNumber);
+  };
+
+  const candidates = tasks.filter(candidate);
+  const waiting = new Set(candidates.map((t) => t.issueNumber));
+  while (waiting.size > 0) {
+    const rest = candidates.filter((t) => waiting.has(t.issueNumber));
+    const ready = rest.filter((t) => t.dependencies.every((d) => d === t.issueNumber || !waiting.has(d)));
+    // 先行が輪になっていて、どれも始められないときは、待っているものから選ぶ
+    const next = [...(ready.length > 0 ? ready : rest)].sort(compare)[0];
+    place(next);
+    waiting.delete(next.issueNumber);
+  }
   return plans;
 }

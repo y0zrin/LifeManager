@@ -1,4 +1,5 @@
 import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
+import { arrowKey, type ArrowPlan } from "./ganttArrows";
 import { DEFAULT_BAR_COLORS } from "./ganttTypes";
 
 interface ThemeColors {
@@ -36,6 +37,26 @@ function readThemeColors(): ThemeColors {
     accentRed: g("--accent-red"),
     accentTeal: g("--accent-teal"),
   };
+}
+
+/**
+ * 左下を通す道すじ: 先行の帯の下（終わりの少し手前）から出て下へ、後続の行に沿って右へ、左から後続に入る。
+ * 何本も 1 つに入る矢印（逆扇）は、後続の行の上で重なって 1 本に見える（ganttArrows.ts の chooseSides が、この側を選ぶ）。
+ * 後続が先行の終わりより前にはじまる・縦の線が、あいだの行の帯にかかるときは null
+ */
+export function routeBelow(o: {
+  /** 先行の帯の左端・右端・下端 */
+  fromLeft: number;
+  fromRight: number;
+  fromBottom: number;
+  toX: number;
+  toY: number;
+  free: (x: number) => boolean;
+  stub: number;
+}): [number, number][] | null {
+  const x = o.fromRight - Math.min(o.stub, (o.fromRight - o.fromLeft) / 2);
+  if (x > o.toX - 4 || !o.free(x)) return null;
+  return [[x, o.fromBottom], [x, o.toY], [o.toX, o.toY]];
 }
 
 /** 矢印の頭の向き（right: 左から後続の左端に入る。down・up: 後続の帯に上・下から入る） */
@@ -204,6 +225,8 @@ export class GanttRenderer {
     showCPLabel?: boolean,
     /** マウスが乗っているタスクの番号（そのタスクに出入りする矢印を目立たせる） */
     focus: number | null = null,
+    /** 描く矢印と通す側（ganttArrows.ts の planArrows）。なければ全部の矢印を、右上を先にためして通す */
+    arrowPlan: ArrowPlan | null = null,
   ) {
     const ctx = this.ctx;
     ctx.save();
@@ -213,7 +236,7 @@ export class GanttRenderer {
     this.drawTodayLine(config, scrollX, canvasHeight);
     this.drawDeadline(config, scrollX, canvasHeight);
     this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false);
-    this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus);
+    this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan);
     this.drawHeader(config, scrollX, canvasWidth);
 
     ctx.restore();
@@ -553,6 +576,7 @@ export class GanttRenderer {
     canvasWidth: number,
     canvasHeight: number,
     focus: number | null,
+    plan: ArrowPlan | null,
   ) {
     const ctx = this.ctx;
     const taskIndex = new Map<number, number>();
@@ -589,6 +613,10 @@ export class GanttRenderer {
         if (Math.max(depIdx, i) < startRow || Math.min(depIdx, i) >= endRow) continue;
         const dep = tasks[depIdx];
         if (!dep.startDate || !dep.endDate) continue;
+        const key = arrowKey(depNum, task.issueNumber);
+        const focused = focus !== null && (depNum === focus || task.issueNumber === focus);
+        // 余計な矢印（ほかの矢印で、もう順番が決まっている）は、そのタスクに乗せたときだけ描く
+        if (plan?.redundant.has(key) && !focused) continue;
 
         // 先行タスクの（見えている）右端 → 後続タスクのはじまり
         const plannedEnd = this.dateToX(dep.endDate, config, scrollX) + config.pixelsPerDay;
@@ -610,7 +638,21 @@ export class GanttRenderer {
         };
         // 折り返すときの、行と行のあいだの溝（先行の行の、後続のある側）
         const gutterY = this.rowToY(i > depIdx ? depIdx + 1 : depIdx, config, scrollY);
-        const { points, head } = routeDependency({ fromX, fromY, toX, toY, toEnd, toEdgeY, gutterY, free, stub });
+        // 通す側: 決めてあれば、その側（左下は、通れなければ右上から試す）。余計な矢印は、何本も入る後続なら左下を
+        const side = plan?.sides.get(key) ?? (plan?.redundant.has(key) ? "below" : "top");
+        const below =
+          side === "below" && i > depIdx
+            ? routeBelow({
+                fromLeft: this.dateToX(dep.startDate, config, scrollX),
+                fromRight: plannedEnd,
+                fromBottom: this.rowToY(depIdx, config, scrollY) + barMargin + barHeight,
+                toX,
+                toY,
+                free,
+                stub,
+              })
+            : null;
+        const { points, head } = below ? { points: below, head: "right" as ArrowHead } : routeDependency({ fromX, fromY, toX, toY, toEnd, toEdgeY, gutterY, free, stub });
         const tip = points[points.length - 1];
         // 頭の三角の分だけ線を手前で止める（線の端が頭の先から出ないように）
         const back = 5;
@@ -621,7 +663,7 @@ export class GanttRenderer {
           tip,
           // 後続が、先行の終わる予定より前にはじまる（順番が守られていない）: 赤の点線
           broken: toX < plannedEnd,
-          focused: focus !== null && (depNum === focus || task.issueNumber === focus),
+          focused,
         });
       }
     }

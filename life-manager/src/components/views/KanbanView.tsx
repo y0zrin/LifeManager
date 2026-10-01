@@ -39,6 +39,8 @@ interface KanbanViewProps {
   onOpenBoardSettings: () => void;
   /** 区画の「＋ ここにタスクを追加」（すぐ「送っています…」の付箋が出て、GitHub から番号が来たら置き換わる） */
   onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
+  /** マイルストーンの「📊 ボードでタスクを足す」から来たとき: そのマイルストーンで絞り、未整理のボードを開く（nonce が変わるたびに） */
+  focus?: { milestone: number; nonce: number } | null;
 }
 
 const GENRE_KEY = "board-genre";
@@ -264,7 +266,7 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
  * 区画の下の「＋ ここにタスクを追加」。押すと、その区画に白紙の付箋が出て、名前を書いて Enter で貼る（続けて書ける）。
  * Esc・やめる・空のまま外を押すと、閉じる
  */
-function AddHere({ look, open, onOpen, onClose, onAdd }: { look: Theme; open: boolean; onOpen: () => void; onClose: () => void; onAdd: (title: string) => void }) {
+function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; open: boolean; target: string | null; onOpen: () => void; onClose: () => void; onAdd: (title: string) => void }) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -272,8 +274,8 @@ function AddHere({ look, open, onOpen, onClose, onAdd }: { look: Theme; open: bo
   }, [open]);
   if (!open) {
     return (
-      <button type="button" className="bd-add" onClick={onOpen}>
-        ＋ ここにタスクを追加
+      <button type="button" className="bd-add" onClick={onOpen} title={target ? `${target} のタスクとして足します` : undefined}>
+        ＋ ここにタスクを追加{target && <span className="bd-add-target">🎯 {target}</span>}
       </button>
     );
   }
@@ -328,7 +330,7 @@ function AddHere({ look, open, onOpen, onClose, onAdd }: { look: Theme; open: bo
   );
 }
 
-export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings, onCreateIssue }: KanbanViewProps) {
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings, onCreateIssue, focus }: KanbanViewProps) {
   const baseColumns = boardColumns(boardConfig);
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
@@ -344,6 +346,13 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const [filters, setFilters] = useState<LabelFilters>({});
   const [assignee, setAssignee] = useState("");
   const [milestone, setMilestone] = useState<MilestoneFilter | null>(null);
+  // マイルストーンの「📊 ボードでタスクを足す」から来たら、そのマイルストーンで絞って、未整理のボードを開く
+  useEffect(() => {
+    if (!focus) return;
+    setMilestone(focus.milestone);
+    setGenre("triage");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
   const categoryNames: Record<string, string> = { "種別:": "種別", [SECTION_PREFIX]: "セクション", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
   const filterProps: TaskFilterProps = {
     categories: Object.keys(categoryNames)
@@ -660,7 +669,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 ))}
               </div>
               {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
-              <AddHere look={look} open={addingTo === col.key} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
+              <AddHere look={look} open={addingTo === col.key} target={typeof milestone === "number" ? milestones.find((m) => m.number === milestone)?.title ?? null : null} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
           );
         })}

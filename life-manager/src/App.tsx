@@ -249,6 +249,8 @@ function App() {
   const [showPalette, setShowPalette] = useState(false);
   const [filters, setFilters] = useState<LabelFilters>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
+  // マイルストーンの「📊 ボードでタスクを足す」: ボードをそのマイルストーンで絞って開く
+  const [boardFocus, setBoardFocus] = useState<{ milestone: number; nonce: number } | null>(null);
   // オフラインのあいだの変更（送信待ち）。送信待ちが変わったら手元の写しで、送れたら GitHub から読み直す
   const offline = useOffline(gh.owner, gh.repo, gh.connected, {
     onChanged: gh.reloadCached,
@@ -1287,6 +1289,7 @@ function App() {
               onAssignToMe={gh.assignToMe}
               onOpenBoardSettings={() => openSettings("tasks", "settings-board")}
               onCreateIssue={gh.createIssue}
+              focus={boardFocus}
             />
           )}
 
@@ -1305,6 +1308,10 @@ function App() {
               repoKey={`${gh.owner}/${gh.repo}`}
               quest={display.settings.theme === "quest"}
               bar={display.settings.milestoneBar}
+              onAddOnBoard={(n) => {
+                setBoardFocus({ milestone: n, nonce: Date.now() });
+                setView("kanban");
+              }}
             />
           )}
 

@@ -4681,6 +4681,16 @@ button:hover {
   opacity: 1;
 }
 
+/* 足す先のマイルストーン（ボードをマイルストーンで絞っているとき） */
+.bd-add-target {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
 .bd-add-form {
   display: flex;
   flex-direction: column;

@@ -33,6 +33,8 @@ interface MilestoneViewProps {
   quest: boolean;
   /** 進み具合のバー（設定 → 表示） */
   bar: MilestoneBar;
+  /** 「📊 ボードでタスクを足す」: そのマイルストーンで絞ったボードを開く（「＋ ここにタスクを追加」で足すと、そのマイルストーンに入る） */
+  onAddOnBoard: (milestoneNumber: number) => void;
 }
 
 /** 量の数え方（見積もり／件数）。次に開いたときも同じ */
@@ -76,7 +78,7 @@ function keysBusy(e: KeyboardEvent): boolean {
  */
 export function MilestoneView({
   milestones, issues, closedIssues, onCreateMilestone, onUpdateMilestone, onCloseMilestone, onReopenMilestone, onRefresh, onSelectIssue,
-  repoKey, quest, bar,
+  repoKey, quest, bar, onAddOnBoard,
 }: MilestoneViewProps) {
   const unit = useEstimateUnit();
   const hp = bar === "hp" || (bar === "auto" && quest);
@@ -283,6 +285,11 @@ export function MilestoneView({
               <b>{quest ? `のこりのタスク ${stage.open.length}` : `残り ${stage.open.length}`}</b>
               <span>{quest ? `倒したタスク ${stage.done.length}` : `終わった ${stage.done.length}`}</span>
               <span className="grow" />
+              {!stage.closed && (
+                <button type="button" className="btn-sm ms-to-board" onClick={() => onAddOnBoard(stage.ms.number)} title="このマイルストーンで絞ったボードを開きます。「＋ ここにタスクを追加」で足したタスクは、このマイルストーンに入ります">
+                  📊 ボードでタスクを足す
+                </button>
+              )}
               {stage.range.start && stage.total > 0 && (
                 <button type="button" className={`btn-sm${showBurndown ? " on" : ""}`} aria-pressed={showBurndown} onClick={() => setShowBurndown(!showBurndown)}>
                   📉 バーンダウン
@@ -337,7 +344,7 @@ export function MilestoneView({
               </>
             )}
             {stage.open.length === 0 && stage.done.length === 0 && (
-              <p className="ms-none">このマイルストーンに入れたタスクはありません。ボードやタスクの詳細で、マイルストーンを選んで入れます。</p>
+              <p className="ms-none">このマイルストーンに入れたタスクはありません。<b>📊 ボードでタスクを足す</b> で、このマイルストーンのタスクを足せます（タスクの詳細で、マイルストーンを選んで入れることもできます）。</p>
             )}
           </div>
         </>

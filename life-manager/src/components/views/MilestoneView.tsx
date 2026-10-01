@@ -98,6 +98,8 @@ export function MilestoneView({
   // 選んでいるマイルストーン（番号）と、移った向き（パネルが入ってくる向き）
   const [picked, setPicked] = useState<number | null>(null);
   const [dir, setDir] = useState<"next" | "prev" | null>(null);
+  // 作ったマイルストーン（名前）。読み直して道に出たら、それを選ぶ（すぐ「📊 ボードでタスクを足す」へ進めるように）
+  const [justMade, setJustMade] = useState<string | null>(null);
 
   // 数え方: 選んだことがあればそれ、なければ見積もりのある Issue があるときは見積もり
   const hasEstimates = useMemo(() => [...issues, ...closedIssues].some((i) => estimateOf(i) !== null), [issues, closedIssues]);
@@ -137,6 +139,15 @@ export function MilestoneView({
   const planned = stage ? [...stage.open, ...stage.done].reduce((sum, i) => sum + weightOf(i, mode, unit), 0) : 0;
   const compare = stage && avg !== null && !finished.has(stage.ms.number) && stage.total > 0;
 
+  useEffect(() => {
+    if (!justMade) return;
+    const made = stages.filter((s) => s.ms.title === justMade).sort((a, b) => b.ms.number - a.ms.number)[0];
+    if (!made) return;
+    setDir("next");
+    setPicked(made.ms.number);
+    setJustMade(null);
+  }, [stages, justMade]);
+
   const go = useCallback(
     (to: number) => {
       const s = stages[to];
@@ -169,6 +180,7 @@ export function MilestoneView({
     if (!msTitle.trim()) return;
     const dueOn = msDue ? msDue + "T00:00:00Z" : null;
     await onCreateMilestone(msTitle, withStartDate(msDesc, msStart || null), dueOn);
+    setJustMade(msTitle);
     setMsTitle("");
     setMsDesc("");
     setMsStart("");

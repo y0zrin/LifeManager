@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motionOn } from "../../lib/motion";
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
 import { DatePickerButton } from "../common/DatePickerButton";
@@ -439,6 +440,18 @@ function SidePanel({ stage, side, quest, onPick }: { stage: Stage; side: "l" | "
 function Road({ stages, at, quest, onPick }: { stages: Stage[]; at: number; quest: boolean; onPick: (i: number) => void }) {
   const n = stages.length;
   const pos = (i: number) => `${((i + 0.5) / n) * 100}%`;
+  // 道が窓より長いとき（マイルストーンが多い・窓がせまい）: 選んでいる印が、いつも道のまん中あたりに見えるよう、道を動かす
+  // （← → や となりのパネルで移ったときも、スクロールバーがついてくる。はじめに開いたときは、すぐその場所へ）
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const shown = useRef(false);
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const road = wrap?.firstElementChild as HTMLElement | null;
+    if (!wrap || !road || n === 0) return;
+    const left = Math.max(0, road.scrollWidth * ((at + 0.5) / n) - wrap.clientWidth / 2);
+    wrap.scrollTo({ left, behavior: shown.current && motionOn() ? "smooth" : "auto" });
+    shown.current = true;
+  }, [at, n]);
   // 今日の線: 期限が今日をはさむ 2 つの印のあいだ（期限の日の割合で）
   const today = dayOfTime(new Date());
   let todayAt: string | null = null;
@@ -454,7 +467,7 @@ function Road({ stages, at, quest, onPick }: { stages: Stage[]; at: number; ques
     }
   }
   return (
-    <div className="ms-road-wrap">
+    <div className="ms-road-wrap" ref={wrapRef}>
       <div className="ms-road" style={{ minWidth: n * 90 }}>
         <div className="ms-road-line" />
         {todayAt && <span className="ms-today" style={{ left: todayAt }}><b>今日</b></span>}

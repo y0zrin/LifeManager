@@ -13548,6 +13548,79 @@ button.lh:hover {
   font-size: var(--font-md);
 }
 
+/* 幅が足りないとき（はじめの窓 1024×720 など）: となりのパネルを、大きなパネルの後ろに隠さず、横に小さく並べる
+   （隠れていると、大きなパネルだけが浮き上がった「強調している途中」のように見えて、待ってしまう） */
+.ms-select {
+  container: ms-select / inline-size;
+}
+
+.ms-panel.main {
+  container: ms-main / inline-size;
+}
+
+@container ms-select (max-width: 1160px) {
+  .ms-panel.main {
+    width: min(620px, calc(100% - 320px));
+  }
+
+  .ms-panel.side {
+    top: 34px;
+    align-items: center;
+    width: 136px;
+    height: 232px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+
+  .ms-panel.side.l {
+    left: 12px;
+  }
+
+  .ms-panel.side.r {
+    right: 12px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .ms-panel.side .ms-art,
+  .ms-panel.side.l .ms-art,
+  .ms-panel.side.r .ms-art {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    width: 84px;
+    height: 84px;
+  }
+
+  .ms-panel.side .ms-info {
+    align-items: center;
+    width: 100%;
+  }
+
+  .ms-panel.side .ms-kick {
+    justify-content: center;
+  }
+
+  .ms-panel.side .ms-name {
+    font-size: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* 大きなパネルがせまいとき: 絵を小さくして、名前と進み具合の場所を空ける */
+@container ms-main (max-width: 560px) {
+  .ms-art {
+    width: 128px;
+    height: 128px;
+  }
+
+  .ms-name {
+    font-size: 30px;
+  }
+}
+
 /* 狭い窓: となりは出さず、パネルは流れに置く */
 @media (max-width: 760px) {
   .ms-select {

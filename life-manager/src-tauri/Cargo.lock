@@ -2050,6 +2050,8 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "urlencoding",
+ "webview2-com",
+ "windows-core 0.61.2",
 ]
 
 [[package]]

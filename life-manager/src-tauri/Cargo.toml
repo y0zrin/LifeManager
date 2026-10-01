@@ -36,3 +36,8 @@ tauri-plugin-dialog = "2"
 [target.'cfg(not(target_os = "android"))'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 tauri-plugin-single-instance = "2"
+
+# アプリの中の枠（PDF など）が外のページへ移らないよう見張る（frame_guard.rs）。tauri（wry）が使っているのと同じ版
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"

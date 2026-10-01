@@ -1,4 +1,6 @@
 mod credential;
+#[cfg(windows)]
+mod frame_guard;
 mod git;
 mod github;
 mod journal;
@@ -1443,6 +1445,11 @@ pub fn run() {
             #[cfg(desktop)]
             if let Err(e) = notice_window::setup(app) {
                 eprintln!("おしらせの窓を用意できませんでした: {e}");
+            }
+            // アプリの中の枠（メディアビューワーの PDF など）が、外のページへ移らないようにする
+            #[cfg(windows)]
+            if let Some(main) = tauri::Manager::get_webview_window(app, "main") {
+                frame_guard::guard(&main);
             }
             let app_handle = app.handle().clone();
             credential::init_android_data_dir(&app_handle);

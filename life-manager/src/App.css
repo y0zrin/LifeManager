@@ -6865,6 +6865,106 @@ html.stage-still .bd-partner {
   padding: 10px 16px 14px;
 }
 
+/* 押して開く・たたむときは、なめらかに（引いているあいだは指についていく） */
+.bd-desk:not(.pulling) {
+  transition: height var(--dur-base) var(--ease-standard);
+}
+
+/* 机の上の縁のつまみ（上へ引くと広がる。押すと開く・たたむ。#213） */
+.bd-desk-grip {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  translate: -50% 0;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.bd-desk-grip i {
+  display: block;
+  width: 48px;
+  height: 6px;
+  border-radius: 3px;
+  background: currentColor;
+  box-shadow: 0 1px 3px #0006;
+  opacity: 0.6;
+}
+
+.bd-desk-grip:hover i,
+.bd-desk.pulling .bd-desk-grip i {
+  opacity: 0.95;
+}
+
+/* 区画ごとのまとまり: たたんでいるときは 1 列に流す（まとまりの箱を作らない） */
+.bd-desk-group {
+  display: contents;
+}
+
+/* 広げた机: 名前の段の下に、区画ごとに折り返して並べ、縦に流す */
+.bd-desk.open {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding-top: 16px;
+}
+
+.bd-desk.open .bd-desk-name {
+  flex-direction: row;
+  align-items: baseline;
+  align-self: flex-start;
+  gap: var(--space-sm);
+}
+
+.bd-desk.open .bd-desk-items {
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 10px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.bd-desk.open .bd-desk-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.bd-desk-group-h {
+  flex-basis: 100%;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.bd-desk-group-h small {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.bd-desk.open .bd-desk-chip {
+  max-width: min(320px, 100%);
+}
+
+.bd-desk.open .bd-desk-deco {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+}
+
 .bd-desk-name {
   flex: none;
   display: flex;
@@ -10665,6 +10765,39 @@ html.stage-still .desk-buncho::after {
   .app-shell {
     --fab-gap: var(--space-md);
     --edge-bottom: var(--bottom-nav-height);
+  }
+
+  /* ボードでは、下の机の上まで（#213） */
+  .app-shell[data-view="kanban"] {
+    --edge-bottom: calc(var(--bottom-nav-height) + var(--bd-desk-height));
+  }
+
+  /* ボードの画面は下の帯の上で終える（机が帯に隠れないように。ガントと同じ決め方） */
+  .bd-view {
+    height: calc(100vh - var(--header-height) - var(--bottom-nav-height));
+  }
+
+  .bd-desk {
+    gap: var(--space-sm);
+    padding: 10px 12px 10px;
+  }
+
+  .bd-desk-name {
+    min-width: 0;
+  }
+
+  .bd-desk-name b {
+    font-size: var(--font-md);
+  }
+
+  .bd-desk-deco {
+    display: none;
+  }
+
+  .bd-desk-grip {
+    width: 180px;
+    height: 30px;
+    top: -15px;
   }
 
   .memo-fab-wrap .memo-pop {

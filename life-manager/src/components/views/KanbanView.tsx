@@ -47,6 +47,15 @@ interface KanbanViewProps {
 
 const GENRE_KEY = "board-genre";
 const MINE_KEY = "board-mine-only";
+/** 下の机の、たたんだときの高さ（PC は App.css の --bd-desk-height と同じ。スマホは 1 列ぶん） */
+const DESK_MIN = 84;
+const DESK_MIN_NARROW = 64;
+/** 広げた机の高さ（px。0 はたたんでいる）。次に開いたときも同じ（#213） */
+const DESK_KEY = "board-desk-height";
+/** 引いて広げられるのは、ボードの画面の高さのこの割合まで（上の段と区画の見出しは見えるように） */
+const DESK_MAX_RATIO = 0.8;
+/** 押して開いたときの高さ（ボードの画面の高さの割合） */
+const DESK_OPEN_RATIO = 0.5;
 
 function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -516,6 +525,88 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
 
   // --- 下の机（自分の担当。絞り込みにかかわらず、区画の並びの順） ---
   const desk = DESKS[look];
+  // 机の高さ: 上の縁をつまんで上へ引くと広がり、押すと開く・たたむ（#213）。広げると区画ごとに折り返して並べる
+  const viewRef = useRef<HTMLDivElement>(null);
+  const deskMin = isMobile ? DESK_MIN_NARROW : DESK_MIN;
+  const [deskSaved, setDeskSaved] = useState(() => {
+    try {
+      return Math.max(0, Number(localStorage.getItem(DESK_KEY)) || 0);
+    } catch {
+      return 0;
+    }
+  });
+  // 引いているあいだの高さ（離すと deskSaved に入る）
+  const [deskPull, setDeskPull] = useState<number | null>(null);
+  const gripMoved = useRef(false);
+  // ボードの画面の高さ（窓の大きさが変わったら、広げた机の上限も変える）
+  const [viewH, setViewH] = useState(0);
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    setViewH(el.clientHeight);
+    const ro = new ResizeObserver(() => setViewH(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const viewHeight = () => viewH || viewRef.current?.clientHeight || 600;
+  const deskMax = () => Math.max(deskMin, Math.round(viewHeight() * DESK_MAX_RATIO));
+  const deskH = deskPull ?? (deskSaved > 0 ? Math.min(Math.max(deskSaved, deskMin), deskMax()) : deskMin);
+  const deskOpen = deskH > deskMin + 24;
+  function saveDesk(h: number) {
+    setDeskSaved(h);
+    try {
+      localStorage.setItem(DESK_KEY, String(h));
+    } catch {
+      // 覚えられなくても、今は広がる
+    }
+  }
+  function onDeskGripDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return;
+    const grip = e.currentTarget;
+    const startY = e.clientY;
+    const startH = deskH;
+    gripMoved.current = false;
+    try {
+      grip.setPointerCapture(e.pointerId);
+    } catch {
+      // つかめなくても、つまみの上で動かしているあいだは引ける
+    }
+    const heightAt = (y: number) => Math.min(deskMax(), Math.max(deskMin, startH + (startY - y)));
+    const onMove = (ev: PointerEvent) => {
+      if (Math.abs(startY - ev.clientY) > 4) gripMoved.current = true;
+      if (gripMoved.current) setDeskPull(heightAt(ev.clientY));
+    };
+    const onUp = (ev: PointerEvent) => {
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", onUp);
+      grip.removeEventListener("pointercancel", onUp);
+      setDeskPull(null);
+      if (!gripMoved.current) return;
+      // たたんだ高さの近くで離したら、たたむ
+      const h = heightAt(ev.clientY);
+      saveDesk(h < deskMin + 24 ? 0 : h);
+    };
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", onUp);
+    grip.addEventListener("pointercancel", onUp);
+  }
+  // 押しただけ（引いていない）なら、開く・たたむ。キーボードの Enter・Space も
+  function onDeskGripClick() {
+    if (gripMoved.current) {
+      gripMoved.current = false;
+      return;
+    }
+    saveDesk(deskOpen ? 0 : Math.max(deskMin + 60, Math.round(viewHeight() * DESK_OPEN_RATIO)));
+  }
+  // メモのボタンとお知らせは、机の上に出す（机の高さを画面の外枠に渡す）
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>(".app-shell");
+    if (!shell) return;
+    shell.style.setProperty("--bd-desk-height", `${deskH}px`);
+    return () => {
+      shell.style.removeProperty("--bd-desk-height");
+    };
+  }, [deskH]);
   const colIndex = (issue: GitHubIssue) => {
     const i = baseColumns.findIndex((c) => c.key === (statusOf(issue) || "none"));
     return i < 0 ? baseColumns.length : i;
@@ -523,6 +614,11 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const myIssues = issues
     .filter((i) => i.state === "open" && !!currentUser && i.assignees?.some((a) => a.login === currentUser))
     .sort((a, b) => colIndex(a) - colIndex(b) || a.number - b.number);
+  // 広げた机では、区画ごとに分けて並べる（区画にない状態は最後に「そのほか」）
+  const myGroups = [
+    ...baseColumns.map((c) => ({ key: c.key, label: `${c.emoji} ${c.title}`, items: myIssues.filter((i) => (statusOf(i) || "none") === c.key) })),
+    { key: "@other", label: "そのほか", items: myIssues.filter((i) => colIndex(i) === baseColumns.length) },
+  ].filter((g) => g.items.length > 0);
   const [deskNote, setDeskNote] = useState<string | null>(null);
   useEffect(() => {
     if (!deskNote) return;
@@ -557,7 +653,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   );
 
   return (
-    <div className="bd-view">
+    <div className="bd-view" ref={viewRef}>
       <div className={`bd-toolbar${isPhone ? " toolbar m-compact" : ""}`}>
         <div className="search-bar bd-search">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Issue を検索..." className="search-input" />
@@ -711,9 +807,21 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         })}
       </div>
 
-      {/* 下の机（PC）。付箋を置くと自分の担当に。机の上には自分の担当が並ぶ（押すと詳細・ドラッグで区画へ） */}
-      {!isMobile && currentUser && (
-        <div ref={target("@desk")} className={`bd-desk desk-${look}${over === "@desk" ? " over" : ""}`}>
+      {/* 下の机。付箋を置くと自分の担当に（PC）。机の上には自分の担当が並ぶ（押すと詳細・ドラッグで区画へ）。
+          上の縁をつまんで上へ引くと広がり、区画ごとに折り返して並ぶ（#213）。スマホでも出す */}
+      {currentUser && (
+        <div ref={target("@desk")} className={`bd-desk desk-${look}${deskOpen ? " open" : ""}${deskPull !== null ? " pulling" : ""}${over === "@desk" ? " over" : ""}`} style={{ height: deskH }}>
+          <button
+            type="button"
+            className="bd-desk-grip"
+            aria-label={deskOpen ? "机をたたむ（上下に引くと高さが変わります）" : "机を広げる（上へ引くと広がります）"}
+            aria-expanded={deskOpen}
+            title={deskOpen ? "押すとたたむ・上下に引くと高さが変わる" : "押すと広がる・上へ引いても広がる"}
+            onPointerDown={onDeskGripDown}
+            onClick={onDeskGripClick}
+          >
+            <i aria-hidden="true" />
+          </button>
           <div className="bd-desk-name">
             <b>{desk.name}</b>
             <small>
@@ -722,7 +830,14 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           </div>
           <div className="bd-desk-items">
             {myIssues.length === 0 && <span className="bd-desk-empty">{desk.empty}</span>}
-            {myIssues.map((issue) => (
+            {(deskOpen ? myGroups : [{ key: "@all", label: "", items: myIssues }]).map((g) => (
+              <div key={g.key} className="bd-desk-group">
+                {deskOpen && (
+                  <div className="bd-desk-group-h">
+                    {g.label} <small>{g.items.length}</small>
+                  </div>
+                )}
+                {g.items.map((issue) => (
               <button
                 key={issue.number}
                 type="button"
@@ -748,6 +863,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 </span>
                 {issue.title}
               </button>
+                ))}
+              </div>
             ))}
           </div>
           <span className="bd-desk-deco" aria-hidden="true">

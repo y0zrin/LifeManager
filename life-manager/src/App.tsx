@@ -1530,7 +1530,7 @@ function App() {
 
       {/* お祝い（完了のキラキラ・スタンプ・完了の知らせ、新しく入ったもののキラキラ） */}
       <Celebration motion={display.settings.motion === "normal"} />
-      <MilestoneCelebration motion={display.settings.motion === "normal"} onCloseMilestone={gh.closeMilestone} />
+      <MilestoneCelebration motion={display.settings.motion === "normal"} onCloseMilestone={gh.closeMilestone} sound={display.settings.celebrationSound} />
       {conflictNotice && folder && git.status?.conflicted && (
         <ConflictNotice
           folder={folder}

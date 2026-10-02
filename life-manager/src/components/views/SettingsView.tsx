@@ -1037,6 +1037,17 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </div>
       </div>
 
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>お祝いの音</h3>
+        <label className="display-opt">
+          <input type="checkbox" checked={displaySettings.celebrationSound}
+            onChange={(e) => onChangeDisplaySettings({ celebrationSound: e.target.checked })} />
+          <span>
+            <b>マイルストーンを達成したときに鳴らす（はじめはこれ）</b>
+          </span>
+        </label>
+      </div>
+
       {/* 背景の動き（テーマの粒）。スマホでは動かさない */}
       {!isMobile && (
       <div className="form-card">

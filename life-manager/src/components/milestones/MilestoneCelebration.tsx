@@ -6,12 +6,16 @@ import { usePortalHost } from "../../hooks/usePortalHost";
 import { StageArt } from "./StageArt";
 import { Buncho } from "../common/Buncho";
 import { bunchoFlock } from "../../lib/buncho";
+import { playDing, playFanfare, playTick } from "../../lib/celebrateSound";
+import { CelebrationFx, IMPACT } from "./CelebrationFx";
 
 interface MilestoneCelebrationProps {
   /** 画面の動きが「ふつう」か（少なめなら、動かさずに出す） */
   motion: boolean;
   /** 「マイルストーンを閉じる」（GitHub のマイルストーンを閉じる） */
   onCloseMilestone: (n: number) => Promise<void>;
+  /** お祝いの音を鳴らすか（設定 → 表示） */
+  sound: boolean;
 }
 
 /** 演出の種類: トロフィー・花火・ステージクリア（クエストはボス撃破）・大きなはんこ。金魚のテーマは、いつも夜の夏まつり。文鳥のテーマは、いつも朝のさえずり */
@@ -20,6 +24,56 @@ const PATTERNS: Pattern[] = ["trophy", "fireworks", "clear", "stamp"];
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const SPARKS = ["var(--spark-1)", "var(--spark-2)", "var(--spark-3)", "var(--spark-4)", "var(--spark-5)", "var(--spark-6)", "var(--spark-7)", "var(--spark-8)"];
+
+/**
+ * 数を 0 から数え上げる（#231）。数が進むたびに音を鳴らし、終わると「チン」と鳴って、ぽんと大きくなる。
+ * 「23pt」「2 日前」のように、頭の数だけを数える（数でないもの「ぴったり」は、そのまま）
+ */
+function CountUp({ text, delay, sound, still }: { text: string; delay: number; sound: boolean; still: boolean }) {
+  const m = text.match(/^(\d+(?:\.\d+)?)(.*)$/);
+  const target = m ? Number(m[1]) : null;
+  const decimals = m && m[1].includes(".") ? m[1].split(".")[1].length : 0;
+  const [n, setN] = useState(still || target === null ? target : 0);
+  const [done, setDone] = useState(still || target === null);
+  useEffect(() => {
+    if (still || target === null) return;
+    let raf = 0;
+    let lastTick = 0;
+    let lastValue = 0;
+    const t0 = performance.now() + delay * 1000;
+    const dur = Math.min(1100, 300 + target * 45);
+    const step = (now: number) => {
+      const p = Math.max(0, Math.min(1, (now - t0) / dur));
+      const v = (1 - Math.pow(1 - p, 3)) * target;
+      setN(v);
+      const whole = Math.floor(v);
+      // 音は、数が進んだときに。続けて鳴らしすぎないよう、少し間をあける
+      if (sound && whole > lastValue && now - lastTick > 45) {
+        lastTick = now;
+        lastValue = whole;
+        playTick(whole);
+      }
+      if (p < 1) {
+        raf = requestAnimationFrame(step);
+      } else {
+        setN(target);
+        setDone(true);
+        if (sound) playDing();
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // はじめに 1 回だけ数える
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (target === null || n === null) return <b>{text}</b>;
+  return (
+    <b className={`ms-cel-num${done ? " done" : ""}`}>
+      {decimals ? n.toFixed(decimals) : Math.floor(n)}
+      {m![2]}
+    </b>
+  );
+}
 
 /** 期限まで何日残したか（「2 日前」「ぴったり」「3 日」） */
 function timingOf(leftDays: number | null): { value: string; label: string } | null {
@@ -131,7 +185,7 @@ function Stamp({ theme, title }: { theme: string; title: string }) {
  * 大きなはんこ から、毎回ちがうものを出す。終えたタスクの数・見積もり・期限まで何日残したかと、かかわった人を出す。
  * まだ GitHub でマイルストーンを閉じていなければ「マイルストーンを閉じる」も。どこかを押すか Esc で閉じる
  */
-export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCelebrationProps) {
+export function MilestoneCelebration({ motion, onCloseMilestone, sound }: MilestoneCelebrationProps) {
   const [cel, setCel] = useState<{ detail: MilestoneClearDetail; pattern: Pattern; id: number } | null>(null);
   const [closing, setClosing] = useState(false);
   const lastPattern = useRef(-1);
@@ -154,6 +208,12 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
     window.addEventListener(MILESTONE_CLEAR_EVENT, onClear);
     return () => window.removeEventListener(MILESTONE_CLEAR_EVENT, onClear);
   }, []);
+
+  // お祝いの音（ためる → ドン → ファンファーレ）。ドンは、閃光と火花と同じとき
+  const celId = cel?.id;
+  useEffect(() => {
+    if (celId !== undefined && sound) playFanfare(IMPACT);
+  }, [celId, sound]);
 
   useEffect(() => {
     if (!cel) return;
@@ -182,16 +242,27 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
     }
   }
 
+  // 数は、ドンのあと中身が出てから、1 つずつ数え上げる
+  const countAt = (i: number) => IMPACT + 0.55 + i * 0.3;
   const stats = (
     <div className="ms-cel-stats">
-      <div><b>{d.doneCount}</b><span>{quest ? "倒したタスク" : "終えたタスク"}</span></div>
-      {d.amount && <div><b>{d.amount}</b><span>{quest ? "経験値" : "見積もり"}</span></div>}
-      {timing && <div><b>{timing.value}</b><span>{timing.label}</span></div>}
+      <div><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /><span>{quest ? "倒したタスク" : "終えたタスク"}</span></div>
+      {d.amount && <div><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /><span>{quest ? "経験値" : "見積もり"}</span></div>}
+      {timing && <div><CountUp text={timing.value} delay={countAt(2)} sound={sound} still={still} /><span>{timing.label}</span></div>}
     </div>
   );
+  // チームの顔は、1 人ずつ飛び出す
   const team = d.team.length > 0 && (
     <div className="ms-cel-team">
-      {d.team.map((u) => (u.avatar_url ? <img key={u.login} src={u.avatar_url} alt="" title={u.login} /> : <span key={u.login} title={u.login}>{u.login.slice(0, 1).toUpperCase()}</span>))}
+      {d.team.map((u, i) =>
+        u.avatar_url ? (
+          <img key={u.login} src={u.avatar_url} alt="" title={u.login} style={{ "--i": i } as CSSProperties} />
+        ) : (
+          <span key={u.login} title={u.login} style={{ "--i": i } as CSSProperties}>
+            {u.login.slice(0, 1).toUpperCase()}
+          </span>
+        ),
+      )}
       {quest ? "パーティのみんなで" : "チームのみんなで"}
     </div>
   );
@@ -269,9 +340,9 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
         <div className="ms-cel-stars">{"★".repeat(stars)}<span className="off">{"★".repeat(3 - stars)}</span></div>
         <div className="ms-cel-starnote">{stars === 3 ? "★ 期限まで ・ ★ ぜんぶ終えた ・ ★ クリア" : "★ ぜんぶ終えた ・ ★ クリア（期限はすぎました）"}</div>
         <div className="ms-cel-tally">
-          <div><span>終えたタスク</span><i /><b>{d.doneCount}</b></div>
-          {d.amount && <div><span>見積もり</span><i /><b>{d.amount}</b></div>}
-          {timing && <div><span>{timing.label}</span><i /><b>{timing.value}</b></div>}
+          <div><span>終えたタスク</span><i /><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /></div>
+          {d.amount && <div><span>見積もり</span><i /><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /></div>}
+          {timing && <div><span>{timing.label}</span><i /><CountUp text={timing.value} delay={countAt(2)} sound={sound} still={still} /></div>}
         </div>
       </>
     );
@@ -292,7 +363,10 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
       {(pattern === "trophy" || pattern === "clear") && <div className="ms-cel-rays" />}
       {(pattern === "fireworks" || pattern === "matsuri") && <Fireworks />}
       {pattern === "trophy" && <Confetti />}
-      <div key={cel.id} className="ms-cel-body" onClick={(e) => e.stopPropagation()}>
+      {/* ためる → ドン（閃光・衝撃の輪・光の帯・火花・紙吹雪。#231） */}
+      {!still && <CelebrationFx key={`fx${cel.id}`} />}
+      <div key={cel.id} className="ms-cel-shake">
+      <div className="ms-cel-body" onClick={(e) => e.stopPropagation()}>
         {body}
         <div className="ms-cel-btns">
           {d.canClose ? (
@@ -306,6 +380,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone }: MilestoneCele
             <button type="button" className="ms-cel-btn" autoFocus onClick={() => setCel(null)}>OK</button>
           )}
         </div>
+      </div>
       </div>
     </div>,
     host,

@@ -38,6 +38,8 @@ export interface DisplaySettings {
   closeToTray: boolean;
   /** 背景（テーマの粒: チョークの粉・花びら・雪 など）を動かす（はじめはこれ）。画面の動きが少なめ・スマホでは止める */
   stageMotion: boolean;
+  /** マイルストーンを達成したときに、お祝いの音を鳴らす（はじめはこれ。#231） */
+  celebrationSound: boolean;
 }
 
 const STORAGE_KEY = "display-settings";
@@ -53,6 +55,7 @@ const DEFAULTS: DisplaySettings = {
   noticeCorner: "top-right",
   closeToTray: true,
   stageMotion: true,
+  celebrationSound: true,
 };
 // 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ。ボードの見た目は、そのままテーマになる）
 const OLD_BOARD_LOOK_KEY = "board-look";
@@ -92,6 +95,7 @@ export function loadDisplaySettings(): DisplaySettings {
       noticeCorner: NOTICE_CORNERS.includes(saved.noticeCorner) ? saved.noticeCorner : DEFAULTS.noticeCorner,
       closeToTray: typeof saved.closeToTray === "boolean" ? saved.closeToTray : DEFAULTS.closeToTray,
       stageMotion: typeof saved.stageMotion === "boolean" ? saved.stageMotion : DEFAULTS.stageMotion,
+      celebrationSound: typeof saved.celebrationSound === "boolean" ? saved.celebrationSound : DEFAULTS.celebrationSound,
     };
   } catch {
     return DEFAULTS;

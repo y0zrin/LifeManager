@@ -6870,40 +6870,36 @@ html.stage-still .bd-partner {
   transition: height var(--dur-base) var(--ease-standard);
 }
 
-/* 机の上の縁のつまみ（上へ引くと広がる。押すと開く・たたむ。#213） */
-.bd-desk-grip {
+/* 机の縁のでっぱり（押すと一番上まで広がる・たたむ。上下に引くと好きな高さに。#213）。縁と同じ色で、縁から上へ出っぱる */
+.bd-desk-tab {
   position: absolute;
-  top: -12px;
+  bottom: 100%;
   left: 50%;
   z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 140px;
-  height: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: calc(24px + var(--desk-edge-w, 6px));
   min-height: 0;
-  padding: 0;
+  padding: 4px 22px var(--desk-edge-w, 6px);
   border: none;
-  border-radius: 12px;
-  background: none;
-  color: inherit;
+  border-radius: 12px 12px 0 0;
+  background: var(--desk-edge, var(--border-default));
+  box-shadow: 0 -2px 6px #0004;
+  color: var(--desk-edge-ink, var(--text-primary));
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
   translate: -50% 0;
   cursor: ns-resize;
   touch-action: none;
 }
 
-.bd-desk-grip i {
-  display: block;
-  width: 48px;
-  height: 6px;
-  border-radius: 3px;
-  background: currentColor;
-  box-shadow: 0 1px 3px #0006;
-  opacity: 0.6;
-}
-
-.bd-desk-grip:hover i,
-.bd-desk.pulling .bd-desk-grip i {
-  opacity: 0.95;
+.bd-desk-tab:hover,
+.bd-desk.pulling .bd-desk-tab {
+  filter: brightness(1.08);
 }
 
 /* 区画ごとのまとまり: たたんでいるときは 1 列に流す（まとまりの箱を作らない） */
@@ -6939,9 +6935,18 @@ html.stage-still .bd-partner {
 
 .bd-desk.open .bd-desk-group {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 広げた机の付箋（ボードと同じ付箋）。区画の板の上と同じ間あけ */
+.bd-desk.open .bd-notes {
+  padding: 2px 2px 6px;
+}
+
+/* 広げた机は、最後の付箋がメモのボタン（下の角。机を広げても動かさない）に隠れないように、下をあける */
+.bd-desk.open .bd-desk-items {
+  padding-bottom: calc(var(--fab-size) + var(--fab-gap));
 }
 
 .bd-desk-group-h {
@@ -6953,10 +6958,6 @@ html.stage-still .bd-partner {
 .bd-desk-group-h small {
   font-weight: 400;
   opacity: 0.8;
-}
-
-.bd-desk.open .bd-desk-chip {
-  max-width: min(320px, 100%);
 }
 
 .bd-desk.open .bd-desk-deco {
@@ -7089,6 +7090,9 @@ html.stage-still .bd-partner {
 
 /* 勉強机（黒板） */
 .desk-chalk {
+  --desk-edge: #8a8f94;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #2a1f14;
   border-top: 6px solid #8a8f94;
   background: repeating-linear-gradient(0deg, transparent 0 7px, #00000010 7px 8px), linear-gradient(180deg, #d2ab72 0%, #c39a5f 70%, #9c7442 100%);
   color: #3b2a14;
@@ -7103,6 +7107,9 @@ html.stage-still .bd-partner {
 
 /* オフィスのデスク（ホワイトボード） */
 .desk-white {
+  --desk-edge: #8f887d;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #2a1f14;
   border-top: 6px solid #8f887d;
   background: linear-gradient(180deg, #d9d4cc 0%, #cbc5bb 70%, #a39c90 100%);
   color: #2d2a26;
@@ -7116,6 +7123,9 @@ html.stage-still .bd-partner {
 
 /* ギルドの受付（クエスト） */
 .desk-quest {
+  --desk-edge: #a8733f;
+  --desk-edge-w: 7px;
+  --desk-edge-ink: #2a1f14;
   border-top: 7px solid #a8733f;
   background: repeating-linear-gradient(90deg, transparent 0 60px, #00000022 60px 62px), linear-gradient(180deg, #7a4b24 0%, #5d3717 60%, #4a2d15 100%);
   color: #fbe8c8;
@@ -7147,6 +7157,9 @@ html.stage-still .bd-partner {
 
 /* 夜の机（ナイト）: 黒い木に、右からランプの光 */
 .desk-night {
+  --desk-edge: #3a2f28;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #f3e9dc;
   border-top: 6px solid #3a2f28;
   background:
     radial-gradient(ellipse 360px 120px at 88% 0%, #ffd76a44, transparent 70%),
@@ -7164,6 +7177,9 @@ html.stage-still .bd-partner {
 
 /* カフェのテーブル（デイタイム）: 明るい樫 */
 .desk-day {
+  --desk-edge: #c9a36e;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #2a1f14;
   border-top: 6px solid #c9a36e;
   background: repeating-linear-gradient(90deg, transparent 0 90px, #00000010 90px 92px), linear-gradient(180deg, #ecd1a4, #e0bf8b 70%, #c9a36e);
   color: #3a2610;
@@ -7177,6 +7193,9 @@ html.stage-still .bd-partner {
 
 /* 春の机（スプリング）: 白木に花びら */
 .desk-spring {
+  --desk-edge: #d9b996;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #2a1f14;
   border-top: 6px solid #d9b996;
   background:
     radial-gradient(ellipse 5px 3px at 30% 40%, #f7a8c2 60%, transparent 62%) 0 0 / 90px 60px,
@@ -7194,6 +7213,9 @@ html.stage-still .bd-partner {
 
 /* こたつ（ウィンター）: 天板と、ふとんの柄 */
 .desk-winter {
+  --desk-edge: #b88a5c;
+  --desk-edge-w: 8px;
+  --desk-edge-ink: #2a1f14;
   border-top: 8px solid #b88a5c;
   background: linear-gradient(180deg, #d9b489 0 16px, transparent 16px), repeating-linear-gradient(45deg, #c8423a 0 12px, #b3362f 12px 24px), #c8423a;
   color: #ffffff;
@@ -7225,6 +7247,9 @@ html.stage-still .bd-partner {
 
 /* 縁側（金魚）: 板の間に風鈴がゆれる */
 .desk-kingyo {
+  --desk-edge: #b48d60;
+  --desk-edge-w: 6px;
+  --desk-edge-ink: #2a1f14;
   border-top: 6px solid #b48d60;
   background: repeating-linear-gradient(90deg, #d9b98e 0 72px, #c9a57a 72px 74px);
   color: #3a2610;
@@ -7266,6 +7291,9 @@ html.stage-still .desk-kingyo::after,
 
 /* 文机（文鳥）: 白木の机。右に手紙・一輪挿し・湯のみ（湯気がのぼる）。付箋は白い紙 */
 .desk-buncho {
+  --desk-edge: #c4ad8b;
+  --desk-edge-w: 5px;
+  --desk-edge-ink: #2a1f14;
   border-top: 5px solid #c4ad8b;
   background: repeating-linear-gradient(180deg, #ffffff12 0 3px, #00000007 3px 5px), linear-gradient(180deg, #e9ddc7, #dccbae);
   color: #3b2f22;
@@ -10794,10 +10822,9 @@ html.stage-still .desk-buncho::after {
     display: none;
   }
 
-  .bd-desk-grip {
-    width: 180px;
-    height: 30px;
-    top: -15px;
+  .bd-desk-tab {
+    height: calc(28px + var(--desk-edge-w, 6px));
+    padding: 6px 28px var(--desk-edge-w, 6px);
   }
 
   .memo-fab-wrap .memo-pop {

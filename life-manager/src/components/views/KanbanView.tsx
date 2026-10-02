@@ -50,12 +50,12 @@ const MINE_KEY = "board-mine-only";
 /** 下の机の、たたんだときの高さ（PC は App.css の --bd-desk-height と同じ。スマホは 1 列ぶん） */
 const DESK_MIN = 84;
 const DESK_MIN_NARROW = 64;
-/** 広げた机の高さ（px。0 はたたんでいる）。次に開いたときも同じ（#213） */
+/** 広げた机の高さ（px。0 はたたんでいる。DESK_TOP は一番上まで）。次に開いたときも同じ（#213） */
 const DESK_KEY = "board-desk-height";
-/** 引いて広げられるのは、ボードの画面の高さのこの割合まで（上の段と区画の見出しは見えるように） */
-const DESK_MAX_RATIO = 0.8;
-/** 押して開いたときの高さ（ボードの画面の高さの割合） */
-const DESK_OPEN_RATIO = 0.5;
+/** 一番上まで（区画のタブのすぐ下。でっぱりがタブにかからない所） */
+const DESK_TOP = 100000;
+/** 机の上に出る「でっぱり」の高さ（一番上まで広げても、でっぱりは見えるように） */
+const DESK_TAB = 30;
 
 function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -518,8 +518,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragging, dragFrom, over, onStatusChange]);
 
-  // --- スマホ: 「移動」で区画を選ぶ ---
-  const [moving, setMoving] = useState<number | null>(null);
+  // --- スマホ: 「移動」で区画を選ぶ（ボードと机の両方に同じ付箋が出るので、どちらの付箋かも覚える） ---
+  const [moving, setMoving] = useState<string | null>(null);
 
   const draggedIssue = dragging !== null ? issues.find((i) => i.number === dragging) ?? null : null;
 
@@ -549,7 +549,14 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     return () => ro.disconnect();
   }, []);
   const viewHeight = () => viewH || viewRef.current?.clientHeight || 600;
-  const deskMax = () => Math.max(deskMin, Math.round(viewHeight() * DESK_MAX_RATIO));
+  // 広げられるのは、区画の板の上の端（タブのすぐ下）まで
+  const wallRef = useRef<HTMLDivElement>(null);
+  const wallTop = () => {
+    const wall = wallRef.current?.getBoundingClientRect();
+    const view = viewRef.current?.getBoundingClientRect();
+    return wall && view ? wall.top - view.top : viewHeight() * 0.2;
+  };
+  const deskMax = () => Math.max(deskMin, Math.round(viewHeight() - wallTop() - DESK_TAB));
   const deskH = deskPull ?? (deskSaved > 0 ? Math.min(Math.max(deskSaved, deskMin), deskMax()) : deskMin);
   const deskOpen = deskH > deskMin + 24;
   function saveDesk(h: number) {
@@ -590,23 +597,24 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     grip.addEventListener("pointerup", onUp);
     grip.addEventListener("pointercancel", onUp);
   }
-  // 押しただけ（引いていない）なら、開く・たたむ。キーボードの Enter・Space も
+  // 押しただけ（引いていない）なら、一番上まで広げる・たたむ。キーボードの Enter・Space も
   function onDeskGripClick() {
     if (gripMoved.current) {
       gripMoved.current = false;
       return;
     }
-    saveDesk(deskOpen ? 0 : Math.max(deskMin + 60, Math.round(viewHeight() * DESK_OPEN_RATIO)));
+    saveDesk(deskOpen ? 0 : DESK_TOP);
   }
-  // メモのボタンとお知らせは、机の上に出す（机の高さを画面の外枠に渡す）
+  // メモのボタンとお知らせは、たたんだ机の上に出す（広げても動かさない。上へ動かすと区画の板にかぶるので、
+  // 広げた机では付箋の並びの下をあける）。スマホの机の高さを画面の外枠に渡す
   useEffect(() => {
     const shell = document.querySelector<HTMLElement>(".app-shell");
     if (!shell) return;
-    shell.style.setProperty("--bd-desk-height", `${deskH}px`);
+    shell.style.setProperty("--bd-desk-height", `${deskMin}px`);
     return () => {
       shell.style.removeProperty("--bd-desk-height");
     };
-  }, [deskH]);
+  }, [deskMin]);
   const colIndex = (issue: GitHubIssue) => {
     const i = baseColumns.findIndex((c) => c.key === (statusOf(issue) || "none"));
     return i < 0 ? baseColumns.length : i;
@@ -651,6 +659,66 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const note = (issue: GitHubIssue) => (
     <BoardNote issue={issue} look={look} me={currentUser} working={issue.number === workingIssue} pull={pullOf.get(issue.number) ?? null} onOpenPull={onOpenPull} />
   );
+
+  /** 区画に貼る付箋 1 枚（押すと詳細・ドラッグで区画へ。スマホは「移動」）。広げた机にも同じものを並べる */
+  const slot = (issue: GitHubIssue, place: "board" | "desk") => {
+    const key = `${place}:${issue.number}`;
+    return (
+      <div
+        key={issue.number}
+        className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
+        onMouseDown={isMobile || isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+        onClick={() => {
+          // 送っているあいだ・送れなかった仮の付箋は開かない
+          if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
+        }}
+      >
+        {note(issue)}
+        {/* 送っている途中・送れなかった仮の付箋は、まだ動かせない */}
+        {isMobile && !isUnsent(issue) && (
+          <button
+            type="button"
+            className="btn-sm bd-move"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMoving(moving === key ? null : key);
+            }}
+          >
+            移動
+          </button>
+        )}
+        {isMobile && moving === key && (
+          <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
+            {currentUser && !issue.assignees?.length && (
+              <button
+                className="kanban-status-option"
+                onClick={() => {
+                  onAssignToMe(issue.number);
+                  setMoving(null);
+                }}
+              >
+                🙋 {look === "quest" ? "受注する（自分の担当にする）" : "自分の担当にする"}
+              </button>
+            )}
+            {baseColumns
+              .filter((c) => c.key !== (statusOf(issue) || "none"))
+              .map((c) => (
+                <button
+                  key={c.key}
+                  className="kanban-status-option"
+                  onClick={() => {
+                    onStatusChange(issue.number, c.key === "none" ? "" : c.key);
+                    setMoving(null);
+                  }}
+                >
+                  {c.emoji} {c.title}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="bd-view" ref={viewRef}>
@@ -724,7 +792,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         ))}
       </div>
 
-      <div className={`bd-wall look-${look}`}>
+      <div ref={wallRef} className={`bd-wall look-${look}`}>
         {cols.length === 0 && <p className="bd-none">このボードに置く区画がありません（⚙ 区画の設定 で選べます）</p>}
         {cols.map((col, ci) => {
           const list = issuesOf(col);
@@ -743,63 +811,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 <span className="bd-count">{list.length}</span>
                 <EstimateSumText sum={sumEstimates(list, unit)} showMissing={false} />
               </header>
-              <div className="bd-notes">
-                {list.map((issue) => (
-                  <div
-                    key={issue.number}
-                    className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
-                    onMouseDown={isMobile || isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
-                    onClick={() => {
-                      // 送っているあいだ・送れなかった仮の付箋は開かない
-                      if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
-                    }}
-                  >
-                    {note(issue)}
-                    {/* 送っている途中・送れなかった仮の付箋は、まだ動かせない */}
-                    {isMobile && !isUnsent(issue) && (
-                      <button
-                        type="button"
-                        className="btn-sm bd-move"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMoving(moving === issue.number ? null : issue.number);
-                        }}
-                      >
-                        移動
-                      </button>
-                    )}
-                    {isMobile && moving === issue.number && (
-                      <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
-                        {currentUser && !issue.assignees?.length && (
-                          <button
-                            className="kanban-status-option"
-                            onClick={() => {
-                              onAssignToMe(issue.number);
-                              setMoving(null);
-                            }}
-                          >
-                            🙋 {look === "quest" ? "受注する（自分の担当にする）" : "自分の担当にする"}
-                          </button>
-                        )}
-                        {baseColumns
-                          .filter((c) => c.key !== (statusOf(issue) || "none"))
-                          .map((c) => (
-                            <button
-                              key={c.key}
-                              className="kanban-status-option"
-                              onClick={() => {
-                                onStatusChange(issue.number, c.key === "none" ? "" : c.key);
-                                setMoving(null);
-                              }}
-                            >
-                              {c.emoji} {c.title}
-                            </button>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <div className="bd-notes">{list.map((issue) => slot(issue, "board"))}</div>
               {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」でここに移せます" : "ここへドラッグして貼ります")}</div>}
               <AddHere look={look} open={addingTo === col.key} target={typeof milestone === "number" ? milestones.find((m) => m.number === milestone)?.title ?? null : null} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
@@ -811,16 +823,17 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           上の縁をつまんで上へ引くと広がり、区画ごとに折り返して並ぶ（#213）。スマホでも出す */}
       {currentUser && (
         <div ref={target("@desk")} className={`bd-desk desk-${look}${deskOpen ? " open" : ""}${deskPull !== null ? " pulling" : ""}${over === "@desk" ? " over" : ""}`} style={{ height: deskH }}>
+          {/* 机の縁のでっぱり: 押すと一番上まで広がる（広げていれば、たたむ）。上下に引くと好きな高さに */}
           <button
             type="button"
-            className="bd-desk-grip"
-            aria-label={deskOpen ? "机をたたむ（上下に引くと高さが変わります）" : "机を広げる（上へ引くと広がります）"}
+            className="bd-desk-tab"
+            aria-label={deskOpen ? "机をたたむ（上下に引くと高さが変わります）" : "机を一番上まで広げる（上へ引くと好きな高さに）"}
             aria-expanded={deskOpen}
-            title={deskOpen ? "押すとたたむ・上下に引くと高さが変わる" : "押すと広がる・上へ引いても広がる"}
+            title={deskOpen ? "押すとたたむ・上下に引くと高さが変わる" : "押すと一番上まで広がる・上へ引くと好きな高さに"}
             onPointerDown={onDeskGripDown}
             onClick={onDeskGripClick}
           >
-            <i aria-hidden="true" />
+            {deskOpen ? "▼ たたむ" : "▲ 広げる"}
           </button>
           <div className="bd-desk-name">
             <b>{desk.name}</b>
@@ -828,16 +841,20 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
               {desk.count} {myIssues.length}
             </small>
           </div>
-          <div className="bd-desk-items">
+          <div className={`bd-desk-items${deskOpen ? ` look-${look}` : ""}`}>
             {myIssues.length === 0 && <span className="bd-desk-empty">{desk.empty}</span>}
-            {(deskOpen ? myGroups : [{ key: "@all", label: "", items: myIssues }]).map((g) => (
-              <div key={g.key} className="bd-desk-group">
-                {deskOpen && (
+            {/* 広げたときは、ボードと同じ付箋を区画ごとに並べる */}
+            {deskOpen &&
+              myGroups.map((g) => (
+                <div key={g.key} className="bd-desk-group">
                   <div className="bd-desk-group-h">
                     {g.label} <small>{g.items.length}</small>
                   </div>
-                )}
-                {g.items.map((issue) => (
+                  <div className="bd-notes">{g.items.map((issue) => slot(issue, "desk"))}</div>
+                </div>
+              ))}
+            {!deskOpen &&
+              myIssues.map((issue) => (
               <button
                 key={issue.number}
                 type="button"
@@ -863,9 +880,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 </span>
                 {issue.title}
               </button>
-                ))}
-              </div>
-            ))}
+              ))}
           </div>
           <span className="bd-desk-deco" aria-hidden="true">
             {desk.deco}

@@ -171,6 +171,10 @@ function App() {
   useEffect(() => {
     setMotionEnabled(display.settings.motion === "normal");
   }, [display.settings.motion]);
+  // スマホは画面ぜんたいが 1 枚でスクロールするので、画面を切り替えたら一番上から見せる（前の画面で下へ送った分が残らないように）
+  useEffect(() => {
+    if (isMobile) window.scrollTo(0, 0);
+  }, [view]);
   // 設定を開いたときに出すペインと区切り（「メンバーを招待する」・ログインとトークン・ボードの区画・ガントの色。設定を離れたら元に戻す）
   const [settingsPane, setSettingsPane] = useState<SettingsPane | null>(null);
   const [settingsSection, setSettingsSection] = useState<string | null>(null);

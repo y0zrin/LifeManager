@@ -3706,6 +3706,27 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   max-width: none;
 }
 
+/* オーバービュー（スマホのメニューの中）: かけている条件を 1 行で */
+.insights-filter-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* 板の中の選ぶ欄は、1 つずつ横いっぱいに */
+.insights-sheet {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.insights-sheet .select-sm {
+  width: 100%;
+}
+
 /* 戻るボタンをメニューで押したときのお知らせ（スマホ） */
 .back-toast {
   position: fixed;

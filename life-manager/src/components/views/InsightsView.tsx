@@ -6,6 +6,8 @@ import { useEstimateUnit } from "../common/EstimateChip";
 import { estimateOf } from "../../lib/estimate";
 import { finishedMilestones, velocity, type PaceMode } from "../../lib/sprint";
 import { isSectionLabel, sectionOf } from "../../lib/section";
+import { MobileSheet } from "../common/MobileSheet";
+import { isMobile } from "../../lib/platform";
 
 interface InsightsViewProps {
   issues: GitHubIssue[];
@@ -46,6 +48,8 @@ function loadFilters(): Filters {
 export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline }: InsightsViewProps) {
   const unit = useEstimateUnit();
   const [filters, setFilters] = useState<Filters>(loadFilters);
+  // スマホの、下から出る絞り込みの板
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   function change(patch: Partial<Filters>) {
     const next = { ...filters, ...patch };
@@ -109,35 +113,76 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
   const entries = useMemo(() => velocity(issues, closedIssues, mode, unit), [issues, closedIssues, mode, unit]);
   const finished = useMemo(() => finishedMilestones(issues, closedIssues), [issues, closedIssues]);
 
+  // マイルストーン・担当・セクションを選ぶ欄（PC は上の段、スマホは下から出る板）
+  const filterSelects = (
+    <>
+      <select className="select-sm" value={milestone} onChange={(e) => change({ milestone: e.target.value })} aria-label="マイルストーン">
+        <option value="all">マイルストーン: 全て</option>
+        {milestones.map((m) => (
+          <option key={m.number} value={String(m.number)}>マイルストーン: {m.title}</option>
+        ))}
+        <option value="none">マイルストーンなし</option>
+      </select>
+      <select className="select-sm" value={assignee} onChange={(e) => change({ assignee: e.target.value })} aria-label="担当">
+        <option value="all">担当: 全員</option>
+        {collaborators.map((c) => (
+          <option key={c.login} value={c.login}>担当: {c.login}</option>
+        ))}
+        <option value="none">担当なし</option>
+      </select>
+      {domains.length > 0 && (
+        <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label="セクション">
+          <option value="all">セクション: 全て</option>
+          {domains.map((d) => (
+            <option key={d} value={d}>{sectionOf(d)}</option>
+          ))}
+        </select>
+      )}
+    </>
+  );
+  const activeFilters = (milestone !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (domain !== "all" ? 1 : 0);
+  // スマホの上の段に出す、かけている条件
+  const filterSummary = [
+    milestone === "all" ? null : milestone === "none" ? "マイルストーンなし" : `🎯 ${milestones.find((m) => String(m.number) === milestone)?.title ?? milestone}`,
+    assignee === "all" ? null : assignee === "none" ? "担当なし" : `👤 ${assignee}`,
+    domain === "all" ? null : sectionOf(domain),
+  ]
+    .filter(Boolean)
+    .join(" ・ ") || "全部のタスク";
+
   return (
     <div className="content insights">
-      <div className="toolbar insights-filters">
-        <select className="select-sm" value={milestone} onChange={(e) => change({ milestone: e.target.value })} aria-label="マイルストーン">
-          <option value="all">マイルストーン: 全て</option>
-          {milestones.map((m) => (
-            <option key={m.number} value={String(m.number)}>マイルストーン: {m.title}</option>
-          ))}
-          <option value="none">マイルストーンなし</option>
-        </select>
-        <select className="select-sm" value={assignee} onChange={(e) => change({ assignee: e.target.value })} aria-label="担当">
-          <option value="all">担当: 全員</option>
-          {collaborators.map((c) => (
-            <option key={c.login} value={c.login}>担当: {c.login}</option>
-          ))}
-          <option value="none">担当なし</option>
-        </select>
-        {domains.length > 0 && (
-          <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label="セクション">
-            <option value="all">セクション: 全て</option>
-            {domains.map((d) => (
-              <option key={d} value={d}>{sectionOf(d)}</option>
-            ))}
-          </select>
-        )}
+      {isMobile ? (
+        // スマホ（メニューの中）: 「絞り込み」と、かけている条件だけ。選ぶ欄は下から出る板に（#207）
+        <div className="toolbar insights-filters m-compact">
+          <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+            絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+          </button>
+          <span className="insights-filter-summary">{filterSummary}</span>
+        </div>
+      ) : (
+        <div className="toolbar insights-filters">
+          {filterSelects}
         {(milestone !== "all" || assignee !== "all" || domain !== "all") && (
-          <button type="button" className="link-button" onClick={() => change(ALL)}>絞り込みを外す</button>
-        )}
-      </div>
+            <button type="button" className="link-button" onClick={() => change(ALL)}>絞り込みを外す</button>
+          )}
+        </div>
+      )}
+      {isMobile && (
+        <MobileSheet
+          open={sheetOpen}
+          title="タスクの数の絞り込み"
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => change(ALL)}>すべて外す</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>閉じる</button>
+            </>
+          }
+        >
+          <div className="m-sheet-row m-sheet-ctrl insights-sheet">{filterSelects}</div>
+        </MobileSheet>
+      )}
 
       <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} title="📈 タスクの数" foldable={false} />
 

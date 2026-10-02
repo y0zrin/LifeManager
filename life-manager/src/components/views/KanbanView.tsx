@@ -10,13 +10,14 @@ import type { Theme } from "../../lib/theme";
 import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
 import { daysUntil, dueOf } from "../../lib/due";
 import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
-import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
+import { TaskFilterButton, TaskFilterChips, TaskFilterGroups, clearAll, filterCount, type TaskFilterProps } from "../common/TaskFilterButton";
+import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter } from "../../lib/savedViews";
 import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
 import { isEnter, isEscape } from "../../lib/keys";
 import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
-import { isMobile } from "../../lib/platform";
+import { isMobile as isPhone } from "../../lib/platform";
 
 interface KanbanViewProps {
   owner: string;
@@ -325,7 +326,7 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
         <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
           やめる
         </button>
-        <small>{isMobile ? "追加したあとも、続けて書けます" : "Enter で貼って続けて書けます"}</small>
+        <small>{isPhone ? "追加したあとも、続けて書けます" : "Enter で貼って続けて書けます"}</small>
       </div>
     </div>
   );
@@ -335,6 +336,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const baseColumns = boardColumns(boardConfig);
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
+  // スマホの、下から出る絞り込みの板（#207）
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // ジャンル・自分の担当だけ（この PC に覚えておく。見た目はテーマのもの）
   const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing", "review"] as const, "doing"));
@@ -555,7 +558,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
 
   return (
     <div className="bd-view">
-      <div className="bd-toolbar">
+      <div className={`bd-toolbar${isPhone ? " toolbar m-compact" : ""}`}>
         <div className="search-bar bd-search">
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Issue を検索..." className="search-input" />
           {query && (
@@ -564,16 +567,48 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
             </button>
           )}
         </div>
-        <TaskFilterButton {...filterProps} />
-        <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
-          👤 自分の担当だけ{mineOnly ? " ✓" : ""}
-        </button>
-        <span className="grow" />
-        <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
-          ⚙ 区画の設定
-        </button>
+        {isPhone ? (
+          // スマホは「絞り込み」だけ。自分の担当だけ・フィルタ・区画の設定は板に
+          <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) + (mineOnly ? 1 : 0) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+            絞り込み{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
+          </button>
+        ) : (
+          <>
+            <TaskFilterButton {...filterProps} />
+            <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+              👤 自分の担当だけ{mineOnly ? " ✓" : ""}
+            </button>
+            <span className="grow" />
+            <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
+              ⚙ 区画の設定
+            </button>
+          </>
+        )}
       </div>
       <TaskFilterChips {...filterProps} />
+      {isPhone && (
+        <MobileSheet
+          open={sheetOpen}
+          title="絞り込み"
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0 && !mineOnly} onClick={() => { clearAll(filterProps); setMineOnly(false); }}>すべて外す</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>閉じる</button>
+            </>
+          }
+        >
+          <SheetRow label="担当">
+            <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+              👤 自分の担当だけ{mineOnly ? " ✓" : ""}
+            </button>
+          </SheetRow>
+          <TaskFilterGroups {...filterProps} />
+          <SheetRow label="ボード">
+            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenBoardSettings(); }}>⚙ 区画の設定</button>
+          </SheetRow>
+        </MobileSheet>
+      )}
 
       <div className="bd-tabs" role="tablist" aria-label="ボード">
         {BOARD_GENRES.map((g) => (

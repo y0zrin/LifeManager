@@ -485,7 +485,10 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
             {canLogin && !useToken && signup === "none" && (
               <>
                 <div className="setup-choices">
-                  <div className="setup-choice">
+                  <div
+                    className="setup-choice"
+                    title="ログインすると、このアプリがあなたの代わりに読み書きできるようになります。読み書きできるのは、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルです。GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。"
+                  >
                     <h3>アカウントを持っている</h3>
                     <ul>
                       <li>自分の GitHub のアカウントで入ります</li>
@@ -505,9 +508,6 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                     </button>
                   </div>
                 </div>
-                <p className="hint">
-                  <b>ログイン</b>すると、このアプリがあなたの代わりに読み書きできるようになります。読み書きできるのは、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルです。GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。
-                </p>
                 <p className="setup-alt">
                   学校から「トークンを使って」と言われたとき：
                   <button type="button" className="link-button" onClick={() => setUseToken(true)}>

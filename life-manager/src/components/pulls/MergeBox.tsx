@@ -234,7 +234,6 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       ]
     : [];
   const pendingChecks = checks ? checks.checks.filter((c) => c.status !== "completed").length + checks.statuses.filter((s) => s.state === "pending").length : 0;
-  const help = methodHelp(chosen, pull.head, pull.base);
 
   return (
     <div className="mb" id="merge-box">
@@ -306,16 +305,16 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       {canPush && !pull.draft && (
         <div className="mb-merge">
           <div className="mb-methods" role="radiogroup" aria-label="マージの仕方">
-            {allowed.map((m) => (
-              <label key={m} className={`mb-method${chosen === m ? " on" : ""}`}>
-                <input type="radio" name="merge-method" checked={chosen === m} onChange={() => setMethod(m)} />
-                {METHOD_LABELS[m]}
-              </label>
-            ))}
+            {allowed.map((m) => {
+              const help = methodHelp(m, pull.head, pull.base);
+              return (
+                <label key={m} className={`mb-method${chosen === m ? " on" : ""}`} title={`${help.text}。手元でするなら ${help.command}`}>
+                  <input type="radio" name="merge-method" checked={chosen === m} onChange={() => setMethod(m)} />
+                  {METHOD_LABELS[m]}
+                </label>
+              );
+            })}
           </div>
-          <p className="hint">
-            {help.text}。手元でするなら <code>{help.command}</code>
-          </p>
           {canDeleteBranch &&
             (info?.delete_branch_on_merge ? (
               <p className="muted">マージするとブランチ <code>{pull.head}</code> は GitHub の設定で自動で消えます。</p>

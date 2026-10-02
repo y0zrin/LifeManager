@@ -888,20 +888,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
         </p>
       </div>
 
-      {/* 学習の補助（git の解説）・全体図は PC だけ（スマホは git の操作をしない） */}
+      {/* 全体図は PC だけ（スマホは git の操作をしない） */}
       {!isMobile && <>
-      <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>学習の補助</h3>
-        <label className="display-opt">
-          <input type="checkbox" checked={displaySettings.hints}
-            onChange={(e) => onChangeDisplaySettings({ hints: e.target.checked })} />
-          <span>
-            <b>解説を表示する</b>
-            <small>ステージ・コミット・退避などの意味と、対応する git のコマンドを画面に添えます</small>
-          </span>
-        </label>
-      </div>
-
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>全体図でのブランチの見せ方</h3>
         <div className="display-opts">

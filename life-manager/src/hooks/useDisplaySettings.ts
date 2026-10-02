@@ -22,8 +22,6 @@ export const MEMO_BUTTON_POSITIONS: MemoButtonPosition[] = ["top-right", "bottom
 export type MotionLevel = "normal" | "reduced";
 
 export interface DisplaySettings {
-  /** 学習の補助: ステージ・コミット・退避などの意味と、対応する git コマンドを画面に添える */
-  hints: boolean;
   branchStyle: BranchStyle;
   sidebarPosition: SidebarPosition;
   memoButton: MemoButtonPosition;
@@ -44,7 +42,6 @@ export interface DisplaySettings {
 
 const STORAGE_KEY = "display-settings";
 const DEFAULTS: DisplaySettings = {
-  hints: true,
   branchStyle: "label",
   sidebarPosition: "left",
   // スマホは右下（親指が届き、中身の大事な左側にかぶらない。#205）
@@ -85,7 +82,6 @@ export function loadDisplaySettings(): DisplaySettings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
     return {
-      hints: typeof saved.hints === "boolean" ? saved.hints : DEFAULTS.hints,
       branchStyle: saved.branchStyle === "line" ? "line" : DEFAULTS.branchStyle,
       sidebarPosition: SIDEBAR_POSITIONS.includes(saved.sidebarPosition) ? saved.sidebarPosition : DEFAULTS.sidebarPosition,
       memoButton: MEMO_BUTTON_POSITIONS.includes(saved.memoButton) ? saved.memoButton : DEFAULTS.memoButton,

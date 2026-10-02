@@ -756,7 +756,6 @@ function Workspace({
               selected={current}
               onSelect={setSelected}
               actions={actions}
-              lastCommand={g.lastCommand}
               onEmptyCommit={() => focusCommit(true)}
               onFileMenu={onFileMenu}
             />
@@ -820,7 +819,7 @@ function StepPanel({ n, current, hint, status, buttons, busy }: { n: number; cur
         {STEP_NAMES[n - 1]}
         {!current && status && <span className="w-step-status">{status}</span>}
       </h4>
-      {hint && <p className="w-step-text">{hint}</p>}
+      {hint && <p className="hint">{hint}</p>}
       {buttons.length > 0 && (
         <div className="w-step-actions">
           {buttons.map((b) => (
@@ -1161,12 +1160,11 @@ interface ChangesPaneProps {
   selected: Selected | null;
   onSelect: (s: Selected) => void;
   actions: GitActions;
-  lastCommand: string | null;
   onEmptyCommit: () => void;
   onFileMenu: (pos: MenuPos, file: GitFileChange, conflict: boolean) => void;
 }
 
-function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions, lastCommand, onEmptyCommit, onFileMenu }: ChangesPaneProps) {
+function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions, onEmptyCommit, onFileMenu }: ChangesPaneProps) {
   const total = conflicts.length + staged.length + unstaged.length;
 
   const row = (f: GitFileChange, side: Side, conflict = false) => {
@@ -1193,6 +1191,7 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
           type="checkbox"
           checked={side === "staged"}
           aria-label={side === "staged" ? "ステージから外す" : conflict ? "直したのでステージする" : "ステージする"}
+          title={gitApi.displayCommand(side === "staged" ? ["restore", "--staged", "--", f.path, ...(f.orig_path ? [f.orig_path] : [])] : ["add", "--", f.path])}
           onClick={(e) => e.stopPropagation()}
           onChange={toggle}
         />
@@ -1242,11 +1241,6 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
           {unstaged.map((f) => row(f, "unstaged"))}
           <div className="dr-empty-note">空コミットではファイルの変更は含めません</div>
         </div>
-      )}
-      {lastCommand && (
-        <p className="hint w-last-cmd">
-          直前に実行したコマンド: <code>{lastCommand}</code>
-        </p>
       )}
     </div>
   );

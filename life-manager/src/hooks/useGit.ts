@@ -43,7 +43,6 @@ export function useGit(folder: string | undefined, active: boolean) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notices, setNotices] = useState<GitNotice[]>([]);
-  const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [lastCommit, setLastCommit] = useState<GitMark | null>(null);
   const [lastPush, setLastPush] = useState<GitMark | null>(null);
   // 操作をした回数（履歴の読み直しの合図に使う）
@@ -80,7 +79,6 @@ export function useGit(folder: string | undefined, active: boolean) {
     setBranches([]);
     setStashes([]);
     setLoadError(null);
-    setLastCommand(null);
     setLastCommit(null);
     setLastPush(null);
     refresh();
@@ -138,13 +136,10 @@ export function useGit(folder: string | undefined, active: boolean) {
         if (!options.quiet) setBusy(label);
         try {
           const run = await action(folder);
-          // git を使わない操作（.gitignore に書き足すだけ など）は、コマンドを残さない
-          if (run.command) setLastCommand(run.command);
           if (!options.quiet) notify("ok", typeof success === "function" ? success(run) : success, run.command || undefined);
           return { ok: true, run };
         } catch (e) {
           const { command, message } = git.splitGitError(e);
-          if (command) setLastCommand(command);
           // 競合で止まったときは、git の英語のメッセージの代わりに、何が起きたかを日本語で出す（直し方は、別に出す知らせと作業タブで）
           const conflicted = git.conflictFilesIn(message);
           const shown = conflicted.length > 0
@@ -178,7 +173,6 @@ export function useGit(folder: string | undefined, active: boolean) {
     loadError,
     busy,
     notices,
-    lastCommand,
     lastCommit,
     lastPush,
     opCount,

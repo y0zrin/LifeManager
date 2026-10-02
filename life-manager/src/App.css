@@ -10504,7 +10504,7 @@ html.stage-still .desk-buncho::after {
   color: var(--text-muted);
 }
 
-/* 学習の補助（設定の「解説を表示する」で消せる） */
+/* 小さな字の注 */
 .hint {
   margin: 6px 4px;
   color: var(--text-muted);
@@ -10516,10 +10516,6 @@ html.stage-still .desk-buncho::after {
 .w-banner code {
   color: var(--accent-blue);
   font-family: var(--font-mono);
-}
-
-.hints-off .hint {
-  display: none;
 }
 
 .chk {
@@ -12361,15 +12357,6 @@ html.stage-still .desk-buncho::after {
   max-width: 760px;
 }
 
-/* ④ 完了の今の状態（解説ではないので、「解説を表示する」を切っても出す） */
-.w-step-text {
-  margin: 0 0 var(--space-md);
-  max-width: 760px;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  line-height: 1.6;
-}
-
 .w-step-actions {
   display: flex;
   flex-wrap: wrap;
@@ -12701,10 +12688,6 @@ html.stage-still .desk-buncho::after {
   padding: var(--space-lg) 4px;
   color: var(--text-muted);
   font-size: var(--font-sm);
-}
-
-.w-last-cmd {
-  overflow-wrap: anywhere;
 }
 
 .ws-stash {

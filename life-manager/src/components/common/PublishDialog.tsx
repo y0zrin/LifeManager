@@ -205,18 +205,15 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
               </label>
             )}
             {prepareCommands.length > 0 ? (
-              <div className="cmd-preview">
+              <div
+                className="cmd-preview"
+                title="このフォルダで記録を始め（git init）、今の中身を最初の記録にします。ビルドで毎回作られるもの（x64 や .vs など）は、.gitignore に書いて記録しないようにします。"
+              >
                 <span>実行するコマンド</span>
                 <code>{prepareCommands.join("\n")}</code>
               </div>
             ) : (
               state && !state.inside && <p className="git-dialog-note">もう記録があるので、この手順では何もしません。</p>
-            )}
-            {(!state || prepareCommands.length > 0) && (
-              <p className="hint">
-                このフォルダで記録を始め（<code>git init</code>）、今の中身を最初の記録にします。ビルドで毎回作られるもの（x64 や .vs
-                など）は、<code>.gitignore</code> に書いて記録しないようにします。
-              </p>
             )}
           </>
         )}
@@ -259,15 +256,13 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
             <p className="local-folder-message local-folder-message--ok">
               ✔ GitHub に {owner.trim()}/{name.trim()} がありました。つないで送ります。
             </p>
-            <div className="cmd-preview">
+            <div className="cmd-preview" title="origin は GitHub の置き場所につける名前です。-u を付けると、次からは「プッシュ」だけで同じ所へ送れます。">
               <span>実行するコマンド</span>
               <code>
                 {`${state?.origin ? git.displayCommand(["remote", "set-url", "origin", url]) : git.displayCommand(["remote", "add", "origin", url])}\n${git.displayCommand(["push", "-u", "origin", branch])}`}
               </code>
             </div>
-            <p className="hint">
-              <code>origin</code> は GitHub の置き場所につける名前です。<code>-u</code> を付けると次からは「プッシュ」だけで同じ所へ送れます。初めてのときはブラウザで GitHub へのログインを求められることがあります。
-            </p>
+            <p className="git-dialog-note">初めてのときはブラウザで GitHub へのログインを求められることがあります。</p>
           </>
         )}
 

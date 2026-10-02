@@ -362,7 +362,15 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
               追加するフォルダ
               <span className="add-project-row">
                 <input className="input-full" value={localFolder} readOnly placeholder="フォルダを選んでください" />
-                <button type="button" className="btn-sm" onClick={pickLocal} disabled={busy}>選ぶ…</button>
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={pickLocal}
+                  disabled={busy}
+                  title="GitHub からクローンしたフォルダを選ぶと、そのまま追加します。GitHub にまだないフォルダ（課題のプロジェクトなど）は、GitHub に上げてから追加します。"
+                >
+                  選ぶ…
+                </button>
               </span>
             </label>
             {localFound && (
@@ -386,11 +394,6 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
                   <button type="button" className="btn-primary" onClick={() => setPublishing(true)}>GitHub に上げる…</button>
                 </span>
               </div>
-            )}
-            {!localFolder && (
-              <p className="hint">
-                GitHub からクローンしたフォルダを選ぶと、そのまま追加します。GitHub にまだないフォルダ（課題のプロジェクトなど）は、GitHub に上げてから追加します。
-              </p>
             )}
           </>
         )}

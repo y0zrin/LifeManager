@@ -86,6 +86,7 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
               autoComplete="off"
               spellCheck={false}
               placeholder="github_pat_…"
+              title="トークンはアプリが自分の代わりに GitHub を使うための「合鍵」です。アプリは PC の鍵の保管場所（キーチェーン）にしまいます。"
               onChange={(e) => setToken(e.target.value)}
             />
             <button type="button" className="btn-sm" onClick={() => setShow((v) => !v)}>
@@ -102,7 +103,7 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
         </div>
       </div>
       <p className="hint">
-        <b>トークン</b>はアプリが自分の代わりに GitHub を使うための「合鍵」です。人に見せたり、コードに書いたりしないでください。アプリは PC の鍵の保管場所（キーチェーン）にしまいます。ほかの人のトークンは使わず、自分のアカウントで作ります。
+        <b>トークン</b>は人に見せたり、コードに書いたりしないでください。ほかの人のトークンは使わず、自分のアカウントで作ります。
       </p>
       <div className="token-entry-actions">
         {onCancel && (

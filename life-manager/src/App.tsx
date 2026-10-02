@@ -1024,7 +1024,7 @@ function App() {
   }
 
   const shell = (
-    <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""}${display.settings.hints ? "" : " hints-off"} motion-${display.settings.motion}`}
+    <main className={`app app-shell sb-${display.settings.sidebarPosition}${sidebarCollapsed ? " sb-hidden" : ""} motion-${display.settings.motion}`}
       data-view={view}>
       {/* たたんだサイドバーは、画面の端にマウスを寄せると出てくる */}
       {sidebarCollapsed && (

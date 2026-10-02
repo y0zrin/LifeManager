@@ -143,7 +143,7 @@ export function useGit(folder: string | undefined, active: boolean) {
           // 競合で止まったときは、git の英語のメッセージの代わりに、何が起きたかを日本語で出す（直し方は、別に出す知らせと作業タブで）
           const conflicted = git.conflictFilesIn(message);
           const shown = conflicted.length > 0
-            ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを作業タブで選びます`
+            ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを「作業をする」で選びます`
             : message;
           if (!options.inlineError) notify("error", shown, command, conflicted.length > 0);
           return { ok: false, message, command };

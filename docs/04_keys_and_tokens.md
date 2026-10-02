@@ -52,6 +52,7 @@ Administration の権限は、リポジトリの設定を変える・消すこ�
 
 - `release.bat` のあと、`latest.json` と setup を GitHub の Release に上げる。タグは `0.9.0` のように **v を付けない**（`release.ps1` が URL にそのまま使う）。**pre-release にしない**（`releases/latest` が指さなくなる）
 - `latest.json` を上げないと、全員の更新の確認が 404 になり、アプリは何も言わないので、だれも気づかない（0.3.3 がこうなっている）
+- `release.ps1`（この PC だけ。.gitignore に入っている）は `npm.cmd run tauri build -- --bundles nsis --ci` で作る。署名の鍵の合言葉は空なので、`--ci` がないと合言葉を聞いて止まる（Windows PowerShell 5.1 では `$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""` で変数が消えるため。#152）。版の書き換えは UTF-8 のまま読み書きする（Cargo.toml の日本語が化けないように）
 
 ## 利用者のトークンについて（アプリの決まり）
 

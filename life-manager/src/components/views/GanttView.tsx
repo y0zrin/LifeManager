@@ -787,7 +787,8 @@ export function GanttView({
                 const rowIdx = visibleStartRow + idx;
                 // 乗せたタスクと、その先行・後続の行には札（線をたどらなくても、名前で読める）
                 const relKind = rel === null ? null : task.issueNumber === rel.focus ? "focus" : rel.preds.has(task.issueNumber) ? "pred" : rel.succs.has(task.issueNumber) ? "succ" : null;
-                const relLabel = relKind === "focus" ? (focusIssue === null ? "固定" : "乗せている") : relKind === "pred" ? "先行" : relKind === "succ" ? "後続" : null;
+                // 乗せているときも、押して固定したときも「選択中」（固定しているかは、下の帯の「📌 固定中」で分かる。#216）
+                const relLabel = relKind === "focus" ? "選択中" : relKind === "pred" ? "先行" : relKind === "succ" ? "後続" : null;
                 return (
                   <div
                     key={task.issueNumber}

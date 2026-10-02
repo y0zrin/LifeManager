@@ -141,7 +141,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
           <>
             <h3>Git をインストールしますか？</h3>
             <p className="git-dialog-message">
-              LifeManager の「作業」「ブランチ」「全体図」では、Git（ギット）を使います。Git はファイルの変更を記録する道具です。いつ、だれが、何を変えたかが残ります。この PC には Git が入っていないようです。
+              Life Manager の「作業をする」「ブランチ」「全体図」では、Git（ギット）を使います。Git はファイルの変更を記録する道具です。いつ、だれが、何を変えたかが残ります。この PC には Git が入っていないようです。
             </p>
             {status.installer ? (
               <>

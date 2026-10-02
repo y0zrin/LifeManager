@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
-import type { GanttViewConfig, TimeScale, GanttBarColors } from "../../lib/ganttTypes";
+import type { GanttViewConfig, TimeScale, GanttBarColors, GanttLink } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
 import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows, parseDependencies } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
@@ -12,6 +12,8 @@ import { useBackLayer } from "../../lib/back";
 import { useDismiss } from "../../hooks/useDismiss";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 import { isMobile } from "../../lib/platform";
+import { MobileSheet, SheetRow } from "../common/MobileSheet";
+import { GanttMobileChart, type MobileScale } from "./GanttMobileChart";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -61,18 +63,6 @@ function shortTitle(title: string, max = 14): string {
 /** 下の帯の 1 行に出す札の数（ほかは「ほか N つ」。札にマウスを乗せると題名が全部出る） */
 const LINKS_PER_LINE = 6;
 
-/** 下の帯に出す、先行・後続の相手 */
-interface Link {
-  n: number;
-  title: string;
-  /** 帯がない理由（帯があれば null。押して送れない） */
-  reason: string | null;
-  /** ふだん省いている矢印（乗せたときだけ点線で出す） */
-  redundant: boolean;
-  /** 順番が逆（後続が、先行の終わる前にはじまる） */
-  broken: boolean;
-}
-
 export function GanttView({
   issues, closedIssues, milestones, labels, onSelectIssue, onUpdateIssueBody, barColors, onOpenColorSettings,
 }: GanttViewProps) {
@@ -87,6 +77,9 @@ export function GanttView({
   const [filterAssignee, setFilterAssignee] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterDomain, setFilterDomain] = useState<string>("");
+  // スマホ（#209）: 目盛り（全体・週・日）と、下から出る絞り込みの板
+  const [mobileScale, setMobileScale] = useState<MobileScale>("all");
+  const [sheetOpen, setSheetOpen] = useState(false);
   // 日程のないタスクに、見積もりから仮の日程を置くか（次に開いたときも同じ）
   const [showTentative, setShowTentative] = useState(() => {
     try {
@@ -498,7 +491,7 @@ export function GanttView({
       if (!t) return "絞り込みで隠れている";
       return "日程なし";
     };
-    const link = (n: number, kind: "pred" | "succ"): Link => {
+    const link = (n: number, kind: "pred" | "succ"): GanttLink => {
       const t = taskOf.get(n);
       const reason = reasonOf(n);
       // 先行の終わる日より前（同じ日も）に、後続がはじまる
@@ -510,13 +503,15 @@ export function GanttView({
         reason,
         redundant: arrowPlan.redundant.has(kind === "pred" ? arrowKey(n, focus) : arrowKey(focus, n)),
         broken,
+        // 先行が遅れている（日程のある開いた先行の、終わりの日が過ぎた）
+        late: kind === "pred" && !reason && !!t && t.state !== "closed" && !t.tentative && !!t.endDate && t.endDate < today,
       };
     };
     const preds = [...new Set(self.dependencies)].filter((n) => n !== focus).map((n) => link(n, "pred"));
     const succNums = every.filter((i) => i.number !== focus && parseDependencies(i.body).includes(focus)).map((i) => i.number);
     const succs = [...new Set(succNums)].sort((a, b) => a - b).map((n) => link(n, "succ"));
     return { self, preds, succs };
-  }, [focus, ganttTasks, allIssues, issues, closedIssues, arrowPlan]);
+  }, [focus, ganttTasks, allIssues, issues, closedIssues, arrowPlan, today]);
 
   /** 相手の行まで送る（送ったあとも、乗せていたタスクの矢印を目立たせたままにする） */
   const jumpTo = useCallback((n: number) => {
@@ -567,6 +562,115 @@ export function GanttView({
   const visibleStartRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
   const visibleEndRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
+  function changeMilestone(val: number | null) {
+    setSelectedMilestone(val);
+    if (val !== null) {
+      localStorage.setItem("gantt-selected-milestone", String(val));
+    } else {
+      localStorage.removeItem("gantt-selected-milestone");
+    }
+    setScrollX(0);
+    setScrollY(0);
+  }
+
+  function changeTentative(on: boolean) {
+    setShowTentative(on);
+    try {
+      localStorage.setItem("gantt-tentative", on ? "on" : "off");
+    } catch {
+      // 覚えられなくても、今は切り替わる
+    }
+  }
+
+  // スマホ（#209）: 上の段は 1 行（マイルストーン・目盛り・絞り込み）。担当・状態・セクション・仮の日程は下から出る板に。
+  // 行は 2 段（上に題名、下に帯）で、帯は見るだけ（指で動かさない。日程は詳細から）
+  if (isMobile) {
+    const activeFilters = (filterAssignee ? 1 : 0) + (filterStatus ? 1 : 0) + (filterDomain ? 1 : 0);
+    return (
+      <div className="content gantt-screen m-gantt" style={{ padding: 0 }}>
+        <div className="toolbar m-compact mg-toolbar">
+          <select className="select-sm mg-ms" aria-label="マイルストーン" value={selectedMilestone ?? ""} onChange={(e) => changeMilestone(e.target.value ? parseInt(e.target.value) : null)}>
+            <option value="">マイルストーンを選ぶ</option>
+            {milestones.map((m) => (
+              <option key={m.number} value={m.number}>{m.title}</option>
+            ))}
+          </select>
+          <span className="list-mode mg-scale" role="group" aria-label="目盛り">
+            {(["all", "week", "day"] as MobileScale[]).map((sc) => (
+              <button key={sc} type="button" className={mobileScale === sc ? "on" : ""} aria-pressed={mobileScale === sc} onClick={() => setMobileScale(sc)}>
+                {sc === "all" ? "全体" : sc === "week" ? "週" : "日"}
+              </button>
+            ))}
+          </span>
+          <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+            絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+          </button>
+        </div>
+        <MobileSheet
+          open={sheetOpen}
+          title="ガントの絞り込み"
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => { setFilterAssignee(""); setFilterStatus(""); setFilterDomain(""); }}>すべて外す</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{ganttTasks.length} 件を見る</button>
+            </>
+          }
+        >
+          <SheetRow label="担当">
+            <select className="select-sm" value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
+              <option value="">全員</option>
+              {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </SheetRow>
+          <SheetRow label="状態">
+            <select className="select-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">全部</option>
+              {statusLabels.map((l) => <option key={l.name} value={l.name}>{l.name.replace(/^状態:/, "")}</option>)}
+            </select>
+          </SheetRow>
+          <SheetRow label="セクション">
+            <select className="select-sm" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
+              <option value="">全部</option>
+              {domainLabels.map((l) => <option key={l.name} value={l.name}>{sectionOf(l.name)}</option>)}
+            </select>
+          </SheetRow>
+          <SheetRow label="見せ方">
+            <label className="chk gantt-tentative-toggle">
+              <input type="checkbox" checked={showTentative} onChange={(e) => changeTentative(e.target.checked)} />
+              見積もりから仮の日程を置く
+            </label>
+            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenColorSettings(); }}>⚙ 帯の色</button>
+          </SheetRow>
+        </MobileSheet>
+
+        {selectedMilestone === null ? (
+          <div className="empty-message">マイルストーンを選んでください</div>
+        ) : ganttTasks.length === 0 ? (
+          <div className="empty-message">当てはまるタスクがありません</div>
+        ) : (
+          <GanttMobileChart
+            tasks={ganttTasks}
+            today={today}
+            deadline={deadline}
+            criticalPath={criticalPath}
+            redundant={arrowPlan.redundant}
+            barColors={barColors}
+            scale={mobileScale}
+            focus={pinnedIssue}
+            onFocus={(n) => {
+              setFocusIssue(null);
+              setPinnedIssue(n);
+            }}
+            links={pinnedIssue === null ? null : links}
+            onOpenIssue={onSelectIssue}
+            onFixTentative={fixTentative}
+          />
+        )}
+      </div>
+    );
+  }
+
 
   return (
     <div className="content gantt-screen" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", padding: 0 }}>
@@ -575,17 +679,7 @@ export function GanttView({
         <select
           className="select-sm"
           value={selectedMilestone ?? ""}
-          onChange={(e) => {
-            const val = e.target.value ? parseInt(e.target.value) : null;
-            setSelectedMilestone(val);
-            if (val !== null) {
-              localStorage.setItem("gantt-selected-milestone", String(val));
-            } else {
-              localStorage.removeItem("gantt-selected-milestone");
-            }
-            setScrollX(0);
-            setScrollY(0);
-          }}
+          onChange={(e) => changeMilestone(e.target.value ? parseInt(e.target.value) : null)}
         >
           <option value="">マイルストーンを選択</option>
           {milestones.map((m) => (
@@ -640,15 +734,7 @@ export function GanttView({
               ⚙ 色の設定
             </button>
             <label className="chk gantt-tentative-toggle" title="日程のないタスクに、見積もりから仮の帯（点線）を置きます">
-              <input type="checkbox" checked={showTentative}
-                onChange={(e) => {
-                  setShowTentative(e.target.checked);
-                  try {
-                    localStorage.setItem("gantt-tentative", e.target.checked ? "on" : "off");
-                  } catch {
-                    // 覚えられなくても、今は切り替わる
-                  }
-                }} />
+              <input type="checkbox" checked={showTentative} onChange={(e) => changeTentative(e.target.checked)} />
               見積もりから仮の日程を置く
             </label>
             <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
@@ -900,9 +986,7 @@ export function GanttView({
             </>
           ) : (
             <span>
-              {isMobile
-                ? "帯か左の一覧の行を押すと、詳細が開きます。閉じたあとも、ここに先行と後続が出ます（何もない所を押すと外れます）"
-                : "帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）"}
+              帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）
             </span>
           )}
         </div>

@@ -18,6 +18,20 @@ export interface GanttTask {
   tentative?: boolean;
 }
 
+/** 押した（乗せた）タスクの、先行・後続の相手（下の帯・スマホの下の板に出す） */
+export interface GanttLink {
+  n: number;
+  title: string;
+  /** 帯がない理由（帯があれば null。押して送れない） */
+  reason: string | null;
+  /** ふだん省いている矢印（乗せたときだけ点線で出す） */
+  redundant: boolean;
+  /** 順番が逆（後続が、先行の終わる前にはじまる） */
+  broken: boolean;
+  /** 先行が遅れている（終わりの日が過ぎたのに、まだ開いている）。先行のときだけ */
+  late: boolean;
+}
+
 export interface GanttViewConfig {
   timeScale: TimeScale;
   startDate: string;  // visible range start "YYYY-MM-DD"

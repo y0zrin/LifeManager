@@ -4883,6 +4883,407 @@ button:hover {
   background: var(--text-primary);
 }
 
+/* --- スマホのガント（#209）: 行を 2 段（上の段に題名、下の段に帯）。帯は見るだけ。押したタスクの先行・後続だけ、帯の根本から矢印 --- */
+.content.gantt-screen.m-gantt {
+  display: flex;
+  flex-direction: column;
+}
+
+.mg-toolbar {
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.mg-toolbar .mg-ms {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mg-toolbar .m-filter-btn {
+  flex: none;
+}
+
+.mg-scale {
+  flex: none;
+}
+
+.mg-scale button {
+  padding: 5px 10px;
+}
+
+/* 帯の絵（縦と横に流す。目盛りは上に、題名は左に貼りつく） */
+.mg-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-primary);
+}
+
+.mg-inner {
+  position: relative;
+  min-width: 100%;
+  /* 一番下まで送ったとき、最後の行がメモのボタンに隠れないように */
+  padding-bottom: calc(var(--fab-size) + var(--fab-gap) * 2);
+}
+
+.mg-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: 36px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+}
+
+.mg-tick {
+  position: absolute;
+  bottom: 3px;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.mg-tick.strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.mg-tick.weekend {
+  color: var(--accent-red);
+}
+
+.mg-tag {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  padding: 0 5px;
+  border-radius: 7px;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.mg-tag.today {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+}
+
+/* 期限の札は線の左に寄せる（右の端で切れないように） */
+.mg-tag.due {
+  transform: translateX(-100%);
+  border-radius: 7px 0 0 7px;
+  background: var(--accent-red);
+  color: var(--text-on-accent);
+}
+
+.mg-rows {
+  position: relative;
+}
+
+.mg-wkend {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  pointer-events: none;
+}
+
+.mg-today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent-blue);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.mg-due {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  border-left: 2px dashed var(--accent-red);
+  pointer-events: none;
+}
+
+/* 行。題名の字のまわりは行の色でふちどる（矢印が題名の下を通っても読めるように） */
+.mg-row {
+  --mg-halo: var(--bg-primary);
+  position: relative;
+  height: 50px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.mg-row.focus {
+  --mg-halo: color-mix(in srgb, var(--text-primary) 9%, var(--bg-primary));
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+}
+
+.mg-row.pred {
+  --mg-halo: color-mix(in srgb, var(--gantt-pred) 14%, var(--bg-primary));
+  background: color-mix(in srgb, var(--gantt-pred) 14%, transparent);
+}
+
+.mg-row.succ {
+  --mg-halo: color-mix(in srgb, var(--gantt-succ) 14%, var(--bg-primary));
+  background: color-mix(in srgb, var(--gantt-succ) 14%, transparent);
+}
+
+.mg-row.dim .mg-title,
+.mg-row.dim .mg-bar,
+.mg-row.dim .mg-late {
+  opacity: 0.35;
+}
+
+.mg-title {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: var(--mg-vw);
+  height: 26px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 0;
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.mg-title > * {
+  text-shadow: 0 0 3px var(--mg-halo), 0 0 3px var(--mg-halo), 0 0 2px var(--mg-halo);
+}
+
+.mg-num {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.mg-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.mg-row.closed .mg-name {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.mg-mark {
+  flex: none;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.mg-mark.rev {
+  color: var(--accent-red);
+}
+
+.mg-mark.late {
+  color: var(--accent-yellow);
+}
+
+.mg-who {
+  flex: none;
+  margin-left: auto;
+}
+
+.mg-bar {
+  position: absolute;
+  top: 29px;
+  z-index: 2;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1px solid;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mg-bar.cp {
+  border-width: 2px;
+}
+
+.mg-bar.kari {
+  border: 1px dashed var(--accent-teal);
+  background: color-mix(in srgb, var(--accent-teal) 13%, transparent);
+}
+
+.mg-prog {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.mg-over {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 27%, transparent);
+}
+
+/* 期限を過ぎた分（赤い延長と「+3d」） */
+.mg-late {
+  position: absolute;
+  top: 29px;
+  z-index: 2;
+  height: 13px;
+  box-sizing: border-box;
+  padding-left: 3px;
+  border-radius: 0 3px 3px 0;
+  color: var(--text-on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
+  white-space: nowrap;
+}
+
+.mg-late.narrow span {
+  position: absolute;
+  left: calc(100% + 3px);
+}
+
+.mg-arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mg-arrow-halo {
+  fill: none;
+  stroke: var(--bg-primary);
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+.mg-fold {
+  position: sticky;
+  left: 0;
+  display: block;
+  width: var(--mg-vw);
+  padding: 10px var(--space-md);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: left;
+}
+
+.mg-hint {
+  position: sticky;
+  left: 0;
+  width: var(--mg-vw);
+  box-sizing: border-box;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+/* 押したタスクの板（詳しいことと先行・後続。札を押すと、その行まで送る） */
+.mg-info {
+  flex-shrink: 0;
+  max-height: 45%;
+  overflow-y: auto;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.25);
+  font-size: var(--font-sm);
+}
+
+.mg-info-title {
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+  font-weight: 700;
+}
+
+.mg-info-meta {
+  margin: 2px 0 4px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.mg-info-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 4px;
+}
+
+.mg-info-links .gantt-info-label {
+  margin-left: 0;
+  font-size: var(--font-xs);
+}
+
+.mg-info-none {
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.mg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mg-link .gantt-link {
+  padding: 0 10px;
+  border-radius: 13px;
+  font-size: var(--font-xs);
+  line-height: 26px;
+}
+
+.mg-link .gantt-link-warn,
+.mg-link-late {
+  font-size: var(--font-xs);
+}
+
+.mg-link-late {
+  color: var(--accent-yellow);
+  font-weight: 600;
+}
+
+.mg-info-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.mg-info-actions > * {
+  flex: 1;
+  min-height: 36px;
+}
+
+/* 押したタスクの板が出ているあいだは、メモのボタン（下の角）をよける（板のボタンにかぶるので） */
+.app-shell:has(.mg-info) .memo-fab-wrap.at-bottom-left:not(.open),
+.app-shell:has(.mg-info) .memo-fab-wrap.at-bottom-right:not(.open) {
+  translate: 0 calc(100% + var(--edge-bottom) + var(--fab-gap) + 24px);
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* 相手が画面の外のとき、矢印が出ていく端に出す札（押すと、そこまで送る） */
 .gantt-edge {
   position: absolute;

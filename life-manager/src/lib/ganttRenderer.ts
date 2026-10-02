@@ -180,6 +180,19 @@ function dayOfWeekUTC(dateStr: string): number {
   return d.getUTCDay(); // 0=Sun
 }
 
+/** 帯の色（設定 → 表示 の 6 色から。閉じた → CP → 優先:高 → 状態の順に決める）。スマホのガントでも使う */
+export function barColorOf(task: GanttTask, isCritical: boolean, colors: GanttBarColors): string {
+  if (task.state === "closed") return colors.closed;
+  if (isCritical) return colors.critical;
+  if (task.labels.some((l) => l.name === "優先:高")) return colors.highPriority;
+  const statusLabel = task.labels.find((l) => l.name.startsWith("状態:"));
+  if (statusLabel) {
+    if (statusLabel.name === "状態:進行中") return colors.inProgress;
+    if (statusLabel.name === "状態:ブロック") return colors.blocked;
+  }
+  return colors.default;
+}
+
 /** クリティカルパス計算: 依存関係チェーン中で最長のパス上にあるタスクのissueNumber集合を返す */
 export function computeCriticalPath(tasks: GanttTask[]): Set<number> {
   const byNum = new Map<number, GanttTask>();
@@ -624,15 +637,7 @@ export class GanttRenderer {
   }
 
   private resolveBarColor(task: GanttTask, isCritical: boolean, colors: GanttBarColors): string {
-    if (task.state === "closed") return colors.closed;
-    if (isCritical) return colors.critical;
-    if (task.labels.some((l) => l.name === "優先:高")) return colors.highPriority;
-    const statusLabel = task.labels.find((l) => l.name.startsWith("状態:"));
-    if (statusLabel) {
-      if (statusLabel.name === "状態:進行中") return colors.inProgress;
-      if (statusLabel.name === "状態:ブロック") return colors.blocked;
-    }
-    return colors.default;
+    return barColorOf(task, isCritical, colors);
   }
 
   private drawDependencyArrows(

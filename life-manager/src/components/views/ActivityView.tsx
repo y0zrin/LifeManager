@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { KIND_LABELS, dayLabel, describe, helpRoles, kindOf, milestoneEvents, timeOf, type ActivityKind, type Part } from "../../lib/activity";
 import { ago } from "../../lib/pulls";
@@ -22,6 +22,43 @@ interface ActivityViewProps {
   /** マイルストーンの達成をヒストリーに出すため（#229） */
   milestones: GitHubMilestone[];
   closedIssues: GitHubIssue[];
+}
+
+/** この起動のあいだに、滑り込みを見せたマイルストーンの達成（もう一度ヒストリーを開いても、くり返さない） */
+const shownBanners = new Set<string>();
+
+/**
+ * マイルストーンの達成の帯（#230）: オーバーウォッチの UI のような斜めの帯。画面に入ったら、外から滑り込んで強く光る。
+ * 見るのは動かない外側（slot）で、動くのは中（外にいるあいだは見つからないため）
+ */
+function MilestoneBanner({ id, children }: { id: string; children: ReactNode }) {
+  const slot = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<"wait" | "play" | "rest">(() => (shownBanners.has(id) ? "rest" : "wait"));
+  useEffect(() => {
+    const el = slot.current;
+    if (!el || state !== "wait") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((x) => x.isIntersecting)) return;
+        shownBanners.add(id);
+        setState("play");
+        io.disconnect();
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [id, state]);
+  return (
+    <div ref={slot} className="av-ms-slot">
+      <div className={`av-ms ${state}`}>
+        <span className="av-ms-bloom" aria-hidden="true" />
+        <span className="av-ms-slab" aria-hidden="true" />
+        <span className="av-ms-flash" aria-hidden="true" />
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
@@ -160,8 +197,8 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                 </div>
                 {day.items.map(({ e, d }) =>
                   d!.tone === "milestone" ? (
-                    // マイルストーンの達成は、大きく派手に（#229）
-                    <div key={e.id} className="av-ms">
+                    // マイルストーンの達成は、大きく派手に（#229・#230）
+                    <MilestoneBanner key={e.id} id={e.id}>
                       <span className="av-ms-trophy" aria-hidden="true">
                         {d!.icon}
                       </span>
@@ -170,11 +207,8 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                         <b className="av-ms-title">{renderParts(d!.parts)}</b>
                         {d!.sub && <span className="av-ms-sub">{renderParts(d!.sub)}</span>}
                       </span>
-                      <span className="av-ms-party" aria-hidden="true">
-                        🎉
-                      </span>
-                      <span className="muted av-when">{timeOf(e.at)}</span>
-                    </div>
+                      <span className="av-when">{timeOf(e.at)}</span>
+                    </MilestoneBanner>
                   ) : (
                     <div key={e.id} className={`av-ev k-${kindOf(e)}${d!.tone ? ` t-${d!.tone}` : ""}`}>
                       <span className="av-icon" aria-hidden="true">

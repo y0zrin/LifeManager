@@ -59,114 +59,121 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
 
   return (
     <div className="activity pr-ui">
-      {/* チームの仕事（これまでの合計。減らない数） */}
-      <TeamWork key={`${owner}/${repo}`} owner={owner} repo={repo} team={team} motion={motion} />
+      {/* 広いときは 2 列: 左にチームの仕事とあなたがすること、右にチームの動き（#227） */}
+      <div className="av-cols">
+        <div className="av-side">
+          {/* チームの仕事（これまでの合計。減らない数） */}
+          <TeamWork key={`${owner}/${repo}`} owner={owner} repo={repo} team={team} motion={motion} />
 
-      <div className="av-me">
-        <div className="av-me-head">
-          <b>あなたがすること {todos.length}</b>
-          <span className="grow" />
-          <button type="button" className="btn-sm" onClick={reload} disabled={loading} title="読み直す">
-            {loading ? "…" : "↻"}
-          </button>
-        </div>
-        {todos.length === 0 ? (
-          <p className="muted">{feed ? "今はありません" : "読み込んでいます…"}</p>
-        ) : (
-          todos.map((t) => (
-            <div key={t.key} className={`av-todo t-${t.tone || "none"}`}>
-              <span className="av-icon" aria-hidden="true">
-                {t.icon}
-              </span>
-              <button
-                type="button"
-                className="av-todo-main"
-                onClick={() => (t.target.kind === "run" ? onOpenRun(t.target.runId) : t.target.kind === "pull" ? onOpenPull(t.target.number) : onOpenIssue(t.target.number))}
-              >
-                <span className="av-todo-text">
-                  {t.parts.map((p, i) =>
-                    typeof p === "string" ? (
-                      <span key={i}>{p}</span>
-                    ) : (
-                      <b key={i} className="av-ref">
-                        #{p.number}
-                        {p.title ? ` ${p.title}` : ""}
-                      </b>
-                    ),
-                  )}
-                </span>
-                {t.detail && <span className="av-detail">「{commentPreview(t.detail).slice(0, 80)}」</span>}
-              </button>
-              <span className="muted av-when">{t.at ? ago(t.at) : ""}</span>
-              <button type="button" className="pr-reviewer-x" title="見た（中身が変わるとまた出ます）" aria-label="見た" onClick={() => dismiss(t.key)}>
-                ×
+          <div className="av-me">
+            <div className="av-me-head">
+              <b>あなたがすること {todos.length}</b>
+              <span className="grow" />
+              <button type="button" className="btn-sm" onClick={reload} disabled={loading} title="読み直す">
+                {loading ? "…" : "↻"}
               </button>
             </div>
-          ))
-        )}
-      </div>
-
-      <div className="av-filters">
-        <select className="select-sm" value={who} onChange={(e) => setWho(e.target.value)} aria-label="だれ">
-          <option value="">だれ: すべて（{whoCount("")}）</option>
-          {actors.map((a) => (
-            <option key={a} value={a}>
-              {a}（{whoCount(a)}）
-            </option>
-          ))}
-        </select>
-        <select className="select-sm" value={kind} onChange={(e) => setKind(e.target.value as "" | ActivityKind)} aria-label="種類">
-          <option value="">種類: すべて（{kindCount("")}）</option>
-          {(Object.keys(KIND_LABELS) as ActivityKind[]).map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABELS[k]}（{kindCount(k)}）
-            </option>
-          ))}
-        </select>
-        <span className="muted">
-          チームの動き {feed && <b className="av-count">{shown.length} 件</b>}（GitHub が残している最近の 90 日ほど）
-        </span>
-      </div>
-
-      {error ? (
-        <p className="git-dialog-error">{error}</p>
-      ) : !feed ? (
-        <p className="muted">読み込んでいます…</p>
-      ) : days.length === 0 ? (
-        <p className="muted">まだ何も起きていません。</p>
-      ) : (
-        days.map((day) => (
-          <div key={day.label} className="av-day">
-            <div className="av-day-label">
-              {day.label}
-              <span className="av-day-count">{day.items.length} 件</span>
-            </div>
-            {day.items.map(({ e, d }) => (
-              <div key={e.id} className={`av-ev k-${kindOf(e)}`}>
-                <span className="av-icon" aria-hidden="true">
-                  {d!.icon}
-                </span>
-                <span className="av-ev-body">
-                  <span>
-                    <b>{e.actor}</b> {renderParts(d!.parts)}
+            {todos.length === 0 ? (
+              <p className="muted">{feed ? "今はありません" : "読み込んでいます…"}</p>
+            ) : (
+              todos.map((t) => (
+                <div key={t.key} className={`av-todo t-${t.tone || "none"}`}>
+                  <span className="av-icon" aria-hidden="true">
+                    {t.icon}
                   </span>
-                  {d!.detail && <span className="av-detail">「{commentPreview(d!.detail).slice(0, 100)}」</span>}
-                  {d!.commits && d!.commits.length > 0 && (
-                    <span className="av-commits">
-                      {d!.commits.map((c) => (
-                        <button key={c.sha} type="button" className="av-commit" onClick={() => setCommit({ hash: c.sha, subject: c.message, author: e.actor, date: e.at })}>
-                          <code>{c.sha.slice(0, 7)}</code> {c.message}
-                        </button>
-                      ))}
+                  <button
+                    type="button"
+                    className="av-todo-main"
+                    onClick={() => (t.target.kind === "run" ? onOpenRun(t.target.runId) : t.target.kind === "pull" ? onOpenPull(t.target.number) : onOpenIssue(t.target.number))}
+                  >
+                    <span className="av-todo-text">
+                      {t.parts.map((p, i) =>
+                        typeof p === "string" ? (
+                          <span key={i}>{p}</span>
+                        ) : (
+                          <b key={i} className="av-ref">
+                            #{p.number}
+                            {p.title ? ` ${p.title}` : ""}
+                          </b>
+                        ),
+                      )}
                     </span>
-                  )}
-                </span>
-                <span className="muted av-when">{timeOf(e.at)}</span>
-              </div>
-            ))}
+                    {t.detail && <span className="av-detail">「{commentPreview(t.detail).slice(0, 80)}」</span>}
+                  </button>
+                  <span className="muted av-when">{t.at ? ago(t.at) : ""}</span>
+                  <button type="button" className="pr-reviewer-x" title="見た（中身が変わるとまた出ます）" aria-label="見た" onClick={() => dismiss(t.key)}>
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
           </div>
-        ))
-      )}
+        </div>
+
+        <div className="av-main">
+          <div className="av-filters">
+            <select className="select-sm" value={who} onChange={(e) => setWho(e.target.value)} aria-label="だれ">
+              <option value="">だれ: すべて（{whoCount("")}）</option>
+              {actors.map((a) => (
+                <option key={a} value={a}>
+                  {a}（{whoCount(a)}）
+                </option>
+              ))}
+            </select>
+            <select className="select-sm" value={kind} onChange={(e) => setKind(e.target.value as "" | ActivityKind)} aria-label="種類">
+              <option value="">種類: すべて（{kindCount("")}）</option>
+              {(Object.keys(KIND_LABELS) as ActivityKind[]).map((k) => (
+                <option key={k} value={k}>
+                  {KIND_LABELS[k]}（{kindCount(k)}）
+                </option>
+              ))}
+            </select>
+            <span className="muted">
+              チームの動き {feed && <b className="av-count">{shown.length} 件</b>}（GitHub が残している最近の 90 日ほど）
+            </span>
+          </div>
+
+          {error ? (
+            <p className="git-dialog-error">{error}</p>
+          ) : !feed ? (
+            <p className="muted">読み込んでいます…</p>
+          ) : days.length === 0 ? (
+            <p className="muted">まだ何も起きていません。</p>
+          ) : (
+            days.map((day) => (
+              <div key={day.label} className="av-day">
+                <div className="av-day-label">
+                  {day.label}
+                  <span className="av-day-count">{day.items.length} 件</span>
+                </div>
+                {day.items.map(({ e, d }) => (
+                  <div key={e.id} className={`av-ev k-${kindOf(e)}`}>
+                    <span className="av-icon" aria-hidden="true">
+                      {d!.icon}
+                    </span>
+                    <span className="av-ev-body">
+                      <span>
+                        <b>{e.actor}</b> {renderParts(d!.parts)}
+                      </span>
+                      {d!.detail && <span className="av-detail">「{commentPreview(d!.detail).slice(0, 100)}」</span>}
+                      {d!.commits && d!.commits.length > 0 && (
+                        <span className="av-commits">
+                          {d!.commits.map((c) => (
+                            <button key={c.sha} type="button" className="av-commit" onClick={() => setCommit({ hash: c.sha, subject: c.message, author: e.actor, date: e.at })}>
+                              <code>{c.sha.slice(0, 7)}</code> {c.message}
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                    <span className="muted av-when">{timeOf(e.at)}</span>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {commit &&
         createPortal(

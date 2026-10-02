@@ -3553,6 +3553,19 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
+/* オーバービュー: 広いときは「タスクの数」と「チームのペース」を横に並べる（#227） */
+.content.insights:not(.insights--compact) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  column-gap: var(--space-md);
+  align-items: start;
+  max-width: 1280px;
+}
+
+.content.insights:not(.insights--compact) > .insights-filters {
+  grid-column: 1 / -1;
+}
+
 /* --- スマホのメニュー（#203・#212）: 上に小さなオーバービュー、下に画面の絵の札（4 列 2 段）。1 画面に収める --- */
 .mobile-menu {
   display: flex;
@@ -19102,9 +19115,20 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 
 /* --- ヒストリー --- */
 .activity {
-  max-width: 980px;
+  container-type: inline-size;
+  max-width: 1280px;
   margin: 0 auto;
   padding: var(--space-lg) var(--space-xl) 48px;
+}
+
+/* 広いときは 2 列（左にチームの仕事とあなたがすること、右にチームの動き。#227） */
+@container (min-width: 1000px) {
+  .av-cols {
+    display: grid;
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    gap: var(--space-lg);
+    align-items: start;
+  }
 }
 .av-me {
   display: flex;
@@ -22373,6 +22397,7 @@ html.stage-still .stage-fx .fx-shoot {
 
 /* ===== ヒストリーの「チームの仕事」: これまでの合計を大きく。しっかり・静かに・達成感を ===== */
 .tw {
+  container-type: inline-size;
   position: relative;
   overflow: hidden;
   margin-bottom: 16px;
@@ -22631,11 +22656,33 @@ html.stage-still .stage-fx .fx-shoot {
   }
 }
 
-/* スマホ: ヒストリーの「チームの仕事」を細い幅に合わせる（見出しを折らない。#204） */
+/* ヒストリーを 2 列にしたときの左の列など、カードが狭いときも、数と次の節目を上下に積む（#227） */
+@container (max-width: 560px) {
+  .tw-body {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* スマホ: ヒストリーの「チームの仕事」を細い幅に合わせる（見出しを折らない。#204）。外と内の余白も小さく（#227） */
 @media (max-width: 639px) {
+  .activity {
+    padding: var(--space-sm) var(--space-sm) 48px;
+  }
+
   .tw {
-    padding: 14px 14px 12px;
+    padding: 12px 12px 10px;
     border-radius: 16px;
+  }
+
+  .av-me {
+    padding: 8px 10px;
+    border-radius: 16px;
+  }
+
+  .av-day {
+    padding: 8px 10px 10px;
+    border-radius: 14px;
   }
 
   .tw-head {

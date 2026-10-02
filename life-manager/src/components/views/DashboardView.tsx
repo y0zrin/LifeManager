@@ -2,7 +2,9 @@ import { Fragment, useState, useRef, useEffect, useMemo, useContext, useCallback
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
-import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
+import { TaskFilterButton, TaskFilterChips, TaskFilterGroups, clearAll, filterCount, type TaskFilterProps } from "../common/TaskFilterButton";
+import { MobileSheet, SheetRow } from "../common/MobileSheet";
+import { isMobile } from "../../lib/platform";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
 import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
@@ -189,6 +191,8 @@ export function DashboardView({
   const [mode, setMode] = useState<ListMode>(loadMode);
   // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える
   const [picking, setPicking] = useState(false);
+  // スマホの、下から出る絞り込みの板
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [bulkDone, setBulkDone] = useState<string | null>(null);
@@ -606,8 +610,8 @@ export function DashboardView({
   return (
     // 表のときは、列が入るように横いっぱいに使う
     <div className={`content${splitActive ? " task-split-page" : mode === "table" ? " task-table-page" : ""}`}>
-      {/* 検索・絞り込み（メモの投入は、画面の下の角の 📝 か Ctrl+M から） */}
-      <div className="toolbar task-toolbar">
+      {/* 検索・絞り込み（メモの投入は、画面の下の角の 📝 か Ctrl+M から）。スマホは検索・絞り込み・＋ だけにして、ほかは下から出る板へ */}
+      <div className={`toolbar task-toolbar${isMobile ? " m-compact" : ""}`}>
         <div className="search-bar">
           <input value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -617,6 +621,17 @@ export function DashboardView({
             <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
           )}
         </div>
+        {isMobile ? (
+          <>
+            <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+              絞り込み{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
+            </button>
+            <button type="button" onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm m-add-btn" aria-label={showIssueForm ? "作るのをやめる" : "イシューを作る"}>
+              {showIssueForm ? "×" : "＋"}
+            </button>
+          </>
+        ) : (
+        <>
         <TaskFilterButton {...filterProps} />
         <span className="list-mode" role="group" aria-label="見せ方">
           {(["card", "table"] as ListMode[]).map((m) => (
@@ -648,9 +663,59 @@ export function DashboardView({
         <button onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm">
           {showIssueForm ? "×" : "+ イシュー作成"}
         </button>
+        </>
+        )}
       </div>
       {/* かけている絞り込み（× で外す） */}
       <TaskFilterChips {...filterProps} />
+      {isMobile && (
+        <MobileSheet
+          open={sheetOpen}
+          title="絞り込み"
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0} onClick={() => clearAll(filterProps)}>すべて外す</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{filteredIssues.length} 件を見る</button>
+            </>
+          }
+        >
+          <SheetRow label="並び">
+            <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <option key={k} value={k}>{SORT_LABELS[k]}</option>
+              ))}
+            </select>
+          </SheetRow>
+          <SheetRow label="まとめる">
+            <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+              {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
+                <option key={k} value={k}>{GROUP_LABELS[k]}</option>
+              ))}
+            </select>
+          </SheetRow>
+          <SheetRow label="見せ方">
+            <span className="list-mode" role="group" aria-label="見せ方">
+              {(["card", "table"] as ListMode[]).map((m) => (
+                <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
+                  {m === "card" ? "カード" : "表"}
+                </button>
+              ))}
+            </span>
+          </SheetRow>
+          <SheetRow label="保存した見方">
+            <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
+          </SheetRow>
+          <TaskFilterGroups {...filterProps} />
+          <SheetRow label="ほか">
+            <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
+              onClick={() => { setSheetOpen(false); if (picking) quitPicking(); else setPicking(true); }}>
+              ☑ 選んでまとめて変える
+            </button>
+            <button type="button" onClick={() => { setSheetOpen(false); onRefresh(); }} className="btn-sm">更新</button>
+          </SheetRow>
+        </MobileSheet>
+      )}
 
       {/* Issue作成フォーム */}
       {showIssueForm && (

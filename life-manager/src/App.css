@@ -3580,6 +3580,132 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   padding: 0;
 }
 
+/* --- スマホの、下から出る板（#207）: 絞り込み・並び・見せ方など、PC ではツールバーに並べているもの --- */
+.m-sheet-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  background: color-mix(in srgb, #000 38%, transparent);
+}
+
+.m-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 84vh;
+  padding: 4px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 18px 0 0;
+  background: var(--bg-primary);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.m-sheet-grip {
+  width: 40px;
+  height: 4px;
+  margin: 6px auto 8px;
+  border-radius: 2px;
+  background: var(--border-default);
+}
+
+.m-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.m-sheet-head h3 {
+  margin: 0;
+  font-size: var(--font-md);
+}
+
+.m-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.m-sheet-row {
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.m-sheet-row:first-child {
+  border-top: none;
+}
+
+.m-sheet-label {
+  margin-bottom: 4px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.m-sheet-ctrl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.m-sheet-ctrl .select-sm {
+  min-width: 60%;
+}
+
+/* 板の中のフィルタの中身は、行の区切りに合わせる */
+.m-sheet-body .task-filter-grid {
+  grid-template-columns: 1fr;
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.m-sheet-foot {
+  display: flex;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+
+.m-sheet-foot > * {
+  flex: 1;
+  min-height: 42px;
+}
+
+/* スマホの上の段の「絞り込み」（かけている数）と「＋」 */
+.m-filter-btn.on {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.m-filter-n {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--accent-blue);
+  color: var(--text-on-accent);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.m-add-btn {
+  min-width: 40px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* スマホの上の段（検索の欄・絞り込み・＋）は 1 行に。PC の窓を細くしたときの段（m-compact なし）は今までどおり折り返す */
+.toolbar.m-compact {
+  flex-wrap: nowrap;
+}
+
+.toolbar.m-compact .search-bar,
+.task-toolbar.m-compact .search-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+
 /* 戻るボタンをメニューで押したときのお知らせ（スマホ） */
 .back-toast {
   position: fixed;

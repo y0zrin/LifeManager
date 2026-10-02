@@ -21,7 +21,7 @@ import { helpDoneBody, parseHelp } from "../../lib/help";
 import { FailedChip, SendingChip } from "./Sending";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
-import { THIS_DEVICE } from "../../lib/platform";
+import { THIS_DEVICE, isMobile, keyHint } from "../../lib/platform";
 import { inCategory } from "../../lib/section";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
@@ -465,7 +465,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
             {issue._pending && <PendingChip />}
             <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
-              {issue.state === "open" ? "🟢 Open" : `${issue.state_reason === "not_planned" ? "⚪" : "🟣"} Closed（${closeReasonText(issue.state_reason)}）`}
+              {issue.state === "open" ? "🟢 開いている" : `${issue.state_reason === "not_planned" ? "⚪" : "🟣"} 閉じた（${closeReasonText(issue.state_reason)}）`}
             </span>
             {issue.milestone && (
               <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>
@@ -504,7 +504,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               className="idm-title-input"
             />
           ) : (
-            <h2 onClick={() => setEditingTitle(true)} className="idm-title" title="クリックして編集">
+            <h2 onClick={() => setEditingTitle(true)} className="idm-title" title={isMobile ? "押して編集" : "クリックして編集"}>
               {issue.title}
             </h2>
           )}
@@ -579,8 +579,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   onToggle={onToggleTodo}
                 />
               ) : (
-                <div onClick={() => setEditingBody(true)} className="idm-body" title="クリックして編集">
-                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（クリックで追加）</span>}
+                <div onClick={() => setEditingBody(true)} className="idm-body" title={isMobile ? "押して編集" : "クリックして編集"}>
+                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（{isMobile ? "押して" : "クリックで"}追加）</span>}
                 </div>
               )}
               {/* 編集ボタン（右上に小さく配置） */}
@@ -720,7 +720,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 "日程",
                 ganttDates ? `${md(ganttDates.start)} → ${md(ganttDates.end)}（${ganttDays} 日）` : none(),
                 <>
-                  <p className="idm-editor-hint">ガントの帯になります。ガントで帯をドラッグしても変えられます。</p>
+                  <p className="idm-editor-hint">ガントの帯になります。{!isMobile && "ガントで帯をドラッグしても変えられます。"}</p>
                   <div className="idm-field">
                     開始
                     <input type="date" className="idm-input" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)} />→ 終了
@@ -937,7 +937,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
-                placeholder="コメントを追加... (Ctrl+Enter で送信)"
+                placeholder={`コメントを追加...${keyHint(" (Ctrl+Enter で送信)")}`}
                 className="textarea-full"
                 style={{ minHeight: "60px" }}
               />

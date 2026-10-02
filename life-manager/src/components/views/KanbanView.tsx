@@ -16,6 +16,7 @@ import type { MilestoneFilter } from "../../lib/savedViews";
 import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
 import { isEnter, isEscape } from "../../lib/keys";
 import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
+import { isMobile } from "../../lib/platform";
 
 interface KanbanViewProps {
   owner: string;
@@ -324,7 +325,7 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
         <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
           やめる
         </button>
-        <small>Enter で貼って続けて書けます</small>
+        <small>{isMobile ? "追加したあとも、続けて書けます" : "Enter で貼って続けて書けます"}</small>
       </div>
     </div>
   );

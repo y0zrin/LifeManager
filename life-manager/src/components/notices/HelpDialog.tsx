@@ -3,7 +3,8 @@ import type { GitHubUser } from "../../lib/types";
 import { helpBody, type HelpContext } from "../../lib/help";
 import { isEnter, isEscape } from "../../lib/keys";
 import { issueRef } from "../../lib/issueRef";
-import { Avatar } from "../common/Avatar";
+import { Avatar } from "../common/Avatar";
+import { keyHint } from "../../lib/platform";
 
 interface HelpDialogProps {
   issue: { number: number; title: string };
@@ -103,7 +104,7 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
           className="textarea-full help-message"
           value={message}
           readOnly={busy}
-          placeholder="例: プッシュしようとしたら rejected と出て進めません（Ctrl+Enter で送る）"
+          placeholder={`例: プッシュしようとしたら rejected と出て進めません${keyHint("（Ctrl+Enter で送る）")}`}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
             if (isEnter(e) && (e.ctrlKey || e.metaKey)) send();

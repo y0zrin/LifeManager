@@ -3,6 +3,7 @@ import type { GitHubLabel } from "../../lib/types";
 import type { MemoButtonPosition } from "../../hooks/useDisplaySettings";
 import { isComposing, isEnter, isEscape } from "../../lib/keys";
 import { isSectionLabel, sectionOf } from "../../lib/section";
+import { isMobile, keyHint } from "../../lib/platform";
 
 interface MemoFabProps {
   /** ボタンを置く角（hidden ならボタンを出さず、Ctrl+M で画面の上のほうに欄を開く） */
@@ -175,17 +176,17 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
           ) : result?.kind === "error" ? (
             <p className="memo-pop-note err">⚠ 「{result.text}」を送れませんでした。タスク一覧やボードの「もう一度」で送り直せます</p>
           ) : (
-            <p className="memo-pop-note">Enter で投入（続けて書けます）・Esc で閉じる</p>
+            <p className="memo-pop-note">{isMobile ? "「投入」で入れたあとも、続けて書けます" : "Enter で投入（続けて書けます）・Esc で閉じる"}</p>
           )}
         </div>
       )}
       {position !== "hidden" && (
-        <button type="button" className="memo-fab" aria-label="メモを投入（Ctrl+M）" aria-expanded={open}
+        <button type="button" className="memo-fab" aria-label={`メモを投入${keyHint("（Ctrl+M）")}`} aria-expanded={open}
           onClick={() => (open ? hide(false) : show())}>
           <span aria-hidden="true">📝</span>
         </button>
       )}
-      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">メモ（Ctrl+M）</span>}
+      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">メモ{keyHint("（Ctrl+M）")}</span>}
     </div>
   );
 }

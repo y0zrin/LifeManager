@@ -10,7 +10,8 @@ import { arrowKey, planArrows } from "../../lib/ganttArrows";
 import { isEscape } from "../../lib/keys";
 import { useBackLayer } from "../../lib/back";
 import { useDismiss } from "../../hooks/useDismiss";
-import { isSectionLabel, sectionOf } from "../../lib/section";
+import { isSectionLabel, sectionOf } from "../../lib/section";
+import { isMobile } from "../../lib/platform";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -898,7 +899,11 @@ export function GanttView({
               })}
             </>
           ) : (
-            <span>帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）</span>
+            <span>
+              {isMobile
+                ? "帯か左の一覧の行を押すと、詳細が開きます。閉じたあとも、ここに先行と後続が出ます（何もない所を押すと外れます）"
+                : "帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）"}
+            </span>
           )}
         </div>
         </div>

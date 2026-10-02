@@ -4,7 +4,7 @@ import { checkToken, expiryOf, listAccounts, type SavedAccount, type TokenReport
 import { isEnter, isEscape } from "../../lib/keys";
 import { countOf } from "../../lib/count";
 import { usePortalHost } from "../../hooks/usePortalHost";
-import { THIS_DEVICE } from "../../lib/platform";
+import { THIS_DEVICE, isMobile } from "../../lib/platform";
 
 interface AccountPickerProps {
   /** 今のアカウント */
@@ -194,11 +194,11 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
           {busy && <i className="spinner" aria-hidden="true" />} {busy ?? error}
         </p>
       )}
-      <div className="picker-hint" aria-hidden="true">
+      {!isMobile && (<div className="picker-hint" aria-hidden="true">
         <span><b>← →</b>選ぶ</span>
         <span><b>Enter</b>{focused.kind === "current" ? "はじめる" : focused.kind === "add" ? "追加する" : "切り替える"}</span>
         {!startup && <span><b>Esc</b>閉じる</span>}
-      </div>
+      </div>)}
       {focused.kind === "saved" && (
         forgetting === focused.login ? (
           <div className="picker-forget-confirm">

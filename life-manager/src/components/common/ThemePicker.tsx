@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { THEMES, type Theme } from "../../lib/theme";
 import { ThemeMini } from "./ThemeMini";
+import { isMobile } from "../../lib/platform";
 
 /** はじめに見た目を選んだ印（この PC に。はじめて起動したときだけ出すため） */
 const CHOSEN_KEY = "theme-chosen";
@@ -127,10 +128,10 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
           </button>
         ))}
       </div>
-      <div className="picker-hint" aria-hidden="true">
+      {!isMobile && (<div className="picker-hint" aria-hidden="true">
         <span><b>← →</b>選ぶ</span>
         <span><b>Enter</b>このテーマではじめる</span>
-      </div>
+      </div>)}
     </div>
   );
 }

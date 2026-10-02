@@ -1,7 +1,7 @@
 // ヒストリー: リポジトリで起きたこと（チームの動き）と、「あなたがすること」（GitHub の通知の代わり）。
 // GitHub の通知（ベル）そのものは、GitHub の決まりで App の鍵では読めないので、Issue・プルリク・Actions から集める
 import { invoke } from "@tauri-apps/api/core";
-import type { GitHubIssue } from "./types";
+import type { GitHubIssue, GitHubMilestone } from "./types";
 import type { Verdicts } from "./pulls";
 import type { CheckSummary, Stack } from "./actions";
 import { daysUntil, dueOf } from "./due";
@@ -33,6 +33,9 @@ export interface ActivityEvent {
   ref_type?: string | null;
   prerelease?: boolean | null;
   member?: string | null;
+  /** マイルストーンの達成（アプリが作る出来事。MILESTONE_EVENT）: 期限と、最後に終えたタスク */
+  due_on?: string | null;
+  last_task?: { number: number; title: string } | null;
 }
 
 export interface ActivityPull {
@@ -56,17 +59,22 @@ export const activityFeed = (owner: string, repo: string) => invoke<ActivityFeed
 /** 文の一部: 文字か、押せる Issue・プルリクの番号 */
 export type Part = string | { kind: "issue" | "pull"; number: number; title?: string | null };
 
-export type ActivityKind = "issue" | "pull" | "push" | "release" | "other";
+export type ActivityKind = "issue" | "pull" | "push" | "release" | "milestone" | "other";
 
 export const KIND_LABELS: Record<ActivityKind, string> = {
   issue: "Issue",
   pull: "プルリク",
   push: "プッシュ",
   release: "リリース・タグ",
+  milestone: "マイルストーンの達成",
   other: "そのほか",
 };
 
+/** マイルストーンの達成。GitHub の出来事にはないので、アプリがマイルストーンとタスクから作る（milestoneEvents） */
+export const MILESTONE_EVENT = "LmMilestoneAchieved";
+
 export function kindOf(e: ActivityEvent): ActivityKind {
+  if (e.type === MILESTONE_EVENT) return "milestone";
   if (e.type === "PushEvent") return "push";
   if (e.type.startsWith("PullRequest")) return "pull";
   if (e.type === "IssuesEvent" || e.type === "IssueCommentEvent") return e.pull ? "pull" : "issue";
@@ -79,14 +87,27 @@ export interface Described {
   parts: Part[];
   /** 下に小さく（コメントの初め） */
   detail?: string;
+  /** 下に小さく、押せる番号つきで（マイルストーンの達成の、終えたタスクの数など） */
+  sub?: Part[];
   commits?: { sha: string; message: string }[];
+  /** 飾り: マイルストーンの達成（大きく）・タスクの完了・🆘（助けを求めた・答えた・解決した） */
+  tone?: "milestone" | "done" | "help" | "answer" | "resolved";
 }
+
+/** 🆘 の流れの中での役: 助けを求めた・それに答えた（あとから同じ Issue に、ほかの人が書いた）・解決した */
+export type HelpRole = { role: "ask" } | { role: "answer"; asker: string } | { role: "resolved" };
 
 const ref = (e: ActivityEvent, pull = !!e.pull): Part => ({ kind: pull ? "pull" : "issue", number: e.number ?? 0, title: e.title });
 
-/** 起きたこと 1 つを、日本語の文にする（出さないものは null） */
-export function describe(e: ActivityEvent): Described | null {
+/** 起きたこと 1 つを、日本語の文にする（出さないものは null）。help は 🆘 の流れの中での役（helpRoles） */
+export function describe(e: ActivityEvent, help?: HelpRole): Described | null {
   switch (e.type) {
+    case MILESTONE_EVENT: {
+      const left = e.due_on ? daysUntil(e.due_on.slice(0, 10), new Date(e.at)) : null;
+      const when = left === null ? [] : [left > 0 ? ` ・ 期限の ${left} 日前` : left === 0 ? " ・ 期限の日" : ` ・ 期限から ${-left} 日`];
+      const last: Part[] = e.last_task ? [" ・ 最後は ", { kind: "issue", number: e.last_task.number, title: e.last_task.title }] : [];
+      return { icon: "🏆", tone: "milestone", parts: [e.title ?? ""], sub: [`終えたタスク ${e.size ?? 0} 件`, ...last, ...when] };
+    }
     case "PushEvent": {
       // 今の GitHub はコミットの数を入れないので、比べて足せなかったときは数を出さない
       const count = e.size ?? (e.commits?.length || null);
@@ -116,7 +137,7 @@ export function describe(e: ActivityEvent): Described | null {
       if (e.action === "closed") {
         if (e.state_reason === "not_planned") return { icon: "⊘", parts: ["が ", r, " を閉じました（予定なし）"] };
         if (e.state_reason === "duplicate") return { icon: "⊘", parts: ["が ", r, " を閉じました（重複）"] };
-        return { icon: "✅", parts: ["が ", r, " を完了にしました"] };
+        return { icon: "✅", tone: "done", parts: ["が ", r, " を完了にしました"] };
       }
       if (e.action === "reopened") return { icon: "↺", parts: ["が ", r, " を開き直しました"] };
       if (e.action === "assigned" && e.assignee) return { icon: "👤", parts: ["が ", r, ` の担当を ${e.assignee} にしました`] };
@@ -124,6 +145,9 @@ export function describe(e: ActivityEvent): Described | null {
     }
     case "IssueCommentEvent":
       if (e.action !== "created") return null;
+      if (help?.role === "ask") return { icon: "🆘", tone: "help", parts: ["が ", ref(e), " で助けを求めました"], detail: e.body ?? undefined };
+      if (help?.role === "answer") return { icon: "🤝", tone: "answer", parts: ["が ", ref(e), ` で ${help.asker} の 🆘 に答えました`], detail: e.body ?? undefined };
+      if (help?.role === "resolved") return { icon: "🎉", tone: "resolved", parts: ["が ", ref(e), " の 🆘 を解決しました"] };
       return { icon: "💬", parts: ["が ", ref(e), " にコメントしました"], detail: e.body ?? undefined };
     case "CreateEvent":
       if (e.ref_type === "branch") return { icon: "🌿", parts: [`がブランチ ${e.ref} を作りました`] };
@@ -144,6 +168,71 @@ export function describe(e: ActivityEvent): Described | null {
     default:
       return null;
   }
+}
+
+const same = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+
+/**
+ * 🆘 の流れ: 助けを求めたコメント、そのあと同じ Issue にほかの人が書いたコメント（答えた）、解決のコメント。
+ * 古い順に見て、解決のあとに書いたものは答えにしない
+ */
+export function helpRoles(events: ActivityEvent[]): Map<string, HelpRole> {
+  const roles = new Map<string, HelpRole>();
+  // Issue ごとの、まだ解決していない 🆘（助けを求めた人）
+  const open = new Map<number, string[]>();
+  const comments = events
+    .filter((e) => e.type === "IssueCommentEvent" && (!e.action || e.action === "created") && e.number)
+    .sort((a, b) => a.at.localeCompare(b.at));
+  for (const e of comments) {
+    const n = e.number!;
+    if (e.body?.includes(HELP_MARK)) {
+      roles.set(e.id, { role: "ask" });
+      open.set(n, [...(open.get(n) ?? []), e.actor]);
+    } else if (e.body?.includes(HELP_DONE_MARK)) {
+      roles.set(e.id, { role: "resolved" });
+      open.delete(n);
+    } else {
+      const asker = (open.get(n) ?? []).filter((a) => !same(a, e.actor)).pop();
+      if (asker) roles.set(e.id, { role: "answer", asker });
+    }
+  }
+  return roles;
+}
+
+/**
+ * マイルストーンの達成を、出来事として作る（ヒストリーに出す）。タスクがすべて終わったマイルストーンで、
+ * 時刻は最後のタスクを閉じたとき（わからなければ、マイルストーンを閉じたとき）。since より前のものは作らない。
+ * 読んでいるマイルストーンは開いているものだけなので、閉じたマイルストーンは、閉じたタスクに入っているもので見る
+ */
+export function milestoneEvents(milestones: GitHubMilestone[], closedIssues: GitHubIssue[], since: number): ActivityEvent[] {
+  const all = new Map<number, GitHubMilestone>();
+  for (const i of closedIssues) if (i.milestone && !all.has(i.milestone.number)) all.set(i.milestone.number, i.milestone);
+  // 開いているマイルストーンは、一覧のもの（新しい数）を使う
+  for (const m of milestones) all.set(m.number, m);
+  const out: ActivityEvent[] = [];
+  for (const m of all.values()) {
+    if (m.open_issues > 0 || m.closed_issues === 0) continue;
+    let last: GitHubIssue | null = null;
+    for (const i of closedIssues) {
+      if (i.milestone?.number !== m.number || !i.closed_at) continue;
+      if (!last || i.closed_at > (last.closed_at ?? "")) last = i;
+    }
+    const at = last?.closed_at ?? m.closed_at ?? null;
+    if (!at || Date.parse(at) < since) continue;
+    out.push({
+      id: `ms:${m.number}`,
+      type: MILESTONE_EVENT,
+      actor: "",
+      at,
+      action: null,
+      number: m.number,
+      title: m.title,
+      size: m.closed_issues,
+      due_on: m.due_on,
+      last_task: last ? { number: last.number, title: last.title } : null,
+    });
+  }
+  return out;
 }
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -184,8 +273,6 @@ export interface Todo {
 }
 
 const MENTION_DAYS = 14;
-
-const same = (a: string | null | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
 
 /**
  * 「あなたがすること」を集める:

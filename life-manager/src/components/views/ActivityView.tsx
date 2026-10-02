@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { KIND_LABELS, dayLabel, describe, kindOf, timeOf, type ActivityKind, type Part } from "../../lib/activity";
+import { KIND_LABELS, dayLabel, describe, helpRoles, kindOf, milestoneEvents, timeOf, type ActivityKind, type Part } from "../../lib/activity";
 import { ago } from "../../lib/pulls";
 import { commentPreview } from "../../lib/help";
 import type { ActivityState } from "../../hooks/useActivity";
 import { CommitDetail } from "../git/CommitDetail";
 import { TeamWork } from "./TeamWork";
-import type { GitHubUser } from "../../lib/types";
+import type { GitHubIssue, GitHubMilestone, GitHubUser } from "../../lib/types";
 
 interface ActivityViewProps {
   owner: string;
@@ -19,10 +19,13 @@ interface ActivityViewProps {
   team: GitHubUser[];
   /** 画面の動きが「ふつう」か */
   motion: boolean;
+  /** マイルストーンの達成をヒストリーに出すため（#229） */
+  milestones: GitHubMilestone[];
+  closedIssues: GitHubIssue[];
 }
 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
-export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion }: ActivityViewProps) {
+export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, closedIssues }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<"" | ActivityKind>("");
@@ -41,8 +44,17 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
       ),
     );
 
-  const events = useMemo(() => (feed?.events ?? []).map((e) => ({ e, d: describe(e) })).filter((x) => x.d !== null), [feed]);
-  const actors = useMemo(() => [...new Set(events.map((x) => x.e.actor))].sort(), [events]);
+  // GitHub の出来事に、マイルストーンの達成（アプリが作る）を足して新しい順に。🆘 は流れの中での役（求めた・答えた・解決した）で書く
+  const events = useMemo(() => {
+    const list = feed?.events ?? [];
+    const roles = helpRoles(list);
+    const since = list.length > 0 ? Math.min(...list.map((e) => Date.parse(e.at))) : Date.now() - 90 * 86400000;
+    return [...list, ...milestoneEvents(milestones, closedIssues, since)]
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .map((e) => ({ e, d: describe(e, roles.get(e.id)) }))
+      .filter((x) => x.d !== null);
+  }, [feed, milestones, closedIssues]);
+  const actors = useMemo(() => [...new Set(events.map((x) => x.e.actor).filter(Boolean))].sort(), [events]);
   const matchWho = (x: (typeof events)[number]) => !who || x.e.actor === who;
   const matchKind = (x: (typeof events)[number]) => !kind || kindOf(x.e) === kind;
   const shown = events.filter((x) => matchWho(x) && matchKind(x));
@@ -146,29 +158,47 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
                   {day.label}
                   <span className="av-day-count">{day.items.length} 件</span>
                 </div>
-                {day.items.map(({ e, d }) => (
-                  <div key={e.id} className={`av-ev k-${kindOf(e)}`}>
-                    <span className="av-icon" aria-hidden="true">
-                      {d!.icon}
-                    </span>
-                    <span className="av-ev-body">
-                      <span>
-                        <b>{e.actor}</b> {renderParts(d!.parts)}
+                {day.items.map(({ e, d }) =>
+                  d!.tone === "milestone" ? (
+                    // マイルストーンの達成は、大きく派手に（#229）
+                    <div key={e.id} className="av-ms">
+                      <span className="av-ms-trophy" aria-hidden="true">
+                        {d!.icon}
                       </span>
-                      {d!.detail && <span className="av-detail">「{commentPreview(d!.detail).slice(0, 100)}」</span>}
-                      {d!.commits && d!.commits.length > 0 && (
-                        <span className="av-commits">
-                          {d!.commits.map((c) => (
-                            <button key={c.sha} type="button" className="av-commit" onClick={() => setCommit({ hash: c.sha, subject: c.message, author: e.actor, date: e.at })}>
-                              <code>{c.sha.slice(0, 7)}</code> {c.message}
-                            </button>
-                          ))}
+                      <span className="av-ms-body">
+                        <span className="av-ms-kicker">マイルストーン達成</span>
+                        <b className="av-ms-title">{renderParts(d!.parts)}</b>
+                        {d!.sub && <span className="av-ms-sub">{renderParts(d!.sub)}</span>}
+                      </span>
+                      <span className="av-ms-party" aria-hidden="true">
+                        🎉
+                      </span>
+                      <span className="muted av-when">{timeOf(e.at)}</span>
+                    </div>
+                  ) : (
+                    <div key={e.id} className={`av-ev k-${kindOf(e)}${d!.tone ? ` t-${d!.tone}` : ""}`}>
+                      <span className="av-icon" aria-hidden="true">
+                        {d!.icon}
+                      </span>
+                      <span className="av-ev-body">
+                        <span>
+                          <b>{e.actor}</b> {renderParts(d!.parts)}
                         </span>
-                      )}
-                    </span>
-                    <span className="muted av-when">{timeOf(e.at)}</span>
-                  </div>
-                ))}
+                        {d!.detail && <span className="av-detail">「{commentPreview(d!.detail).slice(0, 100)}」</span>}
+                        {d!.commits && d!.commits.length > 0 && (
+                          <span className="av-commits">
+                            {d!.commits.map((c) => (
+                              <button key={c.sha} type="button" className="av-commit" onClick={() => setCommit({ hash: c.sha, subject: c.message, author: e.actor, date: e.at })}>
+                                <code>{c.sha.slice(0, 7)}</code> {c.message}
+                              </button>
+                            ))}
+                          </span>
+                        )}
+                      </span>
+                      <span className="muted av-when">{timeOf(e.at)}</span>
+                    </div>
+                  ),
+                )}
               </div>
             ))
           )}

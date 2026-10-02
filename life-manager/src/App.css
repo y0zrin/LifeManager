@@ -19247,6 +19247,105 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 .av-ev.k-pull { border-left-color: var(--view-pulls); }
 .av-ev.k-issue { border-left-color: var(--accent-green-hover); }
 .av-ev.k-release { border-left-color: var(--view-releases); }
+
+/* 飾り（#229）: タスクの完了は緑、🆘 は赤、答えたのは黄、解決は緑から金へ */
+.av-ev.t-done {
+  border-left-color: var(--accent-green);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-green) 16%, transparent), transparent 70%);
+}
+.av-ev.t-done .av-icon { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-green) 80%, transparent)); }
+.av-ev.t-help {
+  border-left-color: var(--accent-red);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-red) 16%, transparent), transparent 70%);
+}
+.av-ev.t-answer {
+  border-left-color: var(--accent-yellow);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-yellow) 18%, transparent), transparent 70%);
+}
+.av-ev.t-resolved {
+  border-left-color: var(--accent-green);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-green) 18%, transparent), color-mix(in srgb, var(--accent-yellow) 10%, transparent) 60%, transparent);
+}
+.av-ev.t-done:hover,
+.av-ev.t-help:hover,
+.av-ev.t-answer:hover,
+.av-ev.t-resolved:hover {
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+/* マイルストーンの達成: 金の枠と光、トロフィー（#229）。光のすじはくり返し（前にないときは止まる。lib/idle.ts） */
+.av-ms {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 10px 6px;
+  padding: 14px 18px;
+  border: 2px solid color-mix(in srgb, var(--accent-yellow) 75%, transparent);
+  border-radius: 16px;
+  /* 紙吹雪の粒（止まった絵）と、金の光 */
+  background:
+    radial-gradient(circle at 14% 20%, color-mix(in srgb, var(--accent-red) 75%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 30% 82%, color-mix(in srgb, var(--accent-blue) 75%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 47% 14%, color-mix(in srgb, var(--accent-green) 75%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 61% 76%, color-mix(in srgb, var(--accent-yellow) 85%, transparent) 0 2.5px, transparent 3.5px),
+    radial-gradient(circle at 74% 22%, color-mix(in srgb, var(--view-pulls) 75%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 86% 70%, color-mix(in srgb, var(--accent-red) 65%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 95% 30%, color-mix(in srgb, var(--accent-blue) 65%, transparent) 0 1.5px, transparent 2.5px),
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--accent-yellow) 30%, transparent), transparent 60%),
+    linear-gradient(120deg, color-mix(in srgb, var(--accent-yellow) 16%, var(--bg-secondary)), var(--bg-secondary));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-yellow) 14%, transparent), 0 10px 30px color-mix(in srgb, var(--accent-yellow) 28%, transparent);
+  color: var(--text-secondary);
+}
+.av-ms::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--text-on-accent) 22%, transparent) 50%, transparent 60%);
+  transform: translateX(-100%);
+  animation: av-ms-shine 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes av-ms-shine {
+  0%, 55% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.motion-reduced .av-ms::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .av-ms::after { display: none; }
+}
+.av-ms-trophy {
+  flex: none;
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent-yellow) 75%, transparent));
+}
+.av-ms-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.av-ms-kicker {
+  color: var(--accent-yellow);
+  font-size: var(--font-xs);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.av-ms-title {
+  color: var(--text-primary);
+  font-size: var(--font-xl);
+  line-height: 1.3;
+}
+.av-ms-sub {
+  font-size: var(--font-sm);
+}
+.av-ms-party {
+  flex: none;
+  font-size: 28px;
+}
 .av-ev-body {
   flex: 1;
   min-width: 0;

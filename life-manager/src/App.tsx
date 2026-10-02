@@ -1295,7 +1295,7 @@ function App() {
           {/* ヒストリー（あなたがすること・チームの動き） */}
           {view === "activity" && gh.connected && (
             <ActivityView owner={gh.owner} repo={gh.repo} activity={activity} onOpenIssue={openIssue} onOpenPull={openPull} onOpenRun={(runId) => openRun(runId)}
-              team={gh.collaborators} motion={display.settings.motion === "normal"} />
+              team={gh.collaborators} motion={display.settings.motion === "normal"} milestones={gh.milestones} closedIssues={gh.closedIssues} />
           )}
 
           {/* オーバービュー（タスクの数・チームのペース） */}

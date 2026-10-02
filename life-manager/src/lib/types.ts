@@ -380,6 +380,8 @@ export interface GitFolderCheck {
 }
 
 export type ViewType =
+  /** スマホのメニュー（ホーム）。オーバービューもここにまとめる */
+  | "menu"
   | "work"
   | "insights" | "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "gantt"
   | "branches" | "overview" | "pulls" | "actions" | "releases" | "activity"

@@ -3,7 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { exit, relaunch } from "@tauri-apps/plugin-process";
+import { onBackButtonPress } from "@tauri-apps/api/app";
+import type { PluginListener } from "@tauri-apps/api/core";
 import { useGitHub } from "./hooks/useGitHub";
 import { useLocalFolders } from "./hooks/useLocalFolders";
 import { useGit } from "./hooks/useGit";
@@ -63,6 +65,8 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
+import { MobileMenu, type MenuTile } from "./components/views/MobileMenu";
+import { closeTopLayer } from "./lib/back";
 import { ThemePicker, markThemeChosen, needsThemeChoice } from "./components/common/ThemePicker";
 import { applyTheme, type Theme } from "./lib/theme";
 import { InsightsView } from "./components/views/InsightsView";
@@ -109,8 +113,17 @@ const REPO_ITEMS: NavItem[] = [
 ];
 const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
 const ALL_NAV_ITEMS: NavItem[] = [...HOME_ITEMS, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
-// スマホの下部ナビは従来どおり（オーバービューとタスク系。作業などの新しい画面はスマホ版を詰めるときに足す）
-const MOBILE_NAV_ITEMS: NavItem[] = [INSIGHTS_ITEM, ...TASK_ITEMS.filter((item) => item !== WORK_ITEM), SETTINGS_ITEM];
+// スマホの下の帯（#203）: メニュー・ボード・タスク・日誌・ヒストリー。ほかの画面はメニューから開く
+const MENU_ITEM: NavItem = { key: "menu", icon: "🏠", label: "メニュー" };
+const MOBILE_NAV_ITEMS: NavItem[] = [
+  MENU_ITEM,
+  { key: "kanban", icon: "📊", label: "ボード" },
+  { key: "dashboard", icon: "📋", label: "タスク一覧", phone: "タスク" },
+  { key: "timeline", icon: "📅", label: "日誌" },
+  { key: "activity", icon: "📰", label: "ヒストリー" },
+];
+// スマホのメニューに並べる画面（オーバービューはメニューにまとめたので入れない。作業・リポジトリ系はスマホにない）
+const MENU_TASK_KEYS: ViewType[] = ["kanban", "dashboard", "milestones", "gantt", "timeline", "routines"];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 // たたむボタンの矢印（サイドバーのある端へ向ける）
@@ -134,13 +147,16 @@ function App() {
   const display = useDisplaySettings();
   // 重ねて出す詳細・ダイアログの上のホイールで、後ろの画面を動かさない
   useOverlayScrollGuard();
-  const [view, setViewState] = useState<ViewType>("dashboard");
+  // スマホはメニュー（ホーム）からはじめる
+  const [view, setViewState] = useState<ViewType>(isMobile ? "menu" : "dashboard");
   // 画面を切り替える。動いた向きで動きの種類を変える: 作業 ⇄ ブランチ ⇄ 全体図 は奥行き（寄る・引く）、
   // ほかはサイドバーの並びの前後で、縦のサイドバーなら上下・横の帯（上・下に置いたとき、スマホの下のナビ）なら左右
   const viewRef = useRef(view);
   const sidebarPosRef = useRef(display.settings.sidebarPosition);
   sidebarPosRef.current = display.settings.sidebarPosition;
-  const setView = useCallback((next: ViewType) => {
+  const setView = useCallback((target: ViewType) => {
+    // スマホでは、オーバービューはメニューにまとめてある
+    const next: ViewType = isMobile && target === "insights" ? "menu" : target;
     const from = viewRef.current;
     if (next === from) return;
     viewRef.current = next;
@@ -402,6 +418,49 @@ function App() {
     }
   }, []);
 
+  // スマホの戻るボタン（#202）: 開いているものから閉じる → 画面ならメニューへ → メニューなら「もう一度押すと終わります」
+  const [exitHint, setExitHint] = useState(false);
+  const connectedRef = useRef(gh.connected);
+  connectedRef.current = gh.connected;
+  useEffect(() => {
+    if (!isMobile) return;
+    let listener: PluginListener | null = null;
+    let disposed = false;
+    let lastPress = 0;
+    let hintTimer = 0;
+    const onBack = () => {
+      if (closeTopLayer()) return;
+      if (connectedRef.current && viewRef.current !== "menu") {
+        setView("menu");
+        return;
+      }
+      const now = Date.now();
+      if (now - lastPress < 2000) {
+        void exit(0);
+        return;
+      }
+      lastPress = now;
+      setExitHint(true);
+      window.clearTimeout(hintTimer);
+      hintTimer = window.setTimeout(() => setExitHint(false), 2000);
+    };
+    // 確認用ページ（開発のとき）で、戻るボタンを押したことにできるように
+    if (import.meta.env.DEV) (window as unknown as { __lmBack?: () => void }).__lmBack = onBack;
+    onBackButtonPress(onBack)
+      .then((l) => {
+        if (disposed) void l.unregister();
+        else listener = l;
+      })
+      .catch(() => {
+        // 戻るボタンを受け取れない（PC など）
+      });
+    return () => {
+      disposed = true;
+      window.clearTimeout(hintTimer);
+      void listener?.unregister();
+    };
+  }, [setView]);
+
   // 起動時: トークン読み込み + 通知パーミッション要求 + アップデートチェック
   useEffect(() => {
     async function init() {
@@ -472,7 +531,7 @@ function App() {
     setAddingAccount(null);
     // 「はじめて、メンバーを招待する」なら 設定 → 接続 を開く
     if (inviteNext) setSettingsPane("connection");
-    setView(inviteNext ? "settings" : "dashboard");
+    setView(inviteNext ? "settings" : isMobile ? "menu" : "dashboard");
   }
 
   // --- アカウントの切り替え ---
@@ -607,7 +666,15 @@ function App() {
   // ヒストリー: チームの動きと「あなたがすること」（サイドバーの数のため、画面を開いていなくても読む）
   // 送っている途中の仮の Issue（まだ番号がない）は、期限の知らせなどに入れない
   const sentIssues = useMemo(() => gh.issues.filter((i) => !isSending(i.number)), [gh.issues]);
-  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && !isMobile, view === "activity", sentIssues, actions.stack);
+  // スマホでは、ヒストリーを開いているあいだだけ GitHub を読む（裏では読まない。電池と通信のため）
+  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && (!isMobile || view === "activity"), view === "activity", sentIssues, actions.stack);
+  // スマホのメニューの「マイルストーン」の札に出す、いちばん近い開いたマイルストーン
+  const nearestMilestone = useMemo(
+    () => [...gh.milestones].filter((m) => m.state !== "closed").sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"))[0],
+    [gh.milestones],
+  );
+  // 下の帯で光らせる項目（下の帯にない画面は、メニューから開いたので「メニュー」）
+  const navActive: ViewType = MOBILE_NAV_ITEMS.some((i) => i.key === view) ? view : "menu";
   const [actionsFocus, setActionsFocus] = useState<{ runId: number; jobId?: number | null } | null>(null);
   const clearActionsFocus = useCallback(() => setActionsFocus(null), []);
   const openRun = useCallback((runId: number, jobId?: number | null) => {
@@ -1222,6 +1289,43 @@ function App() {
           )}
 
           {/* オーバービュー（タスクの数・チームのペース） */}
+          {view === "menu" && gh.connected && (
+            <MobileMenu
+              onOpen={setView}
+              groups={[
+                {
+                  title: "タスク",
+                  tiles: MENU_TASK_KEYS.map((key): MenuTile => {
+                    const item = TASK_ITEMS.find((i) => i.key === key)!;
+                    const note = key === "milestones" ? nearestMilestone?.title : undefined;
+                    return { key, icon: item.icon, label: item.label, note };
+                  }),
+                },
+                {
+                  title: "ほか",
+                  tiles: [
+                    { key: "activity", icon: "📰", label: "ヒストリー", badge: activity.todos.length || undefined, note: activity.todos.length ? `すること ${activity.todos.length}` : undefined },
+                    { key: "settings", icon: SETTINGS_ITEM.icon, label: SETTINGS_ITEM.label },
+                  ],
+                },
+              ]}
+              overview={
+                <InsightsView
+                  issues={gh.issues}
+                  closedIssues={gh.closedIssues}
+                  milestones={gh.milestones}
+                  labels={gh.customLabels}
+                  collaborators={gh.collaborators}
+                  owner={gh.owner}
+                  repo={gh.repo}
+                  stateOrder={(gh.boardConfig?.columns ?? DEFAULT_COLUMNS).map((c) => c.key)}
+                  onSelectIssue={setSelectedIssue}
+                  onListTimeline={gh.listTimeline}
+                />
+              }
+            />
+          )}
+
           {view === "insights" && gh.connected && (
             <InsightsView
               issues={gh.issues}
@@ -1506,16 +1610,20 @@ function App() {
         />
       )}
 
-      {/* ボトムナビゲーション（スマホ） */}
+      {/* 戻るボタンをメニューで押したとき（スマホ） */}
+      {exitHint && <div className="back-toast" role="status">もう一度押すと終わります</div>}
+
+      {/* ボトムナビゲーション（スマホ）。下の帯にない画面（メニューから開いた画面）では「メニュー」を光らせる */}
       <nav className="bottom-nav">
         {MOBILE_NAV_ITEMS.map((item) => (
           <button
             key={item.key}
-            className={`bottom-nav-btn ${view === item.key ? "active" : ""}`}
+            className={`bottom-nav-btn ${navActive === item.key ? "active" : ""}`}
             onClick={() => setView(item.key)}
             aria-label={item.label}
           >
-            {view === item.key && <span className="bottom-nav-active-bg" aria-hidden="true" />}
+            {navActive === item.key && <span className="bottom-nav-active-bg" aria-hidden="true" />}
+            {item.key === "activity" && activity.todos.length > 0 && <span className="bottom-nav-badge">{activity.todos.length}</span>}
             <span className="bottom-nav-icon">{item.icon}</span>
             <span className="bottom-nav-label" aria-hidden="true">{item.phone ?? item.label}</span>
           </button>

@@ -8,6 +8,7 @@ import { GanttRenderer, dateToDays, computeCriticalPath, relatedOf, type EdgeExi
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
 import { arrowKey, planArrows } from "../../lib/ganttArrows";
 import { isEscape } from "../../lib/keys";
+import { useBackLayer } from "../../lib/back";
 import { useDismiss } from "../../hooks/useDismiss";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 
@@ -116,6 +117,11 @@ export function GanttView({
   // 押して固定したタスク（詳細を閉じたあとも目立たせたまま。何もない所を押す・Esc・下の帯の ✕ で外す）
   const [pinnedIssue, setPinnedIssue] = useState<number | null>(null);
   const focus = focusIssue ?? pinnedIssue;
+  // スマホの戻るボタンで、固定を外す
+  useBackLayer(pinnedIssue !== null, () => {
+    setPinnedIssue(null);
+    setFocusIssue(null);
+  });
   // ガントの外へ出たら、少し待ってから乗せていたのを外す（札や下の帯へ動かすあいだに外れないように）
   const leaveTimer = useRef<number | null>(null);
   const cancelLeave = () => {

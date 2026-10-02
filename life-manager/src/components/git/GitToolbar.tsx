@@ -36,7 +36,7 @@ export function GitToolbar({ git: g, actions, onOpenCommit }: GitToolbarProps) {
         onClick={actions.fetch}
         title="git fetch --all --prune（GitHub の最新の状態を取ってくる。手元のファイルは変わりません）"
       >
-        ⟳ フェッチ
+        ⟳<span className="tb-lb"> フェッチ</span>
       </button>
       <button
         type="button"
@@ -45,7 +45,8 @@ export function GitToolbar({ git: g, actions, onOpenCommit }: GitToolbarProps) {
         onClick={actions.pull}
         title={published ? "git pull --no-rebase（GitHub の新しいコミットを取り込む）" : "このブランチはまだ GitHub にありません"}
       >
-        ⬇ プル{st.behind > 0 && <span className="tb-cnt">{st.behind}</span>}
+        ⬇<span className="tb-lb"> プル</span>
+        {st.behind > 0 && <span className="tb-cnt">{st.behind}</span>}
       </button>
       <button
         type="button"
@@ -58,7 +59,7 @@ export function GitToolbar({ git: g, actions, onOpenCommit }: GitToolbarProps) {
             : `${displayCommand(["push", "-u", "origin", st.branch])}（このブランチを GitHub に公開する）`
         }
       >
-        ⬆ プッシュ
+        ⬆<span className="tb-lb"> プッシュ</span>
         {!published && st.branch ? (
           <span className="tb-cnt">未公開</span>
         ) : (

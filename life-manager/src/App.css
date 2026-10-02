@@ -2618,6 +2618,8 @@ body {
 }
 
 .topbar {
+  /* 幅が狭いときは、ボタンの字を隠して絵だけにする（下の @container topbar） */
+  container: topbar / inline-size;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -2633,11 +2635,30 @@ body {
 }
 
 .topbar-title {
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-primary);
   font-size: var(--font-xl);
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* 上のバーが狭いとき（窓を小さくした・画面の拡大が大きい）: ボタンの字を隠して、絵と数だけにする（字は、乗せると出る説明にある） */
+@container topbar (max-width: 960px) {
+  .bsw-label,
+  .tb-lb,
+  .btn-help-lb {
+    display: none;
+  }
+}
+
+@container topbar (max-width: 720px) {
+  .topbar-partner {
+    display: none;
+  }
 }
 
 .topbar-right {
@@ -21459,11 +21480,18 @@ html.stage-still .stage-fx .fx-shoot {
   box-shadow: 0 0 0 1px var(--picker-ring), 0 0 22px var(--picker-glow);
 }
 
-/* 作業タブ: 左の欄と段は面、Issue の行はカード */
+/* 作業をする: 左の欄と段は面、Issue の行はカード */
 .w-left,
-.w-steps,
-.w-tabs {
+.w-steps {
   background: color-mix(in srgb, var(--picker-card) 80%, transparent);
+}
+
+/* 「変更」「退避中」のタブは、流した中身の上に貼りつくので、透けない色に（説明の字が透けて重ならないように） */
+.w-tabs {
+  /* 下に、透けない地の色を敷く（面の色は少し透けるので、それだけだと下の字が透ける） */
+  background:
+    linear-gradient(color-mix(in srgb, var(--picker-card) 80%, transparent), color-mix(in srgb, var(--picker-card) 80%, transparent)),
+    var(--bg-primary);
 }
 
 .w-right {

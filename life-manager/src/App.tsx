@@ -1094,7 +1094,7 @@ function App() {
             {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
             {view === "work" && workIssue && (
               <button type="button" className="btn-help" onClick={() => void askHelp(workIssue)} title={`チームの人を @ で呼んで、${workIssue.title} にコメントを残します`}>
-                🆘 助けを求める
+                🆘<span className="btn-help-lb"> 助けを求める</span>
               </button>
             )}
             {sendingCount > 0 && (

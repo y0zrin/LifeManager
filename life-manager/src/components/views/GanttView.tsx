@@ -10,7 +10,7 @@ import { arrowKey, planArrows } from "../../lib/ganttArrows";
 import { isEscape } from "../../lib/keys";
 import { useBackLayer } from "../../lib/back";
 import { useDismiss } from "../../hooks/useDismiss";
-import { isSectionLabel, sectionOf } from "../../lib/section";
+import { isSectionLabel, sectionOf } from "../../lib/section";
 import { isMobile } from "../../lib/platform";
 
 interface GanttViewProps {

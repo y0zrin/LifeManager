@@ -23,9 +23,9 @@ export function GitToolbar({ git: g, actions, onOpenCommit }: GitToolbarProps) {
   return (
     <div className="git-toolbar">
       {g.busy && (
-        <span className="tb-busy" role="status">
+        <span className="tb-busy" role="status" title={`${g.busy}…`}>
           <i className="spinner" aria-hidden="true" />
-          {g.busy}…
+          <span className="tb-lb">{g.busy}…</span>
         </span>
       )}
       <BranchSwitcher git={g} actions={actions} disabled={busy} />
@@ -176,8 +176,9 @@ function MoreMenu({ git: g, actions, disabled, onOpenCommit }: MoreMenuProps) {
 
   return (
     <div className="tb-more" ref={ref}>
-      <button type="button" className={`tbtn${open ? " open" : ""}`} disabled={disabled} onClick={() => setOpen(!open)}>
-        その他 ▾
+      <button type="button" className={`tbtn${open ? " open" : ""}`} disabled={disabled} onClick={() => setOpen(!open)} title="その他">
+        <span className="tb-more-ic" aria-hidden="true">⋯</span>
+        <span className="tb-lb">その他 ▾</span>
       </button>
       {open && (
         <div className="menu popover">

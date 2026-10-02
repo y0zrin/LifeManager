@@ -598,7 +598,7 @@ function Workspace({
             <Fragment key={n}>
               {n === 4 && (
                 <li className="w-steps-loop" title="完了にするまで、② 作業報告と ③ コミット・プッシュをくり返します">
-                  ↻ 完了までくり返す
+                  ↻<span className="w-loop-lb"> 完了までくり返す</span>
                 </li>
               )}
               <li>

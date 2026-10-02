@@ -1117,7 +1117,7 @@ function App() {
                 🔔{notices.dot && <i className="nt-bell-dot" aria-hidden="true" />}
               </button>
             )}
-            <button className="btn-sm" onClick={() => { setShowPalette(true); }}>
+            <button className="btn-sm topbar-kbd" onClick={() => { setShowPalette(true); }}>
               Ctrl+K
             </button>
           </div>

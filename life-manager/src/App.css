@@ -2656,8 +2656,28 @@ body {
 }
 
 @container topbar (max-width: 720px) {
-  .topbar-partner {
+  .topbar-partner,
+  .topbar-kbd {
     display: none;
+  }
+
+  .topbar-title {
+    font-size: var(--font-lg);
+  }
+
+  .bsw-btn b {
+    max-width: 110px;
+  }
+}
+
+/* 「その他」は、狭いときは ⋯ だけ */
+.tb-more-ic {
+  display: none;
+}
+
+@container topbar (max-width: 960px) {
+  .tb-more-ic {
+    display: inline;
   }
 }
 
@@ -2666,6 +2686,19 @@ body {
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
+}
+
+/* 狭いときに縮めるのは題名と知らせの字だけ（ボタンは押しつぶさない） */
+.topbar-right > :not(.status-text),
+.git-toolbar > * {
+  flex-shrink: 0;
+}
+
+/* もっと狭いとき: 題名は隠す（左の欄で、今の画面に印が付いている） */
+@container topbar (max-width: 520px) {
+  .topbar-title {
+    display: none;
+  }
 }
 
 /* 画面の切り替え: イージング付きで表示する */
@@ -12090,12 +12123,30 @@ html.stage-still .desk-buncho::after {
   border-bottom: 1px solid var(--border-default);
   background: var(--bg-secondary);
   overflow-x: auto;
+  /* 狭いときは段の名前を詰め、「完了までくり返す」は ↻ だけにする */
+  container-type: inline-size;
 }
 
 .w-steps li {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
+}
+
+@container (max-width: 640px) {
+  .w-loop-lb {
+    display: none;
+  }
+
+  /* 今の段と開いている段のほかは、番号だけ（名前は乗せると出る） */
+  .w-step:not(.now):not(.shown) span {
+    display: none;
+  }
+
+  .w-step:not(.now):not(.shown) {
+    padding-right: 4px;
+  }
 }
 
 .w-steps li + li::before {
@@ -12110,6 +12161,7 @@ html.stage-still .desk-buncho::after {
   align-items: center;
   gap: 5px;
   max-width: 190px;
+  min-width: 0;
   min-height: 0;
   padding: 2px 10px 2px 4px;
   border: 1px solid transparent;

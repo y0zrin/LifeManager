@@ -3579,6 +3579,133 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   padding: 0;
 }
 
+/* メニューの中の空き（右に寄せる。.grow はこの画面には決まりがないので、ここで決める） */
+.mobile-menu .grow {
+  flex: 1 1 auto;
+}
+
+/* メニューのいちばん上: チームの仕事（小さく出す形。押すとヒストリー。#214） */
+.tw.tw--compact {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-radius: 14px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw--compact .tw-head {
+  display: flex;
+}
+
+.tw--compact .tw-title {
+  font-size: 15px;
+}
+
+.tw--compact .tw-faces .avatar-sm {
+  width: 20px;
+  height: 20px;
+}
+
+.tw-cline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 4px 0 8px;
+}
+
+.tw--compact .tw-num b {
+  font-size: 34px;
+}
+
+.tw--compact .tw-delta {
+  margin-top: 0;
+  padding: 0 8px;
+  font-size: var(--font-xs);
+}
+
+.tw-next {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.tw-next b {
+  color: var(--text-primary);
+}
+
+.tw--compact .tw-bar {
+  display: block;
+  height: 6px;
+}
+
+.tw--compact .tw-bar i {
+  display: block;
+}
+
+.tw--compact .tw-bar i::after {
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+}
+
+/* メニュー: あなたがすること（数と、はじめの 2 つ。押すとヒストリー。#214） */
+.mm-todo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mm-todo-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-md);
+}
+
+.mm-todo-n {
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+.mm-todo-n.on {
+  background: var(--accent-red);
+  color: var(--text-on-accent);
+}
+
+.mm-todo-more {
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.mm-todo-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+}
+
 /* メニューの中のオーバービュー（小さく出す形）: 見出しの段に「絞り込み」と「くわしく」、その下に数 4 つと状態の帯 */
 .analytics--compact {
   margin-bottom: 0;
@@ -3634,35 +3761,7 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   font-size: 22px;
 }
 
-.analytics--compact .analytics-charts {
-  gap: 6px;
-}
 
-.analytics--compact .analytics-box {
-  padding: 6px 8px;
-}
-
-.analytics--compact .analytics-box h5:not(:first-child) {
-  margin-top: var(--space-sm);
-}
-
-.analytics--compact .analytics-person {
-  grid-template-columns: 84px minmax(0, 1fr) auto;
-  margin: 2px 0;
-  font-size: var(--font-xs);
-}
-
-.analytics--compact .analytics-weeks {
-  padding-top: 2px;
-}
-
-.analytics--compact .analytics-pair {
-  height: 40px;
-}
-
-.analytics--compact .analytics-wlegend {
-  margin-top: 4px;
-}
 
 /* --- スマホの、下から出る板（#207）: 絞り込み・並び・見せ方など、PC ではツールバーに並べているもの --- */
 .m-sheet-dim {

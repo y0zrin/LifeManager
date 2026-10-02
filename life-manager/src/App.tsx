@@ -65,7 +65,8 @@ import { IssueIndexContext, type IssueIndex } from "./components/common/SubIssue
 import { SyncIndicator } from "./components/common/SyncIndicator";
 import { ConflictDialog } from "./components/common/ConflictDialog";
 import { SetupView } from "./components/views/SetupView";
-import { MobileMenu, type MenuTile } from "./components/views/MobileMenu";
+import { MobileMenu, MenuTodos, type MenuTile } from "./components/views/MobileMenu";
+import { TeamWork } from "./components/views/TeamWork";
 import { closeTopLayer } from "./lib/back";
 import { ThemePicker, markThemeChosen, needsThemeChoice } from "./components/common/ThemePicker";
 import { applyTheme, type Theme } from "./lib/theme";
@@ -113,14 +114,15 @@ const REPO_ITEMS: NavItem[] = [
 ];
 const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
 const ALL_NAV_ITEMS: NavItem[] = [...HOME_ITEMS, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
-// スマホの下の帯（#203）: メニュー・ボード・タスク・日誌・ヒストリー。ほかの画面はメニューから開く
+// スマホの下のドック（#203・#214）: メニュー・ボード・マイルストーン・日誌・設定。ほかの画面はメニューから開く。
+// ヒストリーの「あなたがすること」の数は、メニューに出す（ドックのメニューにも数を付ける）
 const MENU_ITEM: NavItem = { key: "menu", icon: "🏠", label: "メニュー" };
 const MOBILE_NAV_ITEMS: NavItem[] = [
   MENU_ITEM,
   { key: "kanban", icon: "📊", label: "ボード" },
-  { key: "dashboard", icon: "📋", label: "タスク一覧", phone: "タスク" },
+  { key: "milestones", icon: "🎯", label: "マイルストーン", phone: "マイル\nストーン" },
   { key: "timeline", icon: "📅", label: "日誌" },
-  { key: "activity", icon: "📰", label: "ヒストリー" },
+  { key: "settings", icon: "⚙️", label: "設定" },
 ];
 // スマホのメニューに並べる画面（オーバービューはメニューにまとめたので入れない。作業・リポジトリ系はスマホにない）
 const MENU_TASK_KEYS: ViewType[] = ["kanban", "dashboard", "milestones", "gantt", "timeline", "routines"];
@@ -671,7 +673,8 @@ function App() {
   // 送っている途中の仮の Issue（まだ番号がない）は、期限の知らせなどに入れない
   const sentIssues = useMemo(() => gh.issues.filter((i) => !isSending(i.number)), [gh.issues]);
   // スマホでは、ヒストリーを開いているあいだだけ GitHub を読む（裏では読まない。電池と通信のため）
-  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && (!isMobile || view === "activity"), view === "activity", sentIssues, actions.stack);
+  // スマホは、ヒストリーとメニュー（「あなたがすること」の数を出す）を開いているときだけ読む
+  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && (!isMobile || view === "activity" || view === "menu"), view === "activity", sentIssues, actions.stack);
   // スマホのメニューの「マイルストーン」の札に出す、いちばん近い開いたマイルストーン
   const nearestMilestone = useMemo(
     () => [...gh.milestones].filter((m) => m.state !== "closed").sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"))[0],
@@ -1296,6 +1299,8 @@ function App() {
           {view === "menu" && gh.connected && (
             <MobileMenu
               onOpen={setView}
+              team={<TeamWork key={`${gh.owner}/${gh.repo}`} owner={gh.owner} repo={gh.repo} team={gh.collaborators} motion={display.settings.motion === "normal"} compact onOpen={() => setView("activity")} />}
+              todo={<MenuTodos todos={activity.todos} ready={!!activity.feed} onOpen={() => setView("activity")} />}
               tiles={[
                 ...MENU_TASK_KEYS.map((key): MenuTile => {
                   const item = TASK_ITEMS.find((i) => i.key === key)!;
@@ -1621,7 +1626,7 @@ function App() {
             aria-label={item.label}
           >
             {navActive === item.key && <span className="bottom-nav-active-bg" aria-hidden="true" />}
-            {item.key === "activity" && activity.todos.length > 0 && <span className="bottom-nav-badge">{activity.todos.length}</span>}
+            {item.key === "menu" && activity.todos.length > 0 && <span className="bottom-nav-badge">{activity.todos.length}</span>}
             <span className="bottom-nav-icon">{item.icon}</span>
             <span className="bottom-nav-label" aria-hidden="true">{item.phone ?? item.label}</span>
           </button>

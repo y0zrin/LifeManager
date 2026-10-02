@@ -10,9 +10,8 @@ import { EstimateSumText, useEstimateUnit } from "./EstimateChip";
 const FOLD_STORE = "task-analytics";
 /** 期限切れ・もうすぐの欄に並べる番号の数（それより多いと「ほか n 件」） */
 const MAX_REFS = 4;
-/** 担当ごとに並べる人数（それより多いと「ほか n 人」）。小さく出すときは 3 人 */
+/** 担当ごとに並べる人数（それより多いと「ほか n 人」） */
 const MAX_PEOPLE = 8;
-const MAX_PEOPLE_COMPACT = 3;
 /** 状態の色の数（App.css の --state-0〜7。ボードの列の順に使う） */
 const STATE_COLORS = 8;
 
@@ -44,7 +43,7 @@ interface AnalyticsPanelProps {
   title?: string;
   /** たためるか（オーバービューでは、たたまない） */
   foldable?: boolean;
-  /** 小さく出す（スマホのメニュー。数の下の番号・見積もりを省き、担当は 3 人まで、図を低く。#212） */
+  /** 小さく出す（スマホのメニュー。数 4 つと状態ごとの帯だけ。#212・#214） */
   compact?: boolean;
   /** 見出しの横に置くもの（スマホのメニューでは「絞り込み」） */
   headExtra?: ReactNode;
@@ -103,10 +102,8 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
 
   const scopeLabel = scopeText ? `今の絞り込み（${scopeText}）` : "絞り込みなし（このリポジトリの全部）";
   const named = a.people.filter((p) => p.login !== null);
-  // 小さく出すときは「担当なし」の行を出さない（上の数にある）
-  const noOne = compact ? undefined : a.people.find((p) => p.login === null);
-  const maxPeople = compact ? MAX_PEOPLE_COMPACT : MAX_PEOPLE;
-  const rest = named.slice(maxPeople);
+  const noOne = a.people.find((p) => p.login === null);
+  const rest = named.slice(MAX_PEOPLE);
   const maxCount = Math.max(1, ...a.people.map((p) => p.count));
   const maxWeek = Math.max(0, ...a.weeks.flatMap((w) => [w.created, w.closed]));
   const createdSum = a.weeks.reduce((n, w) => n + w.created, 0);
@@ -170,6 +167,23 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
             </div>
           </div>
 
+          {/* 小さく出すときは、状態ごとの帯だけ */}
+          {compact && a.open.length > 0 && (
+            <>
+              <div className="analytics-stack" role="img" aria-label={a.states.map((s) => `${stateName(s.key)} ${s.count} 件`).join("、")}>
+                {a.states.map((s) => (
+                  <i key={s.key} style={{ width: `${(s.count / a.open.length) * 100}%`, background: colorOf(s.key) }} />
+                ))}
+              </div>
+              <div className="analytics-legend">
+                {a.states.map((s) => (
+                  <span key={s.key}><i style={{ background: colorOf(s.key) }} />{stateName(s.key)} {s.count}</span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {!compact && (
           <div className="analytics-charts">
             <div className="analytics-box">
               <h5>状態ごと（件数）</h5>
@@ -192,7 +206,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
               )}
               <h5>担当ごと（件数・見積もり）</h5>
               {a.people.length === 0 && <p className="analytics-muted">開いている Issue はありません</p>}
-              {named.slice(0, maxPeople).map((p) => (
+              {named.slice(0, MAX_PEOPLE).map((p) => (
                 <div key={p.login} className="analytics-person">
                   <span className="analytics-name" title={p.login ?? ""}>{p.login}</span>
                   <div className="analytics-bar"><i style={{ width: `${(p.count / maxCount) * 100}%` }} /></div>
@@ -227,10 +241,11 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
               <div className="analytics-wlegend">
                 <span><i className="created" />作った数 {createdSum}</span>
                 <span><i className="closed" />閉じた数 {closedSum}</span>
-                {!compact && <span className="analytics-muted">（{WEEKS} 週の合計。閉じた数が作った数を上回ると、残りが減っています）</span>}
+                <span className="analytics-muted">（{WEEKS} 週の合計。閉じた数が作った数を上回ると、残りが減っています）</span>
               </div>
             </div>
           </div>
+          )}
         </>
       )}
     </section>

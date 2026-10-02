@@ -10,6 +10,10 @@ interface TeamWorkProps {
   team: GitHubUser[];
   /** 画面の動きが「ふつう」か（少なめなら、数えあがらずに出す） */
   motion: boolean;
+  /** 小さく出す（スマホのメニューのいちばん上。数と次の節目までの道だけ。#214） */
+  compact?: boolean;
+  /** 押したとき（スマホのメニューでは、ヒストリーを開く） */
+  onOpen?: () => void;
 }
 
 /** 「9/29」 */
@@ -23,7 +27,7 @@ const md = (iso: string) => {
  * 開いたとき、前に見た数から今の数へ静かに数えあがり、「前に見たときから +12」を添える。次の節目までの細い道を、光る点が進む。
  * 節目に届いたときだけ、数字の上を光が 1 回すべり、「✦ 1,000 に届きました」と残す。人ごとの数は出さない（くらべない）
  */
-export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
+export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }: TeamWorkProps) {
   const key = `${owner}/${repo}`;
   // 開いたときの「前に見た数」（+12 と、数えあがるはじまり）
   const [seen] = useState<TeamSeen | null>(() => loadTeamSeen(key));
@@ -79,7 +83,7 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
 
   if (total === null) {
     return (
-      <section className="tw">
+      <section className={`tw${compact ? " tw--compact" : ""}`}>
         <div className="tw-head">
           <span className="tw-title">チームの仕事</span>
           <span className="tw-sub">{error ? `読めませんでした（${error}）` : "数えています…"}</span>
@@ -93,6 +97,47 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
   const pct = Math.max(0, Math.min(100, ((now - road.from) / (road.to - road.from)) * 100));
   const delta = seen ? total - seen.total : 0;
   const faces = team.slice(0, 5);
+  const facesNode = faces.length > 0 && (
+    <span className="tw-faces" title={team.map((u) => u.login).join("・")}>
+      {faces.map((u) => (
+        <Avatar key={u.login} login={u.login} url={u.avatar_url} className="avatar-sm" />
+      ))}
+      <small>{team.length} 人で</small>
+    </span>
+  );
+
+  if (compact) {
+    // スマホのメニュー: 見出し・数・前に見たときからの数・次の節目までの道を 3 段で。押すとヒストリー
+    return (
+      <button type="button" className={`tw tw--compact${reached && settled ? " reached" : ""}`} onClick={onOpen}
+        aria-label={`チームの仕事 これまでの合計 ${fmt(total)} 件（押すとヒストリーを開きます）`}>
+        <span className="tw-head">
+          <span className="tw-title">チームの仕事</span>
+          <span className="tw-sub">これまでの合計</span>
+          <span className="grow" />
+          {facesNode}
+        </span>
+        <span className="tw-cline">
+          <span className="tw-num">
+            <b>{fmt(now)}</b>
+            <span>件</span>
+          </span>
+          {settled && delta > 0 && (
+            <span className="tw-delta">
+              前に見たときから <b>+{fmt(delta)}</b>
+            </span>
+          )}
+          <span className="grow" />
+          <span className="tw-next">
+            次の節目 <b>{fmt(road.to)}</b> まで あと <b>{fmt(Math.max(0, road.to - now))}</b>
+          </span>
+        </span>
+        <span className="tw-bar">
+          <i style={{ width: `${pct}%` }} />
+        </span>
+      </button>
+    );
+  }
 
   return (
     <section className={`tw${reached && settled ? " reached" : ""}`} aria-label={`チームの仕事 これまでの合計 ${fmt(total)} 件`}>
@@ -100,14 +145,7 @@ export function TeamWork({ owner, repo, team, motion }: TeamWorkProps) {
         <span className="tw-title">チームの仕事</span>
         <span className="tw-sub">これまでの合計</span>
         <span className="grow" />
-        {faces.length > 0 && (
-          <span className="tw-faces" title={team.map((u) => u.login).join("・")}>
-            {faces.map((u) => (
-              <Avatar key={u.login} login={u.login} url={u.avatar_url} className="avatar-sm" />
-            ))}
-            <small>{team.length} 人で</small>
-          </span>
-        )}
+        {facesNode}
       </div>
       <div className="tw-body">
         <div>

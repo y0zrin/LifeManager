@@ -47,7 +47,8 @@ const DEFAULTS: DisplaySettings = {
   hints: true,
   branchStyle: "label",
   sidebarPosition: "left",
-  memoButton: "bottom-left",
+  // スマホは右下（親指が届き、中身の大事な左側にかぶらない。#205）
+  memoButton: isMobile ? "bottom-right" : "bottom-left",
   motion: "normal",
   theme: "chalk",
   ganttColors: DEFAULT_BAR_COLORS,

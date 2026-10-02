@@ -21368,6 +21368,39 @@ html.stage-still .stage-fx .fx-shoot {
   }
 }
 
+/* スマホ: ヒストリーの「チームの仕事」を細い幅に合わせる（見出しを折らない。#204） */
+@media (max-width: 639px) {
+  .tw {
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+  }
+
+  .tw-head {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .tw-title {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .tw-sub,
+  .tw-faces small {
+    white-space: nowrap;
+  }
+
+  /* メモのボタンが下の角にあるときは、中身の最後にボタンの分をあける（最後の行がボタンに隠れない。#205） */
+  .app-shell:has(.memo-fab-wrap.at-bottom-left, .memo-fab-wrap.at-bottom-right) .content {
+    padding-bottom: calc(var(--fab-size) + var(--fab-gap) * 2);
+  }
+
+  /* メニューに入れたオーバービューは、外側の余白を使う（上の余白を二重にしない） */
+  .app-shell .mobile-menu .content.insights {
+    padding: 0;
+  }
+}
+
 /* ===== 送っているあいだ（GitHub から返事が来るまで）: すぐその場に出し、「送っています…」。送れなければ「送れませんでした」 ===== */
 .sending-spin {
   display: inline-block;

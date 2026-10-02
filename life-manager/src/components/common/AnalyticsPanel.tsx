@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import type { GitHubIssue } from "../../lib/types";
 import { analyze, SOON_DAYS, WEEKS } from "../../lib/analytics";
 import { dueOf } from "../../lib/due";
@@ -10,8 +10,9 @@ import { EstimateSumText, useEstimateUnit } from "./EstimateChip";
 const FOLD_STORE = "task-analytics";
 /** 期限切れ・もうすぐの欄に並べる番号の数（それより多いと「ほか n 件」） */
 const MAX_REFS = 4;
-/** 担当ごとに並べる人数（それより多いと「ほか n 人」） */
+/** 担当ごとに並べる人数（それより多いと「ほか n 人」）。小さく出すときは 3 人 */
 const MAX_PEOPLE = 8;
+const MAX_PEOPLE_COMPACT = 3;
 /** 状態の色の数（App.css の --state-0〜7。ボードの列の順に使う） */
 const STATE_COLORS = 8;
 
@@ -43,16 +44,22 @@ interface AnalyticsPanelProps {
   title?: string;
   /** たためるか（オーバービューでは、たたまない） */
   foldable?: boolean;
+  /** 小さく出す（スマホのメニュー。数の下の番号・見積もりを省き、担当は 3 人まで、図を低く。#212） */
+  compact?: boolean;
+  /** 見出しの横に置くもの（スマホのメニューでは「絞り込み」） */
+  headExtra?: ReactNode;
+  /** 「くわしく」を押したとき（全部の中身を別の画面で見る） */
+  onMore?: () => void;
 }
 
 /**
  * オーバービューの「タスクの数」。今の絞り込みの範囲で、開いている数と見積もり・期限切れ・もうすぐ・担当なし、
  * 状態ごとの割合、担当ごとの数、8 週の「作った数と閉じた数」を出す。たたむと数字の 1 行だけになる
  */
-export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, title = "📈 分析", foldable = true }: AnalyticsPanelProps) {
+export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, title = "📈 分析", foldable = true, compact = false, headExtra, onMore }: AnalyticsPanelProps) {
   const unit = useEstimateUnit();
   const [foldedStored, setFolded] = useState(loadFolded);
-  const folded = foldable && foldedStored;
+  const folded = foldable && !compact && foldedStored;
   const a = analyze(scope, unit, stateOrder);
 
   function toggle() {
@@ -96,8 +103,10 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
 
   const scopeLabel = scopeText ? `今の絞り込み（${scopeText}）` : "絞り込みなし（このリポジトリの全部）";
   const named = a.people.filter((p) => p.login !== null);
-  const noOne = a.people.find((p) => p.login === null);
-  const rest = named.slice(MAX_PEOPLE);
+  // 小さく出すときは「担当なし」の行を出さない（上の数にある）
+  const noOne = compact ? undefined : a.people.find((p) => p.login === null);
+  const maxPeople = compact ? MAX_PEOPLE_COMPACT : MAX_PEOPLE;
+  const rest = named.slice(maxPeople);
   const maxCount = Math.max(1, ...a.people.map((p) => p.count));
   const maxWeek = Math.max(0, ...a.weeks.flatMap((w) => [w.created, w.closed]));
   const createdSum = a.weeks.reduce((n, w) => n + w.created, 0);
@@ -106,12 +115,20 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
     sum.counted > 0 ? <span className="analytics-est">見積 {formatEstimate(sum.total, sum.unit)}</span> : null;
 
   return (
-    <section className={`analytics${folded ? " analytics--folded" : ""}`} aria-label="分析">
+    <section className={`analytics${folded ? " analytics--folded" : ""}${compact ? " analytics--compact" : ""}`} aria-label="分析">
       <div className="analytics-head">
         <b>{title}</b>
-        <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます。8 週の流れは閉じた Issue も入れます">
-          {scopeLabel}
-        </span>
+        {headExtra && <span className="analytics-head-extra">{headExtra}</span>}
+        {!compact && (
+          <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます。8 週の流れは閉じた Issue も入れます">
+            {scopeLabel}
+          </span>
+        )}
+        {onMore && (
+          <button type="button" className="analytics-more" onClick={onMore}>
+            くわしく ›
+          </button>
+        )}
         {folded && (
           <span className="analytics-line">
             開いている <b>{a.open.length}</b>
@@ -134,22 +151,22 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
             <div className="analytics-kpi">
               <div className="analytics-kpi-k">開いている</div>
               <div className="analytics-kpi-v">{a.open.length}</div>
-              <div className="analytics-kpi-s"><EstimateSumText sum={a.openEstimate} /></div>
+              {!compact && <div className="analytics-kpi-s"><EstimateSumText sum={a.openEstimate} /></div>}
             </div>
             <div className={`analytics-kpi${a.overdue.length ? " analytics-kpi--over" : ""}`}>
               <div className="analytics-kpi-k">期限切れ</div>
               <div className="analytics-kpi-v">{a.overdue.length}</div>
-              <div className="analytics-kpi-s">{refs(a.overdue)}</div>
+              {!compact && <div className="analytics-kpi-s">{refs(a.overdue)}</div>}
             </div>
             <div className={`analytics-kpi${a.soon.length ? " analytics-kpi--soon" : ""}`}>
               <div className="analytics-kpi-k">{SOON_DAYS} 日以内</div>
               <div className="analytics-kpi-v">{a.soon.length}</div>
-              <div className="analytics-kpi-s">{refs(a.soon)}</div>
+              {!compact && <div className="analytics-kpi-s">{refs(a.soon)}</div>}
             </div>
             <div className="analytics-kpi">
               <div className="analytics-kpi-k">担当なし</div>
               <div className="analytics-kpi-v">{a.unassigned.length}</div>
-              <div className="analytics-kpi-s">{estimateOf(a.unassignedEstimate)}</div>
+              {!compact && <div className="analytics-kpi-s">{estimateOf(a.unassignedEstimate)}</div>}
             </div>
           </div>
 
@@ -175,7 +192,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
               )}
               <h5>担当ごと（件数・見積もり）</h5>
               {a.people.length === 0 && <p className="analytics-muted">開いている Issue はありません</p>}
-              {named.slice(0, MAX_PEOPLE).map((p) => (
+              {named.slice(0, maxPeople).map((p) => (
                 <div key={p.login} className="analytics-person">
                   <span className="analytics-name" title={p.login ?? ""}>{p.login}</span>
                   <div className="analytics-bar"><i style={{ width: `${(p.count / maxCount) * 100}%` }} /></div>
@@ -210,7 +227,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
               <div className="analytics-wlegend">
                 <span><i className="created" />作った数 {createdSum}</span>
                 <span><i className="closed" />閉じた数 {closedSum}</span>
-                <span className="analytics-muted">（{WEEKS} 週の合計。閉じた数が作った数を上回ると、残りが減っています）</span>
+                {!compact && <span className="analytics-muted">（{WEEKS} 週の合計。閉じた数が作った数を上回ると、残りが減っています）</span>}
               </div>
             </div>
           </div>

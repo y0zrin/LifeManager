@@ -155,8 +155,8 @@ function App() {
   const sidebarPosRef = useRef(display.settings.sidebarPosition);
   sidebarPosRef.current = display.settings.sidebarPosition;
   const setView = useCallback((target: ViewType) => {
-    // スマホでは、オーバービューはメニューにまとめてある
-    const next: ViewType = isMobile && target === "insights" ? "menu" : target;
+    // スマホでは、オーバービューの小さな形がメニューの上にあり、「くわしく」で全部の中身の画面（insights）を開く（#212）
+    const next: ViewType = target;
     const from = viewRef.current;
     if (next === from) return;
     viewRef.current = next;
@@ -1296,25 +1296,19 @@ function App() {
           {view === "menu" && gh.connected && (
             <MobileMenu
               onOpen={setView}
-              groups={[
-                {
-                  title: "タスク",
-                  tiles: MENU_TASK_KEYS.map((key): MenuTile => {
-                    const item = TASK_ITEMS.find((i) => i.key === key)!;
-                    const note = key === "milestones" ? nearestMilestone?.title : undefined;
-                    return { key, icon: item.icon, label: item.label, note };
-                  }),
-                },
-                {
-                  title: "ほか",
-                  tiles: [
-                    { key: "activity", icon: "📰", label: "ヒストリー", badge: activity.todos.length || undefined, note: activity.todos.length ? `すること ${activity.todos.length}` : undefined },
-                    { key: "settings", icon: SETTINGS_ITEM.icon, label: SETTINGS_ITEM.label },
-                  ],
-                },
+              tiles={[
+                ...MENU_TASK_KEYS.map((key): MenuTile => {
+                  const item = TASK_ITEMS.find((i) => i.key === key)!;
+                  const note = key === "milestones" ? nearestMilestone?.title : undefined;
+                  return { key, icon: item.icon, label: item.label, note };
+                }),
+                { key: "activity", icon: "📰", label: "ヒストリー", badge: activity.todos.length || undefined },
+                { key: "settings", icon: SETTINGS_ITEM.icon, label: SETTINGS_ITEM.label },
               ]}
               overview={
                 <InsightsView
+                  compact
+                  onMore={() => setView("insights")}
                   issues={gh.issues}
                   closedIssues={gh.closedIssues}
                   milestones={gh.milestones}

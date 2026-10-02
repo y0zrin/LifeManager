@@ -3499,23 +3499,16 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
-/* --- スマホのメニュー（#203）: 画面の絵の札と、その下のオーバービュー --- */
+/* --- スマホのメニュー（#203・#212）: 上に小さなオーバービュー、下に画面の絵の札（4 列 2 段）。1 画面に収める --- */
 .mobile-menu {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
 
-.mm-group-title {
-  margin: 0 0 var(--space-xs);
-  font-size: var(--font-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
 .mm-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
@@ -3526,8 +3519,9 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 92px;
-  padding: var(--space-sm) 4px;
+  min-width: 0;
+  min-height: 80px;
+  padding: var(--space-sm) 2px 6px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
@@ -3542,11 +3536,16 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 }
 
 .mm-icon {
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1;
 }
 
 .mm-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
   line-height: 1.2;
   text-align: center;
 }
@@ -3563,8 +3562,8 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 
 .mm-badge {
   position: absolute;
-  top: 6px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
   min-width: 18px;
   padding: 0 5px;
   border-radius: 9px;
@@ -3578,6 +3577,91 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 /* メニューに入れたオーバービューは、外側の余白を使う */
 .mobile-menu .content.insights {
   padding: 0;
+}
+
+/* メニューの中のオーバービュー（小さく出す形）: 見出しの段に「絞り込み」と「くわしく」、その下に数 4 つと状態の帯 */
+.analytics--compact {
+  margin-bottom: 0;
+}
+
+.analytics--compact .analytics-head {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.analytics--compact .analytics-head > b {
+  flex: none;
+}
+
+.analytics-head-extra {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.analytics-more {
+  flex: none;
+  min-height: 0;
+  margin-left: auto;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--accent-blue);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.analytics--compact .analytics-kpis {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: var(--space-sm) 0;
+}
+
+.analytics--compact .analytics-kpi {
+  padding: 6px 8px;
+}
+
+.analytics--compact .analytics-kpi-k {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics--compact .analytics-kpi-v {
+  font-size: 22px;
+}
+
+.analytics--compact .analytics-charts {
+  gap: 6px;
+}
+
+.analytics--compact .analytics-box {
+  padding: 6px 8px;
+}
+
+.analytics--compact .analytics-box h5:not(:first-child) {
+  margin-top: var(--space-sm);
+}
+
+.analytics--compact .analytics-person {
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  margin: 2px 0;
+  font-size: var(--font-xs);
+}
+
+.analytics--compact .analytics-weeks {
+  padding-top: 2px;
+}
+
+.analytics--compact .analytics-pair {
+  height: 40px;
+}
+
+.analytics--compact .analytics-wlegend {
+  margin-top: 4px;
 }
 
 /* --- スマホの、下から出る板（#207）: 絞り込み・並び・見せ方など、PC ではツールバーに並べているもの --- */

@@ -22,6 +22,10 @@ interface InsightsViewProps {
   stateOrder: string[];
   onSelectIssue: (n: number) => void;
   onListTimeline: (issueNumber: number) => Promise<TimelineEvent[]>;
+  /** 小さく出す（スマホのメニュー。タスクの数の 4 つと状態の帯だけ。チームのペースは出さない。#212） */
+  compact?: boolean;
+  /** 「くわしく」を押したとき（全部の中身の画面を開く） */
+  onMore?: () => void;
 }
 
 /** 量の数え方（見積もり／件数）。マイルストーンの画面と同じ決め方で、次に開いたときも同じ */
@@ -45,7 +49,7 @@ function loadFilters(): Filters {
  * 8 週の作った数と閉じた数）と、チームのペース（ベロシティ・サイクルタイム）を 1 つの画面で見る。
  * タスクの数は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
  */
-export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline }: InsightsViewProps) {
+export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline, compact = false, onMore }: InsightsViewProps) {
   const unit = useEstimateUnit();
   const [filters, setFilters] = useState<Filters>(loadFilters);
   // スマホの、下から出る絞り込みの板
@@ -150,16 +154,21 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
     .filter(Boolean)
     .join(" ・ ") || "全部のタスク";
 
+  // スマホの「絞り込み」と、かけている条件（小さく出すときは、見出しの横に置く）
+  const mobileFilter = (
+    <>
+      <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+        絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+      </button>
+      <span className="insights-filter-summary">{filterSummary}</span>
+    </>
+  );
+
   return (
-    <div className="content insights">
-      {isMobile ? (
+    <div className={`content insights${compact ? " insights--compact" : ""}`}>
+      {compact ? null : isMobile ? (
         // スマホ（メニューの中）: 「絞り込み」と、かけている条件だけ。選ぶ欄は下から出る板に（#207）
-        <div className="toolbar insights-filters m-compact">
-          <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-            絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
-          </button>
-          <span className="insights-filter-summary">{filterSummary}</span>
-        </div>
+        <div className="toolbar insights-filters m-compact">{mobileFilter}</div>
       ) : (
         <div className="toolbar insights-filters">
           {filterSelects}
@@ -184,9 +193,11 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
         </MobileSheet>
       )}
 
-      <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue} title="📈 タスクの数" foldable={false} />
+      <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue}
+        title={compact ? "📈 オーバービュー" : "📈 タスクの数"} foldable={false}
+        compact={compact} headExtra={compact ? mobileFilter : undefined} onMore={onMore} />
 
-      {all.length > 0 && (
+      {!compact && all.length > 0 && (
         <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}
           mode={mode} onModeChange={changeMode} onListTimeline={onListTimeline} onSelectIssue={onSelectIssue} />
       )}

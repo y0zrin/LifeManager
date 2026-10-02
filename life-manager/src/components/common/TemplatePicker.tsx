@@ -25,7 +25,7 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
     setMessage(null);
     try {
       await onPlaceBuiltins();
-      setMessage({ text: "テンプレートを置きました。GitHub の「New issue」でも選べます（「作業をする」でプルすると手元にも来ます）" });
+      setMessage({ text: "テンプレートを置きました" });
     } catch (e) {
       setMessage({ text: String(e), error: true });
     } finally {
@@ -57,9 +57,8 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
           <button type="button" className="link-button" disabled={busy} onClick={place}>
             このリポジトリに置く
           </button>
-          （GitHub の「New issue」でも使えるようになります）
           <div className="cmd-preview">
-            <span>置くファイル（1 つのコミットにします）</span>
+            <span>置くファイル</span>
             <code>{BUILTIN_TEMPLATES.map((t) => `.github/ISSUE_TEMPLATE/${t.file}`).join("\n")}</code>
           </div>
         </div>

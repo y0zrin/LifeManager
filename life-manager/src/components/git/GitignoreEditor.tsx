@@ -86,7 +86,7 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
         <h3>.gitignore を編集</h3>
         <p className="git-dialog-note">
           git で記録しない（無視する）ファイルを 1 行に 1 つ書きます。
-          {!exists && " まだ .gitignore はありません。保存するとリポジトリのいちばん上に作ります。"}
+          {!exists && " まだ .gitignore はありません。"}
         </p>
         {loaded ? (
           <textarea

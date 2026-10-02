@@ -468,7 +468,7 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
         level: 4,
         kind: "run",
         title: `${active.name} #${active.run_number} が動いています`,
-        why: "終わるのを待つだけです。終わると、この山に入るか消えます",
+        why: "",
         since: active.created_at,
         streak: 0,
         run: active,

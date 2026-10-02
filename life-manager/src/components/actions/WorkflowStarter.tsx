@@ -73,9 +73,6 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
       <div className="git-dialog pr-ui ac-starter" role="dialog" aria-modal="true" aria-label="ワークフローを置く" onClick={(e) => e.stopPropagation()}>
         <h3>▶ テストを動かすワークフローを置く</h3>
-        <p className="hint">
-          <code>.github/workflows/</code> に YAML のファイルを置いてプッシュします。そのあとはプッシュやプルリクのたびに GitHub がテストを動かして結果を知らせます（Actions の山に入ります）。
-        </p>
         {!files ? (
           <p className="muted">リポジトリのファイルを見ています…</p>
         ) : (
@@ -140,11 +137,7 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
             </button>
           )}
         </div>
-        <p className="muted">
-          {folder
-            ? "作業フォルダに置いたら、「作業をする」の ③ でチェックを入れ、コミットしてプッシュすると動き始めます。"
-            : "作業フォルダを決めていないので、GitHub の画面で作ります。名前と中身が入った状態で開きます。入っていなければ、コピーして貼ります。"}
-        </p>
+        {!folder && <p className="muted">作業フォルダを決めていないので、GitHub の画面で作ります。名前と中身が入った状態で開きます。入っていなければ、コピーして貼ります。</p>}
       </div>
     </div>,
     document.querySelector("main.app") ?? document.body,

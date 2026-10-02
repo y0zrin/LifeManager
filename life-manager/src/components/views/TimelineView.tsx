@@ -291,7 +291,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
           </span>
         </div>
       )}
-      {planCount === 0 && !nextMilestone && <p className="jv-none">この日の予定はありません。ガントの日付があるタスクと、マイルストーンの期限がここに出ます</p>}
+      {planCount === 0 && !nextMilestone && <p className="jv-none">この日の予定はありません</p>}
     </div>
   );
 
@@ -324,7 +324,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
           {renderMarkdown(stripNotesSection(journalContent).split("\n").filter((l) => !l.startsWith("# ")).join("\n"))}
         </>
       ) : (
-        <p className="jv-none">この日の日誌はまだありません。「日誌を作る」でこの日に終えたり作ったりしたタスクから書きます</p>
+        <p className="jv-none">この日の日誌はまだありません</p>
       )}
     </div>
   );

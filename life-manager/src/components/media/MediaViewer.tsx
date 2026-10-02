@@ -162,7 +162,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
 
   let content;
   if (removed) {
-    content = <div className="mv-main full"><p className="mv-note center">このコミットで消えたファイルです。消す前の中身はひとつ前のコミットにあります</p></div>;
+    content = <div className="mv-main full"><p className="mv-note center">このコミットで消えたファイルです</p></div>;
   } else if (!now) {
     content = <div className="mv-main full"><p className="mv-note center"><i className="spinner" aria-hidden="true" /> 読み込んでいます…</p></div>;
   } else if (now.error) {

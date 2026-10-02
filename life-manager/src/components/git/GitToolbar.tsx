@@ -34,7 +34,7 @@ export function GitToolbar({ git: g, actions, onOpenCommit }: GitToolbarProps) {
         className="tbtn"
         disabled={busy}
         onClick={actions.fetch}
-        title="git fetch --all --prune（GitHub の最新の状態を取ってくる。手元のファイルは変わりません）"
+        title="git fetch --all --prune（GitHub の最新の状態を取ってくる）"
       >
         ⟳<span className="tb-lb"> フェッチ</span>
       </button>

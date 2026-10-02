@@ -120,9 +120,9 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
       <div className="mt">
         <div className="mt-head"><b>競合を直す — {file}</b></div>
         {data.missing ? (
-          <p>このファイルは片方で消され、もう片方では変えられていました。消したままにするか、どちらかの内容で残すかを選びます。</p>
+          <p>このファイルは片方で消され、もう片方では変えられていました。</p>
         ) : data.binary ? (
-          <p>文字でないファイル（画像など）なので、か所ごとには選べません。どちらか片方をまるごと選びます。</p>
+          <p>文字でないファイル（画像など）なので、か所ごとには選べません。</p>
         ) : (
           <p>
             競合の印（<code>{"<<<<<<<"}</code>）が見つかりません。エディタなどで、もう直してあるなら、このままステージします。
@@ -168,7 +168,6 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
           return choice.kind === side ? "use" : "drop";
         };
         const orderOf = (side: "ours" | "theirs") => (choice?.kind === "both" ? (choice.first === side ? 1 : 2) : undefined);
-        const dropped = choice?.kind === "ours" ? names.theirs : choice?.kind === "theirs" ? names.ours : null;
         const choiceText = !choice
           ? ""
           : choice.kind === "ours"
@@ -220,11 +219,6 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
                 <button type="button" className="btn-sm" onClick={() => startEditing(h)}>自分で書く…</button>
               </div>
             )}
-            {dropped && (
-              <p className="mt-drop-note">
-                捨てる内容（{dropped}）はそのブランチやコミットに残っています。あとで要るときはそちらのファイルを見て手で入れます。
-              </p>
-            )}
           </div>
         );
       })}
@@ -239,10 +233,6 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
         <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)} title="エディタで直したあとなど">読み直す</button>
         <code className="mt-cmd">書き込んで {git.displayCommand(["add", "--", file])}</code>
       </div>
-      <p className="hint">
-        ファイルの中では、競合したところに <code>{"<<<<<<<"}</code>（ここから今のブランチ）・<code>=======</code>（区切り）・
-        <code>{">>>>>>>"}</code>（ここまで取り込む側）の印が入っています。ここで選ぶと印を消して、選んだ内容だけを書き込みます。
-      </p>
     </div>
   );
 }

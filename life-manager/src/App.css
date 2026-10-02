@@ -12361,6 +12361,15 @@ html.stage-still .desk-buncho::after {
   max-width: 760px;
 }
 
+/* ④ 完了の今の状態（解説ではないので、「解説を表示する」を切っても出す） */
+.w-step-text {
+  margin: 0 0 var(--space-md);
+  max-width: 760px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: 1.6;
+}
+
 .w-step-actions {
   display: flex;
   flex-wrap: wrap;
@@ -13042,12 +13051,6 @@ html.stage-still .desk-buncho::after {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: var(--space-sm);
-}
-
-.mt-drop-note {
-  margin-top: 6px;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
 }
 
 .mt-result {
@@ -13785,11 +13788,6 @@ html.stage-still .desk-buncho::after {
 
 .o-tools {
   margin-left: auto;
-}
-
-.o-hint {
-  flex-basis: 100%;
-  margin: 0;
 }
 
 .mini-seg {
@@ -16430,12 +16428,6 @@ button.lh:hover {
   gap: var(--space-sm);
 }
 
-.ms-dates-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
 /* --- チームのペース（ベロシティ・サイクルタイム） --- */
 .pace {
   container-type: inline-size;
@@ -16896,13 +16888,6 @@ button.lh:hover {
 .sync-panel-title {
   color: var(--text-primary);
   font-size: var(--font-md);
-}
-
-.sync-panel-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  line-height: 1.6;
 }
 
 .sync-panel-error {
@@ -19078,7 +19063,6 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 .av-ref { color: var(--accent-blue); }
 .av-detail { color: var(--text-muted); font-size: var(--font-md); line-height: 1.6; overflow-wrap: anywhere; }
 .av-when { flex: none; font-size: var(--font-sm); white-space: nowrap; }
-.av-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--font-xs); }
 .av-filters {
   display: flex;
   flex-wrap: wrap;
@@ -19793,7 +19777,7 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   gap: var(--space-sm);
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-default);
-  background: var(--accent-yellow-bg);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: var(--font-sm);
 }
@@ -20307,13 +20291,6 @@ html.notice-window #root {
   margin: 0;
   color: var(--text-primary);
   font-size: var(--font-lg);
-}
-
-.nt-drawer-head p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 1.5;
 }
 
 .nt-drawer-x {

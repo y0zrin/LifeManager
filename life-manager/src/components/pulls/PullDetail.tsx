@@ -410,15 +410,9 @@ export function PullDetail(props: PullDetailProps) {
           ) : checks.checks.length + checks.statuses.length === 0 ? (
             <div className="pulls-empty">
               <p>このコミットにはチェックがありません。</p>
-              <p className="hint">
-                Actions のワークフロー（<code>.github/workflows/*.yml</code>）に <code>pull_request</code> と書いておくと、プルリクのたびにテストなどが動きます。結果はここに出ます。
-              </p>
             </div>
           ) : (
             <>
-              <p className="hint">
-                ブランチの先頭のコミット <code>{detail.head_sha.slice(0, 7)}</code> のチェックです。失敗したものは「ログを見る」で、どこで失敗したかが見られます。
-              </p>
               <div className="pr-checks">
                 {checks.checks.map((c) => {
                   const r = resultOf(c);
@@ -467,7 +461,6 @@ export function PullDetail(props: PullDetailProps) {
             <p className="muted">コミットを読み込んでいます…</p>
           ) : (
             <>
-              <p className="hint">押すとそのコミットで何を変えたかを見られます（古い順）。</p>
               <ol className="pr-commit-list">
                 {commits.map((c) => (
                   <li key={c.sha}>

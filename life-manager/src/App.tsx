@@ -1061,7 +1061,7 @@ function App() {
           <button
             className="sidebar-item sidebar-toggle"
             onClick={toggleSidebar}
-            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）。たたむと画面の端にマウスを寄せたときだけ出てきます"}
+            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）"}
           >
             <span className="sidebar-icon">{sidebarCollapsed ? "📌" : HIDE_ARROW[display.settings.sidebarPosition]}</span>
             <span className="sidebar-label">{sidebarCollapsed ? "固定する" : "たたむ"}</span>
@@ -1183,7 +1183,7 @@ function App() {
             <div className="repo-screen">
               {hist.history?.source === "github" && !isMobile && (
                 <div className="repo-source">
-                  GitHub にある状態を表示しています。この PC の作業フォルダを決めると、手元の git の状態を表示して操作もできます。
+                  GitHub にある状態を表示しています。
                   <button type="button" className="btn-sm" onClick={() => setView("work")}>
                     作業フォルダを決める
                   </button>

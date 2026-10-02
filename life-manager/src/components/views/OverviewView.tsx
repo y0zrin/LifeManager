@@ -218,9 +218,6 @@ export function OverviewView(props: OverviewViewProps) {
             onMenu={props.onBranchMenu}
           />
         </span>
-        <p className="hint o-hint">
-          点に重ねると内容、クリックでそのブランチのそのコミットへ寄ります（＋キーでも寄れます）。右クリックで操作のメニューが出ます
-        </p>
       </div>
 
       <div className="o-scroll" ref={scrollRef} onScroll={() => setTip(null)}>

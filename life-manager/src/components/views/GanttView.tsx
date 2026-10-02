@@ -924,7 +924,7 @@ export function GanttView({
                   <div className="gantt-tentative-note">
                     見積もり {tentativePop.task.estimate} → 仮に {tentativePop.task.startDate} 〜 {tentativePop.task.endDate}
                   </div>
-                  <div className="gantt-tentative-note">日程が決まっていないので、見積もりから仮に置いています。帯を動かして決めることもできます</div>
+                  <div className="gantt-tentative-note">日程が決まっていないので、見積もりから仮に置いています。</div>
                   <div className="gantt-tentative-actions">
                     <button type="button" className="btn-primary" onClick={() => fixTentative(tentativePop.task)}>この日程で決める</button>
                     <button type="button" className="btn-sm" onClick={() => { const n = tentativePop.task.issueNumber; setTentativePop(null); onSelectIssue(n); }}>詳細を開く</button>
@@ -993,7 +993,7 @@ export function GanttView({
             </>
           ) : (
             <span>
-              帯か左の一覧の行に乗せると、ここに先行と後続が出ます。押すと詳細が開き、閉じたあとも固定のままです（何もない所を押すか Esc で外れます）
+              帯か左の一覧の行に乗せると、ここに先行と後続が出ます。
             </span>
           )}
         </div>

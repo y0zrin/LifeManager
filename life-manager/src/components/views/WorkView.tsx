@@ -489,7 +489,6 @@ function Workspace({
         hint: (
           <>
             #{closedIssue.number} は閉じられました{pr?.merged ? `（#${pr.number} のマージで）` : ""}。
-            {onBranch && pr?.merged && <> このブランチで続けるときは、{defaultBranch} の最新を取り込みます。{defaultBranch} に戻ってもかまいません。</>}
           </>
         ),
         buttons: [
@@ -513,7 +512,7 @@ function Workspace({
         return {
           hint: (
             <>
-              このブランチ（<b>{st.branch}</b>）のコミットを、まだ GitHub に送っていません。③ でプッシュしてから、プルリクを出します。
+              このブランチ（<b>{st.branch}</b>）のコミットを、まだ GitHub に送っていません。
               {unsentNote}
             </>
           ),
@@ -524,8 +523,7 @@ function Workspace({
         return {
           hint: (
             <>
-              プルリク <b>#{pr.number}</b> はマージ済みです。Issue を閉じて完了にします。マージしたあとも、このブランチで続けてかまいません（{defaultBranch}{" "}
-              の最新を取り込みます）。
+              プルリク <b>#{pr.number}</b> はマージ済みです。
               {unsentNote}
             </>
           ),
@@ -536,11 +534,10 @@ function Workspace({
         return {
           hint: (
             <>
-              プルリク <b>#{pr.number}</b> を出しています（{reviewLabel(pr)}）。レビューしてもらい、よければマージしてから完了にします。ひとりなら、差分を自分で確かめてマージしてかまいません。直すときは
-              ③ でコミット・プッシュすると、プルリクに足されます。
+              プルリク <b>#{pr.number}</b> を出しています（{reviewLabel(pr)}）。
               {pr.checks && pr.checks.failure > 0 && (
                 <span className="w-flow-warn">
-                  ✖ チェック（Actions のテストなど）が {countOf(pr.checks.failure, "件")}失敗しています。プルリクの「チェック」か Actions で、どこで失敗したかを見られます。
+                  ✖ チェック（Actions のテストなど）が {countOf(pr.checks.failure, "件")}失敗しています。
                 </span>
               )}
               {unsentNote}
@@ -554,14 +551,14 @@ function Workspace({
         };
       }
       return {
-        hint: (
-          <>
-            <b>{st.branch}</b> の変更を <b>{defaultBranch}</b> に入れるお願い（プルリク）を出し、マージしてから完了にします。チームの人が変更を見て（レビュー）、よければマージします。
-            {pr && pr.state === "closed" && !pr.merged && <> 前のプルリク #{pr.number} はマージせずに閉じられています。</>}
-            {prError && <span className="w-flow-warn">{prError}</span>}
-            {unsentNote}
-          </>
-        ),
+        hint:
+          (pr && pr.state === "closed" && !pr.merged) || prError || unsentNote ? (
+            <>
+              {pr && pr.state === "closed" && !pr.merged && <>前のプルリク #{pr.number} はマージせずに閉じられています。</>}
+              {prError && <span className="w-flow-warn">{prError}</span>}
+              {unsentNote}
+            </>
+          ) : null,
         buttons: [
           { label: "プルリクを作る…", run: () => onCreatePull(st.branch, issue.number), primary: true },
           { label: "プルリクを出さずに完了にする", run: done.run },
@@ -686,8 +683,7 @@ function Workspace({
           note={
             flow.step === 1 && onBranch && pr?.merged ? (
               <>
-                このブランチ（<b>{st.branch}</b>）のプルリク <b>#{pr.number}</b> はマージ済みです。このブランチで続けるときは {defaultBranch}{" "}
-                の最新を取り込み、別に始めるときは {defaultBranch} に戻ります。
+                このブランチ（<b>{st.branch}</b>）のプルリク <b>#{pr.number}</b> はマージ済みです。
               </>
             ) : null
           }
@@ -733,7 +729,7 @@ function Workspace({
               </button>
             )
           ) : changeCount === 0 ? (
-            <span className="w-cp-none">変更はありません。ファイルを編集すると、ここに出ます</span>
+            <span className="w-cp-none">変更はありません</span>
           ) : (
             <span className="w-cp-none">変更にチェックを入れ、要約を書いて「コミットしてプッシュ」（<code>git add</code> → <code>git commit</code> → <code>git push</code>）</span>
           )}
@@ -824,7 +820,7 @@ function StepPanel({ n, current, hint, status, buttons, busy }: { n: number; cur
         {STEP_NAMES[n - 1]}
         {!current && status && <span className="w-step-status">{status}</span>}
       </h4>
-      <p className="hint">{hint}</p>
+      {hint && <p className="w-step-text">{hint}</p>}
       {buttons.length > 0 && (
         <div className="w-step-actions">
           {buttons.map((b) => (
@@ -895,9 +891,6 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
         <i>1</i>
         作業を選ぶ
       </h4>
-      <p className="hint">
-        マイルストーンと Issue を選び、どのブランチで作業するかを決めて始めます。始めると自分が担当になり、状態が「進行中」になります（ボードにも出ます）。そのあとは、② 作業報告と ③ コミット・プッシュを、④ 完了にするまでくり返します。
-      </p>
       {note && (
         <div className="w-step-note">
           <span>{note}</span>
@@ -1003,10 +996,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                       やめる
                     </button>
                   </div>
-                  <p className="w-start-note">
-                    ブランチを分けると、ほかの作業と混ざりません（<code>git switch -c {own}</code>）。自分用のブランチで続けて作業しているときは、今のブランチで始めます。
-                    {onDefault && <> 今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。</>}
-                  </p>
+                  {onDefault && <p className="w-start-note">今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。</p>}
                 </div>
               )}
             </Fragment>
@@ -1103,9 +1093,6 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
         <i>2</i>
         作業報告
       </h4>
-      <p className="hint">
-        やったこと、わかったこと、次にやることを書いて、Issue に書き込みます（Issue のコメントになります）。変更があれば ③ でコミット・プッシュします。完了にするまで、この 2 つをくり返します。
-      </p>
       <div className="w-issue-now">
         <span className="w-issue-now-k">今の作業</span>
         <span className="wi-num">#{issue.number}</span>
@@ -1220,13 +1207,9 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
 
   return (
     <div className="w-pane">
-      <p className="hint">
-        チェックを入れたファイル（ステージ済み）が、次のコミットに入ります。チェックを入れるのは <code>git add</code>、外すのは{" "}
-        <code>git restore --staged</code> にあたります。記録しないファイルは右クリックで <code>.gitignore</code> に書いて無視できます。
-      </p>
       {total === 0 ? (
         <div className="ws-none">
-          作業中の変更はありません。ファイルを編集するとここに表示されます。
+          作業中の変更はありません。
           <button type="button" className="btn-sm" onClick={onEmptyCommit}>
             空コミット…
           </button>
@@ -1274,10 +1257,6 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
 function StashPane({ stashes, actions, busy }: { stashes: GitStash[]; actions: GitActions; busy: boolean }) {
   return (
     <div className="w-pane">
-      <p className="hint">
-        退避（スタッシュ）はコミットせずに変更を一時的にしまっておく機能です。ブランチを切り替えるときなどに使います（
-        <code>git stash</code>）。
-      </p>
       <div className="ws-stash">
         {stashes.length === 0 && <span className="ws-stash-none">退避中の変更はありません</span>}
         {stashes.map((s) => (
@@ -1355,9 +1334,6 @@ function CommitForm({
 
   return (
     <div className="dr-form">
-      <p className="hint">
-        コミットはステージ済みの変更に要約を付けて、履歴に記録することです（<code>git commit</code>）。
-      </p>
       <input
         ref={summaryRef}
         className="input-full"
@@ -1413,7 +1389,7 @@ function CommitForm({
       </div>
       {needsIssue && (
         <p className="w-form-note">
-          コミットは Issue につなげます。先に取り組む Issue を選びます。{" "}
+          先に取り組む Issue を選びます。{" "}
           <button type="button" className="link-button" onClick={onPickIssue}>
             ① 作業を選ぶ
           </button>

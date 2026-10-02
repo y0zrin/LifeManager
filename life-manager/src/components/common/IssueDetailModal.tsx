@@ -21,7 +21,7 @@ import { helpDoneBody, parseHelp } from "../../lib/help";
 import { FailedChip, SendingChip } from "./Sending";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
-import { THIS_DEVICE, isMobile, keyHint } from "../../lib/platform";
+import { isMobile, keyHint } from "../../lib/platform";
 import { inCategory } from "../../lib/section";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
@@ -749,7 +749,6 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     })
                   : none(),
                 <>
-                  <p className="idm-editor-hint">先にすませる Issue です。ガントで矢印になり、遅れると全体が遅れる流れ（クリティカルパス）が分かります。</p>
                   <div className="idm-field" style={{ marginBottom: "6px" }}>
                     {ganttDepsInput.split(",").filter(Boolean).map((s) => {
                       const num = parseInt(s.replace("#", "").trim(), 10);
@@ -812,7 +811,6 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   </span>
                 </>,
                 <>
-                  <p className="idm-editor-hint">ガントの帯の進みです。はじめは本文のチェックリストの数から出します。</p>
                   <div className="idm-field">
                     数え方
                     <select className="select-sm" value={ganttProgressMode} onChange={(e) => {
@@ -861,7 +859,6 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     ))
                   : none(),
                 <>
-                  <p className="idm-editor-hint">その時刻に、{THIS_DEVICE}（OS の通知）か Discord に知らせます。</p>
                   <div className="idm-field">
                     <input type="datetime-local" className="idm-input" value={reminderDatetime} onChange={(e) => setReminderDatetime(e.target.value)} />
                     <label className="chk">
@@ -924,7 +921,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 onOpenIssue={onOpenIssue}
               />
             )}
-            {issue.number <= 0 && <p className="idm-none">まだ GitHub に送っていない Issue には、つながりを付けられません（送ったあとで付けられます）。</p>}
+            {issue.number <= 0 && <p className="idm-none">まだ GitHub に送っていない Issue には、つながりを付けられません。</p>}
           </>
         )}
 

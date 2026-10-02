@@ -293,7 +293,7 @@ export function PullConversation(props: PullConversationProps) {
         />
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="pr-composer-actions">
-          {open && mine && <span className="muted">自分のプルリクは承認も修正の依頼もできません。ほかの人に見てもらいます</span>}
+          {open && mine && <span className="muted">自分のプルリクは承認も修正の依頼もできません</span>}
           <span className="grow" />
           {open && !mine && (
             <>

@@ -117,7 +117,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
         <b>{title}</b>
         {headExtra && <span className="analytics-head-extra">{headExtra}</span>}
         {!compact && (
-          <span className="analytics-scope" title="オープン・クローズの切り替えにかかわらず、開いている Issue を数えます。8 週の流れは閉じた Issue も入れます">
+          <span className="analytics-scope">
             {scopeLabel}
           </span>
         )}
@@ -241,7 +241,6 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
               <div className="analytics-wlegend">
                 <span><i className="created" />作った数 {createdSum}</span>
                 <span><i className="closed" />閉じた数 {closedSum}</span>
-                <span className="analytics-muted">（{WEEKS} 週の合計。閉じた数が作った数を上回ると、残りが減っています）</span>
               </div>
             </div>
           </div>

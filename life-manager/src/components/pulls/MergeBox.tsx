@@ -131,7 +131,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
         </div>
         {pull.same_repo && pull.head_exists === true && (
           <div className="mb-row">
-            <span>ブランチ <code>{pull.head}</code> は GitHub に残っています。もう使わなければ、消して片づけます（この PC のブランチは残ります）。</span>
+            <span>ブランチ <code>{pull.head}</code> は GitHub に残っています。もう使わなければ、消して片づけます。</span>
             {canPush && (
               <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run("消しています…", async () => { await deletePullBranch(owner, repo, pull.head); onChanged(); })}>
                 ブランチを消す
@@ -149,9 +149,6 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
             )}
           </div>
         )}
-        <p className="hint">
-          この PC では、<code>{pull.base}</code> に切り替えてプルすると、この変更が入ります（<code>git switch {pull.base}</code> → <code>git pull</code>）。
-        </p>
         {busy && <p className="muted">{busy}</p>}
         {note && <p className="mb-note">{note}</p>}
         {error && <p className="git-dialog-error">{error}</p>}
@@ -193,7 +190,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
 
   let status: { icon: string; tone: string; title: string; text: ReactNode };
   if (pull.draft) {
-    status = { icon: "📝", tone: "draft", title: "下書きです", text: "仕上がったら「レビューをお願いする」にします。下書きのあいだはマージできません。" };
+    status = { icon: "📝", tone: "draft", title: "下書きです", text: "下書きのあいだはマージできません。" };
   } else if (checking) {
     status = { icon: "⏳", tone: "wait", title: "マージできるか GitHub が調べています…", text: "少し待つと表示されます。" };
   } else if (conflict) {
@@ -248,7 +245,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           <span className="muted">
             {waiting.length > 0
               ? `レビューを待っています（${waiting.join("、")}）`
-              : "まだ誰もレビューしていません。ひとりで作っているなら、差分を自分で確かめてからマージしてかまいません。"}
+              : "まだ誰もレビューしていません"}
           </span>
         )}
       </div>
@@ -275,10 +272,10 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           </span>
         </div>
       )}
-      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）。終わってからマージしましょう。</p>}
+      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）</p>}
       {conflict && onFixLocally && (
         <div className="mb-row">
-          <span>この PC の作業フォルダで取り込むと、作業タブの「競合を直す」で直せます。</span>
+          <span className="grow" />
           <button type="button" className="btn-sm" onClick={onFixLocally}>
             この PC で直す
           </button>
@@ -286,12 +283,12 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       )}
       {state === "behind" && canPush && (
         <div className="mb-row">
-          <span className="muted">GitHub の上で <code>{pull.base}</code> を <code>{pull.head}</code> に取り込みます（マージコミットができます）。</span>
+          <span className="grow" />
           <button
             type="button"
             className="btn-sm"
             disabled={busy !== null}
-            onClick={() => run("更新しています…", async () => { await updatePullBranch(owner, repo, pull.number, pull.head_sha); setNote("ブランチを更新しています。少しすると反映されます。"); window.setTimeout(onChanged, 2500); })}
+            onClick={() => run("更新しています…", async () => { await updatePullBranch(owner, repo, pull.number, pull.head_sha); setNote("ブランチを更新しています"); window.setTimeout(onChanged, 2500); })}
           >
             ブランチを更新する
           </button>
@@ -326,7 +323,6 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
               <label className="mb-check">
                 <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />
                 マージしたら GitHub のブランチ <code>{pull.head}</code> を消す（あとで戻せます）
-                {keepsBranch(pull.head) && <span className="muted">　版やリリースのブランチなので、はじめは残す方にしています</span>}
               </label>
             ))}
           {closes.length > 0 && <p className="mb-closes">🔗 マージすると {closes.map((n) => `#${n}`).join("・")} も閉じます（本文の Closes）</p>}

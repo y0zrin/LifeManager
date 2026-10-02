@@ -145,10 +145,9 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
             <>
               終わったマイルストーン（{countOf(finishedCount, "個")}）の Issue には、見積もりが付いていません。
               <button type="button" className="link-button" onClick={() => onModeChange("count")}>件数で数える</button>
-              と、終えた数とその平均が出ます。
             </>
           ) : (
-            "終わったマイルストーンがまだありません。マイルストーンを閉じるか期限を過ぎると、ここに終えた量と日数が出ます。"
+            "終わったマイルストーンがまだありません。"
           )}
         </p>
       ) : (

@@ -168,7 +168,7 @@ export function BranchesView(props: BranchesViewProps) {
   if (entries.length === 0) {
     return (
       <div className="content">
-        <p className="work-loading">ブランチがまだありません。最初のコミットをするとブランチができます</p>
+        <p className="work-loading">ブランチがまだありません</p>
       </div>
     );
   }

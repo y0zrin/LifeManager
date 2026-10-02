@@ -173,9 +173,6 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
       <div className="git-dialog pr-ui pr-dialog" role="dialog" aria-modal="true" aria-label="プルリクを作る" onClick={(e) => e.stopPropagation()}>
         <h3>＋ プルリクを作る</h3>
-        <p className="hint">
-          プルリクは「このブランチの変更を <b>{base || "main"}</b> に入れてください」というお願いです。チームの人が変更を見て（レビュー）、よければマージします。
-        </p>
         {infoError && <p className="git-dialog-error">{infoError}</p>}
 
         <div className="pr-dialog-branches">
@@ -226,7 +223,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
                     <b>{cmp.ahead_by}</b> コミット・<b>{cmp.files.length}</b> ファイル <span className="add">+{added}{uncounted > 0 && " 以上"}</span> <span className="del">−{deleted}{uncounted > 0 && " 以上"}</span>
                   </span>
                   {cmp.behind_by > 0 && <span className="muted">（{base} にはこのブランチに無いコミットが {countOf(cmp.behind_by, "件")}あります）</span>}
-                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません。正しい数は作ったあとに出ます）</span>}
+                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません）</span>}
                   <span className="grow" />
                   <button type="button" className="btn-sm" onClick={() => setShowDiff((v) => !v)} aria-expanded={showDiff}>
                     {showDiff ? "差分をたたむ ▴" : "変更を見る ▾"}
@@ -296,7 +293,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
         )}
         <label className="chk pr-dialog-draft">
           <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
-          <span>下書きにする（まだ見てほしくないとき。マージもできません）</span>
+          <span>下書きにする</span>
         </label>
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">

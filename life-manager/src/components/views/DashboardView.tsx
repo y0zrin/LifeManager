@@ -870,9 +870,6 @@ export function DashboardView({
             </div>
           </div>
           <button onClick={handleIssueCreate} className="btn-primary">作成</button>
-          <p className="hint">
-            <b>テンプレート</b>は、よく書く Issue の書き出しです。GitHub では <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルで、先頭に名前、説明、ラベルなどを書きます。中身を変えるときはそのファイルを直します（作業タブでコミット、または GitHub で編集）。
-          </p>
         </div>
       )}
 

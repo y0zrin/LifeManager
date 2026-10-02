@@ -185,7 +185,6 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
       <div className="git-dialog pr-ui pr-dialog rl-dialog" role="dialog" aria-modal="true" aria-label="リリースを作る" onClick={(e) => e.stopPropagation()}>
         <h3>🏷️ ＋ リリースを作る</h3>
-        <p className="hint">リリースは「この版をみんなに配る」印です。コミットに付ける名前（タグ）に、何が変わったか（ノート）と、配るファイルをまとめます。</p>
 
         <div className="rl-sources" role="radiogroup" aria-label="ノートのもと">
           <label className={source === "milestone" ? "on" : ""}>
@@ -277,7 +276,7 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
           </div>
         )}
         <label>
-          <span className="git-dialog-label">ノート（何が変わったか。Markdown で書けます）</span>
+          <span className="git-dialog-label">ノート（何が変わったか）</span>
           <textarea className="git-dialog-input pr-dialog-body" rows={9} value={body} onChange={(e) => setBody(e.target.value)} />
         </label>
 
@@ -312,9 +311,6 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
             </label>
           )}
         </div>
-        {latest && !draft && !prerelease && (
-          <p className="muted">「最新」は、GitHub のリポジトリの画面と、アプリの自動更新（latest.json を添えたとき）が見るリリースです。</p>
-        )}
 
         {busy && <p className="git-dialog-running">{busy}</p>}
         {error && <p className="git-dialog-error">{error}</p>}

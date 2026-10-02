@@ -71,7 +71,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
           </button>
         </div>
         {todos.length === 0 ? (
-          <p className="muted">{feed ? "今はありません。レビューを頼まれたり、担当の期限が近づいたりすると、ここに出ます。" : "読み込んでいます…"}</p>
+          <p className="muted">{feed ? "今はありません" : "読み込んでいます…"}</p>
         ) : (
           todos.map((t) => (
             <div key={t.key} className={`av-todo t-${t.tone || "none"}`}>
@@ -104,7 +104,6 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
             </div>
           ))
         )}
-        <p className="av-note">GitHub の通知（ベル）そのものは、GitHub の決まりで Life Manager からは読めません。代わりに、Issue・プルリク・Actions から集めています。</p>
       </div>
 
       <div className="av-filters">

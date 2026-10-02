@@ -126,7 +126,7 @@ export function RunDetail(props: RunDetailProps) {
     return act(
       "もう一度動かしています…",
       () => rerunRun(owner, repo, run.id, failedOnly),
-      failedOnly ? "失敗したジョブをもう一度動かしました。少しすると動き始めます" : "すべてのジョブをもう一度動かしました。少しすると動き始めます",
+      failedOnly ? "失敗したジョブをもう一度動かしました" : "すべてのジョブをもう一度動かしました",
     );
   }
 
@@ -266,7 +266,7 @@ export function RunDetail(props: RunDetailProps) {
           {failures[failures.length - 1].actor?.login ?? ""} から）
         </div>
       )}
-      {card?.rerunning && <div className="ac-rerunning">● 今もう一度動いています（#{card.rerunning.run_number}）。終わると、この山から消えるか残るかが決まります。</div>}
+      {card?.rerunning && <div className="ac-rerunning">● 今もう一度動いています（#{card.rerunning.run_number}）</div>}
       {todo && (
         <div className={`ac-todo${card ? ` l${card.level}` : ""}`}>
           <b>何をすればよいか</b>

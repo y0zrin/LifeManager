@@ -58,7 +58,7 @@ export function DiffView({ title, lines, run, error, loading }: DiffViewProps) {
       ) : !run ? (
         <div className="note">{loading ? "読み込んでいます…" : ""}</div>
       ) : rows.length === 0 ? (
-        <div className="note">表示できる差分はありません。ファイルの権限や種類だけが変わった可能性があります</div>
+        <div className="note">表示できる差分はありません</div>
       ) : (
         <DiffRows rows={rows} />
       )}

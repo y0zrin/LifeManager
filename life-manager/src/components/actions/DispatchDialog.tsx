@@ -54,9 +54,6 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
       <div className="git-dialog pr-ui ac-dispatch" role="dialog" aria-modal="true" aria-label="手で実行" onClick={(e) => e.stopPropagation()}>
         <h3>▶ {workflow.name} を手で実行</h3>
-        <p className="hint">
-          <code>{workflow.path}</code> を、選んだブランチの中身で動かします（ファイルに <code>workflow_dispatch</code> と書いてあるワークフローだけ）。
-        </p>
         <label>
           <span className="git-dialog-label">ブランチ</span>
           <select className="select-sm" value={ref} onChange={(e) => setRef(e.target.value)}>

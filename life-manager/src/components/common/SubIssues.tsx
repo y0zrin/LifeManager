@@ -251,9 +251,6 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
         </p>
       )}
       {message && <p className={`sub-issues-note${message.error ? " sub-issues-note--error" : " sub-issues-note--ok"}`}>{message.text}</p>}
-      <p className="hint">
-        <b>サブイシュー</b>は大きな Issue を小さく分けた「子」の Issue です。GitHub の画面でも同じ親子で見えます。× は親子のつながりを外すだけで、Issue は消えません。子を全部クローズしても、親は自動では閉じません。
-      </p>
     </div>
   );
 }

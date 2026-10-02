@@ -183,7 +183,6 @@ export function ArtifactsTab({ owner, repo, number, folder, onCount }: Artifacts
     return (
       <div className="af-note">
         <p>この Issue につながるコミットはまだありません。</p>
-        <p className="muted">コミットのメッセージに「#{number}」と書くと、そのコミットで変えたファイルがここに出ます（例: <code>git commit -m "ジャンプを入れる #{number}"</code>）。作業タブでこの Issue を選んでコミットすると、自動で付きます。</p>
       </div>
     );
   }

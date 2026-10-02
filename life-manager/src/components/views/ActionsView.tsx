@@ -4,7 +4,6 @@ import {
   ACTIONS_PERMISSIONS,
   LEVELS,
   SECURITY_PERMISSIONS,
-  STALE_DAYS,
   actionsWorkflows,
   FREE_MINUTES,
   canManageActions,
@@ -168,7 +167,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
   const runNote = actionsOff
     ? "Actions がオフです（上の「▶ 使う…」でオンにします）"
     : privateRepo && !canManage
-      ? `非公開のリポジトリで Actions を動かせるのは、持ち主（${ownerLabel}）だけです。持ち主の無料の時間を使うためです`
+      ? `非公開のリポジトリで Actions を動かせるのは、持ち主（${ownerLabel}）だけです`
       : null;
 
   const cardOrder = cards.map((c) => `card:${c.key}`);
@@ -190,7 +189,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
             {c.title}
             {c.streak > 1 && <span className="ac-times">×{c.streak} 続けて</span>}
           </span>
-          <span className="ac-card-why">{c.why}</span>
+          {c.why && <span className="ac-card-why">{c.why}</span>}
           <span className="ac-card-meta">
             <span className={`ac-tag l${c.level}`}>{level.label}</span>
             {c.run && <code className="pr-branch">{c.run.branch}</code>}
@@ -213,7 +212,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
     setSetupError(null);
     try {
       await enableDependabot(owner, repo);
-      setNotice("🛡 Dependabot のお知らせを有効にしました。しばらくすると見つかったものが山に入ります");
+      setNotice("🛡 Dependabot のお知らせを有効にしました");
       window.setTimeout(reload, 3000);
     } catch (e) {
       setSetupError(String(e));
@@ -230,7 +229,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         node: (
           <>
             <span className="ac-setup-text">
-              ▶ <b>ワークフローがありません。</b>テストを動かすワークフローを置くと、プッシュやプルリクのたびに GitHub が確かめて、失敗したらこの山に入ります。
+              ▶ <b>ワークフローがありません。</b>
             </span>
             <span className="ac-setup-actions">
               <button type="button" className="btn-sm primary" onClick={() => setStarter(true)}>
@@ -248,7 +247,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         node: (
           <>
             <span className="ac-setup-text">
-              🛡 <b>Dependabot のお知らせが止まっています。</b>使っているライブラリに危ない版が見つかると、知らせが届きます（無料）。
+              🛡 <b>Dependabot のお知らせが止まっています。</b>
               {!overview.can_admin && " 有効にできるのは管理者です。"}
             </span>
             <span className="ac-setup-actions">
@@ -276,7 +275,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
         node: (
           <>
             <span className="ac-setup-text">
-              🔍 <b>コードスキャンを使っていません。</b>危ない書き方（SQL の組み立てなど）を見つけるしくみです。公開のリポジトリなら無料です（Settings → Code security → CodeQL analysis）。
+              🔍 <b>コードスキャンを使っていません。</b>公開のリポジトリなら無料です（Settings → Code security → CodeQL analysis）。
             </span>
             <span className="ac-setup-actions">
               <button type="button" className="btn-sm" onClick={() => openUrl(settingsUrl).catch(() => {})}>
@@ -302,7 +301,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
       await setActionsEnabled(owner, repo, enabled);
       if (enabled) saveActionsChoice(owner, repo, "consented");
       setConfirmToggle(null);
-      setNotice(enabled ? "▶ このリポジトリで Actions を使うようにしました" : "⏸ このリポジトリの Actions を止めました。プッシュしても、ワークフローは動きません");
+      setNotice(enabled ? "▶ このリポジトリで Actions を使うようにしました" : "⏸ このリポジトリの Actions を止めました");
       reload();
     } catch (e) {
       setSetupError(String(e));
@@ -321,13 +320,13 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           <span className="ac-setup-text">
             {overview.private ? (
               <>
-                ⏸ <b>非公開のリポジトリなので、Actions はオフ（既定）です。</b>プッシュやプルリクをしても、テストなどは動きません（{ownerLabel} の無料の時間を使わない）。
+                ⏸ <b>非公開のリポジトリなので、Actions はオフ（既定）です。</b>
                 {actions.autoOff && " このリポジトリはまだ Actions を使っていなかったので、Life Manager がオフにしました。"}
                 {!canManage && ` オンにできるのは持ち主（${ownerLabel}）だけです。`}
               </>
             ) : (
               <>
-                ⏸ <b>このリポジトリでは Actions を止めてあります。</b>プッシュやプルリクをしても、テストなどは動きません。
+                ⏸ <b>このリポジトリでは Actions を止めてあります。</b>
               </>
             )}
           </span>
@@ -422,10 +421,6 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
     }
     return (
       <div className="pulls-intro">
-        <h3>Actions とは</h3>
-        <p>
-          プッシュやプルリクのたびに、GitHub がテストやビルドを自動で動かすしくみです（<code>.github/workflows/*.yml</code> に書きます）。赤い ✖ はどこかの手順が失敗したということです。
-        </p>
         <h3>解決する順の山</h3>
         <ol className="pulls-steps">
           {LEVELS.map((l) => (
@@ -441,9 +436,6 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
             </li>
           ))}
         </ol>
-        <p className="muted">
-          1 枚はワークフロー × ブランチの最後の結果です。失敗が続くと重ねて ×N、成功すると山から消えます。同じ色の中は、長く直っていないものほど上。消したブランチと、{STALE_DAYS} 日以上動いていないブランチは入れません。
-        </p>
       </div>
     );
   })();
@@ -480,7 +472,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                 ) : !workflows ? (
                   <span className="muted">読み込んでいます…</span>
                 ) : dispatchable.length === 0 ? (
-                  <span className="muted">手で動かせるワークフローはありません。ファイルに workflow_dispatch と書くと動かせます</span>
+                  <span className="muted">手で動かせるワークフローはありません</span>
                 ) : (
                   dispatchable.map((w) => (
                     <button
@@ -568,7 +560,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                   </div>
                   {cards.length === 0 &&
                     (runs.length === 0 ? (
-                      <p className="pulls-empty muted">まだ実行はありません。ワークフローを置いてプッシュすると、結果がここに積まれます。</p>
+                      <p className="pulls-empty muted">まだ実行はありません</p>
                     ) : (
                       <div className="ac-clear">
                         <b>✔ 直すものはありません</b>
@@ -598,7 +590,6 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                         <span className="muted">{ago(r.updated_at)}</span>
                       </button>
                     ))}
-                  <p className="hint">直してプッシュすると自動でもう一度動き、成功すれば「✔ 直りました」と出て山から消えます。</p>
                 </>
               )}
 
@@ -663,9 +654,6 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
                 ) : workflows.length === 0 ? (
                   <div className="pulls-empty">
                     <p>ワークフローはありません。</p>
-                    <p className="hint">
-                      <code>.github/workflows/</code> に YAML のファイルを置くと、プッシュのたびにテストなどが動きます。GitHub の Actions タブに言語ごとのひな形があります。
-                    </p>
                   </div>
                 ) : (
                   workflows.map((w) => {
@@ -736,7 +724,7 @@ export function ActionsView({ owner, repo, actions, onOpenPull, focus, onFocusHa
           ownerLabel={ownerLabel}
           onClose={() => setDispatching(null)}
           onDone={() => {
-            setNotice(`▶ ${dispatching.name} を動かしました。少しすると「すべての実行」に出ます`);
+            setNotice(`▶ ${dispatching.name} を動かしました`);
             setDispatching(null);
             setFilters({ workflow: "", branch: "", result: "" });
             setTab("runs");

@@ -55,10 +55,6 @@ export function SyncIndicator({ status, syncing, stopped, onSync, onOpenConflict
       {open && (
         <div className="sync-panel popover" role="dialog" aria-label="GitHub に送っていない変更">
           <strong className="sync-panel-title">{heading}</strong>
-          <p className="sync-panel-note">
-            つながらないあいだの変更は、この端末に置いておき、つながったら順に GitHub に送ります。
-            GitHub 側でも同じところが変えられていたときは、どちらを残すか確かめます。
-          </p>
           {stopped && <p className="sync-panel-error">送れませんでした: {stopped}</p>}
           {pending > 0 && (
             <ol className="sync-list">

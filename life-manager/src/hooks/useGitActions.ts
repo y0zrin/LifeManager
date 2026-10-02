@@ -159,8 +159,8 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       placeholder: suggested ?? "feature/login-form",
       initial: suggested,
       note: start
-        ? `コミット ${short(start)} から新しいブランチを作って、そこに切り替えます。名前に空白は使えません。`
-        : `今の ${branch || "コミット"} から新しいブランチを作って、そこに切り替えます。作業中の変更はそのまま持っていきます。名前に空白は使えません。`,
+        ? "名前に空白は使えません。"
+        : "作業中の変更はそのまま持っていきます。名前に空白は使えません。",
       okLabel: "作成して切り替える",
       commandFor: (name) => git.displayCommand(["switch", "-c", name, ...(start ? [short(start)] : [])]),
       submit: (name) =>
@@ -175,13 +175,12 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
 
   /** タグを付ける。target がなければ今のコミットに */
   function tag(target?: string) {
-    const at = target ? short(target) : st?.head ?? "";
     setDialog({
       kind: "input",
       title: "タグを付ける",
       label: "タグの名前",
       placeholder: "v1.0.0",
-      note: `コミット ${at} に名前を付けます。リリースの区切りなどに使います。GitHub に送るには、別に git push origin タグ名 が必要です。`,
+      note: "GitHub に送るには、別に git push origin タグ名 が必要です。",
       okLabel: "タグを付ける",
       commandFor: (name) => git.displayCommand(["tag", name, ...(target ? [short(target)] : [])]),
       submit: (name) =>
@@ -324,7 +323,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     const message =
       side === "delete"
         ? `${file} を消したままにします（片方で消されていたファイルです）。`
-        : `${file} をまるごと「${sideLabel}」の内容にします。もう一方の変更はこのファイルには入りません。そのブランチやコミットには残るので、あとで要るときは手で入れます。`;
+        : `${file} をまるごと「${sideLabel}」の内容にします。もう一方の変更はこのファイルには入りません。`;
     setDialog({
       kind: "confirm",
       title: side === "delete" ? "消したままにする" : `まるごと${sideLabel}にする`,
@@ -374,7 +373,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
   function reset(hash: string, mode: "soft" | "mixed" | "hard") {
     const h = short(hash);
     const how = {
-      soft: { title: "ソフト", effect: "その変更はステージに残ります（まとめてコミットし直すときに使います）。" },
+      soft: { title: "ソフト", effect: "その変更はステージに残ります。" },
       mixed: { title: "混在", effect: "その変更は作業中のファイルに残ります（ステージからは外れます）。" },
       hard: { title: "ハード", effect: "その変更も、今の作業中の変更も、すべて捨てます。元に戻せません。" },
     }[mode];
@@ -615,7 +614,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     if (!g.folder) return;
     try {
       await git.openTerminal(g.folder);
-      g.notify("ok", "ターミナルを開きました。ここで git のコマンドを試せます");
+      g.notify("ok", "ターミナルを開きました");
     } catch (e) {
       g.notify("error", String(e));
     }

@@ -264,7 +264,7 @@ export function MilestoneView({
 
       {!stage ? (
         <div className={`ms-select ms-empty${quest ? " quest" : ""}`}>
-          <p>{quest ? "まだボスがいません。最初のマイルストーン（ボス）を置きましょう。" : "まだマイルストーンがありません。最初の目標を作りましょう。"}</p>
+          <p>{quest ? "まだボスがいません。" : "まだマイルストーンがありません。"}</p>
           {!showForm && (
             <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
               {quest ? "+ 最初のボスを置く" : "+ 最初のマイルストーンを作る"}
@@ -334,7 +334,6 @@ export function MilestoneView({
                   <DatePickerButton value={editStart} onChange={setEditStart} label={editStart ? `開始 ${editStart}` : "開始日を選択（決めなければ作った日）"} />
                   <DatePickerButton value={editDue} onChange={setEditDue} label={editDue || "期限を選択"} />
                 </div>
-                <p className="ms-dates-note">開始日は説明の最後に「開始: 2026-09-28」の形で書きます。GitHub の画面でも読めます。</p>
                 <div className="ms-confirm-actions">
                   <button className="btn-primary" onClick={() => handleSaveEdit(stage.ms.number)}>保存</button>
                   <button className="btn-sm" onClick={() => setEditing(false)}>キャンセル</button>
@@ -356,7 +355,7 @@ export function MilestoneView({
               </>
             )}
             {stage.open.length === 0 && stage.done.length === 0 && (
-              <p className="ms-none">このマイルストーンに入れたタスクはありません。<b>📊 ボードでタスクを足す</b> でこのマイルストーンのタスクを足せます。タスクの詳細でマイルストーンを選んで入れることもできます。</p>
+              <p className="ms-none">このマイルストーンに入れたタスクはありません。</p>
             )}
           </div>
         </>

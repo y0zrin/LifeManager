@@ -3,7 +3,6 @@ import { NOTICE_COLORS, NOTICE_GROUPS, NOTICE_LABELS, dayHead, hhmm, type Notice
 import { parseHelp } from "../../lib/help";
 import { isEscape } from "../../lib/keys";
 import { HelpContextBox } from "./HelpParts";
-import { THIS_DEVICE } from "../../lib/platform";
 
 interface NoticesDrawerProps {
   /** りれき（新しい順） */
@@ -75,7 +74,6 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
       <div className="nt-drawer-head">
         <h2>🔔 おしらせ</h2>
         <button type="button" className="nt-drawer-x" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
-        <p>届いた知らせを日ごとに残しています（60 日まで。{THIS_DEVICE}に）。押すと、そのときの詳しい中身が開きます</p>
       </div>
       <div className="nt-chips" role="group" aria-label="絞り込み">
         {NOTICE_GROUPS.map((g) => (
@@ -88,7 +86,7 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
         {days.length === 0 && (
           <p className="nt-empty">
             {notices.length === 0
-              ? "まだ知らせはありません。担当になった・レビューを頼まれた・名前を呼ばれた・🆘 助けを求められた・マイルストーンを達成した、などが届くとここに残ります"
+              ? "まだ知らせはありません"
               : "この種類の知らせはまだありません"}
           </p>
         )}

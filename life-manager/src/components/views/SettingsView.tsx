@@ -4,6 +4,7 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { resolveResource } from "@tauri-apps/api/path";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType, BoardConfig } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
+import { useBackLayer } from "../../lib/back";
 import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, MemoButtonPosition, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
@@ -83,13 +84,13 @@ const notifyTypes: Record<string, string> = {
 
 export type SettingsPane = "connection" | "tasks" | "notifications" | "display" | "tokens" | "other";
 // 接続（チーム）がいちばん前。トークンは、ふだんは触らないので後ろのほう
-const PANES: { key: SettingsPane; label: string }[] = [
-  { key: "connection", label: "接続" },
-  { key: "tasks", label: "タスク" },
-  { key: "notifications", label: "通知" },
-  { key: "display", label: "表示" },
-  { key: "tokens", label: "トークン" },
-  { key: "other", label: "その他" },
+const PANES: { key: SettingsPane; label: string; icon: string; about: string }[] = [
+  { key: "connection", label: "接続", icon: "🔗", about: "チームのメンバー・招待、リポジトリの追加" },
+  { key: "tasks", label: "タスク", icon: "📋", about: "見積もりの単位、ボードの区画、ラベル" },
+  { key: "notifications", label: "通知", icon: "🔔", about: "Discord、通知のスケジュール、イベント通知" },
+  { key: "display", label: "表示", icon: "🎨", about: "テーマ、メモのボタン、マイルストーンのバー、動き" },
+  { key: "tokens", label: "トークン", icon: "🔑", about: "ログインとトークン" },
+  { key: "other", label: "その他", icon: "ℹ️", about: "マニュアル、フィードバック、バージョン" },
 ];
 
 // サイドバーの位置の選択肢。bar は見本の絵で、帯を描く場所
@@ -127,6 +128,9 @@ const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: str
 
 export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection, onTestNotice }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
+  // スマホは「区分の一覧 → 区分」の 2 段（#210）。区分を開いているときは、戻るボタンで一覧へ
+  const [mobileList, setMobileList] = useState(isMobile && !initialPane);
+  useBackLayer(isMobile && !mobileList, () => setMobileList(true));
   // 区分を切り替える（横に並んだタブなので、右の区分へは右から・左へは左から入れ替わる）
   function changePane(next: SettingsPane) {
     if (next === activePane) return;
@@ -306,7 +310,30 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
     <div className="content">
       <h2 className="settings-title" style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>設定</h2>
 
-      {/* ペインタブ */}
+      {/* スマホ: 区分の一覧（押すと、その区分だけを開く） */}
+      {isMobile && mobileList && (
+        <div className="settings-pane-list">
+          {PANES.map((p) => (
+            <button key={p.key} type="button" className="settings-pane-item" onClick={() => { setActivePane(p.key); setMobileList(false); }}>
+              <span className="settings-pane-icon" aria-hidden="true">{p.icon}</span>
+              <span className="settings-pane-text">
+                <b>{p.label}</b>
+                <small>{p.about}</small>
+              </span>
+              <span className="settings-pane-go" aria-hidden="true">›</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {isMobile && !mobileList && (
+        <div className="settings-pane-back">
+          <button type="button" className="btn-sm" onClick={() => setMobileList(true)}>‹ 設定</button>
+          <b>{PANES.find((p) => p.key === activePane)?.label}</b>
+        </div>
+      )}
+
+      {/* ペインタブ（PC） */}
+      {!isMobile && (
       <div className="settings-pane-tabs">
         {PANES.map((p) => (
           <button key={p.key}
@@ -317,8 +344,10 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           </button>
         ))}
       </div>
+      )}
 
-      {/* 区分の中身（切り替えると横にすべる） */}
+      {/* 区分の中身（切り替えると横にすべる）。スマホの一覧のあいだは出さない */}
+      {!(isMobile && mobileList) && (
       <div className="settings-pane-body">
 
       {/* === 接続ペイン（チーム。リポジトリの追加・切り替え・この PC のフォルダは左上のリポジトリから） === */}
@@ -962,7 +991,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       <div className="form-card">
         <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>メモのボタン（📝）</h3>
         <div className="display-opts pos-opts">
-          {MEMO_BUTTON_OPTIONS.map((opt) => (
+          {MEMO_BUTTON_OPTIONS.filter((opt) => !(isMobile && opt.value === "hidden")).map((opt) => (
             <label key={opt.value} className="display-opt">
               <input type="radio" name="memo-button" checked={displaySettings.memoButton === opt.value}
                 onChange={() => onChangeDisplaySettings({ memoButton: opt.value })} />
@@ -978,7 +1007,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          どの場所でも Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
+          {isMobile ? "ボタンは下の帯にかぶらない所に出ます。" : "どの場所でも Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。"}
         </p>
       </div>
 
@@ -1053,8 +1082,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* この PC の git（PC のみ） */}
       {!isMobile && <GitInfoCard onOpenSetup={onOpenSetup} setupVersion={setupVersion} />}
 
-      {/* Actions の「はじめる準備」に出すもの（今のリポジトリ・この PC） */}
-      {owner && repo && (
+      {/* Actions の「はじめる準備」に出すもの（今のリポジトリ・この PC）。スマホに Actions の画面はないので出さない */}
+      {owner && repo && !isMobile && (
         <div className="form-card" id="settings-actions-setup">
           <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>Actions の「はじめる準備」に出すもの</h3>
           <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
@@ -1162,6 +1191,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       </>}
       </div>
+      )}
     </div>
   );
 }

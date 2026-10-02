@@ -10,7 +10,9 @@ export type BulkAction =
   | { kind: "label"; label: string }
   | { kind: "milestone"; number: number | null; title: string }
   | { kind: "assignee"; login: string | null }
-  | { kind: "estimate"; value: number | null };
+  | { kind: "estimate"; value: number | null }
+  /** 日程がなく見積もりのあるタスクに、ガントの仮の日程を本当の日程として書く */
+  | { kind: "schedule" };
 
 interface BulkBarProps {
   count: number;
@@ -88,6 +90,12 @@ export function BulkBar({ count, hasOpen, hasClosed, labels, milestones, collabo
           ))}
           <option value="none">（外す）</option>
         </select>
+        {hasOpen && (
+          <button type="button" className="btn-sm" disabled={disabled} onClick={() => onRun({ kind: "schedule" })}
+            title="日程のないタスクに、見積もりからガントと同じ置き方で日程を書きます">
+            見積もりから日程を決める
+          </button>
+        )}
         <select
           className="select-sm"
           defaultValue=""

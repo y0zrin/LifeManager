@@ -11,7 +11,8 @@ import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
 import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
-import { serializeGanttDates } from "../../lib/ganttParser";
+import { serializeGanttDates, withGanttDates } from "../../lib/ganttParser";
+import { localToday, plansFor, type TentativePlan } from "../../lib/ganttSchedule";
 import { isSending, issueRef } from "../../lib/issueRef";
 import { isEscape } from "../../lib/keys";
 import { stepDirection, withTransition } from "../../lib/motion";
@@ -87,6 +88,8 @@ function bulkMessage(action: BulkAction, n: number): string {
       return action.login === null ? `${n} 件の担当を外しました` : `${n} 件の担当を「${action.login}」にしました`;
     case "estimate":
       return action.value === null ? `${n} 件の見積もりを外しました` : `${n} 件の見積もりを「${action.value}」にしました`;
+    case "schedule":
+      return `${n} 件の日程を、見積もりから決めました`;
   }
 }
 
@@ -516,17 +519,24 @@ export function DashboardView({
 
   async function runBulk(action: BulkAction) {
     if (action.kind === "estimate" && action.value !== null) await onEnsureEstimateLabel(action.value);
-    const targets = pickedIssues.filter((i) =>
-      action.kind === "close" || action.kind === "status" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
+    let targets = pickedIssues.filter((i) =>
+      action.kind === "close" || action.kind === "status" || action.kind === "schedule" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
     );
-    if (targets.length === 0) return;
+    // 見積もりから日程: ガントの仮の日程と同じ置き方。日程があるか見積もりのないタスクは、そのまま
+    const plans = action.kind === "schedule" ? plansFor(targets, allIssues, localToday()) : null;
+    const skipped = plans ? targets.length - plans.size : 0;
+    if (plans) targets = targets.filter((i) => plans.has(i.number));
+    if (targets.length === 0) {
+      if (plans) setBulkDone("日程を決められるタスクはありません（日程があるか、見積もりがありません）");
+      return;
+    }
     setBulkDone(null);
     let done = 0;
     let failed = 0;
     for (const issue of targets) {
       setBulkBusy(`${done + failed + 1} / ${targets.length} 件目…`);
       try {
-        await applyBulk(action, issue);
+        await applyBulk(action, issue, plans);
         done++;
       } catch {
         failed++;
@@ -534,11 +544,15 @@ export function DashboardView({
     }
     setBulkBusy(null);
     setPicked(new Set());
-    setBulkDone(bulkMessage(action, done) + (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""));
+    setBulkDone(
+      bulkMessage(action, done) +
+        (skipped ? `（${skipped} 件は日程があるか見積もりがないので、そのまま）` : "") +
+        (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""),
+    );
     if (action.kind === "close" && done > 0) celebrateDone(`${done} 件`);
   }
 
-  async function applyBulk(action: BulkAction, issue: GitHubIssue) {
+  async function applyBulk(action: BulkAction, issue: GitHubIssue, plans: Map<number, TentativePlan> | null) {
     const names = issue.labels.map((l) => l.name);
     switch (action.kind) {
       case "close":
@@ -564,6 +578,11 @@ export function DashboardView({
           if (action.value === null ? e === null : e?.unit === unit && e.value === action.value) return;
           return onUpdateIssue(issue.number, { labels: withEstimate(names, action.value, unit) });
         }
+      case "schedule": {
+        const p = plans?.get(issue.number);
+        if (!p) return;
+        return onUpdateIssue(issue.number, { body: withGanttDates(issue.body, p.start, p.end) });
+      }
     }
   }
 

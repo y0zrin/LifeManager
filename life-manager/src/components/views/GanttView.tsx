@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors, GanttLink } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
-import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows, parseDependencies, bodyExcerpt } from "../../lib/ganttParser";
+import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, withGanttDates, compareGanttRows, parseDependencies, bodyExcerpt } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath, relatedOf, type EdgeExit } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
@@ -445,9 +445,52 @@ export function GanttView({
     setTentativePop(null);
     const issue = [...issues, ...closedIssues].find((i) => i.number === task.issueNumber);
     if (!issue || !task.startDate || !task.endDate) return;
-    const pattern = /<!--\s*gantt:\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\s*-->/;
-    await onUpdateIssueBody(task.issueNumber, updateBodyMetadata(issue.body, pattern, serializeGanttDates(task.startDate, task.endDate)));
+    await onUpdateIssueBody(task.issueNumber, withGanttDates(issue.body, task.startDate, task.endDate));
   }
+
+  // 仮の日程をまとめて決める（#225）: 確かめる → 1 件ずつ書き込む（進み）→ 決めた数
+  const tentativeTasks = useMemo(() => ganttTasks.filter((t) => t.tentative), [ganttTasks]);
+  const [fixAll, setFixAll] = useState<null | "confirm" | { done: number; total: number }>(null);
+  const [fixNote, setFixNote] = useState<string | null>(null);
+  useEffect(() => {
+    setFixAll(null);
+    setFixNote(null);
+  }, [selectedMilestone]);
+  async function fixAllTentative() {
+    // 押したときの仮の日程で決める（書くたびに置き直さない）
+    const list = tentativeTasks;
+    let done = 0;
+    let failed = 0;
+    for (const t of list) {
+      setFixAll({ done: done + failed, total: list.length });
+      try {
+        await fixTentative(t);
+        done++;
+      } catch {
+        failed++;
+      }
+    }
+    setFixAll(null);
+    setFixNote(`${done} 件の日程を決めました${failed ? `（${failed} 件は決められませんでした）` : ""}`);
+  }
+  const fixAllControl =
+    fixAll === "confirm" ? (
+      <span className="gantt-fixall">
+        仮の日程の {tentativeTasks.length} 件を、今の日程で決めますか？
+        <button type="button" className="btn-sm" onClick={() => setFixAll(null)}>やめる</button>
+        <button type="button" className="btn-sm primary" onClick={() => void fixAllTentative()}>決める</button>
+      </span>
+    ) : fixAll !== null ? (
+      <span className="gantt-fixall">
+        <i className="spinner" aria-hidden="true" /> 決めています（{fixAll.done} / {fixAll.total}）
+      </span>
+    ) : showTentative && tentativeTasks.length > 0 ? (
+      <button type="button" className="btn-sm" onClick={() => { setFixNote(null); setFixAll("confirm"); }}>
+        仮の日程を決める（{tentativeTasks.length} 件）
+      </button>
+    ) : fixNote ? (
+      <span className="gantt-fixall muted">{fixNote}</span>
+    ) : null;
 
   // Click handler (ignore if dragged)
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -661,6 +704,7 @@ export function GanttView({
             </label>
             <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenColorSettings(); }}>⚙ 帯の色</button>
           </SheetRow>
+          {fixAllControl && <SheetRow label="仮の日程">{fixAllControl}</SheetRow>}
         </MobileSheet>
 
         {selectedMilestone === null ? (
@@ -760,6 +804,7 @@ export function GanttView({
               <input type="checkbox" checked={arrowsFocusOnly} onChange={(e) => changeArrows(e.target.checked)} />
               矢印は選んだタスクだけ
             </label>
+            {fixAllControl}
             <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
               {ganttTasks.length} 件
             </span>

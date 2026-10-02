@@ -4892,6 +4892,16 @@ button:hover {
   color: var(--text-secondary);
 }
 
+/* 仮の日程をまとめて決める（確かめ・進み・決めた数） */
+.gantt-fixall {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
 .gantt-est {
   flex-shrink: 0;
   margin-left: 0;

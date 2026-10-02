@@ -82,6 +82,11 @@ export function serializeGanttDates(start: string, end: string): string {
   return `<!-- gantt:${start}/${end} -->`;
 }
 
+/** 本文の日程（<!-- gantt:開始/終了 -->）を書き換える。なければ足す */
+export function withGanttDates(body: string | null, start: string, end: string): string {
+  return updateBodyMetadata(body, /<!--\s*gantt:\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\s*-->/, serializeGanttDates(start, end));
+}
+
 /** 依存関係メタデータを生成 */
 export function serializeDependencies(deps: number[]): string {
   if (deps.length === 0) return "";

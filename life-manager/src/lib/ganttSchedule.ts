@@ -1,6 +1,7 @@
 // ガントの「仮の日程」。日程（開始・終了）のないタスクに、見積もりから仮の帯を置く
 import type { GitHubIssue } from "./types";
 import type { GanttTask } from "./ganttTypes";
+import { issuesToGanttTasks } from "./ganttParser";
 import { dueOf } from "./due";
 import { estimateDays, estimateOf, formatEstimate } from "./estimate";
 import { priorityRank } from "./taskList";
@@ -139,4 +140,27 @@ export function planTentative(tasks: GanttTask[], issues: GitHubIssue[], today: 
     waiting.delete(next.issueNumber);
   }
   return plans;
+}
+
+/** 今日（この PC の日付。YYYY-MM-DD） */
+export function localToday(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * 選んだタスクの仮の日程（タスク一覧でまとめて決める）。ガントと同じく、マイルストーンごとに、
+ * そのマイルストーンの全部のタスク（閉じたものも）で置く。日程があるか見積もりのないタスクは入らない
+ */
+export function plansFor(targets: GitHubIssue[], all: GitHubIssue[], today: string): Map<number, TentativePlan> {
+  const out = new Map<number, TentativePlan>();
+  const msOf = (i: GitHubIssue) => i.milestone?.number ?? null;
+  for (const ms of new Set(targets.map(msOf))) {
+    const group = all.filter((i) => msOf(i) === ms);
+    const plans = planTentative(issuesToGanttTasks(group), group, today);
+    for (const t of targets) {
+      const p = msOf(t) === ms ? plans.get(t.number) : undefined;
+      if (p) out.set(t.number, p);
+    }
+  }
+  return out;
 }

@@ -81,7 +81,7 @@ export function ConflictNotice({ folder, status, onFix, onAbort, onClose }: Conf
         </div>
         <b>直し方</b>
         <ol>
-          <li>作業タブで競合のファイルを選ぶと、右に「競合を直す」が出ます</li>
+          <li>「作業をする」の ③ で競合のファイルを選ぶと、右に「競合を直す」が出ます</li>
           <li>か所ごとに、<b>どちらを使うか</b>を選びます（両方を残す・自分で書く もできます）</li>
           <li>
             「直したのでステージする」を押し、
@@ -112,7 +112,7 @@ export function ConflictNotice({ folder, status, onFix, onAbort, onClose }: Conf
             </button>
           )}
           <button type="button" className="btn-sm" onClick={onClose}>閉じる</button>
-          <button type="button" className="btn-primary" onClick={onFix} autoFocus>作業タブで直す</button>
+          <button type="button" className="btn-primary" onClick={onFix} autoFocus>「作業をする」で直す</button>
         </div>
       </div>
     </div>

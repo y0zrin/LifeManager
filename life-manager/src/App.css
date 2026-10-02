@@ -12145,7 +12145,161 @@ html.stage-still .desk-buncho::after {
   color: var(--text-primary);
 }
 
-/* 段の画面（① Issue を選ぶ・② ブランチ・⑤〜⑧） */
+/* 作業をする（#218）: ② と ③ は、④ 完了までくり返す（段のあいだの印） */
+.w-steps li.w-steps-loop {
+  padding: 1px 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+/* ① 作業を選ぶ: マイルストーンと検索を 1 段に。行を押すと、下に始め方（ブランチ）が出る */
+.w-pick-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 900px;
+  margin-bottom: var(--space-sm);
+}
+
+.w-pick-bar .w-issue-search {
+  flex: 1 1 260px;
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.w-ms-select {
+  flex: 0 1 auto;
+  max-width: 360px;
+}
+
+.w-issue-row.picking {
+  border-color: var(--view-work);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.w-start-choice {
+  margin: -6px 0 0;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 1px solid var(--view-work);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: color-mix(in srgb, var(--view-work) 8%, var(--bg-secondary));
+}
+
+.w-start-q {
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+.w-start-note {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
+/* ② 作業報告: 書く欄と、この Issue のコメント */
+.w-report-text {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.w-report .w-step-actions {
+  align-items: center;
+}
+
+.w-report-key {
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.w-report-note {
+  margin: var(--space-sm) 0 0;
+  color: var(--accent-green-hover);
+  font-size: var(--font-sm);
+}
+
+.w-report-note.err {
+  color: var(--accent-red);
+}
+
+.w-report-past {
+  max-width: 900px;
+  margin-top: var(--space-lg);
+}
+
+.w-report-past h5 {
+  margin: 0 0 var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.w-report-item {
+  padding: 6px 10px;
+  border-left: 3px solid var(--border-default);
+  margin-bottom: 6px;
+  font-size: var(--font-sm);
+}
+
+.w-report-who {
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+.w-report-when {
+  color: var(--text-faint);
+  font-size: var(--font-xs);
+}
+
+.w-report-item p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ③ コミット・プッシュの上の段: 今のブランチと、変更がないときのプッシュ */
+.w-cp-strip {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-md);
+  padding: 6px var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+}
+
+.w-cp-branch small {
+  margin-left: 4px;
+  color: var(--accent-yellow);
+}
+
+.w-cp-right {
+  margin-left: auto;
+}
+
+.w-cp-none {
+  color: var(--text-muted);
+}
+
+/* 段の画面（① 作業を選ぶ・② 作業報告・④ 完了） */
 .w-issue-step,
 .w-step-panel {
   flex: 1;

@@ -119,7 +119,7 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
           ))}
         </dl>
         <p className="git-dialog-note">
-          すでに git で管理しているファイルは、ここに書いても無視されません。作業タブでファイルを右クリックして「無視する」を選ぶと、管理から外せます（
+          すでに git で管理しているファイルは、ここに書いても無視されません。「作業をする」の ③ でファイルを右クリックして「無視する」を選ぶと、管理から外せます（
           <code>git rm --cached</code>）。
         </p>
         {error && <p className="git-dialog-error">{error}</p>}

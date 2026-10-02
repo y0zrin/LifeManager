@@ -25,7 +25,7 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
     setMessage(null);
     try {
       await onPlaceBuiltins();
-      setMessage({ text: "テンプレートを置きました。GitHub の「New issue」でも選べます（作業タブでプルすると手元にも来ます）" });
+      setMessage({ text: "テンプレートを置きました。GitHub の「New issue」でも選べます（「作業をする」でプルすると手元にも来ます）" });
     } catch (e) {
       setMessage({ text: String(e), error: true });
     } finally {

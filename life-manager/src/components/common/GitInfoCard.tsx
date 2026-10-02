@@ -24,7 +24,7 @@ export function GitInfoCard({ onOpenSetup, setupVersion }: GitInfoCardProps) {
     <div className="form-card">
       <h3 className="settings-section-title">この PC の git</h3>
       <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-        「作業」「ブランチ」「全体図」で使う git です。リポジトリごとの作業フォルダは、左上のリポジトリの「⋯」で決めます。
+        「作業をする」「ブランチ」「全体図」で使う git です。リポジトリごとの作業フォルダは、左上のリポジトリの「⋯」で決めます。
       </p>
       {git === null && <p className="settings-hint">git を確認しています…</p>}
       {git && "version" in git && (
@@ -37,7 +37,7 @@ export function GitInfoCard({ onOpenSetup, setupVersion }: GitInfoCardProps) {
       )}
       {git && "error" in git && (
         <div className="local-folder-message local-folder-message--error">
-          Git が見つかりません。「作業」「ブランチ」「全体図」を使うには、Git をインストールします。
+          Git が見つかりません。「作業をする」「ブランチ」「全体図」を使うには、Git をインストールします。
           <div className="local-folder-actions">
             <button type="button" className="btn-primary" onClick={onOpenSetup}>
               Git をインストールする…

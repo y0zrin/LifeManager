@@ -95,7 +95,7 @@ type NavItem = { key: ViewType; icon: string; label: string; phone?: string };
 const HOME_GROUP = "ホーム";
 const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー", phone: "オーバー\nビュー" };
 const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "ヒストリー" }];
-const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業" };
+const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業をする" };
 const TASK_ITEMS: NavItem[] = [
   WORK_ITEM,
   { key: "milestones", icon: "🎯", label: "マイルストーン", phone: "マイル\nストーン" },
@@ -1172,6 +1172,9 @@ function App() {
               onOpenSetup={openSetup}
               setupVersion={setupVersion}
               onFileMenu={openFileMenu}
+              milestones={gh.milestones}
+              onListComments={gh.listComments}
+              onComment={gh.createComment}
             />
           )}
 

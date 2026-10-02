@@ -88,7 +88,7 @@ function useIsMobile(breakpoint = 640) {
 
 /** 空の区画に出す、どうすれば入るか */
 const EMPTY_HINTS: Record<string, string> = {
-  "状態:進行中": "作業タブで始めるとここに入ります",
+  "状態:進行中": "「作業をする」で始めるとここに入ります",
   "状態:チェック待ち": "プルリクを作るとここに入ります",
 };
 

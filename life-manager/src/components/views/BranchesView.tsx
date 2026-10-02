@@ -396,7 +396,7 @@ const BranchPage = memo(function BranchPage({
           {local && !entry.onPc && <span className="chip muted">GitHub にだけある</span>}
           {entry.isCurrent && changes > 0 && (
             <button type="button" className="chip wip-link" onClick={onOpenWork}>
-              ✎ 作業中の変更 {changes} → 作業
+              ✎ 作業中の変更 {changes} → 作業をする
             </button>
           )}
           <span className="p-actions">

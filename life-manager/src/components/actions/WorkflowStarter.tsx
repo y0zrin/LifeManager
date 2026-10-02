@@ -142,7 +142,7 @@ export function WorkflowStarter({ owner, repo, defaultBranch, language, folder, 
         </div>
         <p className="muted">
           {folder
-            ? "作業フォルダに置いたら、作業タブでチェックを入れてコミットし、プッシュすると動き始めます。"
+            ? "作業フォルダに置いたら、「作業をする」の ③ でチェックを入れ、コミットしてプッシュすると動き始めます。"
             : "作業フォルダを決めていないので、GitHub の画面で作ります。名前と中身が入った状態で開きます。入っていなければ、コピーして貼ります。"}
         </p>
       </div>

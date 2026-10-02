@@ -160,7 +160,7 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
       )}
       {git && "error" in git && (
         <div className="local-folder-message local-folder-message--error">
-          Git が見つかりません。「作業」「ブランチ」「全体図」を使うには、Git をインストールします。
+          Git が見つかりません。「作業をする」「ブランチ」「全体図」を使うには、Git をインストールします。
           <div className="local-folder-actions">
             <button type="button" className="btn-primary" onClick={onOpenSetup}>
               Git をインストールする…

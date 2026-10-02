@@ -88,6 +88,14 @@ export function GanttView({
       return true;
     }
   });
+  // 矢印は選んだタスク（乗せた・押した）の分だけにするか（スマホはいつもこれ。#224）
+  const [arrowsFocusOnly, setArrowsFocusOnly] = useState(() => {
+    try {
+      return localStorage.getItem("gantt-arrows") === "focus";
+    } catch {
+      return false;
+    }
+  });
 
   // 保存されたマイルストーンが現在のプロジェクトに存在しなければクリア
   useEffect(() => {
@@ -273,9 +281,9 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan);
+    const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan, arrowsFocusOnly);
     setEdgeExits((prev) => (sameExits(prev, exits) ? prev : exits));
-  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focus, arrowPlan]);
+  }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focus, arrowPlan, arrowsFocusOnly]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -394,7 +402,7 @@ export function GanttView({
         if (renderer && canvasSize.width > 0) {
           const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
           const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
-          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan);
+          renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan, arrowsFocusOnly);
         }
       }
     };
@@ -422,7 +430,7 @@ export function GanttView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focus, arrowPlan]);
+  }, [dragging, ganttTasks, config, canvasSize, scrollX, scrollY, maxScrollX, issues, closedIssues, onUpdateIssueBody, focus, arrowPlan, arrowsFocusOnly]);
 
   // 仮の帯を押したときの吹き出し（この日程で決める・詳細を開く）
   const [tentativePop, setTentativePop] = useState<{ x: number; y: number; flipX: boolean; flipY: boolean; task: typeof ganttTasks[0] } | null>(null);
@@ -584,6 +592,15 @@ export function GanttView({
     }
   }
 
+  function changeArrows(focusOnly: boolean) {
+    setArrowsFocusOnly(focusOnly);
+    try {
+      localStorage.setItem("gantt-arrows", focusOnly ? "focus" : "all");
+    } catch {
+      // 覚えられなくても、今は切り替わる
+    }
+  }
+
   // スマホ（#209）: 上の段は 1 行（マイルストーン・目盛り・絞り込み）。担当・状態・セクション・仮の日程は下から出る板に。
   // 行は 2 段（上に題名、下に帯）で、帯は見るだけ（指で動かさない。日程は詳細から）
   if (isMobile) {
@@ -738,6 +755,10 @@ export function GanttView({
             <label className="chk gantt-tentative-toggle" title="日程のないタスクに、見積もりから仮の帯（点線）を置きます">
               <input type="checkbox" checked={showTentative} onChange={(e) => changeTentative(e.target.checked)} />
               見積もりから仮の日程を置く
+            </label>
+            <label className="chk gantt-tentative-toggle" title="帯か左の一覧の行に乗せる（押す）と、そのタスクの先行と後続の矢印だけを出します">
+              <input type="checkbox" checked={arrowsFocusOnly} onChange={(e) => changeArrows(e.target.checked)} />
+              矢印は選んだタスクだけ
             </label>
             <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
               {ganttTasks.length} 件

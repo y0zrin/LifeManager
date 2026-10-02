@@ -270,6 +270,8 @@ export class GanttRenderer {
     focus: number | null = null,
     /** 描く矢印と通す側（ganttArrows.ts の planArrows）。なければ全部の矢印を、右上を先にためして通す */
     arrowPlan: ArrowPlan | null = null,
+    /** 矢印は選んだタスク（focus）に出入りするものだけ（スマホと同じ。選んでいなければ出さない） */
+    onlyFocused = false,
   ): EdgeExit[] {
     const ctx = this.ctx;
     ctx.save();
@@ -281,7 +283,7 @@ export class GanttRenderer {
     // 乗せたタスクの先行・後続（帯に印を付け、ほかを薄くする）
     const rel = focus === null ? null : relatedOf(tasks, focus);
     this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false, rel);
-    const exits = this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan);
+    const exits = this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan, onlyFocused);
     this.drawHeader(config, scrollX, canvasWidth);
 
     ctx.restore();
@@ -651,6 +653,7 @@ export class GanttRenderer {
     canvasHeight: number,
     focus: number | null,
     plan: ArrowPlan | null,
+    onlyFocused: boolean,
   ): EdgeExit[] {
     const ctx = this.ctx;
     const taskIndex = new Map<number, number>();
@@ -702,6 +705,7 @@ export class GanttRenderer {
         if (!dep.startDate || !dep.endDate) continue;
         const key = arrowKey(depNum, task.issueNumber);
         const focused = focus !== null && (depNum === focus || task.issueNumber === focus);
+        if (onlyFocused && !focused) continue;
         // 余計な矢印（ほかの矢印で、もう順番が決まっている）は、そのタスクに乗せたときだけ描く
         if (plan?.redundant.has(key) && !focused) continue;
 

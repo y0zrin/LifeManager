@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { GitHubIssue, GitHubMilestone, GitHubLabel, GitHubUser } from "../../lib/types";
 import type { GanttViewConfig, TimeScale, GanttBarColors, GanttLink } from "../../lib/ganttTypes";
 import { TIME_SCALE_CONFIG } from "../../lib/ganttTypes";
-import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows, parseDependencies } from "../../lib/ganttParser";
+import { issuesToGanttTasks, updateBodyMetadata, serializeGanttDates, compareGanttRows, parseDependencies, bodyExcerpt } from "../../lib/ganttParser";
 import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath, relatedOf, type EdgeExit } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
@@ -510,7 +510,9 @@ export function GanttView({
     const preds = [...new Set(self.dependencies)].filter((n) => n !== focus).map((n) => link(n, "pred"));
     const succNums = every.filter((i) => i.number !== focus && parseDependencies(i.body).includes(focus)).map((i) => i.number);
     const succs = [...new Set(succNums)].sort((a, b) => a - b).map((n) => link(n, "succ"));
-    return { self, preds, succs };
+    // タスクの内容（本文のはじめ。#217）
+    const excerpt = bodyExcerpt(issueOf.get(focus)?.body ?? null);
+    return { self, preds, succs, excerpt };
   }, [focus, ganttTasks, allIssues, issues, closedIssues, arrowPlan, today]);
 
   /** 相手の行まで送る（送ったあとも、乗せていたタスクの矢印を目立たせたままにする） */
@@ -932,7 +934,7 @@ export function GanttView({
           </div>
         </div>
         {/* 下の帯: 乗せた（固定した）タスクの詳しいことと、先行・後続（帯のそばのカードは矢印にかぶるので、ここに出す） */}
-        <div className="gantt-info">
+        <div className={`gantt-info${links ? "" : " empty"}`}>
           {links ? (
             <>
               <div className="gantt-info-head">
@@ -954,6 +956,10 @@ export function GanttView({
                     📌 {issueRef(pinnedIssue)} を固定中 ✕
                   </button>
                 )}
+              </div>
+              {/* タスクの内容（本文のはじめ。2 行まで） */}
+              <div className={`gantt-info-body${links.excerpt ? "" : " none"}`} title={links.excerpt || undefined}>
+                {links.excerpt || "本文はありません"}
               </div>
               {(["pred", "succ"] as const).map((kind) => {
                 const list = kind === "pred" ? links.preds : links.succs;

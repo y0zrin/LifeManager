@@ -158,3 +158,25 @@ export function stripGanttMetadata(body: string): string {
     .replace(/<!--\s*progress:(done|undone)\s*-->\n?/g, "")
     .trimEnd();
 }
+
+/**
+ * ガントの下の帯・スマホの板に出す、タスクの内容（本文のはじめ）。HTML のコメント（ガントの日程・先行など）を除き、
+ * 見出しと箇条書きの印を外して 1 つの段にまとめる（行の区切りは「／」、チェックは ☐・☑）。#217
+ */
+export function bodyExcerpt(body: string | null, max = 240): string {
+  const lines = (body ?? "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split("\n")
+    .map((l) =>
+      l
+        .trim()
+        .replace(/^[-*]\s+\[[xX]\]\s*/, "☑ ")
+        .replace(/^[-*]\s+\[ \]\s*/, "☐ ")
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/^[-*+>]\s+/, "")
+        .replace(/^\d+\.\s+/, ""),
+    )
+    .filter(Boolean);
+  const text = lines.join(" ／ ");
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}

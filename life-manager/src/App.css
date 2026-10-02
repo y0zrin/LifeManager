@@ -4921,18 +4921,39 @@ button:hover {
 /* ガントの下の帯: 乗せた（または押して固定した）タスクの、詳しいことと先行・後続（帯のそばのカードは矢印にかぶるのでやめた。#200） */
 .gantt-info {
   flex-shrink: 0;
-  height: 86px;
+  height: 128px;
   box-sizing: border-box;
-  padding: 6px var(--space-md);
+  padding: 8px var(--space-md);
   border-top: 1px solid var(--border-default);
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 4px;
   overflow: hidden;
   font-size: var(--font-xs);
   color: var(--text-muted);
+}
+
+/* 何も乗せていないときは、案内を真ん中に */
+.gantt-info.empty {
+  justify-content: center;
+}
+
+/* タスクの内容（本文のはじめ。2 行まで。#217）。高さは 2 行ぶんで決めておく（乗せるたびに帯の中がずれないように） */
+.gantt-info-body {
+  display: -webkit-box;
+  height: calc(var(--font-xs) * 1.5 * 2);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.gantt-info-body.none {
+  color: var(--text-faint);
 }
 
 /* メモのボタン（下の角）と重ならないよう、ボタンのある側をあける */
@@ -5001,8 +5022,9 @@ button:hover {
   color: var(--gantt-succ);
 }
 
-/* 先行・後続の札（押すと、その相手まで送る） */
+/* 先行・後続の札（押すと、その相手まで送る）。ボタンの決まりの高さ（32px）にしない（下の帯に 2 段入るように。#217） */
 .gantt-link {
+  min-height: 0;
   border: 1px solid currentColor;
   border-radius: 10px;
   padding: 0 7px;
@@ -5405,6 +5427,18 @@ button:hover {
   margin: 2px 0 4px;
   color: var(--text-muted);
   font-size: var(--font-xs);
+}
+
+/* タスクの内容（本文のはじめ。3 行まで。#217） */
+.mg-info-body {
+  display: -webkit-box;
+  margin-bottom: 4px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .mg-info-links {

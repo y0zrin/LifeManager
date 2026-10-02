@@ -17,6 +17,8 @@ export interface MobileGanttLinks {
   self: GanttTask;
   preds: GanttLink[];
   succs: GanttLink[];
+  /** タスクの内容（本文のはじめ） */
+  excerpt: string;
 }
 
 interface GanttMobileChartProps {
@@ -382,6 +384,7 @@ export function GanttMobileChart({
               .filter(Boolean)
               .join(" ・ ")}
           </div>
+          {links.excerpt && <div className="mg-info-body">{links.excerpt}</div>}
           {(["pred", "succ"] as const).map((kind) => {
             const list = kind === "pred" ? links.preds : links.succs;
             return (

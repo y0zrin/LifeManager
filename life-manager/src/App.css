@@ -13523,6 +13523,8 @@ html.stage-still .desk-buncho::after {
 }
 
 .bv-strip {
+  /* 狭いとき（スマホ）は「ブランチ一覧」の字を隠して ☰ だけにする（名前に重ならないように） */
+  container: bvstrip / inline-size;
   position: relative;
   z-index: 5;
   flex: none;
@@ -13607,6 +13609,12 @@ html.stage-still .desk-buncho::after {
   z-index: 3;
 }
 
+@container bvstrip (max-width: 600px) {
+  .bl-lb {
+    display: none;
+  }
+}
+
 .bv-pager {
   flex: 1;
   min-height: 0;
@@ -13622,12 +13630,61 @@ html.stage-still .desk-buncho::after {
   display: none;
 }
 
+/* ページの幅は、名前の間と同じ（広いとき）か、幅の 86%（狭いとき）。左右のブランチは名前と同じ薄さ（--o） */
 .bv-page {
-  flex: 0 0 100%;
+  flex: 0 0 var(--bv-page, 100%);
   min-width: 0;
   display: flex;
-  scroll-snap-align: start;
+  opacity: var(--o, 1);
+  scroll-snap-align: center;
   scroll-snap-stop: always;
+}
+
+.bv-page-in {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.bv-page.side {
+  cursor: pointer;
+}
+
+.bv-page.side:hover {
+  opacity: min(1, calc(var(--o, 1) + 0.2));
+}
+
+/* 3 列に並べたとき（#228）は、真ん中の列に区切りの線 */
+.bv-pager.cols .bv-page:not(.side) .bv-scroll {
+  border-inline: 1px solid var(--border-subtle);
+}
+
+/* 1 列が狭いとき（3 列と、スマホ）: 余白を詰め、コミットの番号（ハッシュ）は出さず、札は 2 段目に */
+.bv-pager.compact .bv-scroll {
+  padding: var(--space-sm) var(--space-md) var(--space-xl);
+}
+
+.bv-pager.compact .c-row {
+  grid-template-columns: 40px 14px minmax(0, 1fr) 26px;
+}
+
+.bv-pager.compact .c-row > code.c-hash {
+  display: none;
+}
+
+.bv-pager.compact .c-row > .c-chips {
+  grid-column: 3;
+  grid-row: 2;
+  flex-wrap: wrap;
+}
+
+.bv-pager.compact .c-row > .c-chips:empty {
+  display: none;
+}
+
+.bv-pager.compact .p-actions {
+  flex-wrap: wrap;
+  margin-left: 0;
 }
 
 .bv-scroll {

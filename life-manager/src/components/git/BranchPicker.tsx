@@ -70,7 +70,7 @@ export function BranchPicker({ entries, selected, byHash, local, onPick, onMenu 
   return (
     <div className="blist" ref={ref}>
       <button type="button" className={`tbtn${open ? " open" : ""}`} onClick={() => { setQuery(""); setOpen(!open); }}>
-        ☰ ブランチ一覧
+        ☰<span className="bl-lb"> ブランチ一覧</span>
         {index >= 0 && <span className="bl-pos">{index + 1} / {entries.length}</span>}
       </button>
       {open && (

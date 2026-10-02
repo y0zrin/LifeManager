@@ -46,6 +46,16 @@ export const belowButton = (el: HTMLElement): MenuPos => {
 
 const MAX_CHAIN = 300;
 
+/** 名前の帯: 左右の端のボタンの幅と、となりの名前までの間（帯の幅に対する割合） */
+const NAME_INSET = 44;
+const NAME_STEP = 0.36;
+/** 履歴を名前と同じ間で並べるときの、1 列の幅の下限。これより狭いときは 1 本を大きく出し、左右は端に少しだけ見せる */
+const MIN_COLUMN = 320;
+const PEEK_PAGE = 0.86;
+
+/** 真ん中からの離れぐあい（ページ何枚分か）に合わせた薄さ。名前も履歴も同じ */
+const fade = (d: number) => Math.max(0, 1 - Math.min(1, Math.abs(d)) * 0.45 - Math.max(0, Math.abs(d) - 1) * 0.5);
+
 export function roleOf(e: BranchEntry, local: boolean): string {
   const parts: string[] = [];
   if (e.isDefault) parts.push("既定のブランチ");
@@ -55,7 +65,8 @@ export function roleOf(e: BranchEntry, local: boolean): string {
   return parts.join("・") || "ブランチ";
 }
 
-/** ブランチ画面: ブランチごとのページを左右にスライドして見る。名前の帯はスライドに合わせて大きさが変わる */
+/** ブランチ画面: ブランチごとのページを左右にスライドして見る。名前の帯はスライドに合わせて大きさが変わる。
+ * 広いときは、履歴も名前と同じ間で並べ、左右のブランチの履歴は名前と同じ薄さで出す（#228） */
 export function BranchesView(props: BranchesViewProps) {
   const { entries, selected, onSelect } = props;
   const found = entries.findIndex((e) => e.name === selected);
@@ -63,17 +74,38 @@ export function BranchesView(props: BranchesViewProps) {
   const pagerRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(index);
   const stopAnim = useRef<(() => void) | null>(null);
-  const placed = useRef(false);
   const settleTimer = useRef(0);
   const frame = useRef(0);
 
-  // 外から（一覧・全体図・矢印）ブランチが変わったら、そのページへスライドする（最初の表示だけは動かさずに置く）
+  // ページの幅: 広いときは名前の間と同じ（3 列）、狭いときは 1 本を大きく（左右は端に少しだけ）。窓の大きさが変わったら決め直す
+  const [lay, setLay] = useState({ w: 0, page: 0 });
   useLayoutEffect(() => {
     const el = pagerRef.current;
     if (!el) return;
-    const target = index * el.clientWidth;
-    if (!placed.current) {
-      placed.current = true;
+    const measure = () => {
+      const w = el.clientWidth;
+      const step = (w - 2 * NAME_INSET) * NAME_STEP;
+      const page = Math.round(step >= MIN_COLUMN ? step : w * PEEK_PAGE);
+      setLay((p) => (p.w === w && p.page === page ? p : { w, page }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [entries.length > 0]);
+  const cols = lay.page > 0 && lay.page < lay.w * 0.6;
+  // 1 列が狭いとき（3 列と、スマホ）は、行を詰める
+  const compact = lay.page > 0 && lay.page < 520;
+
+  // 外から（一覧・全体図・矢印）ブランチが変わったら、そのページへスライドする（最初と、並べ方が変わったときは動かさずに置く）
+  const laidFor = useRef(0);
+  useLayoutEffect(() => {
+    const el = pagerRef.current;
+    if (!el || !lay.page) return;
+    const target = index * lay.page;
+    if (laidFor.current !== lay.page) {
+      laidFor.current = lay.page;
+      stopAnim.current?.();
       el.scrollLeft = target;
       setPos(index);
       return;
@@ -81,27 +113,17 @@ export function BranchesView(props: BranchesViewProps) {
     if (Math.abs(el.scrollLeft - target) < 2) return;
     stopAnim.current?.();
     stopAnim.current = easeScrollTo(el, { left: target });
-  }, [index]);
-
-  // 窓の大きさが変わったら、今のページにそろえ直す
-  useEffect(() => {
-    const onResize = () => {
-      const el = pagerRef.current;
-      if (el) el.scrollLeft = index * el.clientWidth;
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [index]);
+  }, [index, lay.page]);
 
   const onScroll = () => {
     const el = pagerRef.current;
-    if (!el || !el.clientWidth) return;
+    if (!el || !lay.page) return;
     cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => setPos(el.scrollLeft / el.clientWidth));
+    frame.current = requestAnimationFrame(() => setPos(el.scrollLeft / lay.page));
     // 指やホイールで動かして止まったら、そのページのブランチを選んだことにする
     window.clearTimeout(settleTimer.current);
     settleTimer.current = window.setTimeout(() => {
-      const i = Math.round(el.scrollLeft / el.clientWidth);
+      const i = Math.round(el.scrollLeft / lay.page);
       if (entries[i] && entries[i].name !== selected) onSelect(entries[i].name);
     }, 140);
   };
@@ -194,9 +216,9 @@ export function BranchesView(props: BranchesViewProps) {
                 }}
                 className={`bv-name${i === index ? " on" : ""}`}
                 style={{
-                  left: `calc(50% + ${d * 36}%)`,
+                  left: `calc(50% + ${d * NAME_STEP * 100}%)`,
                   transform: `translateX(-50%) scale(${0.62 + 0.38 * k})`,
-                  opacity: 1 - Math.min(1, Math.abs(d)) * 0.45 - Math.max(0, Math.abs(d) - 1) * 0.5,
+                  opacity: fade(d),
                 }}
                 tabIndex={Math.abs(d) < 1.5 ? 0 : -1}
                 onClick={() => go(i)}
@@ -228,27 +250,43 @@ export function BranchesView(props: BranchesViewProps) {
         </div>
       </div>
 
-      <div className="bv-pager" ref={pagerRef} onScroll={onScroll}>
-        {entries.map((e, i) => (
-          <div key={e.name} className="bv-page">
-            {Math.abs(i - near) <= 1 && (
-              <BranchPage
-                entry={e}
-                history={props.history}
-                byHash={props.byHash}
-                defaultEntry={defaultEntry}
-                status={e.isCurrent ? props.status : null}
-                actions={props.actions}
-                focusCommit={i === index ? props.focusCommit : null}
-                onFocusHandled={props.onFocusHandled}
-                onOpenWork={props.onOpenWork}
-                onOpenOverview={props.onOpenOverview}
-                onCommitMenu={props.onCommitMenu}
-                onBranchMenu={props.onBranchMenu}
-              />
-            )}
-          </div>
-        ))}
+      <div
+        className={`bv-pager${cols ? " cols" : ""}${compact ? " compact" : ""}`}
+        ref={pagerRef}
+        onScroll={onScroll}
+        style={lay.page ? { paddingInline: (lay.w - lay.page) / 2, ["--bv-page" as string]: `${lay.page}px` } : undefined}
+      >
+        {entries.map((e, i) => {
+          // 左右のブランチの履歴は、名前と同じ薄さ。押すと、そのブランチへ（中のボタンは押せない）
+          const side = i !== index;
+          return (
+            <div
+              key={e.name}
+              className={`bv-page${side ? " side" : ""}`}
+              style={{ ["--o" as string]: fade(i - pos) }}
+              onClick={side ? () => go(i) : undefined}
+            >
+              <div className="bv-page-in" inert={side}>
+                {Math.abs(i - near) <= (cols ? 2 : 1) && (
+                  <BranchPage
+                    entry={e}
+                    history={props.history}
+                    byHash={props.byHash}
+                    defaultEntry={defaultEntry}
+                    status={e.isCurrent ? props.status : null}
+                    actions={props.actions}
+                    focusCommit={i === index ? props.focusCommit : null}
+                    onFocusHandled={props.onFocusHandled}
+                    onOpenWork={props.onOpenWork}
+                    onOpenOverview={props.onOpenOverview}
+                    onCommitMenu={props.onCommitMenu}
+                    onBranchMenu={props.onBranchMenu}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

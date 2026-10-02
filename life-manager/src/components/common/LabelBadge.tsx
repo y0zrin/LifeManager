@@ -1,6 +1,19 @@
-export function LabelBadge({ name, color }: { name: string; color: string }) {
+/**
+ * ラベルの短い名前（スマホのカード。#208）: 分類の名前を外して値だけにする。
+ * 優先は値だけだと分からない（「高」）ので「優先 高」。分類のない名前はそのまま
+ */
+export function shortLabelName(name: string): string {
+  const i = name.indexOf(":");
+  if (i < 0) return name;
+  const cat = name.slice(0, i);
+  const value = name.slice(i + 1);
+  return cat === "優先" ? `優先 ${value}` : value;
+}
+
+export function LabelBadge({ name, color, short = false }: { name: string; color: string; short?: boolean }) {
   return (
     <span
+      title={short ? name : undefined}
       style={{
         display: "inline-block",
         padding: "1px 7px",
@@ -12,7 +25,7 @@ export function LabelBadge({ name, color }: { name: string; color: string }) {
         backgroundColor: `#${color}`,
       }}
     >
-      {name}
+      {short ? shortLabelName(name) : name}
     </span>
   );
 }

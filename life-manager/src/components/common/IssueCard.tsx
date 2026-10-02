@@ -10,7 +10,8 @@ import { DueChip } from "./DueChip";
 import { EstimateChip } from "./EstimateChip";
 import { issueRef } from "../../lib/issueRef";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
-import { Avatar } from "./Avatar";
+import { Avatar } from "./Avatar";
+import { isMobile } from "../../lib/platform";
 
 export function IssueCard({
   issue,
@@ -74,7 +75,13 @@ export function IssueCard({
   const todoTotal = todoMatch?.length || 0;
   const todoDone = issue.body?.match(/- \[x\]/g)?.length || 0;
   // 本文の抜き出し（ガントの日程などの見えない印 <!-- … --> は出さない）
-  const excerpt = (issue.body ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
+  // 本文の頭。スマホは、チェックの行（- [ ] …）を除く（下の「☑ 2/4」で数を出すので）。#208
+  const excerpt = (issue.body ?? "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split("\n")
+    .filter((line) => !isMobile || !/^\s*[-*] \[[ xX]\]/.test(line))
+    .join("\n")
+    .trim();
 
   // 送っているあいだ・送れなかった仮の Issue（まだ番号がない）: 押しても開かない
   const unsent = isUnsent(issue);
@@ -122,13 +129,13 @@ export function IssueCard({
 
       {excerpt && (
         <p className="issue-card-body">
-          {excerpt.length > 120 ? excerpt.substring(0, 120) + "..." : excerpt}
+          {excerpt.length > (isMobile ? 70 : 120) ? excerpt.substring(0, isMobile ? 70 : 120) + "..." : excerpt}
         </p>
       )}
 
       {todoTotal > 0 && (
         <div data-todo-progress style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", margin: "4px 0" }}>
-          タスク: {todoDone}/{todoTotal}
+          {isMobile ? "☑" : "タスク:"} {todoDone}/{todoTotal}
           <div style={{ width: "100px", height: "4px", background: "var(--border-default)", borderRadius: "2px", display: "inline-block", marginLeft: "6px", verticalAlign: "middle" }}>
             <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "var(--accent-green)", borderRadius: "2px" }} />
           </div>
@@ -138,7 +145,7 @@ export function IssueCard({
       <div className="issue-card-labels">
         {/* 見積もりは上の「📏 3」で出すので、ラベルには並べない */}
         {issue.labels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX)).map((l) => (
-          <LabelBadge key={l.name} name={l.name} color={l.color} />
+          <LabelBadge key={l.name} name={l.name} color={l.color} short={isMobile} />
         ))}
         {issue.assignees && issue.assignees.length > 0 && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>

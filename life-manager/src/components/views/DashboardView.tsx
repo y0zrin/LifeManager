@@ -94,6 +94,9 @@ function bulkMessage(action: BulkAction, n: number): string {
 }
 
 interface DashboardViewProps {
+  /** この人の担当で開く（オーバービューのメンバーの今から。#246）。使ったら onAssigneeRequestHandled */
+  assigneeRequest?: { login: string; at: number } | null;
+  onAssigneeRequestHandled?: () => void;
   issues: GitHubIssue[];
   closedIssues: GitHubIssue[];
   labels: GitHubLabel[];
@@ -155,7 +158,7 @@ export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
   onCreateIssue, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
-  splitCapable = false, onSplitChange, selectedIssue = null, detail,
+  splitCapable = false, onSplitChange, selectedIssue = null, detail, assigneeRequest = null, onAssigneeRequestHandled,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const unit = useEstimateUnit();
@@ -186,6 +189,13 @@ export function DashboardView({
     setIssueMilestone(undefined);
   }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
+  // オーバービューのメンバーの今で人を押したとき: その人の担当の、開いているタスク（#246）
+  useEffect(() => {
+    if (!assigneeRequest) return;
+    setAssigneeFilter(assigneeRequest.login);
+    onAssigneeRequestHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assigneeRequest]);
   // マイルストーンで絞る（null は全部）
   const [milestoneFilter, setMilestoneFilter] = useState<MilestoneFilter | null>(null);
   const [stateFilter, setStateFilter] = useState<StateFilter>("open");

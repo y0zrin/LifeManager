@@ -32,6 +32,8 @@ interface InsightsViewProps {
   events?: ActivityEvent[] | null;
   /** 自分（メンバーの「今」で先に出す） */
   me?: string;
+  /** メンバーの「今」で人を押したとき（#246） */
+  onSelectMember?: (login: string) => void;
 }
 
 /** 量の数え方（見積もり／件数）。マイルストーンの画面と同じ決め方で、次に開いたときも同じ */
@@ -55,7 +57,7 @@ function loadFilters(): Filters {
  * 8 週の作った数と閉じた数）と、チームのペース（ベロシティ・サイクルタイム）を 1 つの画面で見る。
  * タスクの数は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
  */
-export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline, compact = false, onMore, events = null, me = "" }: InsightsViewProps) {
+export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline, compact = false, onMore, events = null, me = "", onSelectMember }: InsightsViewProps) {
   const unit = useEstimateUnit();
   const [filters, setFilters] = useState<Filters>(loadFilters);
   // スマホの、下から出る絞り込みの板
@@ -203,7 +205,7 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
         title={compact ? "📈 オーバービュー" : "📈 タスクの数"} foldable={false}
         compact={compact} headExtra={compact ? mobileFilter : undefined} onMore={onMore} />
 
-      {!compact && <MemberNow members={collaborators} issues={issues} events={events} me={me} onSelectIssue={onSelectIssue} />}
+      {!compact && <MemberNow members={collaborators} issues={issues} events={events} me={me} onSelectIssue={onSelectIssue} onSelectMember={onSelectMember} />}
 
       {!compact && all.length > 0 && (
         <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}

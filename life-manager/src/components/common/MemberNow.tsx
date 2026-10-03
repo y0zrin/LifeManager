@@ -12,6 +12,8 @@ interface MemberNowProps {
   events: ActivityEvent[] | null;
   me: string;
   onSelectIssue: (n: number) => void;
+  /** 人を押したとき（その人の担当のタスク一覧を開く。#246） */
+  onSelectMember?: (login: string) => void;
 }
 
 /** 進行中のタスクは、何件まで題名を出すか */
@@ -23,7 +25,7 @@ type Row = { user: GitHubUser; lastAt: string | null; doing: GitHubIssue[] };
  * メンバーの「今」（#236）: メンバーごとに、最後に動いた時刻（チームの動きの、その人のいちばん新しい出来事）と、進行中のタスク。
  * 自分を先に、あとは最近動いた順。古くても赤くはしない
  */
-export function MemberNow({ members, issues, events, me, onSelectIssue }: MemberNowProps) {
+export function MemberNow({ members, issues, events, me, onSelectIssue, onSelectMember }: MemberNowProps) {
   const rows = useMemo<Row[]>(() => {
     const last = new Map<string, string>();
     for (const e of events ?? []) {
@@ -63,8 +65,17 @@ export function MemberNow({ members, issues, events, me, onSelectIssue }: Member
         {rows.map((r) => (
           <div key={r.user.login} className="mn-row" role="row">
             <span className="mn-who" role="cell">
-              <Avatar login={r.user.login} url={r.user.avatar_url} className="mn-avatar" alt="" />
-              <b>{r.user.login}</b>
+              {onSelectMember ? (
+                <button type="button" className="mn-who-btn" title={`${r.user.login} の担当のタスクを一覧で見る`} onClick={() => onSelectMember(r.user.login)}>
+                  <Avatar login={r.user.login} url={r.user.avatar_url} className="mn-avatar" alt="" />
+                  <b>{r.user.login}</b>
+                </button>
+              ) : (
+                <>
+                  <Avatar login={r.user.login} url={r.user.avatar_url} className="mn-avatar" alt="" />
+                  <b>{r.user.login}</b>
+                </>
+              )}
             </span>
             <span
               className="mn-when"

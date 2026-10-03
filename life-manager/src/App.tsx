@@ -274,6 +274,8 @@ function App() {
   const [showPalette, setShowPalette] = useState(false);
   const [filters, setFilters] = useState<LabelFilters>({});
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null);
+  // メンバーの今で人を押したとき、タスク一覧をその人の担当で開く（#246）
+  const [assigneeRequest, setAssigneeRequest] = useState<{ login: string; at: number } | null>(null);
   // マイルストーンの「📊 ボードでタスクを足す」: ボードをそのマイルストーンで絞って開く
   const [boardFocus, setBoardFocus] = useState<{ milestone: number; nonce: number } | null>(null);
   // オフラインのあいだの変更（送信待ち）。送信待ちが変わったら手元の写しで、送れたら GitHub から読み直す
@@ -1374,6 +1376,10 @@ function App() {
             <InsightsView
               events={activity.feed?.events ?? null}
               me={gh.currentUser}
+              onSelectMember={(login) => {
+                setAssigneeRequest({ login, at: Date.now() });
+                setView("dashboard");
+              }}
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               milestones={gh.milestones}
@@ -1390,6 +1396,8 @@ function App() {
           {/* ダッシュボード */}
           {view === "dashboard" && gh.connected && (
             <DashboardView
+              assigneeRequest={assigneeRequest}
+              onAssigneeRequestHandled={() => setAssigneeRequest(null)}
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               labels={gh.customLabels}

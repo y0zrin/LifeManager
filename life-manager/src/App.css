@@ -3936,6 +3936,31 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   white-space: nowrap;
 }
 
+.mn-who-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 6px 2px 2px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mn-who-btn:hover {
+  border-color: var(--accent-blue);
+}
+
+.mn-who-btn b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mn-avatar {
   flex: none;
   width: 24px;

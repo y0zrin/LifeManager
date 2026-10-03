@@ -687,7 +687,7 @@ function App() {
   const sentIssues = useMemo(() => gh.issues.filter((i) => !isSending(i.number)), [gh.issues]);
   // スマホでは、ヒストリーを開いているあいだだけ GitHub を読む（裏では読まない。電池と通信のため）
   // スマホは、ヒストリーとメニュー（「あなたがすること」の数を出す）を開いているときだけ読む
-  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && (!isMobile || view === "activity" || view === "menu"), view === "activity", sentIssues, actions.stack);
+  const activity = useActivity(gh.owner, gh.repo, gh.currentUser, gh.connected && (!isMobile || view === "activity" || view === "menu" || view === "insights"), view === "activity", sentIssues, actions.stack);
   // スマホのメニューの「マイルストーン」の札に出す、いちばん近い開いたマイルストーン
   const nearestMilestone = useMemo(
     () => [...gh.milestones].filter((m) => m.state !== "closed").sort((a, b) => (a.due_on ?? "9999").localeCompare(b.due_on ?? "9999"))[0],
@@ -1359,6 +1359,8 @@ function App() {
 
           {view === "insights" && gh.connected && (
             <InsightsView
+              events={activity.feed?.events ?? null}
+              me={gh.currentUser}
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               milestones={gh.milestones}

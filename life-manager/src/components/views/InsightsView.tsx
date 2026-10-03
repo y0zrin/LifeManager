@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser, TimelineEvent } from "../../lib/types";
 import { AnalyticsPanel } from "../common/AnalyticsPanel";
 import { TeamPace } from "../common/TeamPace";
+import { MemberNow } from "../common/MemberNow";
+import type { ActivityEvent } from "../../lib/activity";
 import { useEstimateUnit } from "../common/EstimateChip";
 import { estimateOf } from "../../lib/estimate";
 import { finishedMilestones, velocity, type PaceMode } from "../../lib/sprint";
@@ -26,6 +28,10 @@ interface InsightsViewProps {
   compact?: boolean;
   /** 「くわしく」を押したとき（全部の中身の画面を開く） */
   onMore?: () => void;
+  /** チームの動き（メンバーの「今」の、最後に動いた時刻。#236）。まだ読めていなければ null */
+  events?: ActivityEvent[] | null;
+  /** 自分（メンバーの「今」で先に出す） */
+  me?: string;
 }
 
 /** 量の数え方（見積もり／件数）。マイルストーンの画面と同じ決め方で、次に開いたときも同じ */
@@ -49,7 +55,7 @@ function loadFilters(): Filters {
  * 8 週の作った数と閉じた数）と、チームのペース（ベロシティ・サイクルタイム）を 1 つの画面で見る。
  * タスクの数は、上のマイルストーン・担当・セクションで絞れる（チームのペースは、リポジトリ全体）
  */
-export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline, compact = false, onMore }: InsightsViewProps) {
+export function InsightsView({ issues, closedIssues, milestones, labels, collaborators, owner, repo, stateOrder, onSelectIssue, onListTimeline, compact = false, onMore, events = null, me = "" }: InsightsViewProps) {
   const unit = useEstimateUnit();
   const [filters, setFilters] = useState<Filters>(loadFilters);
   // スマホの、下から出る絞り込みの板
@@ -196,6 +202,8 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
       <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue}
         title={compact ? "📈 オーバービュー" : "📈 タスクの数"} foldable={false}
         compact={compact} headExtra={compact ? mobileFilter : undefined} onMore={onMore} />
+
+      {!compact && <MemberNow members={collaborators} issues={issues} events={events} me={me} onSelectIssue={onSelectIssue} />}
 
       {!compact && all.length > 0 && (
         <TeamPace owner={owner} repo={repo} entries={entries} finishedCount={finished.size} closedIssues={closedIssues}

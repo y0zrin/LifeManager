@@ -3585,6 +3585,125 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
+/* メンバーの「今」（#236）: メンバー・最後に動いた・進行中のタスク。狭いときは、時刻を名前の下に */
+.member-now {
+  container-type: inline-size;
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.member-now-head {
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.mn-table {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) minmax(72px, max-content) minmax(0, 1fr);
+  column-gap: var(--space-md);
+}
+
+.mn-row {
+  display: contents;
+}
+
+.mn-row > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mn-cols > span {
+  padding-top: 0;
+  border-top: none;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.mn-who {
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+.mn-who b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mn-avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.mn-when {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.mn-doing {
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.mn-task {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mn-task:hover {
+  border-color: var(--accent-blue);
+}
+
+.mn-task-n {
+  color: var(--accent-blue);
+}
+
+.mn-none,
+.mn-more {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+@container (max-width: 460px) {
+  .mn-table {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .mn-cols {
+    display: none;
+  }
+
+  .mn-doing {
+    grid-column: 1 / -1;
+    padding-top: 0 !important;
+    border-top: none !important;
+  }
+
+  .mn-doing:has(.mn-none) {
+    display: none !important;
+  }
+}
+
 /* オーバービュー: 広いときは「タスクの数」と「チームのペース」を横に並べる（#227） */
 .content.insights:not(.insights--compact) {
   display: grid;

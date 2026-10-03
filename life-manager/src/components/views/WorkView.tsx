@@ -12,6 +12,7 @@ import { isEnter } from "../../lib/keys";
 import { branchPull, type PullSummary } from "../../lib/pulls";
 import { countOf } from "../../lib/count";
 import { commentPreview } from "../../lib/help";
+import { branchNameFor, rememberWorkBranch, workBranchOf } from "../../lib/branchName";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
 export interface CommitDraft {
@@ -434,6 +435,11 @@ function Workspace({
   const sameHead = (a: string, b: string) => a !== "" && b !== "" && (a.startsWith(b) || b.startsWith(a));
   const hasOwnCommits = committedHere || (st.head !== "" && defaultHead !== "" && !sameHead(st.head, defaultHead));
   const onBranch = !!st.branch && !onDefault;
+  // この Issue の作業に使っているブランチを覚える（題名を変えても、このブランチで続けられるように。#251）
+  const workingIssue = issue?.number ?? null;
+  useEffect(() => {
+    if (workingIssue !== null && onBranch) rememberWorkBranch(owner, repo, workingIssue, st.branch);
+  }, [workingIssue, onBranch, st.branch, owner, repo]);
 
   // このブランチから出したプルリク（GitHub に聞く。画面に戻ったとき・1 分ごとにも読み直す）
   const [branchPr, setBranchPr] = useState<{ branch: string; pull: PullSummary | null; error: string | null } | null>(null);
@@ -709,13 +715,14 @@ function Workspace({
           branch={st.branch}
           onDefault={onDefault}
           localBranches={g.branches.map((b) => b.name)}
-          onStart={(n, how) => {
+          onStart={(n, how, own) => {
             setChoice(n);
             setViewStep(null);
             // 自分を担当にして「進行中」に（ボードの自分のタスク・進行中に出る）
             void onStartIssue(n);
-            if (how === "create") actions.createBranch(`issue-${n}`);
-            else if (how === "switch") actions.requestSwitch(`issue-${n}`);
+            // ブランチの名前は Issue の題名から（#251）
+            if (how === "create") actions.createBranch(own);
+            else if (how === "switch") actions.requestSwitch(own);
           }}
           onOpenIssue={onOpenIssue}
           onOpenMilestones={onOpenMilestones}
@@ -753,7 +760,7 @@ function Workspace({
           {onDefault && <small>（既定のブランチに直接コミットします）</small>}
         </span>
         {onDefault && issue && (
-          <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={() => actions.createBranch(`issue-${issue.number}`)}>
+          <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={() => actions.createBranch(branchNameFor(issue))}>
             ブランチを分ける…
           </button>
         )}
@@ -893,7 +900,8 @@ interface IssueStepProps {
   /** この PC にあるブランチ（前に作った issue-N があれば、それに切り替えて始める） */
   localBranches: string[];
   /** 始める: create = issue-N を作る、switch = 前に作った issue-N に切り替える、here = 今のブランチのまま */
-  onStart: (n: number, how: "create" | "switch" | "here") => void;
+  /** own: この Issue の作業のブランチ（覚えたもの・前の issue-12・題名から作った名前。#251） */
+  onStart: (n: number, how: "create" | "switch" | "here", own: string) => void;
   onOpenIssue: (n: number) => void;
   onOpenMilestones: () => void;
   onAddOnBoard: (milestone: number | null) => void;
@@ -994,7 +1002,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
         {list.map((i) => {
           const chosen = i.number === choice;
           const who = others(i);
-          const own = `issue-${i.number}`;
+          const own = workBranchOf(owner, repo, i, localBranches);
           const hasOwn = localBranches.includes(own) && branch !== own;
           return (
             <Fragment key={i.number}>
@@ -1016,21 +1024,21 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                   <div className="w-start-q">#{i.number} を、どのブランチで作業しますか？</div>
                   <div className="w-step-actions">
                     {branch === own ? (
-                      <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "here")}>
-                        {own}（今のブランチ）で始める
+                      <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "here", own)}>
+                        「{own}」（今のブランチ）で始める
                       </button>
                     ) : (
                       <>
                         {hasOwn ? (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch")}>
-                            {own} に切り替えて始める
+                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
+                            「{own}」に切り替えて始める
                           </button>
                         ) : (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "create")}>
-                            ブランチ {own} を作って始める
+                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "create", own)}>
+                            ブランチ「{own}」を作って始める
                           </button>
                         )}
-                        <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here")}>
+                        <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", own)}>
                           今のブランチ（{branch || "切り離し"}）で始める
                         </button>
                       </>

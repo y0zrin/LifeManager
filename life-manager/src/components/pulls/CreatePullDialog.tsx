@@ -8,12 +8,12 @@ import {
   compareBranches,
   createPull,
   firstLine,
-  issueOfBranch,
   pullRepoInfo,
   type Comparison,
   type PullRepoInfo,
   type PullSummary,
 } from "../../lib/pulls";
+import { issueForBranch } from "../../lib/branchName";
 import { PullFiles } from "./PullFiles";
 import { countOf } from "../../lib/count";
 
@@ -52,7 +52,8 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
   const [base, setBase] = useState(props.info?.default_branch ?? "");
   const [head, setHead] = useState(initialHead ?? "");
   const guessIssue = (branch: string) => {
-    const n = initialIssue ?? issueOfBranch(branch);
+    // ブランチの名前は Issue の題名のこともある（#251）
+    const n = initialIssue ?? issueForBranch(branch, issues, owner, repo);
     return n !== null && issues.some((i) => i.number === n) ? n : null;
   };
   const [issue, setIssue] = useState<number | null>(() => guessIssue(initialHead ?? ""));
@@ -135,8 +136,8 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
 
   function chooseHead(branch: string) {
     setHead(branch);
-    const n = issueOfBranch(branch);
-    if (issue === null && n !== null && issues.some((i) => i.number === n)) chooseIssue(n);
+    const n = issueForBranch(branch, issues, owner, repo);
+    if (issue === null && n !== null) chooseIssue(n);
   }
 
   const already = useMemo(

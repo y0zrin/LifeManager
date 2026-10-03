@@ -14,7 +14,8 @@ import { TaskFilterButton, TaskFilterChips, TaskFilterGroups, clearAll, filterCo
 import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter } from "../../lib/savedViews";
-import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
+import { closingIssues, listPulls, pullVerdicts } from "../../lib/pulls";
+import { issueForBranch } from "../../lib/branchName";
 import { isEnter, isEscape } from "../../lib/keys";
 import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
 import { isMobile as isPhone } from "../../lib/platform";
@@ -399,7 +400,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         for (const p of open) {
           const v = (verdicts as Record<string, { approved: string[]; changes_requested: string[] }>)[String(p.number)];
           const state = p.draft ? "下書き" : v?.changes_requested.length ? "修正の依頼" : v?.approved.length ? "承認済み" : "レビュー待ち";
-          const branchIssue = issueOfBranch(p.head);
+          const branchIssue = issueForBranch(p.head, issues, owner, repo);
           for (const n of [...closingIssues(p.body ?? ""), ...(branchIssue !== null ? [branchIssue] : [])]) {
             if (!map.has(n)) map.set(n, { number: p.number, state });
           }

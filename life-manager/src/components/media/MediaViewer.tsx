@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { baseName, blobUrl, extOf, formatBytes, KIND_GROUPS, KIND_ICONS, KIND_LABELS, kindOf, readMediaBytes, type MediaFile } from "../../lib/media";
+import { baseName, extOf, formatBytes, KIND_GROUPS, KIND_ICONS, KIND_LABELS, kindOf, readMediaBytes, type MediaFile } from "../../lib/media";
+import { useBlobUrl } from "../../hooks/useBlobUrl";
 import { LANG_NAMES } from "../../lib/highlight";
 import { isEscape } from "../../lib/keys";
 import { usePortalHost } from "../../hooks/usePortalHost";
@@ -53,23 +54,21 @@ function joinPath(folder: string, file: string): string {
 }
 
 function VideoView({ bytes, path }: { bytes: ArrayBuffer; path: string }) {
-  const url = useMemo(() => blobUrl(bytes, path), [bytes, path]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const url = useBlobUrl(bytes, path);
   return (
     <div className="mv-main full">
       <div className="mv-stage bg-dark mv-video-stage">
-        <video className="mv-video" src={url} controls loop />
+        {url && <video className="mv-video" src={url} controls loop />}
       </div>
     </div>
   );
 }
 
 function PdfView({ bytes, path }: { bytes: ArrayBuffer; path: string }) {
-  const url = useMemo(() => blobUrl(bytes, path), [bytes, path]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const url = useBlobUrl(bytes, path);
   return (
     <div className="mv-main full">
-      <iframe className="mv-pdf" title="PDF" src={url} />
+      {url && <iframe className="mv-pdf" title="PDF" src={url} />}
     </div>
   );
 }

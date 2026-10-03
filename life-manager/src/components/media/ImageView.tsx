@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { blobUrl, defaultSprite, guessSprite } from "../../lib/media";
+import { useEffect, useRef, useState } from "react";
+import { defaultSprite, guessSprite } from "../../lib/media";
+import { useBlobUrl } from "../../hooks/useBlobUrl";
 
 type Bg = "checker" | "dark" | "light";
 
@@ -15,8 +16,7 @@ interface ImageViewProps {
  * 格子の画像（横長・縦長・正方形のコマが並ぶ）は、開いたときに分け方を推測して、スプライトシートとして出す
  */
 export function ImageView({ bytes, path, onInfo }: ImageViewProps) {
-  const url = useMemo(() => blobUrl(bytes, path), [bytes, path]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const url = useBlobUrl(bytes, path);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState<number | null>(null); // null = 合わせる
@@ -139,8 +139,10 @@ export function ImageView({ bytes, path, onInfo }: ImageViewProps) {
           <button type="button" className={`btn-sm${sprite ? " on" : ""}`} aria-pressed={sprite} onClick={() => setSprite(!sprite)}>🎞 スプライトシート</button>
         </div>
         <div className="mv-image-wrap" style={size ? { width: size.w * shown, height: size.h * shown } : undefined}>
-          <img ref={imgRef} src={url} alt={path} onLoad={onLoad} draggable={false}
-            style={{ width: size ? size.w * shown : undefined, imageRendering: pixel ? "pixelated" : "auto" }} />
+          {url && (
+            <img ref={imgRef} src={url} alt={path} onLoad={onLoad} draggable={false}
+              style={{ width: size ? size.w * shown : undefined, imageRendering: pixel ? "pixelated" : "auto" }} />
+          )}
           {sprite && size && (
             <div className="mv-grid" style={{ gridTemplateColumns: `repeat(${grid.cols}, 1fr)`, gridTemplateRows: `repeat(${grid.rows}, 1fr)` }}>
               {Array.from({ length: total }, (_, i) => (

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { blobUrl } from "../../lib/media";
+import { useEffect, useRef, useState } from "react";
+import { useBlobUrl } from "../../hooks/useBlobUrl";
 
 interface AudioViewProps {
   bytes: ArrayBuffer;
@@ -34,8 +34,7 @@ function seconds(t: number): string {
 
 /** 音（波形・再生・ループ・速さ。波形を押すと、そこから） */
 export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
-  const url = useMemo(() => blobUrl(bytes, path), [bytes, path]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  const url = useBlobUrl(bytes, path);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [decoded, setDecoded] = useState<AudioBuffer | null>(null);
@@ -140,7 +139,7 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
       <div className="mv-stage mv-audio">
         <canvas ref={canvasRef} className="mv-wave" onClick={seek} title="押すとそこから再生します" />
         {error && <p className="mv-note">{error}</p>}
-        <audio ref={audioRef} src={url} loop={loop} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+        <audio ref={audioRef} src={url ?? undefined} loop={loop} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onEnded={() => { setPlaying(false); setTime(0); }} />
         <div className="mv-row mv-audio-controls">
           <button type="button" className="btn-primary" onClick={toggle}>{playing ? "⏸ 止める" : "▶ 再生"}</button>

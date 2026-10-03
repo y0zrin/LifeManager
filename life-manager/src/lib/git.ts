@@ -1,6 +1,6 @@
 // PC の git を呼び出す（スマホ版では使わない）。バックエンドの git::commands と対応する
 import { invoke } from "@tauri-apps/api/core";
-import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus } from "./types";
+import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus, WatchFinding } from "./types";
 import { rememberGitFailure } from "./gitFailure";
 
 // --- 準備 ---
@@ -96,6 +96,8 @@ export const openTerminal = (path: string) => invoke<void>("git_open_terminal", 
 // --- 無視するファイル（.gitignore） ---
 /** パターンに当てはまる、git で管理しているファイル（.gitignore に書いても無視されないもの） */
 export const ignoreTracked = (path: string, pattern: string) => invoke<string[]>("git_ignore_tracked", { path, pattern });
+/** コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ */
+export const commitWatch = (path: string, paths: string[]) => invoke<WatchFinding[]>("git_commit_watch", { path, paths });
 /** .gitignore にパターンを 1 行書き足す。untrack があれば、先にそのパスのファイルを管理から外す（git rm --cached） */
 export const ignoreAdd = (path: string, pattern: string, untrack: string | null, recursive: boolean) =>
   invoke<GitRun>("git_ignore_add", { path, pattern, untrack, recursive });
@@ -135,10 +137,13 @@ export function ignoreRules(path: string): IgnoreRule[] {
     rules.push({ kind: "ext", label: `.${ext}`, pattern: `*.${escapeIgnore(ext)}`, pathspec: `*.${ext}`, recursive: true });
   }
   const folders = new Set(parts.length > 1 ? [parts.slice(0, -1).join("/"), parts[0]] : []);
-  for (const dir of folders) {
-    rules.push({ kind: "folder", label: `${dir}/`, pattern: `/${escapeIgnore(dir)}/`, pathspec: `${dir}/`, recursive: true });
-  }
+  for (const dir of folders) rules.push(folderIgnoreRule(dir));
   return rules;
+}
+
+/** そのフォルダ（その場所のものだけ）を無視する */
+export function folderIgnoreRule(dir: string): IgnoreRule {
+  return { kind: "folder", label: `${dir}/`, pattern: `/${escapeIgnore(dir)}/`, pathspec: `${dir}/`, recursive: true };
 }
 
 // --- コミットの操作 ---

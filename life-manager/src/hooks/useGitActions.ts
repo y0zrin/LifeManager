@@ -306,6 +306,28 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     });
   }
 
+  /**
+   * コミットの前の見張りから（#234）: .gitignore に書き足す。チェックを入れた（ステージした）ものや、管理しているものは、聞かずに外す
+   * （ツールが作るフォルダ・GitHub が受け取らない大きなファイルは、記録しないのが正しいので）
+   */
+  async function ignoreNow(rule: git.IgnoreRule) {
+    const folder = g.folder;
+    if (!folder) return;
+    let tracked: string[];
+    try {
+      tracked = await git.ignoreTracked(folder, rule.pattern);
+    } catch (e) {
+      const { command, message } = git.splitGitError(e);
+      g.notify("error", message, command);
+      return;
+    }
+    return g.exec(
+      "無視する設定をしています",
+      (p) => git.ignoreAdd(p, rule.pattern, tracked.length > 0 ? rule.pathspec : null, rule.recursive),
+      (run) => run.output,
+    );
+  }
+
   function editGitignore() {
     if (g.folder) setGitignoreOpen(true);
   }
@@ -672,6 +694,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     renameBranch,
     deleteBranch,
     ignore,
+    ignoreNow,
     editGitignore,
     saveGitignore,
     commitMenu,

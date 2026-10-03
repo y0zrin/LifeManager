@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// リポジトリのいちばん上のフォルダ（.gitignore はここに置く。git status のパスもここから数える）
-fn top_level(repo: &Path) -> Result<PathBuf, String> {
+pub(super) fn top_level(repo: &Path) -> Result<PathBuf, String> {
     let out = run(repo, &["rev-parse", "--show-toplevel"])?.output;
     let top = out.trim();
     if top.is_empty() {

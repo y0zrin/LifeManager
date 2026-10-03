@@ -6,6 +6,7 @@ use super::publish;
 use super::runner::{run, GitRun};
 use super::setup;
 use super::status::{self, BranchInfo, FolderCheck, RepoStatus, StashEntry};
+use super::watch::{self, WatchFinding};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -358,6 +359,12 @@ pub async fn git_discard_all(path: String, include_untracked: bool) -> Result<Gi
 #[tauri::command]
 pub async fn git_ignore_tracked(path: String, pattern: String) -> Result<Vec<String>, String> {
     blocking(move || ignore::tracked_matching(Path::new(&path), &pattern)).await
+}
+
+/// コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ（Unity の Library など）
+#[tauri::command]
+pub async fn git_commit_watch(path: String, paths: Vec<String>) -> Result<Vec<WatchFinding>, String> {
+    blocking(move || watch::commit_watch(Path::new(&path), &paths)).await
 }
 
 /// .gitignore にパターンを書き足す。untrack があれば、そのパスに当てはまるファイルを管理から外す（git rm --cached）

@@ -1331,6 +1331,13 @@ labels: ["種別:バグ", "状態:未整理"]
   </div>
   <p>欄の下に実行するコマンドが表示されます。<span class="ui">コミットしてプッシュ</span>（<kbd>Ctrl</kbd>＋<kbd>Enter</kbd>）でコミットして、そのまま GitHub にも送ります。送らずに記録だけするときは <span class="ui">コミットだけ</span> を押します。</p>
   <div class="cmd">git commit -m "ログイン画面のボタンの色を直す (#12)" -m "Closes #12"</div>
+  <h4 id="commit-watch">コミットの前の見張り</h4>
+  <p>変更の中にコミットしない方がよいものがあると、コミット欄の上に <b>⚠ コミットしない方がよいものがあります</b> が出ます。見張るのは次の 2 つです。</p>
+  <ul>
+    <li><b>ツールが作るフォルダ</b>: Unity の <code>Library/</code>・<code>Temp/</code>・<code>Logs/</code> など、Unreal Engine の <code>Saved/</code>・<code>Intermediate/</code>・<code>DerivedDataCache/</code>・<code>Binaries/</code>、Visual Studio の <code>.vs/</code>・<code>x64/</code>・<code>Debug/</code> など、npm の <code>node_modules/</code>。消してもツールがまた作るので、記録しません。そのツールのプロジェクト（Unity なら <code>Assets</code> と <code>ProjectSettings</code>、Unreal なら <code>.uproject</code>、Visual Studio なら <code>.sln</code> など）のとなりにあるときだけ数えます。</li>
+    <li><b>100 MB をこえるファイル</b>: GitHub が受け取らないので、プッシュが断られます。どうしても記録したいときは Git LFS を使います。</li>
+  </ul>
+  <p>どれかにチェックが入っているあいだは、コミットできません。<span class="ui">.gitignore に足す</span> を押すと、<code>.gitignore</code> にそのフォルダやファイルを書き足し、チェックを入れたものや一度コミットしたものは管理から外します（<code>git rm -r --cached -- Library/</code> など）。ファイルは PC に残ります。</p>
 
   <h3>上のバー（フェッチ・プル・プッシュ）</h3>
   <p>「作業をする」「ブランチ」「全体図」では、上のバーに git の操作が並びます。</p>

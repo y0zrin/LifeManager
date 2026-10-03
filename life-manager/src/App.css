@@ -12904,6 +12904,66 @@ html.stage-still .desk-buncho::after {
   font-size: var(--font-xs);
 }
 
+/* コミットの前の見張り（#234）。チェックが入っていてコミットできないときは赤 */
+.w-watch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--accent-yellow) 55%, transparent);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent-yellow) 10%, var(--bg-secondary));
+  font-size: var(--font-sm);
+}
+
+.w-watch.is-blocked {
+  border-color: color-mix(in srgb, var(--accent-red) 60%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 10%, var(--bg-secondary));
+}
+
+.w-watch-title {
+  color: var(--text-primary);
+}
+
+.w-watch ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w-watch li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.w-watch-what {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
+.w-watch-what code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  overflow-wrap: anywhere;
+}
+
+.w-watch-note {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
 .dr-actions {
   display: flex;
   gap: var(--space-sm);

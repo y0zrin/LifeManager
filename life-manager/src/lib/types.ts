@@ -273,6 +273,20 @@ export interface GitRun {
 }
 
 /** 追加・削除した行数 */
+/** コミットの前の見張りで見つけたもの（#234） */
+export interface WatchFinding {
+  /** large: GitHub が受け取らない大きなファイル / generated: ツールが作るフォルダ */
+  kind: "large" | "generated";
+  /** ファイル、またはフォルダ（最後の / なし） */
+  path: string;
+  /** generated: 作るツール（Unity など） */
+  tool: string | null;
+  /** large: 大きさ（バイト） */
+  size: number | null;
+  /** 当てはまった、変更のあるファイルの数 */
+  files: number;
+}
+
 export interface GitLineStat {
   added: number;
   deleted: number;

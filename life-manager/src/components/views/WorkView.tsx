@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as gitApi from "../../lib/git";
-import type { GitFileChange, GitHubComment, GitHubIssue, GitHubMilestone, GitLineStat, GitRun, GitStash, GitStatus } from "../../lib/types";
+import type { GitFileChange, GitHubComment, GitHubIssue, GitHubMilestone, GitLineStat, GitRun, GitStash, GitStatus, WatchFinding } from "../../lib/types";
 import type { GitState } from "../../hooks/useGit";
 import { OPERATION_NAMES, type GitActions } from "../../hooks/useGitActions";
 import { LocalFolderSetting } from "../common/LocalFolderSetting";
@@ -362,6 +362,30 @@ function Workspace({
   const staged = files.filter((f) => f.staged && f.staged !== "U");
   const unstaged = files.filter((f) => f.unstaged && f.staged !== "U");
   const changeCount = files.length;
+
+  // --- コミットの前の見張り（#234）: 大きすぎるファイル・ツールが作るフォルダ（Unity の Library など） ---
+  // 消したもの（.gitignore に足して管理から外したものも）は、記録から外れるだけなので見張らない
+  const isGone = (f: GitFileChange) => f.staged === "D" || f.unstaged === "D";
+  const [watch, setWatch] = useState<WatchFinding[]>([]);
+  // （Unity の Library のように、何万ものファイルがあっても、打つたびに作り直さない）
+  const watchKey = useMemo(() => files.filter((f) => !isGone(f)).map((f) => f.path).join("\n"), [files]);
+  useEffect(() => {
+    const folder = g.folder;
+    if (!folder || !watchKey) {
+      setWatch([]);
+      return;
+    }
+    let alive = true;
+    gitApi
+      .commitWatch(folder, watchKey.split("\n"))
+      .then((found) => { if (alive) setWatch(found); })
+      .catch(() => { if (alive) setWatch([]); });
+    return () => { alive = false; };
+  }, [g.folder, watchKey]);
+  // チェックを入れた（ステージした）ものがあるあいだは、コミットできない
+  const watchStaged = (f: WatchFinding) =>
+    staged.some((s) => !isGone(s) && (f.kind === "large" ? s.path === f.path : s.path.startsWith(`${f.path}/`)));
+  const watchBlocked = watch.some(watchStaged);
 
   // 選んでいたファイルが見えなくなったら（ステージを変えた・コミットした）、同じファイルのもう一方か、先頭を選ぶ
   const all: Selected[] = [
@@ -776,6 +800,8 @@ function Workspace({
             onPickIssue={() => setViewStep(1)}
             stagedCount={staged.length}
             hasConflicts={conflicts.length > 0}
+            watch={<CommitWatch found={watch} isStaged={watchStaged} actions={actions} busy={g.busy !== null} />}
+            watchBlocked={watchBlocked}
             draft={draft}
             onDraftChange={(d) => { setSummaryError(false); onDraftChange(d); }}
             summaryRef={summaryRef}
@@ -1292,6 +1318,9 @@ interface CommitFormProps {
   onPickIssue: () => void;
   stagedCount: number;
   hasConflicts: boolean;
+  /** コミットの前の見張り（#234）。チェックの入ったものがあれば、コミットできない */
+  watch: ReactNode;
+  watchBlocked: boolean;
   draft: CommitDraft;
   onDraftChange: (draft: CommitDraft) => void;
   summaryRef: RefObject<HTMLInputElement | null>;
@@ -1306,6 +1335,8 @@ function CommitForm({
   onPickIssue,
   stagedCount,
   hasConflicts,
+  watch,
+  watchBlocked,
   draft,
   onDraftChange,
   summaryRef,
@@ -1331,10 +1362,11 @@ function CommitForm({
   const nothingToCommit = stagedCount === 0 && !draft.amend && !draft.allowEmpty && !concludingMerge;
   // コミットは必ず Issue につなげる（マージを終えるコミット・直前のコミットの修正は別）
   const needsIssue = !issue && !concludingMerge && !draft.amend;
-  const blocked = busy || nothingToCommit || hasConflicts || needsIssue || (draft.amend && !st.head);
+  const blocked = busy || nothingToCommit || hasConflicts || needsIssue || watchBlocked || (draft.amend && !st.head);
 
   return (
     <div className="dr-form">
+      {watch}
       <input
         ref={summaryRef}
         className="input-full"
@@ -1408,6 +1440,52 @@ function CommitForm({
           コミットだけ
         </button>
       </div>
+    </div>
+  );
+}
+
+// --- コミットの前の見張り（#234） ---
+
+/** 大きさ（MB。小さいものは小数 1 けた） */
+function megabytes(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb).toLocaleString()} MB`;
+}
+
+/** コミットしない方がよいもの（大きすぎるファイル・ツールが作るフォルダ）と、.gitignore に足すボタン */
+function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]; isStaged: (f: WatchFinding) => boolean; actions: GitActions; busy: boolean }) {
+  if (found.length === 0) return null;
+  const blocked = found.some(isStaged);
+  return (
+    <div className={`w-watch${blocked ? " is-blocked" : ""}`} role="alert">
+      <b className="w-watch-title">⚠ コミットしない方がよいものがあります</b>
+      <ul>
+        {found.map((f) => {
+          const rule = f.kind === "large" ? gitApi.ignoreRules(f.path)[0] : gitApi.folderIgnoreRule(f.path);
+          return (
+            <li key={f.path}>
+              <div className="w-watch-what">
+                <code>{f.kind === "large" ? f.path : `${f.path}/`}</code>
+                <span>
+                  {f.kind === "large"
+                    ? `${megabytes(f.size ?? 0)}。GitHub は 100 MB をこえるファイルを受け取れません（プッシュが断られます）`
+                    : `${f.tool} が作るフォルダです（変更のあるファイルが ${countOf(f.files, "個")}）。消しても ${f.tool} がまた作るので、記録しません`}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn-sm"
+                disabled={busy}
+                title={`.gitignore に ${rule.pattern} を書き足します。チェックを入れたものは外します（${gitApi.displayCommand(["rm", ...(rule.recursive ? ["-r"] : []), "--cached", "--", rule.pathspec])}）`}
+                onClick={() => void actions.ignoreNow(rule)}
+              >
+                .gitignore に足す
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {blocked && <p className="w-watch-note">チェックが入っているあいだは、コミットできません。「.gitignore に足す」を押すと、チェックも外れます</p>}
     </div>
   );
 }

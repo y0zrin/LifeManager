@@ -38,9 +38,11 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
   const [withTasks, setWithTasks] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 作っているあいだは、作り始めたときのマイルストーンと比べる（このダイアログで作ったものを「同じ名前」にしない。#254）
+  const [takenAtStart, setTakenAtStart] = useState<Set<string> | null>(null);
 
   const dates = useMemo(() => planDates(GAME_PLAN, start, end), [start, end]);
-  const taken = new Set(milestones.map((m) => m.title.trim()));
+  const taken = takenAtStart ?? new Set(milestones.map((m) => m.title.trim()));
   const dup = titles.map((t, i) => taken.has(t.trim()) || titles.some((x, j) => j !== i && x.trim() === t.trim()));
   const taskCount = GAME_PLAN.reduce((n, s) => n + s.tasks.length, 0);
   const canCreate = !busy && !!dates && titles.every((t) => t.trim()) && !dup.some(Boolean);
@@ -57,6 +59,7 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
     if (!dates) return;
     const origin = button.getBoundingClientRect();
     setError(null);
+    setTakenAtStart(new Set(milestones.map((m) => m.title.trim())));
     let made = 0;
     let tasksMade = 0;
     try {
@@ -76,6 +79,8 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
       celebrateDone("見本の計画", origin, `マイルストーン ${made} つ${withTasks ? `とタスク ${tasksMade} 件` : ""}を作りました`);
       onClose();
     } catch (e) {
+      // 途中で止まったら、作ったものも含めて今あるものと比べ直す
+      setTakenAtStart(null);
       setError(`途中で止まりました（マイルストーン ${made} つ、タスク ${tasksMade} 件まで作りました）: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(null);
@@ -131,9 +136,9 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
           よくあるタスクも作る（{taskCount} 件）
         </label>
 
-        {busy && <p className="git-dialog-running">{busy}</p>}
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
+          {busy && <span className="git-dialog-running sp-busy">{busy}</span>}
           <button type="button" className="btn-sm" disabled={!!busy} onClick={onClose}>
             やめる
           </button>

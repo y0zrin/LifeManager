@@ -3598,7 +3598,7 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   padding-bottom: 32px;
 }
 
-/* 「作る」は、中を送らなくても見えるように下に貼りつける（#253） */
+/* 「作る」は、中を送らなくても見えるように下に貼りつける（#253）。「作っています…」もその左に出す（#254） */
 .sp-dialog .git-dialog-actions {
   position: sticky;
   bottom: calc(-1 * var(--space-lg));
@@ -3606,6 +3606,10 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   padding: var(--space-sm) 0 var(--space-lg);
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-default);
+}
+
+.sp-busy {
+  margin-right: auto;
 }
 
 .sp-days {

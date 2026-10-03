@@ -22,6 +22,8 @@ interface ActivityViewProps {
   /** マイルストーンの達成をヒストリーに出すため（#229） */
   milestones: GitHubMilestone[];
   closedIssues: GitHubIssue[];
+  /** 今日のあなた（チームの仕事の下。#238） */
+  today?: ReactNode;
 }
 
 /** この起動のあいだに、滑り込みを見せたマイルストーンの達成（もう一度ヒストリーを開いても、くり返さない） */
@@ -62,7 +64,7 @@ function MilestoneBanner({ id, children }: { id: string; children: ReactNode }) 
 }
 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
-export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, closedIssues }: ActivityViewProps) {
+export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, closedIssues, today }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<"" | ActivityKind>("");
@@ -113,6 +115,8 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
         <div className="av-side">
           {/* チームの仕事（これまでの合計。減らない数） */}
           <TeamWork key={`${owner}/${repo}`} owner={owner} repo={repo} team={team} motion={motion} />
+
+          {today}
 
           <div className="av-me">
             <div className="av-me-head">

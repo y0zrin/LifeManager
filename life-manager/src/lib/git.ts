@@ -96,6 +96,8 @@ export const openTerminal = (path: string) => invoke<void>("git_open_terminal", 
 // --- 無視するファイル（.gitignore） ---
 /** パターンに当てはまる、git で管理しているファイル（.gitignore に書いても無視されないもの） */
 export const ignoreTracked = (path: string, pattern: string) => invoke<string[]>("git_ignore_tracked", { path, pattern });
+/** 自分が since から作ったコミットの数（#238 今日のあなた） */
+export const myCommitsSince = (path: string, since: string) => invoke<number>("git_my_commits_since", { path, since });
 /** コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ */
 export const commitWatch = (path: string, paths: string[]) => invoke<WatchFinding[]>("git_commit_watch", { path, paths });
 /** .gitignore にパターンを 1 行書き足す。untrack があれば、先にそのパスのファイルを管理から外す（git rm --cached） */

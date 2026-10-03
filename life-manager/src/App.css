@@ -3585,6 +3585,87 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
+/* 今日のあなた（#238）: ヒストリーの左の列、チームの仕事の下 */
+.today-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding: 12px 18px 14px;
+  border: 1.5px solid var(--panel-line, var(--border-default));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--picker-card, var(--bg-secondary)) 76%, transparent);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow-color) 45%, transparent);
+}
+
+.today-card.is-finished {
+  background: color-mix(in srgb, var(--accent-purple) 10%, color-mix(in srgb, var(--picker-card, var(--bg-secondary)) 76%, transparent));
+}
+
+.today-head {
+  font-size: var(--font-md);
+}
+
+.today-nums {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.today-nums > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.today-nums b {
+  font-size: calc(var(--font-2xl) * 1.4);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.today-nums span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.today-task {
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.today-task:hover {
+  color: var(--accent-blue);
+}
+
+.today-task-n {
+  color: var(--accent-blue);
+}
+
+.today-more {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.today-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* メンバーの「今」（#236）: メンバー・最後に動いた・進行中のタスク。狭いときは、時刻を名前の下に */
 .member-now {
   container-type: inline-size;

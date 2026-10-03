@@ -1627,6 +1627,7 @@ pub fn run() {
             git::commands::git_ignore_tracked,
             git::commands::git_ignore_add,
             git::commands::git_commit_watch,
+            git::commands::git_my_commits_since,
             manual::open_manual,
             git::commands::git_gitignore_read,
             git::commands::git_gitignore_write,

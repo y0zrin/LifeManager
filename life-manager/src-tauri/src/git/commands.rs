@@ -361,6 +361,26 @@ pub async fn git_ignore_tracked(path: String, pattern: String) -> Result<Vec<Str
     blocking(move || ignore::tracked_matching(Path::new(&path), &pattern)).await
 }
 
+/// 自分（この PC の git の user.email、なければ user.name）が since から作ったコミットの数（#238 今日のあなた）。
+/// ブランチ・GitHub のブランチ・タグからたどる（一時退避は数えない）。マージのコミットは数えない。数えられなければ 0
+#[tauri::command]
+pub async fn git_my_commits_since(path: String, since: String) -> Result<u32, String> {
+    blocking(move || {
+        let repo = Path::new(&path);
+        let config = |key: &str| run(repo, &["config", key]).map(|r| r.output.trim().to_string()).unwrap_or_default();
+        let email = config("user.email");
+        let who = if email.is_empty() { config("user.name") } else { email };
+        if who.is_empty() {
+            return Ok(0);
+        }
+        let author = format!("--author={}", who);
+        let since = format!("--since={}", since.trim());
+        let args = ["log", "--branches", "--remotes", "--tags", "--no-merges", "-F", &author, &since, "--format=%H"];
+        Ok(run(repo, &args).map(|r| r.output.lines().filter(|l| !l.trim().is_empty()).count() as u32).unwrap_or(0))
+    })
+    .await
+}
+
 /// コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ（Unity の Library など）
 #[tauri::command]
 pub async fn git_commit_watch(path: String, paths: Vec<String>) -> Result<Vec<WatchFinding>, String> {

@@ -85,6 +85,7 @@ import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
 import { isEscape } from "./lib/keys";
 import { manualSection, openManual } from "./lib/manual";
+import { TodayCard } from "./components/common/TodayCard";
 import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib/motion";
 
 /** phone: スマホの下の帯での名前（長いものは \n で 2 行に。となりとくっつかないように） */
@@ -1320,7 +1321,18 @@ function App() {
           {/* ヒストリー（あなたがすること・チームの動き） */}
           {view === "activity" && gh.connected && (
             <ActivityView owner={gh.owner} repo={gh.repo} activity={activity} onOpenIssue={openIssue} onOpenPull={openPull} onOpenRun={(runId) => openRun(runId)}
-              team={gh.collaborators} motion={display.settings.motion === "normal"} milestones={gh.milestones} closedIssues={gh.closedIssues} />
+              team={gh.collaborators} motion={display.settings.motion === "normal"} milestones={gh.milestones} closedIssues={gh.closedIssues}
+              today={
+                <TodayCard
+                  closedIssues={gh.closedIssues}
+                  events={activity.feed?.events ?? null}
+                  me={gh.currentUser}
+                  folder={folder}
+                  gitOps={git.opCount}
+                  onOpenIssue={openIssue}
+                  onOpenJournal={() => setView("timeline")}
+                />
+              } />
           )}
 
           {/* オーバービュー（タスクの数・チームのペース） */}

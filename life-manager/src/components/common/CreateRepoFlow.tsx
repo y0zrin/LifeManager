@@ -124,7 +124,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
     if (!created) return;
     const target = created;
     run(async () => {
-      const folder = useClone ? (await git.cloneRepo(parent, target.owner, target.repo)).path : undefined;
+      const folder = useClone ? (await git.cloneRepo(parent, target.owner, target.repo, me?.login)).path : undefined;
       await onFinish(target.owner, target.repo, folder);
     });
   }

@@ -654,6 +654,19 @@ fn folder_check_matches_the_github_project() {
     assert!(!check_folder(&sb.root, "y0zrin", "LifeManager").is_repo);
 }
 
+#[test]
+fn use_account_puts_the_app_account_into_origin() {
+    // #245: 断られたときの「〜で使う」。origin に名前を入れ、2 回目は何もしない
+    let t = team("account");
+    git(&t.a, &["remote", "set-url", "origin", "https://github.com/y0zrin3/LMTest.git"]);
+    let r = super::account::use_account(&t.a, "y0zrin3").unwrap();
+    assert!(r.command.contains("remote set-url origin https://y0zrin3@github.com/y0zrin3/LMTest.git"), "{}", r.command);
+    let url = run(&t.a, &["remote", "get-url", "origin"]).unwrap().output;
+    assert_eq!(url.trim(), "https://y0zrin3@github.com/y0zrin3/LMTest.git");
+    let again = super::account::use_account(&t.a, "y0zrin3").unwrap();
+    assert!(again.command.is_empty() && again.output.contains("もう y0zrin3"));
+}
+
 // ---------------------------------------------------------------- クローン（URL）・手元のフォルダを上げる
 
 #[test]
@@ -690,7 +703,7 @@ fn publish_a_new_folder_to_an_empty_remote() {
     assert!(remote_exists(&s(&remote)).unwrap());
     assert!(!remote_exists(&s(&sb.dir("nothing.git"))).unwrap());
 
-    let r = push_to(&game, &s(&remote)).unwrap();
+    let r = push_to(&game, &s(&remote), None).unwrap();
     assert!(r.command.contains("git remote add origin") && r.command.contains("git push -u origin main"), "{}", r.command);
     let st = status(&game);
     assert_eq!(st.upstream.as_deref(), Some("origin/main"));
@@ -724,12 +737,12 @@ fn clone_url_makes_a_folder_named_after_the_repository() {
     let remote = t.a.parent().unwrap().join("remote.git");
     let parent = t.a.parent().unwrap().join("clones");
     fs::create_dir_all(&parent).unwrap();
-    let r = super::publish::clone_url(&parent, &s(&remote)).unwrap();
+    let r = super::publish::clone_url(&parent, &s(&remote), None).unwrap();
     assert!(r.path.ends_with("remote"), "{}", r.path);
     assert_eq!(read(Path::new(&r.path), "shared.txt"), "一行目\n二行目\n三行目\n");
     assert_eq!((r.owner, r.repo), (None, None));
     // 同じ場所には二度作らない
-    assert!(super::publish::clone_url(&parent, &s(&remote)).unwrap_err().contains("すでにあります"));
+    assert!(super::publish::clone_url(&parent, &s(&remote), None).unwrap_err().contains("すでにあります"));
 }
 
 // --- 無視するファイル（.gitignore） ---

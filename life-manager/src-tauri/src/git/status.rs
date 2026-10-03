@@ -423,13 +423,15 @@ fn github_repo_of(url: &str) -> Option<(String, String)> {
     Some((owner.to_string(), repo.to_string()))
 }
 
-/// GitHub からクローンする。parent の下に repo と同じ名前のフォルダを作る
-pub fn clone_repo(parent: &Path, owner: &str, repo: &str) -> Result<(GitRun, String), String> {
+/// GitHub からクローンする。parent の下に repo と同じ名前のフォルダを作る。
+/// login（アプリのアカウント）があれば、URL に入れる（この PC の git が、そのアカウントで取りに行く。#245）
+pub fn clone_repo(parent: &Path, owner: &str, repo: &str, login: Option<&str>) -> Result<(GitRun, String), String> {
     let dest = parent.join(repo);
     if dest.exists() {
         return Err(format!("{} はすでにあります。別のフォルダを選んでください", dest.display()));
     }
-    let url = format!("https://github.com/{}/{}.git", owner, repo);
+    let base = format!("https://github.com/{}/{}.git", owner, repo);
+    let url = login.map(|l| super::account::with_account(&base, l)).unwrap_or(base);
     let dest_str = dest.to_string_lossy().to_string();
     let result = run(parent, &["clone", &url, &dest_str])?;
     Ok((result, dest_str))

@@ -204,7 +204,7 @@ function App() {
     closeDetail: closeCommitDetail,
     gitignoreOpen,
     closeGitignore,
-  } = useGitActions(git, { owner: gh.owner, repo: gh.repo });
+  } = useGitActions(git, { owner: gh.owner, repo: gh.repo, login: gh.currentUser });
   // 右クリック・「⋯」のメニュー
   const [menu, setMenu] = useState<MenuSpec | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -947,6 +947,7 @@ function App() {
   // 左上のリポジトリ（押すと一覧。切り替え・この PC のフォルダ・一覧から外す・リポジトリを追加）
   const projectSelect = (
     <RepoSwitcher
+      login={gh.currentUser}
       projects={gh.projects}
       owner={gh.owner}
       repo={gh.repo}

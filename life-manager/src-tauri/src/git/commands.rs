@@ -63,9 +63,9 @@ pub struct CloneResult {
 }
 
 #[tauri::command]
-pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<CloneResult, String> {
+pub async fn git_clone(parent: String, owner: String, repo: String, login: Option<String>) -> Result<CloneResult, String> {
     blocking(move || {
-        let (run, path) = status::clone_repo(Path::new(&parent), &owner, &repo)?;
+        let (run, path) = status::clone_repo(Path::new(&parent), &owner, &repo, login.as_deref())?;
         Ok(CloneResult { run, path })
     })
     .await
@@ -75,8 +75,8 @@ pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<Cl
 
 /// URL（GitHub の URL・「持ち主/名前」など）からクローンする。parent の下に、リポジトリと同じ名前のフォルダを作る
 #[tauri::command]
-pub async fn git_clone_url(parent: String, url: String) -> Result<publish::CloneUrlResult, String> {
-    blocking(move || publish::clone_url(Path::new(&parent), &url)).await
+pub async fn git_clone_url(parent: String, url: String, login: Option<String>) -> Result<publish::CloneUrlResult, String> {
+    blocking(move || publish::clone_url(Path::new(&parent), &url, login.as_deref())).await
 }
 
 /// 上げる前のフォルダの様子（リポジトリか・ファイルの数・コミットの数など）
@@ -99,8 +99,14 @@ pub async fn git_remote_exists(url: String) -> Result<bool, String> {
 
 /// origin を url にして、今のブランチを送る（上流にする）
 #[tauri::command]
-pub async fn git_publish_push(path: String, url: String) -> Result<GitRun, String> {
-    blocking(move || publish::push_to(Path::new(&path), &url)).await
+pub async fn git_publish_push(path: String, url: String, login: Option<String>) -> Result<GitRun, String> {
+    blocking(move || publish::push_to(Path::new(&path), &url, login.as_deref())).await
+}
+
+/// このフォルダの origin を、アプリのアカウントで GitHub に行く URL にする（#245。断られたときの「〜で使う」）
+#[tauri::command]
+pub async fn git_use_account(path: String, login: String) -> Result<GitRun, String> {
+    blocking(move || super::account::use_account(Path::new(&path), &login)).await
 }
 
 // --- 閲覧 ---

@@ -92,7 +92,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
   // 開くときに「クローンしますか？」を出している
   const [askClone, setAskClone] = useState(false);
   const [noClone, setNoClone] = useState(readNoClone);
-  const { busy, note, setNote, pickFolder, clone, clearFolder, remove } = useRepoFolderActions(folders, onSetFolder, onRemove);
+  const { busy, note, setNote, pickFolder, clone, clearFolder, remove } = useRepoFolderActions(folders, onSetFolder, onRemove, login);
   const stripRef = useRef<HTMLDivElement>(null);
   const host = usePortalHost();
 

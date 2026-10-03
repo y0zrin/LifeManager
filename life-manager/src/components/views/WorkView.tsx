@@ -230,7 +230,7 @@ function reviewLabel(pr: PullSummary): string {
 }
 
 export function WorkView(props: WorkViewProps) {
-  const { owner, repo, folder, onSetFolder, git: g, onOpenSetup, setupVersion } = props;
+  const { owner, repo, folder, onSetFolder, git: g, onOpenSetup, setupVersion, currentUser } = props;
 
   if (!folder) {
     return (
@@ -247,6 +247,7 @@ export function WorkView(props: WorkViewProps) {
             onSetFolder={onSetFolder}
             onOpenSetup={onOpenSetup}
             setupVersion={setupVersion}
+            login={currentUser}
           />
         </div>
       </div>
@@ -267,6 +268,7 @@ export function WorkView(props: WorkViewProps) {
             onSetFolder={onSetFolder}
             onOpenSetup={onOpenSetup}
             setupVersion={setupVersion}
+            login={currentUser}
           />
         </div>
       </div>

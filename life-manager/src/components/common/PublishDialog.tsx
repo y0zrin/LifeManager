@@ -123,7 +123,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
       });
     } else if (step === 2) {
       await run(async () => {
-        const r = await git.publishPush(folder, url);
+        const r = await git.publishPush(folder, url, login);
         setDone(`実行しました：${r.command}`);
         setStep(3);
       });

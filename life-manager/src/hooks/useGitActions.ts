@@ -28,7 +28,7 @@ const short = (hash: string) => hash.slice(0, 7);
  * git の操作の入口。すぐ実行するもの・名前を聞くもの・確認してから実行するものを、ここでまとめて扱う。
  * ツールバー・作業タブ・ブランチ画面・全体図から同じものを使う
  */
-export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: string }) {
+export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: string; login?: string }) {
   const [dialog, setDialog] = useState<GitDialogSpec | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
   // 「変更内容を見る」で開くコミット
@@ -42,14 +42,36 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
   const branch = st?.branch ?? "";
   const githubUrl = `https://github.com/${repoOnGitHub.owner}/${repoOnGitHub.repo}`;
 
-  function fetch() {
-    return g.exec("フェッチしています", git.fetch, "リモートの最新を取得しました");
+  function fetch(): Promise<GitResult> {
+    return g.exec("フェッチしています", git.fetch, "リモートの最新を取得しました", { failNotice: accountNotice(fetch) });
   }
 
-  function pull() {
-    return g.exec("プルしています", git.pull, (run) =>
-      /Already up to date/i.test(run.output) ? `${branch} はすでに最新です` : `${st?.upstream ?? "リモート"} から取り込みました`,
+  function pull(): Promise<GitResult> {
+    return g.exec(
+      "プルしています",
+      git.pull,
+      (run) => (/Already up to date/i.test(run.output) ? `${branch} はすでに最新です` : `${st?.upstream ?? "リモート"} から取り込みました`),
+      { failNotice: accountNotice(pull) },
     );
+  }
+
+  // GitHub に断られたわけが、この PC の git のアカウントらしいとき（別のアカウントで行った。#245）:
+  // 何が起きたかを言い、「アプリのアカウントで行くようにする」→ もう一度
+  const accountNotice = (retry: () => Promise<unknown>): GitExecOptions["failNotice"] => (message) => {
+    const login = repoOnGitHub.login;
+    const line = git.accountProblemLine(message);
+    if (!login || line === null) return undefined;
+    return {
+      text: `GitHub に断られました。この PC の git が、${repoOnGitHub.owner}/${repoOnGitHub.repo} を使えない別の GitHub アカウントで行ったようです`,
+      output: line,
+      action: { label: `${login} で行くようにする`, run: () => void switchAccountThen(login, retry) },
+    };
+  };
+
+  /** origin をアプリのアカウントで行く URL にしてから、断られた操作をもう一度 */
+  async function switchAccountThen(login: string, retry: () => Promise<unknown>) {
+    const r = await g.exec("アカウントを切り替えています", (p) => git.switchAccount(p, login), (run) => run.output);
+    if (r.ok) await retry();
   }
 
   /** 見ているブランチだけを GitHub から読む（ブランチ画面。切り替えない） */
@@ -75,7 +97,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       "プッシュしています",
       git.push,
       published ? `${st?.upstream} に送りました` : `${branch} を GitHub に公開しました`,
-      { failNotice: behindNotice },
+      { failNotice: (m) => behindNotice?.(m) ?? accountNotice(push)?.(m) },
     );
     if (r.ok) g.markPush(branch);
     return r;

@@ -15,6 +15,8 @@ export function useRepoFolderActions(
   folders: Record<string, string>,
   onSetFolder: (owner: string, repo: string, path: string | null) => Promise<void>,
   onRemove: (owner: string, repo: string) => Promise<void>,
+  /** アプリのアカウント（クローンの URL に入れる。#245） */
+  login?: string,
 ) {
   // 実行しているリポジトリ（"owner/repo"）
   const [busy, setBusy] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function useRepoFolderActions(
     if (typeof parent !== "string") return false;
     setBusy(k);
     try {
-      const result = await cloneRepo(parent, p.owner, p.repo);
+      const result = await cloneRepo(parent, p.owner, p.repo, login);
       await onSetFolder(p.owner, p.repo, result.path);
       setNote({ key: k, kind: "ok", text: `${result.path} にクローンして作業フォルダにしました`, command: result.run.command });
       return true;

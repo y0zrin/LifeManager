@@ -11,8 +11,9 @@ export const installGit = () => invoke<GitRun>("git_install");
 export const setIdentity = (name: string, email: string) => invoke<GitRun>("git_set_identity", { name, email });
 export const checkFolder = (path: string, owner: string, repo: string) =>
   invoke<GitFolderCheck>("git_check_folder", { path, owner, repo });
-export const cloneRepo = (parent: string, owner: string, repo: string) =>
-  invoke<{ run: GitRun; path: string }>("git_clone", { parent, owner, repo });
+/** login（アプリのアカウント）を渡すと URL に入れて、この PC の git がそのアカウントで取りに行く（#245） */
+export const cloneRepo = (parent: string, owner: string, repo: string, login?: string) =>
+  invoke<{ run: GitRun; path: string }>("git_clone", { parent, owner, repo, login: login || null });
 
 // --- 閲覧 ---
 export const readStatus = (path: string) => invoke<GitStatus>("git_status", { path });
@@ -41,12 +42,22 @@ export interface FolderState {
 }
 /** .gitignore のひな形（Rust の git::publish と同じ名前） */
 export type GitignoreTemplate = "visualstudio" | "unity" | "unreal" | "none";
-export const cloneUrl = (parent: string, url: string) => invoke<CloneUrlResult>("git_clone_url", { parent, url });
+export const cloneUrl = (parent: string, url: string, login?: string) =>
+  invoke<CloneUrlResult>("git_clone_url", { parent, url, login: login || null });
 export const folderState = (path: string) => invoke<FolderState>("git_folder_state", { path });
 export const publishPrepare = (path: string, template: GitignoreTemplate, message: string) =>
   invoke<GitRun>("git_publish_prepare", { path, template, message });
 export const remoteExists = (url: string) => invoke<boolean>("git_remote_exists", { url });
-export const publishPush = (path: string, url: string) => invoke<GitRun>("git_publish_push", { path, url });
+export const publishPush = (path: string, url: string, login?: string) =>
+  invoke<GitRun>("git_publish_push", { path, url, login: login || null });
+/** origin を、アプリのアカウントで GitHub に行く URL にする（#245） */
+export const switchAccount = (path: string, login: string) => invoke<GitRun>("git_use_account", { path, login });
+
+/** GitHub に断られたわけが、この PC の git のアカウントらしいとき（非公開で見えない・書く権限がない）、その行を返す */
+export function accountProblemLine(message: string): string | null {
+  const line = message.split(/\r?\n/).find((l) => /Repository not found|Permission to \S+ denied to|The requested URL returned error: 403/i.test(l));
+  return line ? line.trim().replace(/\s+/g, " ") : null;
+}
 
 /** GitHub の URL（https・ssh）や「持ち主/名前」から、持ち主と名前を取り出す（Rust の parse_github と同じ決まり） */
 export function parseGitHub(input: string): { owner: string; repo: string } | null {

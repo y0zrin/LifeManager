@@ -174,7 +174,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
       const label = displayName.trim() || `${target.owner}/${target.repo}`;
       let folder: string | undefined;
       if (useClone) {
-        const result = await git.cloneUrl(parent, `https://github.com/${target.owner}/${target.repo}`);
+        const result = await git.cloneUrl(parent, `https://github.com/${target.owner}/${target.repo}`, login);
         folder = result.path;
       }
       await finish(target.owner, target.repo, label, folder, token.trim() || undefined);

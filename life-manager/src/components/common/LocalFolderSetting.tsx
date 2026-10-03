@@ -15,6 +15,8 @@ interface LocalFolderSettingProps {
   onOpenSetup: () => void;
   /** 変わったら Git を確かめ直す（Git を入れたあとなど） */
   setupVersion: number;
+  /** アプリのアカウント（クローンの URL に入れる。#245） */
+  login?: string;
 }
 
 type Message = { kind: "ok" | "error"; text: string };
@@ -26,7 +28,7 @@ function samePath(a: string, b: string) {
 }
 
 /** 今のリポジトリを git で操作するときの、この PC 上のフォルダを決める（PC のみ） */
-export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSetup, setupVersion }: LocalFolderSettingProps) {
+export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSetup, setupVersion, login }: LocalFolderSettingProps) {
   // git が使えるか。null は確認中
   const [git, setGit] = useState<{ version: string } | { error: string } | null>(null);
   const [busy, setBusy] = useState<"pick" | "clone" | null>(null);
@@ -90,7 +92,7 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
       const parent = await open({ directory: true, title: `クローンする場所を選ぶ（この中に ${repo} フォルダを作ります）` });
       if (typeof parent !== "string") return;
       setBusy("clone");
-      const result = await cloneRepo(parent, owner, repo);
+      const result = await cloneRepo(parent, owner, repo, login);
       await onSetFolder(result.path);
       setLastRun(result.run);
       setMessage({ kind: "ok", text: `${result.path} にクローンして作業フォルダにしました` });

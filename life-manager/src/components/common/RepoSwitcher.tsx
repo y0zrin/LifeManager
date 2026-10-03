@@ -21,6 +21,8 @@ interface RepoSwitcherProps {
   onAdd: () => void;
   /** あれば、押したときに一覧ではなく、リポジトリを選ぶ画面（大きな画面）を開く（PC） */
   onOpenPicker?: () => void;
+  /** アプリのアカウント（クローンの URL に入れる。#245） */
+  login?: string;
 }
 
 /** 一覧の幅（画面の端からはみ出さないように置くため。CSS の .repo-pop と同じ） */
@@ -31,13 +33,13 @@ const POP_WIDTH = 320;
  * 各行の「⋯」で、この PC のフォルダ（選ぶ・変える・クローン・外す）、エクスプローラーで表示、GitHub で開く、一覧から外す。
  * 一番下の「＋ リポジトリを追加…」で、追加のウィザード（GitHub にある／この PC にある／新しく作る）
  */
-export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemove, onSetFolder, onAdd, onOpenPicker }: RepoSwitcherProps) {
+export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemove, onSetFolder, onAdd, onOpenPicker, login }: RepoSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties>({});
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  const { busy, note, setNote, pickFolder, clone, clearFolder, remove } = useRepoFolderActions(folders, onSetFolder, onRemove);
+  const { busy, note, setNote, pickFolder, clone, clearFolder, remove } = useRepoFolderActions(folders, onSetFolder, onRemove, login);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 

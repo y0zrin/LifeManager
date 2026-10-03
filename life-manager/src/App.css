@@ -3592,6 +3592,22 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   overflow: auto;
 }
 
+/* 背が高いので、上下 32px で窓の中に収める（20vh あけると、低い窓では下の「作る」が外に出る。#253） */
+.palette-overlay:has(> .sp-dialog) {
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+
+/* 「作る」は、中を送らなくても見えるように下に貼りつける（#253） */
+.sp-dialog .git-dialog-actions {
+  position: sticky;
+  bottom: calc(-1 * var(--space-lg));
+  margin-bottom: calc(-1 * var(--space-lg));
+  padding: var(--space-sm) 0 var(--space-lg);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-default);
+}
+
 .sp-days {
   display: flex;
   flex-wrap: wrap;

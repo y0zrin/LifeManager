@@ -3585,6 +3585,119 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
+/* 準備のチェックリスト（#237）: 設定 → 接続のいちばん上 */
+.setup-check {
+  container-type: inline-size;
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.setup-check.has-left {
+  border-color: color-mix(in srgb, var(--accent-yellow) 60%, var(--border-default));
+}
+
+.setup-check-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-md);
+}
+
+.setup-check-head .grow {
+  flex: 1;
+}
+
+.setup-check-sum {
+  color: var(--accent-green);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.setup-check-sum.left {
+  color: var(--accent-yellow);
+}
+
+.setup-check ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-check li {
+  display: grid;
+  grid-template-columns: 22px minmax(120px, max-content) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 36px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-sm);
+}
+
+.sc-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.sc-ok .sc-icon {
+  background: color-mix(in srgb, var(--accent-green) 22%, transparent);
+  color: var(--accent-green);
+}
+
+.sc-todo .sc-icon,
+.sc-warn .sc-icon {
+  background: color-mix(in srgb, var(--accent-yellow) 24%, transparent);
+  color: var(--accent-yellow);
+}
+
+.sc-checking .sc-icon {
+  color: var(--text-muted);
+}
+
+.sc-label {
+  font-weight: 600;
+}
+
+.sc-detail {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-fix {
+  padding-block: 3px;
+}
+
+/* 狭いときは、くわしい中身を名前の下に */
+@container (max-width: 520px) {
+  .setup-check li {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    padding: 4px 0;
+  }
+
+  .sc-detail {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .sc-fix {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
 /* 今日のあなた（#238）: ヒストリーの左の列、チームの仕事の下 */
 .today-card {
   display: flex;

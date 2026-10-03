@@ -1532,6 +1532,8 @@ function App() {
               onSaveEstimateUnit={gh.saveEstimateUnit}
               onOpenSetup={openSetup}
               setupVersion={setupVersion}
+              localFolder={folder}
+              onOpenWork={() => setView("work")}
               eventNotifConfig={gh.eventNotifConfig}
               onSaveEventNotifConfig={gh.saveEventNotifConfig}
               login={gh.currentUser}

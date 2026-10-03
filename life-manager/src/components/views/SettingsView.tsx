@@ -15,6 +15,7 @@ import { TeamPane } from "../common/TeamPane";
 import { BoardColumnsSetting } from "../common/BoardColumnsSetting";
 import { THEMES } from "../../lib/theme";
 import { ThemeMini } from "../common/ThemeMini";
+import { SetupChecklist } from "../common/SetupChecklist";
 import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
@@ -49,6 +50,10 @@ interface SettingsViewProps {
   /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
   onOpenSetup: () => void;
   setupVersion: number;
+  /** この PC の作業フォルダ（準備のチェックリスト。スマホは undefined） */
+  localFolder?: string;
+  /** 作業フォルダを決めるところ（作業をする）を開く */
+  onOpenWork: () => void;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
   /** GitHub にログインしている人 */
@@ -126,7 +131,7 @@ const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: str
   { value: "hidden", label: "隠す", note: "Ctrl+M だけで開きます", dot: null },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection, onTestNotice }: SettingsViewProps) {
+export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, localFolder, onOpenWork, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection, onTestNotice }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
   // スマホは「区分の一覧 → 区分」の 2 段（#210）。区分を開いているときは、戻るボタンで一覧へ
   const [mobileList, setMobileList] = useState(isMobile && !initialPane);
@@ -352,6 +357,16 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       {/* === 接続ペイン（チーム。リポジトリの追加・切り替え・この PC のフォルダは左上のリポジトリから） === */}
       {activePane === "connection" && <>
+      <SetupChecklist
+        owner={owner}
+        repo={repo}
+        login={login}
+        folder={localFolder}
+        setupVersion={setupVersion}
+        onOpenAccess={() => changePane("tokens")}
+        onOpenFolder={onOpenWork}
+        onOpenGitSetup={onOpenSetup}
+      />
       <div className="settings-repo-note">
         <span>
           リポジトリの追加・切り替え・この PC のフォルダは、左上の <b>{owner && repo ? `${owner}/${repo}` : "リポジトリ"}</b> から行います。

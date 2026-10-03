@@ -35,6 +35,9 @@ export const EMPTY_DRAFT: CommitDraft = {
 };
 
 interface WorkViewProps {
+  /** ① に Issue がないとき（#247）: マイルストーンの画面を開く・このマイルストーンで絞ったボードでタスクを足す */
+  onOpenMilestones: () => void;
+  onAddOnBoard: (milestone: number | null) => void;
   owner: string;
   repo: string;
   folder: string | undefined;
@@ -287,6 +290,8 @@ export function WorkView(props: WorkViewProps) {
 }
 
 function Workspace({
+  onOpenMilestones,
+  onAddOnBoard,
   owner,
   repo,
   folder,
@@ -713,6 +718,8 @@ function Workspace({
             else if (how === "switch") actions.requestSwitch(`issue-${n}`);
           }}
           onOpenIssue={onOpenIssue}
+          onOpenMilestones={onOpenMilestones}
+          onAddOnBoard={onAddOnBoard}
           note={
             flow.step === 1 && onBranch && pr?.merged ? (
               <>
@@ -888,13 +895,15 @@ interface IssueStepProps {
   /** 始める: create = issue-N を作る、switch = 前に作った issue-N に切り替える、here = 今のブランチのまま */
   onStart: (n: number, how: "create" | "switch" | "here") => void;
   onOpenIssue: (n: number) => void;
+  onOpenMilestones: () => void;
+  onAddOnBoard: (milestone: number | null) => void;
   /** マージ済みのブランチにいるときの知らせと、そのボタン（このブランチで続ける・既定のブランチに戻る） */
   note: ReactNode;
   extras: StepButton[];
   busy: boolean;
 }
 
-function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, note, extras, busy }: IssueStepProps) {
+function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, note, extras, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
   const [ms, setMs] = useState<string>(() => loadMilestone(owner, repo) ?? nearestMilestone(milestones));
   // ブランチを決めているところの Issue（行の下に、始め方を出す）
@@ -1037,7 +1046,27 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
           );
         })}
         {list.length === 0 && (
-          <div className="bsw-empty">{issues.length === 0 ? "未完了の Issue はありません" : ms !== "all" && issues.some((i) => !inMilestone(i)) ? "このマイルストーンに、当てはまる Issue はありません" : "一致する Issue はありません"}</div>
+          <div className="bsw-empty">
+            {issues.length === 0 ? "未完了の Issue はありません" : ms !== "all" && issues.some((i) => !inMilestone(i)) ? "このマイルストーンに、当てはまる Issue はありません" : "一致する Issue はありません"}
+            {/* 作るところへ（#247）: マイルストーンがなければマイルストーンから。あれば、そのマイルストーンのボードでタスクを足す */}
+            {!q && (
+              <div className="w-empty-actions">
+                {openMs.length === 0 ? (
+                  <button type="button" className="btn-primary" onClick={onOpenMilestones}>
+                    🎯 マイルストーンを作る
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => onAddOnBoard(ms === "all" || ms === "none" ? null : Number(ms))}
+                  >
+                    📊 ボードでタスクを足す
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

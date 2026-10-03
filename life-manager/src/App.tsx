@@ -1179,6 +1179,11 @@ function App() {
           {/* 作業（取り組み中の Issue と git の作業） */}
           {view === "work" && (
             <WorkView
+              onOpenMilestones={() => setView("milestones")}
+              onAddOnBoard={(n) => {
+                if (n !== null) setBoardFocus({ milestone: n, nonce: Date.now() });
+                setView("kanban");
+              }}
               owner={gh.owner}
               repo={gh.repo}
               folder={folder}

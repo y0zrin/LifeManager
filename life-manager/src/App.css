@@ -13347,6 +13347,15 @@ html.stage-still .desk-buncho::after {
   font-size: var(--font-xs);
 }
 
+/* 作業をする ① で Issue がないとき、作るところへ（#247） */
+.w-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
 /* コミットの前の見張り（#234）。チェックが入っていてコミットできないときは赤 */
 .w-watch {
   display: flex;

@@ -134,7 +134,7 @@ export function TaskFilterGroups(props: TaskFilterProps) {
   );
 }
 
-/** 「フィルタ」: 押すと、種別・セクション・状態・優先・見積・担当者・マイルストーン・表示の一覧が開く。押すとすぐに一覧に反映する */
+/** 「表示するタスク」（前は「フィルタ」。#249）: 押すと、種別・セクション・状態・優先・見積・担当者・マイルストーン・表示の一覧が開く。押すとすぐに一覧に反映する */
 export function TaskFilterButton(props: TaskFilterProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -144,13 +144,12 @@ export function TaskFilterButton(props: TaskFilterProps) {
   return (
     <span className="task-filter" ref={ref}>
       <button type="button" className={`select-sm task-filter-button${count ? " task-filter-button--on" : ""}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        フィルタ{count > 0 && <span className="task-filter-count">{count}</span>} ▾
+        表示するタスク{count > 0 && <span className="task-filter-count">{count}</span>} ▾
       </button>
       {open && (
-        <div className="task-filter-pop" role="dialog" aria-label="フィルタ">
+        <div className="task-filter-pop" role="dialog" aria-label="表示するタスク">
           <div className="task-filter-head">
-            <b>フィルタ</b>
-            <span className="task-filter-hint">押すと一覧に反映されます</span>
+            <b>表示するタスク</b>
           </div>
           <TaskFilterGroups {...props} />
           <div className="task-filter-foot">

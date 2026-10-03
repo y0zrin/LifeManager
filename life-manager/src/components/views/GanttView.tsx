@@ -539,7 +539,7 @@ export function GanttView({
       if (!issue) return "見つからない";
       if (issue.state === "closed") return "閉じた";
       if (!inMilestone.has(n)) return "ほかのマイルストーン";
-      if (!t) return "絞り込みで隠れている";
+      if (!t) return "表示するタスクに入っていない";
       return "日程なし";
     };
     const link = (n: number, kind: "pred" | "succ"): GanttLink => {
@@ -665,12 +665,12 @@ export function GanttView({
             ))}
           </span>
           <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-            絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+            表示するタスク{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
           </button>
         </div>
         <MobileSheet
           open={sheetOpen}
-          title="ガントの絞り込み"
+          title="表示するタスク"
           onClose={() => setSheetOpen(false)}
           footer={
             <>

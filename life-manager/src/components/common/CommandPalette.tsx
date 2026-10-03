@@ -60,7 +60,7 @@ export function CommandPalette({ issues, onCreateMemo, onFilterChange, setStatus
         <ul className="palette-hints">
           <li><kbd>m</kbd> テキスト<span>メモにする</span></li>
           <li><kbd>#</kbd>番号<span>その Issue を探す</span></li>
-          <li><kbd>@</kbd>ラベル名<span>そのラベルで絞る</span></li>
+          <li><kbd>@</kbd>ラベル名<span>そのラベルのタスクを表示する</span></li>
           <li>ことば<span>題名と本文から探す</span></li>
         </ul>
       </div>

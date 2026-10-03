@@ -734,7 +734,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         {isPhone ? (
           // スマホは「絞り込み」だけ。自分の担当だけ・フィルタ・区画の設定は板に
           <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) + (mineOnly ? 1 : 0) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-            絞り込み{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
+            表示するタスク{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
           </button>
         ) : (
           <>
@@ -753,7 +753,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
       {isPhone && (
         <MobileSheet
           open={sheetOpen}
-          title="絞り込み"
+          title="表示するタスク"
           onClose={() => setSheetOpen(false)}
           footer={
             <>

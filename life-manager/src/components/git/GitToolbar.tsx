@@ -116,7 +116,7 @@ function BranchSwitcher({ git: g, actions, disabled }: { git: GitState; actions:
         <div className="bsw-panel popover">
           <input
             className="input-full bsw-filter"
-            placeholder="ブランチを絞り込む"
+            placeholder="ブランチを探す"
             autoFocus
             autoComplete="off"
             value={query}

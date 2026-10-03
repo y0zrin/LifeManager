@@ -100,7 +100,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
       </>
     );
 
-  const scopeLabel = scopeText ? `今の絞り込み（${scopeText}）` : "絞り込みなし（このリポジトリの全部）";
+  const scopeLabel = scopeText ? `表示するタスク: ${scopeText}` : "表示するタスク: すべて";
   const named = a.people.filter((p) => p.login !== null);
   const noOne = a.people.find((p) => p.login === null);
   const rest = named.slice(MAX_PEOPLE);

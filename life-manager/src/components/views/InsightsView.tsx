@@ -96,12 +96,12 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
     [all, milestone, assignee, domain],
   );
   const scopeText = [
-    milestone === "none" ? "マイルストーンなし" : milestone !== "all" ? `マイルストーン:${milestones.find((m) => String(m.number) === milestone)?.title ?? ""}` : "",
-    assignee === "none" ? "担当なし" : assignee !== "all" ? `担当:${assignee}` : "",
-    domain !== "all" ? domain : "",
+    milestone === "none" ? "マイルストーンなし" : milestone !== "all" ? `マイルストーン ${milestones.find((m) => String(m.number) === milestone)?.title ?? ""}` : "",
+    assignee === "none" ? "担当なし" : assignee !== "all" ? `担当 ${assignee}` : "",
+    domain !== "all" ? sectionOf(domain) : "",
   ]
     .filter(Boolean)
-    .join("／");
+    .join("、");
 
   // チームのペース: 数え方（見積もり／件数）。選んだことがなければ、見積もりのある Issue があるときは見積もり
   const hasEstimates = useMemo(() => all.some((i) => estimateOf(i) !== null), [all]);
@@ -160,13 +160,13 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
     domain === "all" ? null : sectionOf(domain),
   ]
     .filter(Boolean)
-    .join(" ・ ") || "全部のタスク";
+    .join(" ・ ") || "すべて";
 
   // スマホの「絞り込み」と、かけている条件（小さく出すときは、見出しの横に置く）
   const mobileFilter = (
     <>
       <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-        絞り込み{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+        表示するタスク{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
       </button>
       <span className="insights-filter-summary">{filterSummary}</span>
     </>
@@ -179,16 +179,17 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
         <div className="toolbar insights-filters m-compact">{mobileFilter}</div>
       ) : (
         <div className="toolbar insights-filters">
+          <span className="insights-filter-label">表示するタスク</span>
           {filterSelects}
-        {(milestone !== "all" || assignee !== "all" || domain !== "all") && (
-            <button type="button" className="link-button" onClick={() => change(ALL)}>絞り込みを外す</button>
+          {(milestone !== "all" || assignee !== "all" || domain !== "all") && (
+            <button type="button" className="link-button" onClick={() => change(ALL)}>すべて表示する</button>
           )}
         </div>
       )}
       {isMobile && (
         <MobileSheet
           open={sheetOpen}
-          title="タスクの数の絞り込み"
+          title="表示するタスク"
           onClose={() => setSheetOpen(false)}
           footer={
             <>

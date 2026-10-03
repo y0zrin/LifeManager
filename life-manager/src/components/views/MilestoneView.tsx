@@ -314,7 +314,7 @@ export function MilestoneView({
               <span>{quest ? `倒したタスク ${stage.done.length}` : `終わった ${stage.done.length}`}</span>
               <span className="grow" />
               {!stage.closed && (
-                <button type="button" className="btn-sm ms-to-board" onClick={() => onAddOnBoard(stage.ms.number)} title="このマイルストーンで絞ったボードを開きます。「＋ ここにタスクを追加」で足したタスクは、このマイルストーンに入ります">
+                <button type="button" className="btn-sm ms-to-board" onClick={() => onAddOnBoard(stage.ms.number)} title="このマイルストーンのタスクを表示したボードを開きます。「＋ ここにタスクを追加」で足したタスクは、このマイルストーンに入ります">
                   📊 ボードでタスクを足す
                 </button>
               )}

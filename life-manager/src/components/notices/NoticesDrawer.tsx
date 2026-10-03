@@ -75,7 +75,7 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
         <h2>🔔 おしらせ</h2>
         <button type="button" className="nt-drawer-x" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
       </div>
-      <div className="nt-chips" role="group" aria-label="絞り込み">
+      <div className="nt-chips" role="group" aria-label="表示するおしらせ">
         {NOTICE_GROUPS.map((g) => (
           <button key={g.key} type="button" className={`nt-chip${group === g.key ? " on" : ""}`} aria-pressed={group === g.key} onClick={() => setGroup(g.key)}>
             {g.label}

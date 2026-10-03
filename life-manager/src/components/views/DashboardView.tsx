@@ -662,7 +662,7 @@ export function DashboardView({
         {isMobile ? (
           <>
             <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-              絞り込み{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
+              表示するタスク{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
             </button>
             <button type="button" onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm m-add-btn" aria-label={showIssueForm ? "作るのをやめる" : "イシューを作る"}>
               {showIssueForm ? "×" : "＋"}
@@ -709,7 +709,7 @@ export function DashboardView({
       {isMobile && (
         <MobileSheet
           open={sheetOpen}
-          title="絞り込み"
+          title="表示するタスク"
           onClose={() => setSheetOpen(false)}
           footer={
             <>

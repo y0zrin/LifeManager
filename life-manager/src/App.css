@@ -4432,6 +4432,13 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
 }
 
 /* オーバービュー（スマホのメニューの中）: かけている条件を 1 行で */
+/* オーバービュー（PC）の欄の見出し（#249） */
+.insights-filter-label {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
 .insights-filter-summary {
   flex: 1;
   min-width: 0;

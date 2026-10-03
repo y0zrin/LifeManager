@@ -77,7 +77,7 @@ export function BranchPicker({ entries, selected, byHash, local, onPick, onMenu 
         <div className="bl-panel popover">
           <input
             className="input-full bsw-filter"
-            placeholder="ブランチを絞り込む"
+            placeholder="ブランチを探す"
             autoFocus
             autoComplete="off"
             value={query}

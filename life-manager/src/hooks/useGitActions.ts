@@ -87,7 +87,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     const line = git.pushBehindLine(message);
     if (line === null) return undefined;
     return {
-      text: `GitHub の ${branch} には、この PC にないコミットがあります。先にプルで取り込んでから、プッシュし直してください`,
+      text: `プッシュを断られました。GitHub の ${branch} に、この PC にないコミットがあります`,
       output: line || undefined,
       action: { label: "プルしてからプッシュ", run: () => void pullThenPush() },
     };

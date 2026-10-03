@@ -1464,13 +1464,16 @@ function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]
           const rule = f.kind === "large" ? gitApi.ignoreRules(f.path)[0] : gitApi.folderIgnoreRule(f.path);
           return (
             <li key={f.path}>
-              <div className="w-watch-what">
+              <div
+                className="w-watch-what"
+                title={
+                  f.kind === "large"
+                    ? "GitHub は 100 MB をこえるファイルを受け取らないので、プッシュが断られます。記録するなら Git LFS を使います"
+                    : `消しても ${f.tool} がまた作るので、記録しません`
+                }
+              >
                 <code>{f.kind === "large" ? f.path : `${f.path}/`}</code>
-                <span>
-                  {f.kind === "large"
-                    ? `${megabytes(f.size ?? 0)}。GitHub は 100 MB をこえるファイルを受け取れません（プッシュが断られます）`
-                    : `${f.tool} が作るフォルダです（変更のあるファイルが ${countOf(f.files, "個")}）。消しても ${f.tool} がまた作るので、記録しません`}
-                </span>
+                <span>{f.kind === "large" ? `${megabytes(f.size ?? 0)}（GitHub は 100 MB まで）` : `${f.tool} が作るフォルダ（ファイル ${countOf(f.files, "個")}）`}</span>
               </div>
               <button
                 type="button"
@@ -1485,7 +1488,7 @@ function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]
           );
         })}
       </ul>
-      {blocked && <p className="w-watch-note">チェックが入っているあいだは、コミットできません。「.gitignore に足す」を押すと、チェックも外れます</p>}
+      {blocked && <p className="w-watch-note">チェックが入っているあいだは、コミットできません</p>}
     </div>
   );
 }

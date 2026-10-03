@@ -533,11 +533,14 @@ export function DashboardView({
     setBulkDone(null);
     let done = 0;
     let failed = 0;
+    // まとめて完了にしたものは、知らせの「元に戻す」で開き直せる（#232）
+    const closedNow: number[] = [];
     for (const issue of targets) {
       setBulkBusy(`${done + failed + 1} / ${targets.length} 件目…`);
       try {
         await applyBulk(action, issue, plans);
         done++;
+        if (action.kind === "close") closedNow.push(issue.number);
       } catch {
         failed++;
       }
@@ -549,7 +552,13 @@ export function DashboardView({
         (skipped ? `（${skipped} 件は日程があるか見積もりがないので、そのまま）` : "") +
         (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""),
     );
-    if (action.kind === "close" && done > 0) celebrateDone(`${done} 件`);
+    if (action.kind === "close" && done > 0) {
+      celebrateDone(`${done} 件`, undefined, undefined, () => {
+        void (async () => {
+          for (const n of closedNow) await onReopen(n);
+        })();
+      });
+    }
   }
 
   async function applyBulk(action: BulkAction, issue: GitHubIssue, plans: Map<number, TentativePlan> | null) {

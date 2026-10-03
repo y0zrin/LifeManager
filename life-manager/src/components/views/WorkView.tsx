@@ -49,6 +49,8 @@ interface WorkViewProps {
   /** 作業を始める: 自分が担当でなければ自分を担当にし、状態を「進行中」にする（ボードと合わせる） */
   onStartIssue: (n: number) => Promise<void>;
   onCloseIssue: (n: number) => Promise<void>;
+  /** 完了の知らせの「元に戻す」（#232） */
+  onReopenIssue: (n: number) => Promise<void>;
   /** 閉じた Issue（マージで閉じた Issue を、完了の段で見せる） */
   closedIssues: GitHubIssue[];
   /** プルリクを作る（プルリクの画面で、作るダイアログを開く） */
@@ -293,6 +295,7 @@ function Workspace({
   onOpenIssue,
   onStartIssue,
   onCloseIssue,
+  onReopenIssue,
   closedIssues,
   onCreatePull,
   onOpenPull,
@@ -451,7 +454,11 @@ function Workspace({
   // 完了にする（Issue を閉じる。前と同じ）
   const finish = (n: number) => async () => {
     await onCloseIssue(n);
-    celebrateDone(`#${n}`);
+    // 「元に戻す」: 開き直して、また同じ作業に戻る
+    celebrateDone(`#${n}`, undefined, undefined, () => {
+      void onReopenIssue(n);
+      setChoice(n);
+    });
     clearReports(n);
     setChoice(null);
   };

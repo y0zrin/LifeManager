@@ -480,7 +480,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     🆘 助けを求める
                   </button>
                 )}
-                <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} />
+                <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} onReopen={() => void onReopenIssue(issue.number)} />
               </span>
             ) : (
               <button

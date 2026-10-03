@@ -31,6 +31,8 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   const { labels, milestones, loadLabels, currentUser, eventNotice, estimateUnit, reloadAll } = deps;
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [closedIssues, setClosedIssues] = useState<GitHubIssue[]>([]);
+  // いま閉じたもの（完了の知らせの「元に戻す」は、閉じる前の画面から呼ばれるので、閉じたあとの一覧がまだ見えない。#232）
+  const justClosed = useRef(new Map<number, GitHubIssue>());
 
   // --- ロード ---
 
@@ -97,7 +99,9 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       // 楽観的更新: openから除去し、closedに追加（副作用をupdater外に分離）
       setIssues((prev) => prev.filter((i) => i.number !== n));
       if (closedIssue) {
-        setClosedIssues((prev) => [{ ...closedIssue, state: "closed", state_reason: reason ?? "completed", closed_at: new Date().toISOString() }, ...prev]);
+        const nowClosed: GitHubIssue = { ...closedIssue, state: "closed", state_reason: reason ?? "completed", closed_at: new Date().toISOString() };
+        setClosedIssues((prev) => [nowClosed, ...prev]);
+        justClosed.current.set(n, nowClosed);
       }
       adjustParentOf(closedIssue, 1);
     } catch (e) {
@@ -108,7 +112,8 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
 
   async function reopenIssue(n: number) {
     try {
-      const reopenedIssue = closedIssues.find((i) => i.number === n);
+      const reopenedIssue = closedIssues.find((i) => i.number === n) ?? justClosed.current.get(n);
+      justClosed.current.delete(n);
       const issueTitle = reopenedIssue?.title || issueRef(n);
       const result = await invokeWrite("update_issue", {
         owner, repo, issueNumber: n,
@@ -120,7 +125,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       // 楽観的更新: closedから除去し、openに追加（副作用をupdater外に分離）
       setClosedIssues((prev) => prev.filter((i) => i.number !== n));
       if (reopenedIssue) {
-        setIssues((prev) => [{ ...reopenedIssue, state: "open", closed_at: null }, ...prev]);
+        setIssues((prev) => [{ ...reopenedIssue, state: "open", closed_at: null }, ...prev.filter((i) => i.number !== n)]);
       }
       adjustParentOf(reopenedIssue, -1);
     } catch (e) {

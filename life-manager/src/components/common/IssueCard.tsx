@@ -29,8 +29,8 @@ export function IssueCard({
   fresh = false,
 }: {
   issue: GitHubIssue;
-  onClose: (n: number) => void;
-  onReopen: (n: number) => void;
+  onClose: (n: number) => Promise<void> | void;
+  onReopen: (n: number) => Promise<void> | void;
   onPromote: (n: number) => void;
   onStatusChange: (n: number, status: string) => void;
   onSelect?: (n: number) => void;
@@ -50,21 +50,38 @@ export function IssueCard({
   // 完了を押したあと: キラキラとスタンプ（重ねの側）→ しぼんで消える → 閉じる（動きを使わないときは、すぐ閉じる）
   const [leaving, setLeaving] = useState<"none" | "stamp" | "shrink">("none");
   const cardRef = useRef<HTMLDivElement>(null);
+  // 「元に戻す」（#232）: まだ閉じていなければ止める。閉じたあとなら、閉じ終わるのを待ってから開き直す
+  const closeTimers = useRef<number[]>([]);
+  const closing = useRef<Promise<unknown> | null>(null);
   function finish(button: HTMLElement) {
     if (leaving !== "none") return;
-    celebrateDone(`#${issue.number}`, button);
+    const close = () => {
+      closing.current = Promise.resolve(onClose(issue.number));
+    };
+    const undo = () => {
+      closeTimers.current.forEach((t) => window.clearTimeout(t));
+      closeTimers.current = [];
+      if (cardRef.current) cardRef.current.style.height = "";
+      setLeaving("none");
+      const done = closing.current;
+      closing.current = null;
+      if (done) void done.then(() => onReopen(issue.number));
+    };
+    celebrateDone(`#${issue.number}`, button, undefined, undo);
     if (!motionOn()) {
-      onClose(issue.number);
+      close();
       return;
     }
     setLeaving("stamp");
-    window.setTimeout(() => {
-      const el = cardRef.current;
-      if (el) el.style.height = `${el.offsetHeight}px`;
-      requestAnimationFrame(() => setLeaving("shrink"));
-    }, 600);
-    // 画面を移っても閉じるように、ここで呼ぶ
-    window.setTimeout(() => onClose(issue.number), 950);
+    closeTimers.current = [
+      window.setTimeout(() => {
+        const el = cardRef.current;
+        if (el) el.style.height = `${el.offsetHeight}px`;
+        requestAnimationFrame(() => setLeaving("shrink"));
+      }, 600),
+      // 画面を移っても閉じるように、ここで呼ぶ
+      window.setTimeout(close, 950),
+    ];
   }
 
   const isMemo = issue.labels.some((l) => l.name === "種別:メモ");

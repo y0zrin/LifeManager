@@ -10,10 +10,12 @@ interface CloseMenuProps {
   /** 「重複として閉じる」で、元の Issue を探す候補 */
   allIssues: GitHubIssue[];
   onClose: (reason: CloseReason, duplicateOf?: GitHubIssue) => Promise<void>;
+  /** 完了の知らせの「元に戻す」（#232） */
+  onReopen?: () => void;
 }
 
 /** 詳細の「クローズ ▾」。GitHub と同じく、完了として／予定なしとして／重複として（元の Issue を選ぶ）閉じる */
-export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
+export function CloseMenu({ issue, allIssues, onClose, onReopen }: CloseMenuProps) {
   const [open, setOpen] = useState(false);
   const [dup, setDup] = useState(false);
   const [query, setQuery] = useState("");
@@ -35,7 +37,7 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
     setBusy(true);
     try {
       await onClose(reason, original);
-      if (reason === "completed") celebrateDone(`#${issue.number}`, origin);
+      if (reason === "completed") celebrateDone(`#${issue.number}`, origin, undefined, onReopen);
       reset();
     } finally {
       setBusy(false);

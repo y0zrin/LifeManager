@@ -1162,6 +1162,7 @@ function App() {
               currentUser={gh.currentUser}
               onStartIssue={startWork}
               onCloseIssue={gh.closeIssue}
+              onReopenIssue={gh.reopenIssue}
               closedIssues={gh.closedIssues}
               onCreatePull={createPull}
               onOpenPull={openPull}

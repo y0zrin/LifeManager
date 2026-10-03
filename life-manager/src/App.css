@@ -3494,6 +3494,38 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   animation: cel-toast 2.8s var(--ease-out) both;
 }
 
+/* 「元に戻す」がある知らせ（#232）: 押せるように、長めに出す */
+.cel-toast.has-undo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+  animation-duration: 6s;
+}
+
+.cel-undo {
+  min-height: 0;
+  padding: 2px 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--font-xs);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cel-undo:hover {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* 指で押すときは、押せる所を大きく */
+@media (pointer: coarse) {
+  .cel-undo {
+    padding: 6px 14px;
+  }
+}
+
 @keyframes cel-toast {
   0% { opacity: 0; transform: translateY(16px) scale(0.96); }
   12% { opacity: 1; transform: none; }

@@ -9,7 +9,10 @@ interface CelebrationProps {
 
 type Spark = { dx: number; dy: number; s: number; r: number; delay: number; dur: number; color: string; star: boolean; size: number };
 type Burst = { id: number; x: number; y: number; sparks: Spark[]; stamp: ReactNode | null };
-type Toast = { id: number; text: string };
+type Toast = { id: number; text: string; undo?: () => void };
+
+/** 「元に戻す」がある知らせを出しておく長さ */
+const UNDO_MS = 6000;
 
 // キラキラの色（CSS の --spark-* と同じ並び）
 const SPARK_COLORS = ["var(--spark-1)", "var(--spark-2)", "var(--spark-3)", "var(--spark-4)", "var(--spark-5)", "var(--spark-6)", "var(--spark-7)", "var(--spark-8)"];
@@ -138,10 +141,10 @@ export function Celebration({ motion }: CelebrationProps) {
         window.setTimeout(() => setBursts((prev) => prev.filter((b) => b.id !== id)), 1400);
         return;
       }
-      // 完了の知らせ（下のまんなか）
+      // 完了の知らせ（下のまんなか）。「元に戻す」があるときは、押せるように長めに出す
       const toastId = ++seq.current;
-      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.text ?? `${detail.label} を完了しました`}　${pick(PHRASES)}` }]);
-      window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== toastId)), 2800);
+      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.text ?? `${detail.label} を完了しました`}　${pick(PHRASES)}`, undo: detail.undo }]);
+      window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== toastId)), detail.undo ? UNDO_MS : 2800);
       if (!effects) return;
       // 押したところ（なければ知らせのすこし上）から、キラキラとスタンプ
       const x = detail.origin?.x ?? window.innerWidth / 2;
@@ -181,7 +184,27 @@ export function Celebration({ motion }: CelebrationProps) {
       ))}
       {toasts.length > 0 && (
         <div className="cel-toasts">
-          {toasts.map((t) => <div key={t.id} className="cel-toast">{t.text}</div>)}
+          {toasts.map((t) =>
+            t.undo ? (
+              <div key={t.id} className="cel-toast has-undo">
+                {t.text}
+                <button
+                  type="button"
+                  className="cel-undo"
+                  onClick={() => {
+                    t.undo?.();
+                    setToasts((prev) => prev.filter((x) => x.id !== t.id));
+                  }}
+                >
+                  元に戻す
+                </button>
+              </div>
+            ) : (
+              <div key={t.id} className="cel-toast">
+                {t.text}
+              </div>
+            ),
+          )}
         </div>
       )}
     </div>

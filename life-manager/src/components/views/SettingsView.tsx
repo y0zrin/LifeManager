@@ -1058,7 +1058,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           <input type="checkbox" checked={displaySettings.celebrationSound}
             onChange={(e) => onChangeDisplaySettings({ celebrationSound: e.target.checked })} />
           <span>
-            <b>マイルストーンを達成したときに鳴らす（はじめはこれ）</b>
+            <b>マイルストーンを達成したときに鳴らす</b>
           </span>
         </label>
       </div>

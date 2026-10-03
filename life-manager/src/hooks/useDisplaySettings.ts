@@ -38,7 +38,7 @@ export interface DisplaySettings {
   closeToTray: boolean;
   /** 背景（テーマの粒: チョークの粉・花びら・雪 など）を動かす（はじめはこれ）。画面の動きが少なめ・スマホでは止める */
   stageMotion: boolean;
-  /** マイルストーンを達成したときに、お祝いの音を鳴らす（はじめはこれ。#231） */
+  /** マイルストーンを達成したときに、お祝いの音を鳴らす（#231。はじめは鳴らさない） */
   celebrationSound: boolean;
 }
 
@@ -55,7 +55,7 @@ const DEFAULTS: DisplaySettings = {
   noticeCorner: "top-right",
   closeToTray: true,
   stageMotion: true,
-  celebrationSound: true,
+  celebrationSound: false,
 };
 // 前は、ボード・ガントの画面ごとに覚えていた（はじめて読むときは、その値を引き継ぐ。ボードの見た目は、そのままテーマになる）
 const OLD_BOARD_LOOK_KEY = "board-look";

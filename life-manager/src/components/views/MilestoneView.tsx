@@ -3,6 +3,7 @@ import { motionOn } from "../../lib/motion";
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { TicketCard } from "../common/TicketCard";
 import { DatePickerButton } from "../common/DatePickerButton";
+import { SamplePlanDialog } from "../milestones/SamplePlanDialog";
 import { Burndown } from "../common/Burndown";
 import { estimateOf, formatEstimate, formatNumber, type EstimateUnit } from "../../lib/estimate";
 import {
@@ -21,7 +22,9 @@ interface MilestoneViewProps {
   milestones: GitHubMilestone[];
   issues: GitHubIssue[];
   closedIssues: GitHubIssue[];
-  onCreateMilestone: (title: string, description: string, dueOn: string | null) => Promise<void>;
+  onCreateMilestone: (title: string, description: string, dueOn: string | null) => Promise<number | null>;
+  /** 見本の計画のタスクを作る（#239） */
+  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null) => Promise<number>;
   onUpdateMilestone: (milestoneNumber: number, updates: { title?: string; description?: string; dueOn?: string | null }) => Promise<void>;
   onCloseMilestone: (milestoneNumber: number) => Promise<void>;
   onReopenMilestone: (milestoneNumber: number) => Promise<void>;
@@ -77,13 +80,15 @@ function keysBusy(e: KeyboardEvent): boolean {
  * ふと見たときに、前に見たときの量から今の量までバーが動く（HP なら減った分が飛ぶ）
  */
 export function MilestoneView({
-  milestones, issues, closedIssues, onCreateMilestone, onUpdateMilestone, onCloseMilestone, onReopenMilestone, onRefresh, onSelectIssue,
+  milestones, issues, closedIssues, onCreateMilestone, onCreateIssue, onUpdateMilestone, onCloseMilestone, onReopenMilestone, onRefresh, onSelectIssue,
   repoKey, quest, bar, onAddOnBoard,
 }: MilestoneViewProps) {
   const unit = useEstimateUnit();
   const hp = bar === "hp" || (bar === "auto" && quest);
   const [showForm, setShowForm] = useState(false);
   const [msTitle, setMsTitle] = useState("");
+  // 見本の計画から作る（#239）
+  const [planOpen, setPlanOpen] = useState(false);
   const [msDesc, setMsDesc] = useState("");
   const [msStart, setMsStart] = useState("");
   const [msDue, setMsDue] = useState("");
@@ -249,6 +254,9 @@ export function MilestoneView({
         <button onClick={() => setShowForm(!showForm)} className="btn-sm">
           {showForm ? "×" : quest ? "+ ボスを置く" : "+ マイルストーン"}
         </button>
+        <button type="button" onClick={() => setPlanOpen(true)} className="btn-sm">
+          📋 見本の計画から作る…
+        </button>
         <button onClick={onRefresh} className="btn-sm">更新</button>
         {(issues.length > 0 || closedIssues.length > 0) && (
           <span className="pace-mode ms-mode" role="group" aria-label="数え方" title="バーと目安を見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）">
@@ -261,14 +269,22 @@ export function MilestoneView({
         )}
       </div>
       {createForm}
+      {planOpen && (
+        <SamplePlanDialog milestones={milestones} onCreateMilestone={onCreateMilestone} onCreateIssue={onCreateIssue} onClose={() => setPlanOpen(false)} />
+      )}
 
       {!stage ? (
         <div className={`ms-select ms-empty${quest ? " quest" : ""}`}>
           <p>{quest ? "まだボスがいません。" : "まだマイルストーンがありません。"}</p>
           {!showForm && (
-            <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
-              {quest ? "+ 最初のボスを置く" : "+ 最初のマイルストーンを作る"}
-            </button>
+            <div className="ms-empty-actions">
+              <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
+                {quest ? "+ 最初のボスを置く" : "+ 最初のマイルストーンを作る"}
+              </button>
+              <button type="button" className="btn-sm" onClick={() => setPlanOpen(true)}>
+                📋 見本の計画から作る…
+              </button>
+            </div>
           )}
         </div>
       ) : (

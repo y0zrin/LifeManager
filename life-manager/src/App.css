@@ -3585,6 +3585,111 @@ html.vt-pick.vt-up::view-transition-new(task-detail) { animation-name: vt-from-t
   margin: 0 auto;
 }
 
+/* 見本の計画から作る（#239） */
+.sp-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+}
+
+.sp-days {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.sp-stages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  list-style: none;
+  counter-reset: sp;
+}
+
+.sp-stages > li {
+  padding: var(--space-sm) 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.sp-stages > li.is-dup {
+  border-color: var(--accent-red);
+}
+
+.sp-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.sp-stage-head::before {
+  counter-increment: sp;
+  content: counter(sp);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.sp-title {
+  flex: 1;
+  width: auto;
+  min-width: 140px;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.sp-dates {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.sp-dup {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-red);
+  font-size: var(--font-xs);
+}
+
+.sp-tasks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0 30px;
+  padding: 0;
+  list-style: none;
+}
+
+.sp-tasks li {
+  padding: 1px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+}
+
+.ms-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 /* 準備のチェックリスト（#237）: 設定 → 接続のいちばん上 */
 .setup-check {
   container-type: inline-size;

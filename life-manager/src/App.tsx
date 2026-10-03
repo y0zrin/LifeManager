@@ -1450,6 +1450,7 @@ function App() {
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               onCreateMilestone={gh.createMilestone}
+              onCreateIssue={gh.createIssue}
               onUpdateMilestone={gh.updateMilestone}
               onCloseMilestone={gh.closeMilestone}
               onReopenMilestone={gh.reopenMilestone}

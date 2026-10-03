@@ -49,14 +49,20 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   // --- マイルストーン操作 ---
 
-  async function createMilestone(title: string, description: string, dueOn: string | null) {
+  /** マイルストーンを作る。作ったマイルストーンの番号を返す（見本の計画で、タスクを入れるのに使う。分からなければ null） */
+  async function createMilestone(title: string, description: string, dueOn: string | null): Promise<number | null> {
     try {
-      await invoke("create_milestone", {
+      const result = await invoke<string>("create_milestone", {
         owner, repo,
         title, description, dueOn,
       });
       setStatus("マイルストーンを作成しました");
       await loadMilestones();
+      try {
+        return (JSON.parse(result) as { number?: number }).number ?? null;
+      } catch {
+        return null;
+      }
     } catch (e) {
       setStatus("エラー: " + e);
       throw e;

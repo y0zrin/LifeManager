@@ -5,7 +5,7 @@ import type { GitCommit, GitFileChange, GitOperation, GitStash } from "../lib/ty
 import type { BranchEntry } from "../lib/history";
 import type { GitDialogSpec } from "../components/git/GitDialog";
 import type { MenuItem } from "../components/git/ContextMenu";
-import type { GitResult, GitState } from "./useGit";
+import type { GitExecOptions, GitResult, GitState } from "./useGit";
 
 export const OPERATION_NAMES: Record<GitOperation, string> = {
   merge: "マージ",
@@ -75,9 +75,29 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       "プッシュしています",
       git.push,
       published ? `${st?.upstream} に送りました` : `${branch} を GitHub に公開しました`,
+      { failNotice: behindNotice },
     );
     if (r.ok) g.markPush(branch);
     return r;
+  }
+
+  // プッシュを断られた（GitHub 側に、この PC にないコミットがある）ときは、何が起きたかを日本語で言い、
+  // 「プルしてからプッシュ」を付ける（#233）
+  const behindNotice: GitExecOptions["failNotice"] = (message) => {
+    const line = git.pushBehindLine(message);
+    if (line === null) return undefined;
+    return {
+      text: `GitHub の ${branch} には、この PC にないコミットがあります。先にプルで取り込んでから、プッシュし直してください`,
+      output: line || undefined,
+      action: { label: "プルしてからプッシュ", run: () => void pullThenPush() },
+    };
+  };
+
+  /** プルで取り込んでから、もう一度プッシュする。プルが競合などで止まったら、そこでやめる（#233） */
+  async function pullThenPush(): Promise<GitResult> {
+    const p = await pull();
+    if (!p.ok) return p;
+    return push();
   }
 
   async function commit(messages: string[], amend: boolean, allowEmpty: boolean): Promise<GitResult> {

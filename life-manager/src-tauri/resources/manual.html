@@ -1922,7 +1922,7 @@ git restore --source=feature/udon -- menu.txt</div>
     <dt>プッシュやプルで「GitHub へのログインが必要です」と出ます</dt>
     <dd>この PC の git がまだ GitHub にログインしていません。Windows では、はじめてのプッシュのときにログインの画面（ブラウザ）が出ることがあります。出ないときは、<span class="ui">その他 ▾</span> → <span class="ui">このフォルダでターミナルを開く</span> で、同じ操作（<code>git push</code> など）を一度打ってログインしてください。</dd>
     <dt>プッシュが「拒否された（rejected）」と出ます</dt>
-    <dd>GitHub の方に、まだ取り込んでいないコミットがあります。先に <span class="ui">⬇ プル</span> で取り込んでから、もう一度プッシュしてください。</dd>
+    <dd>GitHub の方に、まだ取り込んでいないコミットがあります。断られた知らせの <span class="ui">プルしてからプッシュ</span> を押すと、プルで取り込んでから、もう一度プッシュします（<code>git pull --no-rebase</code> → <code>git push</code>）。プルが競合で止まったときは、そこでやめます。競合を直してコミットしてから、プッシュしてください。自分で進めるときは、<span class="ui">⬇ プル</span> → <span class="ui">⬆ プッシュ</span> の順に押します。</dd>
     <dt>コミットできません</dt>
     <dd>コミットするファイルにチェック（ステージ）が入っているかを確かめてください。「名前とメールアドレスが決まっていません」と出るときは、設定 → その他 の「この PC の git」の <span class="ui">使う準備を確かめる</span> から決めてください。</dd>
     <dt>作業フォルダに選べません</dt>

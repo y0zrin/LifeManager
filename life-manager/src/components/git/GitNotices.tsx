@@ -13,6 +13,19 @@ export function GitNotices({ notices, onDismiss }: GitNoticesProps) {
         <div key={n.id} className={`git-notice git-notice--${n.kind}`}>
           <div className="git-notice-text">{n.text}</div>
           {n.command && <code>$ {n.command}</code>}
+          {n.output && <code>{n.output}</code>}
+          {n.action && (
+            <button
+              type="button"
+              className="btn-primary git-notice-act"
+              onClick={() => {
+                onDismiss(n.id);
+                n.action?.run();
+              }}
+            >
+              {n.action.label}
+            </button>
+          )}
           <button type="button" className="git-notice-close" aria-label="閉じる" onClick={() => onDismiss(n.id)}>
             ×
           </button>

@@ -11,6 +11,15 @@ export interface GitNotice {
   command?: string;
   /** 競合で止まった知らせ（直し終えたら・やめたら、自動で消す） */
   conflict?: boolean;
+  /** コマンドの下に出す、git の出力の大事な行（! [rejected] … など） */
+  output?: string;
+  /** 知らせから続けてできること（プッシュを断られたときの「プルしてからプッシュ」など。#233） */
+  action?: GitNoticeAction;
+}
+
+export interface GitNoticeAction {
+  label: string;
+  run: () => void;
 }
 
 export type GitResult = { ok: true; run: GitRun } | { ok: false; message: string; command?: string };
@@ -20,6 +29,8 @@ export interface GitExecOptions {
   quiet?: boolean;
   /** 失敗をお知らせに出さない（ダイアログの中に出すとき） */
   inlineError?: boolean;
+  /** 失敗の知らせを、git のメッセージを見て変える（ことばの言いかえと、続けてできること。#233） */
+  failNotice?: (message: string) => Partial<Pick<GitNotice, "text" | "output" | "action">> | undefined;
 }
 
 /** このブランチでいつコミット・プッシュしたか（作業の流れの表示に使う。アプリを開いている間だけ覚える） */
@@ -101,9 +112,9 @@ export function useGit(folder: string | undefined, active: boolean) {
     return () => window.clearInterval(timer);
   }, [folder, active, refresh]);
 
-  const notify = useCallback((kind: GitNotice["kind"], text: string, command?: string, conflict?: boolean) => {
+  const notify = useCallback((kind: GitNotice["kind"], text: string, command?: string, conflict?: boolean, more?: Pick<GitNotice, "output" | "action">) => {
     const id = ++noticeSeq.current;
-    setNotices((prev) => [...prev.slice(-(MAX_NOTICES - 1)), { id, kind, text, command, conflict }]);
+    setNotices((prev) => [...prev.slice(-(MAX_NOTICES - 1)), { id, kind, text, command, conflict, ...more }]);
     // 失敗は読み終わるまで残す（×で閉じる）
     if (kind === "ok") {
       window.setTimeout(() => setNotices((prev) => prev.filter((n) => n.id !== id)), NOTICE_MS);
@@ -142,10 +153,11 @@ export function useGit(folder: string | undefined, active: boolean) {
           const { command, message } = git.splitGitError(e);
           // 競合で止まったときは、git の英語のメッセージの代わりに、何が起きたかを日本語で出す（直し方は、別に出す知らせと作業タブで）
           const conflicted = git.conflictFilesIn(message);
+          const extra = conflicted.length > 0 ? undefined : options.failNotice?.(message);
           const shown = conflicted.length > 0
             ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを「作業をする」で選びます`
-            : message;
-          if (!options.inlineError) notify("error", shown, command, conflicted.length > 0);
+            : extra?.text ?? message;
+          if (!options.inlineError) notify("error", shown, command, conflicted.length > 0, { output: extra?.output, action: extra?.action });
           return { ok: false, message, command };
         } finally {
           await refresh();

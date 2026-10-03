@@ -181,6 +181,16 @@ export const openFile = (path: string, file: string) => invoke<void>("git_open_f
 /** 作業フォルダに新しいファイルを置く（もうあれば書き換えない。ステージはしない） */
 export const addNewFile = (path: string, file: string, text: string) => invoke<void>("git_add_new_file", { path, file, text });
 
+/**
+ * プッシュが、GitHub 側に新しいコミットがあって断られたとき、その行を返す（! [rejected] main -> main (fetch first) など）。
+ * 先にプルで取り込めば送れる。ほかの断られ方（保護されたブランチ など）は null
+ */
+export function pushBehindLine(message: string): string | null {
+  const line = message.split(/\r?\n/).find((l) => /\[rejected\].*\((fetch first|non-fast-forward)\)/.test(l));
+  if (line) return line.trim().replace(/\s+/g, " ");
+  return /non-fast-forward/.test(message) ? "" : null;
+}
+
 /** git のメッセージから、競合したファイルを読み取る（CONFLICT (content): Merge conflict in menu.txt など） */
 export function conflictFilesIn(message: string): string[] {
   const files: string[] = [];

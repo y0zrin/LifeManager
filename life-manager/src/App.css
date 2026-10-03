@@ -11345,6 +11345,12 @@ html.stage-still .desk-buncho::after {
   overflow-wrap: anywhere;
 }
 
+/* 知らせから続けてできること（「プルしてからプッシュ」など。#233） */
+.git-notice-act {
+  margin-top: var(--space-sm);
+  padding: 4px 14px;
+}
+
 .git-notice-close {
   position: absolute;
   top: 4px;

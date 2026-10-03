@@ -20704,6 +20704,26 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   gap: 6px;
 }
 
+/* ？（上のバー）: 今の画面のマニュアルの章を開く（#235） */
+.topbar-help {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.topbar-help:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
 /* 🔔（上のバー）。新しい知らせが来たときだけ小さな点（未読の数は出さない） */
 .nt-bell {
   position: relative;

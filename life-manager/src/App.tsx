@@ -84,6 +84,7 @@ import type { GitCommit, GitFileChange, GitHubIssue, GitSetupStatus, ViewType } 
 import type { LabelFilters } from "./lib/taskList";
 import "./App.css";
 import { isEscape } from "./lib/keys";
+import { manualSection, openManual } from "./lib/manual";
 import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib/motion";
 
 /** phone: スマホの下の帯での名前（長いものは \n で 2 行に。となりとくっつかないように） */
@@ -501,6 +502,18 @@ function App() {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // F1 で、今の画面のマニュアルの章を開く（#235）
+  useEffect(() => {
+    if (isMobile) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "F1") return;
+      e.preventDefault();
+      void openManual(manualSection(view));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view]);
 
   // Ctrl+K でコマンドパレット
   useEffect(() => {
@@ -1115,6 +1128,17 @@ function App() {
                 title={notices.dot ? "おしらせ（新しい知らせがあります）" : "おしらせ（届いた知らせのりれき）"}
               >
                 🔔{notices.dot && <i className="nt-bell-dot" aria-hidden="true" />}
+              </button>
+            )}
+            {!isMobile && (
+              <button
+                type="button"
+                className="topbar-help"
+                onClick={() => void openManual(manualSection(view))}
+                aria-label="この画面の説明（マニュアル）"
+                title={`この画面（${currentLabel}）の説明を、マニュアルで開きます（F1）`}
+              >
+                ？
               </button>
             )}
             <button className="btn-sm topbar-kbd" onClick={() => { setShowPalette(true); }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { resolveResource } from "@tauri-apps/api/path";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { openManual } from "../../lib/manual";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType, BoardConfig } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
 import { useBackLayer } from "../../lib/back";
@@ -1167,16 +1167,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       <div style={{ textAlign: "center", marginTop: "var(--space-lg)" }}>
         <button
           className="btn-sm"
-          onClick={async () => {
-            // HTML のマニュアル（ブラウザで開く）。開けなければ GitHub の README
-            try {
-              await openPath(await resolveResource("resources/manual.html"));
-              return;
-            } catch {
-              // README へ
-            }
-            await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
-          }}
+          // HTML のマニュアル（ブラウザで開く）。開けなければ GitHub の README
+          onClick={() => void openManual()}
           style={{ fontSize: "var(--font-xs)" }}
         >
           マニュアルを開く

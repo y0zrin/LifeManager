@@ -62,7 +62,7 @@ interface WorkViewProps {
   draft: CommitDraft;
   onDraftChange: (draft: CommitDraft) => void;
   /** ツールバーの「コミット…」「空コミット…」から来たとき。コミット欄を開いたら onCommitRequestHandled で消してもらう */
-  commitRequest: { empty: boolean } | null;
+  commitRequest: { empty?: boolean } | null;
   onCommitRequestHandled: () => void;
   /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
   onOpenSetup: () => void;

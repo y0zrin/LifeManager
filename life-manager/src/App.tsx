@@ -212,7 +212,8 @@ function App() {
   const [setup, setSetup] = useState<{ status: GitSetupStatus; auto: boolean } | null>(null);
   const [setupVersion, setSetupVersion] = useState(0);
   const [commitDraft, setCommitDraft] = useState<CommitDraft>(EMPTY_DRAFT);
-  const [commitRequest, setCommitRequest] = useState<{ empty: boolean } | null>(null);
+  // 作業をするの ③ を開く（empty があれば空コミットの印も変える。ないときは開くだけ）
+  const [commitRequest, setCommitRequest] = useState<{ empty?: boolean } | null>(null);
   const clearCommitRequest = useCallback(() => setCommitRequest(null), []);
 
   // ブランチ画面・全体図の履歴（この PC の作業フォルダがあればその git から、なければ GitHub から読む）
@@ -1591,7 +1592,7 @@ function App() {
         <ConflictNotice
           folder={folder}
           status={git.status}
-          onFix={() => { setConflictNotice(false); setView("work"); }}
+          onFix={() => { setConflictNotice(false); setView("work"); setCommitRequest({}); }}
           onAbort={() => { setConflictNotice(false); gitActions.abortOperation(); }}
           onClose={() => setConflictNotice(false)}
         />

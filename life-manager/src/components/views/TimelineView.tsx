@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactElement } 
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { daysUntil } from "../../lib/due";
 import { JournalCalendar, calendarMilestones, calendarTasks, fromYmd, md, ymd } from "./JournalCalendar";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, weekdayShort } from "../../lib/i18n";
 
 interface TimelineViewProps {
   issues: GitHubIssue[];
@@ -17,7 +17,6 @@ interface TimelineViewProps {
   onSelectIssue: (n: number) => void;
 }
 
-const weekdayLabels = [tr("日"), tr("月"), tr("火"), tr("水"), tr("木"), tr("金"), tr("土")];
 
 /** 帯の色の順（予定の並び） */
 const KIND_ORDER = { prog: 0, check: 1, block: 2, todo: 3, done: 4 } as const;
@@ -256,7 +255,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
   const planCount = dayTasks.length + dayMilestones.length;
 
   const sel = fromYmd(selectedDate);
-  const weekday = weekdayLabels[sel.getDay()];
+  const weekday = weekdayShort(sel);
   const isToday = selectedDate === today;
 
   const plans = (

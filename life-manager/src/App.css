@@ -10318,6 +10318,7 @@ html.stage-still .desk-buncho::after {
 
 .analytics-kpi-s .est-sum {
   margin-left: 0;
+  white-space: normal;
 }
 
 .analytics-ref {

@@ -170,6 +170,12 @@ function stripRust(src) {
     } else if (src.startsWith("/*", k)) {
       const j = src.indexOf("*/", k + 2);
       k = j < 0 ? src.length : j + 2;
+    } else if (src[k] === "r" && (src[k + 1] === '"' || (src[k + 1] === "#" && /^#+"/.test(src.slice(k + 1)))) && !/[\w]/.test(src[k - 1] ?? "")) {
+      // 生の文字列（r"…"・r#"…"#）は、\ を特別に扱わない。画面の文ではないので読み飛ばす
+      const hashes = /^#*/.exec(src.slice(k + 1))[0];
+      const end = src.indexOf(`"${hashes}`, k + 2 + hashes.length);
+      k = end < 0 ? src.length : end + 1 + hashes.length;
+      out += '""';
     } else if (src[k] === '"') {
       let j = k + 1;
       while (j < src.length && src[j] !== '"') j += src[j] === "\\" ? 2 : 1;

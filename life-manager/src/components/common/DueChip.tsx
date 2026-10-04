@@ -17,7 +17,7 @@ export function DueChip({ issue }: { issue: GitHubIssue }) {
   if (days < 0) {
     return (
       <span className="due-chip due-chip--over" title={tr("期限（{from}）を過ぎています", { from })}>
-        ⚠ {date}（{-days} {" "}{tr("日超過）")}
+        ⚠ {tr("{date}（{days} 日超過）", { date, days: -days })}
       </span>
     );
   }

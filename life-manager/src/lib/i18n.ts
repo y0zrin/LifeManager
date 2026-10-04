@@ -312,8 +312,9 @@ export function labelValueText(name: string): string {
   if (!m) return name;
   if (lang === "ja") return m[2];
   const shown = labelText(name);
-  const i = shown.indexOf(": ");
-  return i >= 0 ? shown.slice(i + 2) : tr(m[2]);
+  // 英語は「Type: Memo」、中国語は「类型：备忘」
+  const sep = /: |：/.exec(shown);
+  return sep ? shown.slice(sep.index + sep[0].length) : tr(m[2]);
 }
 
 /** 月の短い名前（日本語・中国語は「10月」、英語は「Oct」） */

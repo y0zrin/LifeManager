@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as git from "../lib/git";
 import type { GitBranch, GitRun, GitStash, GitStatus } from "../lib/types";
-import { tr } from "../lib/i18n";
+import { tr, listSep } from "../lib/i18n";
 
 /** 画面の右下に出すお知らせ */
 export interface GitNotice {
@@ -156,7 +156,7 @@ export function useGit(folder: string | undefined, active: boolean) {
           const conflicted = git.conflictFilesIn(message);
           const extra = conflicted.length > 0 ? undefined : options.failNotice?.(message);
           const shown = conflicted.length > 0
-            ? tr("競合（コンフリクト）で止まりました（{join}）。どちらを残すかを「作業をする」で選びます", { join: conflicted.join("、") })
+            ? tr("競合（コンフリクト）で止まりました（{join}）。どちらを残すかを「作業をする」で選びます", { join: conflicted.join(listSep()) })
             : extra?.text ?? message;
           if (!options.inlineError) notify("error", shown, command, conflicted.length > 0, { output: extra?.output, action: extra?.action });
           return { ok: false, message, command };

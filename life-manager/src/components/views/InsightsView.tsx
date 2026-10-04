@@ -10,7 +10,7 @@ import { finishedMilestones, velocity, type PaceMode } from "../../lib/sprint";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 import { MobileSheet } from "../common/MobileSheet";
 import { isMobile } from "../../lib/platform";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface InsightsViewProps {
   issues: GitHubIssue[];
@@ -102,7 +102,7 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
     domain !== "all" ? sectionOf(domain) : "",
   ]
     .filter(Boolean)
-    .join("、");
+    .join(listSep());
 
   // チームのペース: 数え方（見積もり／件数）。選んだことがなければ、見積もりのある Issue があるときは見積もり
   const hasEstimates = useMemo(() => all.some((i) => estimateOf(i) !== null), [all]);

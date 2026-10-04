@@ -533,7 +533,9 @@ function Workspace({
       return {
         hint: (
           <>
-            {trx("#{number} は閉じられました", { number: closedIssue.number })}{pr?.merged ? tr("（#{number} のマージで）", { number: pr.number }) : ""}。
+            {pr?.merged
+              ? tr("#{number} は閉じられました（#{pr} のマージで）。", { number: closedIssue.number, pr: pr.number })
+              : tr("#{number} は閉じられました。", { number: closedIssue.number })}
           </>
         ),
         buttons: [
@@ -770,7 +772,7 @@ function Workspace({
               </button>
             ) : (
               <button type="button" className="btn-primary" disabled={g.busy !== null} onClick={actions.push}>
-                {tr("プッシュする（")}{published ? `↑${st.ahead}` : tr("はじめて送る")}）
+                {published ? tr("プッシュする（↑{n}）", { n: st.ahead }) : tr("プッシュする（はじめて送る）")}
               </button>
             )
           ) : changeCount === 0 ? (

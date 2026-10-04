@@ -273,7 +273,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
 
         {step === lastStep && (
           <>
-            <p className="local-folder-message local-folder-message--ok">{tr("✔ GitHub に上げました")}{byLogin ? tr("。Life Manager で使えます") : ""}。</p>
+            <p className="local-folder-message local-folder-message--ok">{byLogin ? tr("✔ GitHub に上げました。Life Manager で使えます。") : tr("✔ GitHub に上げました。")}</p>
             <p className="git-dialog-message">
               {trx("「プロジェクトに追加して閉じる」で、{trim}/{trim2} をプロジェクトに登録し、このフォルダを作業フォルダにします。", { trim: owner.trim(), trim2: name.trim() })}
             </p>

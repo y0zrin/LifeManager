@@ -8,7 +8,7 @@ import { IssueSendState, isUnsent } from "./Sending";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
 import { Avatar } from "./Avatar";
-import { tr, trx, labelText } from "../../lib/i18n";
+import { tr, trx, labelText, listSep } from "../../lib/i18n";
 
 interface IssueTableProps {
   groups: TaskGroup[];
@@ -99,7 +99,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                   <td><EstimateChip issue={issue} plain /></td>
                   <td>
                     {assignee ? (
-                      <span className="tt-who" title={issue.assignees?.map((a) => a.login).join("、")}>
+                      <span className="tt-who" title={issue.assignees?.map((a) => a.login).join(listSep())}>
                         <Avatar login={assignee.login} url={assignee.avatar_url} alt="" className="avatar-sm" />
                         {assignee.login}
                         {more > 0 && <span className="tt-muted">＋{more}</span>}

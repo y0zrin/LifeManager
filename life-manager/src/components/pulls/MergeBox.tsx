@@ -15,7 +15,7 @@ import {
   type PullRepoInfo,
 } from "../../lib/pulls";
 import type { CommitChecks } from "../../lib/actions";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 const METHOD_KEY = "pull-merge-method";
 
@@ -125,7 +125,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
           <div>
             <b>{tr("マージしました")}</b>
             <div className="muted">
-              {ago(pull.merged_at)}、{pull.merged_by?.login ?? tr("だれか")} {" "}{trx("が <0>{head}</0> を <1>{base}</1> に入れました", { head: pull.head, base: pull.base }, [<code />, <code />])}
+              {trx("{ago}、{who} が <0>{head}</0> を <1>{base}</1> に入れました", { ago: ago(pull.merged_at), who: pull.merged_by?.login ?? tr("だれか"), head: pull.head, base: pull.base }, [<code />, <code />])}
               {pull.merge_commit_sha && <>（<code>{pull.merge_commit_sha.slice(0, 7)}</code>）</>}
             </div>
           </div>
@@ -238,12 +238,12 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
   return (
     <div className="mb" id="merge-box">
       <div className="mb-reviews">
-        {approved.length > 0 && <span className="ok">{trx("✔ 承認: {join}", { join: approved.join("、") })}</span>}
-        {changes_requested.length > 0 && <span className="ng">{trx("✖ 修正の依頼: {join}", { join: changes_requested.join("、") })}</span>}
+        {approved.length > 0 && <span className="ok">{trx("✔ 承認: {join}", { join: approved.join(listSep()) })}</span>}
+        {changes_requested.length > 0 && <span className="ng">{trx("✖ 修正の依頼: {join}", { join: changes_requested.join(listSep()) })}</span>}
         {approved.length === 0 && changes_requested.length === 0 && (
           <span className="muted">
             {waiting.length > 0
-              ? tr("レビューを待っています（{join}）", { join: waiting.join("、") })
+              ? tr("レビューを待っています（{join}）", { join: waiting.join(listSep()) })
               : tr("まだ誰もレビューしていません")}
           </span>
         )}

@@ -5,7 +5,7 @@ import { dueOf } from "../../lib/due";
 import { formatEstimate } from "../../lib/estimate";
 import { issueRef } from "../../lib/issueRef";
 import { EstimateSumText, useEstimateUnit } from "./EstimateChip";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 /** たたんだかどうか（次に開いたときも同じ） */
 const FOLD_STORE = "task-analytics";
@@ -169,7 +169,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
           {/* 小さく出すときは、状態ごとの帯だけ */}
           {compact && a.open.length > 0 && (
             <>
-              <div className="analytics-stack" role="img" aria-label={a.states.map((s) => tr("{stateName} {count} 件", { stateName: stateName(s.key), count: s.count })).join("、")}>
+              <div className="analytics-stack" role="img" aria-label={a.states.map((s) => tr("{stateName} {count} 件", { stateName: stateName(s.key), count: s.count })).join(listSep())}>
                 {a.states.map((s) => (
                   <i key={s.key} style={{ width: `${(s.count / a.open.length) * 100}%`, background: colorOf(s.key) }} />
                 ))}
@@ -190,7 +190,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
                 <p className="analytics-muted">{tr("開いている Issue はありません")}</p>
               ) : (
                 <>
-                  <div className="analytics-stack" role="img" aria-label={a.states.map((s) => tr("{stateName} {count} 件", { stateName: stateName(s.key), count: s.count })).join("、")}>
+                  <div className="analytics-stack" role="img" aria-label={a.states.map((s) => tr("{stateName} {count} 件", { stateName: stateName(s.key), count: s.count })).join(listSep())}>
                     {a.states.map((s) => (
                       <i key={s.key} style={{ width: `${(s.count / a.open.length) * 100}%`, background: colorOf(s.key) }}
                         title={tr("{stateName} {count} 件", { stateName: stateName(s.key), count: s.count })} />

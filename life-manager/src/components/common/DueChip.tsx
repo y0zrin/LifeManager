@@ -23,7 +23,7 @@ export function DueChip({ issue }: { issue: GitHubIssue }) {
   }
   return (
     <span className={`due-chip${days <= SOON_DAYS ? " due-chip--soon" : ""}`} title={tr("期限（{from}）", { from })}>
-      📅 {date}（{days === 0 ? tr("今日") : tr("あと {days} 日", { days })}）
+      📅 {days === 0 ? tr("{date}（今日）", { date }) : tr("{date}（あと {days} 日）", { date, days })}
     </span>
   );
 }

@@ -207,7 +207,10 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
               <div className="team-form">
                 <span className="team-note">
                   {tr("改行、カンマ、空白で区切れます")}
-                  {parsed.names.length > 0 && <>{trx("（{length} 人", { length: parsed.names.length })}{parsed.invalid.length > 0 && tr("・名前に使えない文字 {length} 件", { length: parsed.invalid.length })}）</>}
+                  {parsed.names.length > 0 &&
+                    (parsed.invalid.length > 0
+                      ? tr("（{n} 人・名前に使えない文字 {bad} 件）", { n: parsed.names.length, bad: parsed.invalid.length })
+                      : tr("（{n} 人）", { n: parsed.names.length }))}
                 </span>
                 <span className="team-form-right">
                   {overview.organization ? (

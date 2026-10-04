@@ -142,7 +142,7 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
           <span className="account-name">{name}</span>
           {expiry && (
             <span className={`account-sub${warn ? " warn" : ""}`}>
-              {trx("期限 {shortDate}（", { shortDate })}{expiry.days < 0 ? tr("切れています") : tr("あと {days} 日", { days: expiry.days })}）
+              {expiry.days < 0 ? tr("期限 {date}（切れています）", { date: shortDate }) : tr("期限 {date}（あと {days} 日）", { date: shortDate, days: expiry.days })}
             </span>
           )}
         </span>

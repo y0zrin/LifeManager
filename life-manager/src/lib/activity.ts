@@ -122,8 +122,6 @@ const ref = (e: ActivityEvent, pull = !!e.pull): RefPart => ({ kind: pull ? "pul
 /** 起きたこと 1 つを、今の言語の文にする（出さないものは null）。help は 🆘 の流れの中での役（helpRoles）。した人は {actor}（太字） */
 export function describe(e: ActivityEvent, help?: HelpRole): Described | null {
   const actor: Part = { kind: "actor", name: e.actor };
-  // した人と番号の入る文
-  const say = (ja: string, r: Part | string = "", more: Record<string, string | number> = {}) => sentence(ja, { actor, ref: r, ...more });
   switch (e.type) {
     case MILESTONE_EVENT: {
       const left = e.due_on ? daysUntil(e.due_on.slice(0, 10), new Date(e.at)) : null;
@@ -136,62 +134,62 @@ export function describe(e: ActivityEvent, help?: HelpRole): Described | null {
       const count = e.size ?? (e.commits?.length || null);
       return {
         icon: "⬆",
-        parts: count ? say("{actor} が {ref} に {n} コミットをプッシュ", e.ref ?? "", { n: count }) : say("{actor} が {ref} にプッシュしました", e.ref ?? ""),
+        parts: count ? sentence("{actor} が {ref} に {n} コミットをプッシュ", { actor, ref: e.ref ?? "", n: count }) : sentence("{actor} が {ref} にプッシュしました", { actor, ref: e.ref ?? "" }),
         commits: e.commits ?? [],
       };
     }
     case "PullRequestEvent": {
       const r = ref(e, true);
-      if (e.action === "opened") return { icon: "🔃", parts: say("{actor} がプルリク {ref} を作りました", r) };
+      if (e.action === "opened") return { icon: "🔃", parts: sentence("{actor} がプルリク {ref} を作りました", { actor, ref: r }) };
       // マージは、前は closed と merged、今の GitHub は merged で来る
-      if (e.action === "merged" || (e.action === "closed" && e.merged)) return { icon: "🟣", parts: say("{actor} が {ref} をマージしました", r) };
-      if (e.action === "closed") return { icon: "🔴", parts: say("{actor} がプルリク {ref} を閉じました", r) };
-      if (e.action === "reopened") return { icon: "🟢", parts: say("{actor} がプルリク {ref} を開き直しました", r) };
-      if (e.action === "ready_for_review") return { icon: "📣", parts: say("{actor} が {ref} をレビューをお願いできる状態にしました", r) };
+      if (e.action === "merged" || (e.action === "closed" && e.merged)) return { icon: "🟣", parts: sentence("{actor} が {ref} をマージしました", { actor, ref: r }) };
+      if (e.action === "closed") return { icon: "🔴", parts: sentence("{actor} がプルリク {ref} を閉じました", { actor, ref: r }) };
+      if (e.action === "reopened") return { icon: "🟢", parts: sentence("{actor} がプルリク {ref} を開き直しました", { actor, ref: r }) };
+      if (e.action === "ready_for_review") return { icon: "📣", parts: sentence("{actor} が {ref} をレビューをお願いできる状態にしました", { actor, ref: r }) };
       return null;
     }
     case "PullRequestReviewEvent": {
       const r = ref(e, true);
-      if (e.review_state === "approved") return { icon: "✔", parts: say("{actor} が {ref} を承認しました", r) };
-      if (e.review_state === "changes_requested") return { icon: "✏️", parts: say("{actor} が {ref} に修正を依頼しました", r) };
-      return { icon: "💬", parts: say("{actor} が {ref} をレビューしました", r) };
+      if (e.review_state === "approved") return { icon: "✔", parts: sentence("{actor} が {ref} を承認しました", { actor, ref: r }) };
+      if (e.review_state === "changes_requested") return { icon: "✏️", parts: sentence("{actor} が {ref} に修正を依頼しました", { actor, ref: r }) };
+      return { icon: "💬", parts: sentence("{actor} が {ref} をレビューしました", { actor, ref: r }) };
     }
     case "PullRequestReviewCommentEvent":
-      return { icon: "💬", parts: say("{actor} が {ref} の行にコメントしました", ref(e, true)), detail: e.body ?? undefined };
+      return { icon: "💬", parts: sentence("{actor} が {ref} の行にコメントしました", { actor, ref: ref(e, true) }), detail: e.body ?? undefined };
     case "IssuesEvent": {
       const r = ref(e);
-      if (e.action === "opened") return { icon: "📝", parts: say("{actor} が {ref} を作りました", r) };
+      if (e.action === "opened") return { icon: "📝", parts: sentence("{actor} が {ref} を作りました", { actor, ref: r }) };
       if (e.action === "closed") {
-        if (e.state_reason === "not_planned") return { icon: "⊘", parts: say("{actor} が {ref} を閉じました（予定なし）", r) };
-        if (e.state_reason === "duplicate") return { icon: "⊘", parts: say("{actor} が {ref} を閉じました（重複）", r) };
-        return { icon: "✅", tone: "done", parts: say("{actor} が {ref} を完了にしました", r) };
+        if (e.state_reason === "not_planned") return { icon: "⊘", parts: sentence("{actor} が {ref} を閉じました（予定なし）", { actor, ref: r }) };
+        if (e.state_reason === "duplicate") return { icon: "⊘", parts: sentence("{actor} が {ref} を閉じました（重複）", { actor, ref: r }) };
+        return { icon: "✅", tone: "done", parts: sentence("{actor} が {ref} を完了にしました", { actor, ref: r }) };
       }
-      if (e.action === "reopened") return { icon: "↺", parts: say("{actor} が {ref} を開き直しました", r) };
-      if (e.action === "assigned" && e.assignee) return { icon: "👤", parts: say("{actor} が {ref} の担当を {assignee} にしました", r, { assignee: e.assignee }) };
+      if (e.action === "reopened") return { icon: "↺", parts: sentence("{actor} が {ref} を開き直しました", { actor, ref: r }) };
+      if (e.action === "assigned" && e.assignee) return { icon: "👤", parts: sentence("{actor} が {ref} の担当を {assignee} にしました", { actor, ref: r, assignee: e.assignee }) };
       return null;
     }
     case "IssueCommentEvent":
       if (e.action !== "created") return null;
-      if (help?.role === "ask") return { icon: "🆘", tone: "help", parts: say("{actor} が {ref} で助けを求めました", ref(e)), detail: e.body ?? undefined };
-      if (help?.role === "answer") return { icon: "🤝", tone: "answer", parts: say("{actor} が {ref} で {asker} の 🆘 に答えました", ref(e), { asker: help.asker }), detail: e.body ?? undefined };
-      if (help?.role === "resolved") return { icon: "🎉", tone: "resolved", parts: say("{actor} が {ref} の 🆘 を解決しました", ref(e)) };
-      return { icon: "💬", parts: say("{actor} が {ref} にコメントしました", ref(e)), detail: e.body ?? undefined };
+      if (help?.role === "ask") return { icon: "🆘", tone: "help", parts: sentence("{actor} が {ref} で助けを求めました", { actor, ref: ref(e) }), detail: e.body ?? undefined };
+      if (help?.role === "answer") return { icon: "🤝", tone: "answer", parts: sentence("{actor} が {ref} で {asker} の 🆘 に答えました", { actor, ref: ref(e), asker: help.asker }), detail: e.body ?? undefined };
+      if (help?.role === "resolved") return { icon: "🎉", tone: "resolved", parts: sentence("{actor} が {ref} の 🆘 を解決しました", { actor, ref: ref(e) }) };
+      return { icon: "💬", parts: sentence("{actor} が {ref} にコメントしました", { actor, ref: ref(e) }), detail: e.body ?? undefined };
     case "CreateEvent":
-      if (e.ref_type === "branch") return { icon: "🌿", parts: say("{actor} がブランチ {ref} を作りました", e.ref ?? "") };
-      if (e.ref_type === "tag") return { icon: "🏷️", parts: say("{actor} がタグ {ref} を付けました", e.ref ?? "") };
-      if (e.ref_type === "repository") return { icon: "📦", parts: say("{actor} がリポジトリを作りました") };
+      if (e.ref_type === "branch") return { icon: "🌿", parts: sentence("{actor} がブランチ {ref} を作りました", { actor, ref: e.ref ?? "" }) };
+      if (e.ref_type === "tag") return { icon: "🏷️", parts: sentence("{actor} がタグ {ref} を付けました", { actor, ref: e.ref ?? "" }) };
+      if (e.ref_type === "repository") return { icon: "📦", parts: sentence("{actor} がリポジトリを作りました", { actor }) };
       return null;
     case "DeleteEvent":
-      return { icon: "🗑", parts: e.ref_type === "tag" ? say("{actor} がタグ {ref} を消しました", e.ref ?? "") : say("{actor} がブランチ {ref} を消しました", e.ref ?? "") };
+      return { icon: "🗑", parts: e.ref_type === "tag" ? sentence("{actor} がタグ {ref} を消しました", { actor, ref: e.ref ?? "" }) : sentence("{actor} がブランチ {ref} を消しました", { actor, ref: e.ref ?? "" }) };
     case "ReleaseEvent":
       if (e.action !== "published") return null;
-      return { icon: "🏷️", parts: e.prerelease ? say("{actor} が試用版 {ref} を出しました", e.title ?? e.ref ?? "") : say("{actor} がリリース {ref} を出しました", e.title ?? e.ref ?? "") };
+      return { icon: "🏷️", parts: e.prerelease ? sentence("{actor} が試用版 {ref} を出しました", { actor, ref: e.title ?? e.ref ?? "" }) : sentence("{actor} がリリース {ref} を出しました", { actor, ref: e.title ?? e.ref ?? "" }) };
     case "MemberEvent":
-      return e.action === "added" ? { icon: "👥", parts: say("{actor} が {member} をメンバーに入れました", "", { member: e.member ?? "" }) } : null;
+      return e.action === "added" ? { icon: "👥", parts: sentence("{actor} が {member} をメンバーに入れました", { actor, member: e.member ?? "" }) } : null;
     case "ForkEvent":
-      return { icon: "🍴", parts: say("{actor} がフォークしました") };
+      return { icon: "🍴", parts: sentence("{actor} がフォークしました", { actor }) };
     case "WatchEvent":
-      return { icon: "⭐", parts: say("{actor} がスターを付けました") };
+      return { icon: "⭐", parts: sentence("{actor} がスターを付けました", { actor }) };
     default:
       return null;
   }

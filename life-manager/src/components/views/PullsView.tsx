@@ -19,7 +19,7 @@ import { PULL_PERMISSIONS, commitsChecks, isPermissionError, type CheckSummary }
 import { PermissionPrompt } from "../actions/PermissionPrompt";
 import { PullDetail } from "../pulls/PullDetail";
 import { CreatePullDialog } from "../pulls/CreatePullDialog";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 type Filter = "open" | "merged" | "closed";
 const FILTERS: Filter[] = ["open", "merged", "closed"];
@@ -236,7 +236,7 @@ export function PullsView(props: PullsViewProps) {
                     {ck && ck.failure === 0 && ck.pending > 0 && <span className="t-wait">{tr("● チェック中")}</span>}
                     {ck && ck.failure === 0 && ck.pending === 0 && ck.success > 0 && <span className="ok">{tr("✔ チェック")}</span>}
                     {s === "open" && v && v.approved.length === 0 && v.changes_requested.length === 0 && (
-                      <span className="muted">{p.requested_reviewers.length > 0 ? tr("レビュー待ち（{join}）", { join: p.requested_reviewers.map((r) => r.login).join("、") }) : tr("レビューまだ")}</span>
+                      <span className="muted">{p.requested_reviewers.length > 0 ? tr("レビュー待ち（{join}）", { join: p.requested_reviewers.map((r) => r.login).join(listSep()) }) : tr("レビューまだ")}</span>
                     )}
                     <span className="grow" />
                     <span className="muted">

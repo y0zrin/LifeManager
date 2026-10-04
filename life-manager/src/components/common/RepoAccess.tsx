@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listUserRepos, repoAccessUrl, type Installation } from "../../lib/auth";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 /** GitHub の画面で選んでいるあいだ、確かめに行く間隔と、あきらめるまで */
 const WATCH_MS = 3000;
@@ -82,7 +82,7 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
     <div className="repo-access">
       {mine && (
         <p className="repo-access-state">
-          {tr("✔ Life Manager が入っています（")}{mine.repository_selection === "all" ? tr("すべてのリポジトリ") : tr("選んだリポジトリ")}）
+          {mine.repository_selection === "all" ? tr("✔ Life Manager が入っています（すべてのリポジトリ）") : tr("✔ Life Manager が入っています（選んだリポジトリ）")}
         </p>
       )}
       {!(mine && mine.repository_selection === "all") && (
@@ -96,7 +96,7 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
           <button type="button" className="link-button" onClick={stop}>{tr("やめる")}</button>
         </p>
       )}
-      {done && <p className="repo-access-done">{trx("✔ 使えるようになりました: {join}", { join: done.join("、") })}</p>}
+      {done && <p className="repo-access-done">{trx("✔ 使えるようになりました: {join}", { join: done.join(listSep()) })}</p>}
       {!watching && !done && !(mine && mine.repository_selection === "all") && (
         <p className="repo-access-note">
           {mine

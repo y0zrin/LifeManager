@@ -28,7 +28,7 @@ import { RepoAccess } from "./RepoAccess";
 import { TokenEntry } from "./TokenEntry";
 import { TokenReportView } from "./TokenReportView";
 import { THIS_DEVICE } from "../../lib/platform";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface TokenSettingsProps {
   projects: Project[];
@@ -222,7 +222,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         {byLogin && installUrl && mine.report && (
           <div className="token-card-row token-card-access">
             <RepoAccess me={{ login: mine.report.login, id: mine.report.id }} installUrl={installUrl} installations={installations}
-              onChanged={async (added) => { await loadInstallations(); await changed(tr("使えるリポジトリが増えました（{join}）。左上のリポジトリの「＋ リポジトリを追加」で登録できます", { join: added.join("、") })); }} />
+              onChanged={async (added) => { await loadInstallations(); await changed(tr("使えるリポジトリが増えました（{join}）。左上のリポジトリの「＋ リポジトリを追加」で登録できます", { join: added.join(listSep()) })); }} />
           </div>
         )}
         <div className="token-card-actions">

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { dispatchWorkflow, type Workflow } from "../../lib/actions";
 import { isEscape } from "../../lib/keys";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface DispatchDialogProps {
   owner: string;
@@ -109,7 +109,7 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
           <button type="button" className="btn-sm" disabled={busy} onClick={onClose}>
             {tr("やめる")}
           </button>
-          <button type="button" className="btn-primary" disabled={busy || missing.length > 0 || (!!privateRepo && !agreed)} onClick={submit} title={missing.length > 0 ? tr("入れてください: {join}", { join: missing.map((m) => m.name).join("、") }) : undefined}>
+          <button type="button" className="btn-primary" disabled={busy || missing.length > 0 || (!!privateRepo && !agreed)} onClick={submit} title={missing.length > 0 ? tr("入れてください: {join}", { join: missing.map((m) => m.name).join(listSep()) }) : undefined}>
             {busy ? tr("動かしています…") : tr("実行する")}
           </button>
         </div>

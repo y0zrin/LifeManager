@@ -6,7 +6,7 @@ import type { BranchEntry } from "../lib/history";
 import type { GitDialogSpec } from "../components/git/GitDialog";
 import type { MenuItem } from "../components/git/ContextMenu";
 import type { GitExecOptions, GitResult, GitState } from "./useGit";
-import { tr } from "../lib/i18n";
+import { tr, listSep } from "../lib/i18n";
 
 export const OPERATION_NAMES: Record<GitOperation, string> = {
   merge: tr("マージ"),
@@ -311,7 +311,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       });
       return;
     }
-    const examples = tracked.slice(0, 3).join("、") + (tracked.length > 3 ? tr(" など") : "");
+    const examples = tracked.slice(0, 3).join(listSep()) + (tracked.length > 3 ? tr(" など") : "");
     setDialog({
       kind: "choice",
       title: rule.kind === "ext" ? tr("拡張子 {label} のファイルを無視する", { label: rule.label }) : tr("フォルダ {label} を無視する", { label: rule.label }),

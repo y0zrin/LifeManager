@@ -138,7 +138,9 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
               <text x={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? x(dayOfDate(biggestAdd.date)) - 4 : x(dayOfDate(biggestAdd.date)) + 4}
                 y={Math.max(TOP + 12, y(top) - 2)} className="bd-add-text"
                 textAnchor={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? "end" : "start"}>
-                +{fmt(biggestAdd.amount)}（{biggestAdd.issues.slice(0, 2).map(issueRef).join(tr("・"))}{biggestAdd.issues.length > 2 ? tr(" ほか") : ""} {" "}{tr("を足した）")}
+                {biggestAdd.issues.length > 2
+                  ? tr("+{amount}（{refs} ほか を足した）", { amount: fmt(biggestAdd.amount), refs: biggestAdd.issues.slice(0, 2).map(issueRef).join(tr("・")) })
+                  : tr("+{amount}（{refs} を足した）", { amount: fmt(biggestAdd.amount), refs: biggestAdd.issues.slice(0, 2).map(issueRef).join(tr("・")) })}
               </text>
             )}
             {labelDays.map((d) => (

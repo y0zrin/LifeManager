@@ -322,6 +322,11 @@ export function monthShort(m: number): string {
   return `${m}月`;
 }
 
+/** ならびの区切り（日本語・中国語は「、」、英語は ", "） */
+export function listSep(): string {
+  return lang === "en" ? ", " : "、";
+}
+
 /** 名前のならび（日本語・中国語は「、」、英語は ", "） */
 export function joinNames(names: string[]): string {
   return names.join(lang === "en" ? ", " : "、");

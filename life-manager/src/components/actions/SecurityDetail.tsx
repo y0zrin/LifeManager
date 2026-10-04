@@ -42,7 +42,7 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
     <div className="ac-detail">
       <div className="ac-head">
         {level && <span className={`ac-level l${card.level}`}>{level.icon} {level.label}</span>}
-        <span className="ac-sev">{tr("危険度「")}{SEVERITY_LABELS[severity] ?? severity}」</span>
+        <span className="ac-sev">{tr("危険度「{level}」", { level: SEVERITY_LABELS[severity] ?? severity })}</span>
         <h2 className="ac-title">{a ? `🛡 ${a.package}` : `🔍 ${c?.rule ?? ""}`}</h2>
         <span className="grow" />
         {url && (

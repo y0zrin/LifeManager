@@ -5,7 +5,7 @@ import * as gitApi from "../../lib/git";
 import { celebrateDone } from "../../lib/celebrate";
 import { countOf } from "../../lib/count";
 import { dayKey, doneToday, localDayStart } from "../../lib/today";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface TodayCardProps {
   closedIssues: GitHubIssue[];
@@ -67,7 +67,7 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
 
   function finishDay(button: HTMLElement) {
     const parts = [tr("タスク {countOf}", { countOf: countOf(done.length, tr("件")) }), ...(commits !== null ? [tr("コミット {commits} 回", { commits })] : [])];
-    const text = done.length > 0 || (commits ?? 0) > 0 ? tr("今日は{join}", { join: parts.join("、") }) : tr("今日はここまで");
+    const text = done.length > 0 || (commits ?? 0) > 0 ? tr("今日は{join}", { join: parts.join(listSep()) }) : tr("今日はここまで");
     celebrateDone(tr("今日"), button, text);
     try {
       localStorage.setItem(STORE, day);

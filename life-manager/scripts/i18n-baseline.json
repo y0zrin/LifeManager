@@ -1,0 +1,103 @@
+{
+ "src/components/common/GitHubLogin.tsx": [
+  "通信できませんでした"
+ ],
+ "src/components/common/IssueDetailModal.tsx": [
+  "種別",
+  "状態",
+  "優先",
+  "セクション"
+ ],
+ "src/components/common/LanguageSelect.tsx": [
+  "言語 / Language / 语言 / 語言"
+ ],
+ "src/components/views/TimelineView.tsx": [
+  "## ノート\n"
+ ],
+ "src/hooks/github/useIssues.ts": [
+  "を予定なしとして閉じました",
+  "を ${} の重複として閉じました",
+  "を完了",
+  "未分類",
+  "📝 {issue} ${} を作成",
+  "📝 {issue} ${} をメモ投入"
+ ],
+ "src/lib/board.ts": [
+  "未整理",
+  "未着手",
+  "進行中",
+  "ブロック",
+  "チェック待ち",
+  "動作確認",
+  "完了承認待ち",
+  "いつか"
+ ],
+ "src/lib/count.ts": [
+  "${} つ"
+ ],
+ "src/lib/estimate.ts": [
+  "時間",
+  "日",
+  "人月"
+ ],
+ "src/lib/help.ts": [
+  "いっしょに送ったもの（Life Manager から）",
+  "最後に失敗した git: ",
+  "🆘 **助けてください** ${}",
+  "- ブランチ ${}（作業中の変更 ${}）",
+  "- 競合しているファイル: ${}",
+  "✅ **解決しました**（🆘 助けてください への返事） ${}",
+  "ブランチ "
+ ],
+ "src/lib/issueTemplates.ts": [
+  "🐞 バグ報告",
+  "動かない・おかしい",
+  "[バグ] ",
+  "## 何が起きたか\n\n\n## どうすると起きるか（手順）\n1. \n2. \n\n## 本当はどうなってほしいか\n\n\n## 画面やエラーの文（あれば）\n",
+  "✅ やること",
+  "目的と終わりの条件",
+  "## 目的\n\n\n## やること\n- [ ] \n- [ ] \n\n## 終わりの条件（これができたら閉じる）\n",
+  "🔍 調べもの",
+  "わかったことを残す",
+  "[調べもの] ",
+  "## 知りたいこと\n\n\n## わかったこと\n\n\n## 参考にしたもの\n"
+ ],
+ "src/lib/releases.ts": [
+  "新しい機能",
+  "直した不具合",
+  "そのほか",
+  "ありがとう: ${}",
+  "・"
+ ],
+ "src/lib/samplePlan.ts": [
+  "プランナー",
+  "その他",
+  "デザイナー",
+  "プログラマー"
+ ],
+ "src/lib/sprint.ts": [
+  "${}\n開始: ${}",
+  "開始: ${}"
+ ],
+ "src/lib/workflowTemplates.ts": [
+  "# ${}: ${}（Life Manager のひな形）\nname: ${}\n\non:\n  push:               # プッシュしたとき\n  pull_request:       # プルリクを出したときやコミットを足したとき\n  workflow_dispatch:  # 手で動かすとき（Life Manager の「▶ 手で実行」）\n\n# 同じブランチに続けてプッシュしたら、前の実行は止める（非公開のリポジトリで無料の時間を節約するため）\nconcurrency:\n  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n",
+  "    defaults:\n      run:\n        working-directory: ${}   # コマンドを動かすフォルダ\n",
+  "Unity テスト",
+  "EditMode と PlayMode のテストを動かす",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす（Unity は GameCI が用意する）\n    timeout-minutes: 45   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n    permissions:\n      contents: read\n      checks: write          # テストの結果をプルリクのチェックに出す\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          lfs: true          # Git LFS で入れた画像や音も取ってくる\n      - uses: actions/cache@v4   # Library を残して 2 回目から速くする\n        with:\n          path: ${}Library\n          key: Library-${{ hashFiles('${}Assets/**', '${}Packages/**', '${}ProjectSettings/**') }}\n          restore-keys: Library-\n      - uses: game-ci/unity-test-runner@v4   # Unity を入れてテストを動かす（版は ProjectSettings/ProjectVersion.txt から）\n        env:\n          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}     # ライセンス（.ulf の中身）\n          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}         # Unity のアカウント（テスト用のものがおすすめ）\n          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}\n        with:\n          projectPath: ${}\n          testMode: all                                   # EditMode と PlayMode の両方\n          githubToken: ${{ secrets.GITHUB_TOKEN }}       # 結果をチェックに出す\n      - uses: actions/upload-artifact@v4   # テストの結果（XML）を残す\n        if: always()\n        with:\n          name: unity-test-results\n          path: artifacts\n",
+  "Unreal テスト",
+  "Automation のテストを Unreal の入った PC で動かす",
+  "\njobs:\n  test:\n    # Unreal の入った PC（学校の PC など）で動かす。GitHub のパソコンには Unreal が入っていないので、\n    # その PC を「セルフホストランナー」として登録し、ラベル unreal を付けておく\n    runs-on: [self-hosted, Windows, unreal]\n    timeout-minutes: 90   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n    defaults:\n      run:\n        shell: pwsh\n        working-directory: ${}\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          lfs: true          # Git LFS で入れたアセットも取ってくる\n      - name: C++ をビルドする（Source フォルダがあるとき）\n        run: |\n          $uproject = (Get-ChildItem -Filter *.uproject | Select-Object -First 1).FullName\n          if (Test-Path Source) {\n            $name = [IO.Path]::GetFileNameWithoutExtension($uproject)\n            & \"$env:UE_ROOT\\Engine\\Build\\BatchFiles\\Build.bat\" \"$($name)Editor\" Win64 Development \"-Project=$uproject\" -WaitMutex\n            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n          }\n      - name: 自動テストを動かす（Project. で始まるテスト。自分のテストの名前に合わせて変える）\n        run: |\n          $uproject = (Get-ChildItem -Filter *.uproject | Select-Object -First 1).FullName\n          # UE_ROOT は、その PC の Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）\n          & \"$env:UE_ROOT\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe\" $uproject `\n            -ExecCmds=\"Automation RunTests Project\" -TestExit=\"Automation Test Queue Empty\" `\n            -ReportExportPath=\"$PWD\\TestReport\" -unattended -nullrhi -nosplash -nopause -nosound -log\n          $report = Get-Content \"$PWD\\TestReport\\index.json\" -Raw | ConvertFrom-Json\n          Write-Output \"成功 $($report.succeeded)・失敗 $($report.failed)\"\n          if ($report.failed -gt 0) { exit 1 }\n      - uses: actions/upload-artifact@v4   # テストの結果を残す\n        if: always()\n        with:\n          name: unreal-test-report\n          path: ${}TestReport\n",
+  "テスト",
+  "プッシュとプルリクのたびにテストを動かす",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4      # リポジトリの中身を取ってくる\n      - uses: actions/setup-node@v4    # Node.js を入れる\n        with:\n          node-version: 22\n          cache: npm\n          cache-dependency-path: ${}package-lock.json\n      - run: npm ci                    # ライブラリを入れる（package-lock.json のとおり）\n      - run: npm test                  # テストを動かす（package.json の \"test\"）\n",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4       # リポジトリの中身を取ってくる\n      - uses: actions/setup-python@v5   # Python を入れる\n        with:\n          python-version: \"3.12\"\n      - run: pip install pytest         # テストの道具を入れる\n      - run: if [ -f requirements.txt ]; then pip install -r requirements.txt; fi   # ライブラリを入れる\n      - run: pytest                     # テストを動かす（test_*.py）\n",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4   # リポジトリの中身を取ってくる\n      - run: cargo test             # ビルドしてテストを動かす（Rust は入っています）\n",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4       # リポジトリの中身を取ってくる\n      - uses: actions/setup-dotnet@v4   # .NET を入れる\n        with:\n          dotnet-version: \"8.0.x\"\n      - run: dotnet test                # ビルドしてテストを動かす\n",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4   # リポジトリの中身を取ってくる\n      - uses: actions/setup-go@v5   # Go を入れる\n        with:\n          go-version: stable\n      - run: go test ./...          # テストを動かす\n",
+  "\njobs:\n  test:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n${}    steps:\n      - uses: actions/checkout@v4     # リポジトリの中身を取ってくる\n      - uses: actions/setup-java@v4   # Java を入れる\n        with:\n          distribution: temurin\n          java-version: \"21\"\n          cache: maven\n      - run: mvn -B test              # ビルドしてテストを動かす\n",
+  "はじめての Actions",
+  "動くしくみを見るための見本",
+  "\njobs:\n  hello:\n    runs-on: ubuntu-latest   # GitHub が用意する Linux のパソコンで動かす\n    timeout-minutes: 15   # これより長くかかったら止める（何も書かないと 6 時間まで待つ）\n    steps:\n      - uses: actions/checkout@v4          # リポジトリの中身を取ってくる\n      - run: echo \"こんにちは、Actions！\"   # 文字を出す（ログに出ます）\n      - run: ls -la                        # 取ってきたファイルの一覧を出す\n      - run: git log --oneline -5          # 最近のコミットを 5 つ出す\n"
+ ]
+}

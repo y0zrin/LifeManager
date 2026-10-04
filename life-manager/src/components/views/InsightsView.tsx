@@ -10,6 +10,7 @@ import { finishedMilestones, velocity, type PaceMode } from "../../lib/sprint";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 import { MobileSheet } from "../common/MobileSheet";
 import { isMobile } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface InsightsViewProps {
   issues: GitHubIssue[];
@@ -96,8 +97,8 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
     [all, milestone, assignee, domain],
   );
   const scopeText = [
-    milestone === "none" ? "マイルストーンなし" : milestone !== "all" ? `マイルストーン ${milestones.find((m) => String(m.number) === milestone)?.title ?? ""}` : "",
-    assignee === "none" ? "担当なし" : assignee !== "all" ? `担当 ${assignee}` : "",
+    milestone === "none" ? tr("マイルストーンなし") : milestone !== "all" ? tr("マイルストーン {v}", { v: milestones.find((m) => String(m.number) === milestone)?.title ?? "" }) : "",
+    assignee === "none" ? tr("担当なし") : assignee !== "all" ? tr("担当 {assignee}", { assignee }) : "",
     domain !== "all" ? sectionOf(domain) : "",
   ]
     .filter(Boolean)
@@ -128,23 +129,23 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
   // マイルストーン・担当・セクションを選ぶ欄（PC は上の段、スマホは下から出る板）
   const filterSelects = (
     <>
-      <select className="select-sm" value={milestone} onChange={(e) => change({ milestone: e.target.value })} aria-label="マイルストーン">
-        <option value="all">マイルストーン: 全て</option>
+      <select className="select-sm" value={milestone} onChange={(e) => change({ milestone: e.target.value })} aria-label={tr("マイルストーン")}>
+        <option value="all">{tr("マイルストーン: 全て")}</option>
         {milestones.map((m) => (
-          <option key={m.number} value={String(m.number)}>マイルストーン: {m.title}</option>
+          <option key={m.number} value={String(m.number)}>{trx("マイルストーン: {title}", { title: m.title })}</option>
         ))}
-        <option value="none">マイルストーンなし</option>
+        <option value="none">{tr("マイルストーンなし")}</option>
       </select>
-      <select className="select-sm" value={assignee} onChange={(e) => change({ assignee: e.target.value })} aria-label="担当">
-        <option value="all">担当: 全員</option>
+      <select className="select-sm" value={assignee} onChange={(e) => change({ assignee: e.target.value })} aria-label={tr("担当")}>
+        <option value="all">{tr("担当: 全員")}</option>
         {collaborators.map((c) => (
-          <option key={c.login} value={c.login}>担当: {c.login}</option>
+          <option key={c.login} value={c.login}>{trx("担当: {login}", { login: c.login })}</option>
         ))}
-        <option value="none">担当なし</option>
+        <option value="none">{tr("担当なし")}</option>
       </select>
       {domains.length > 0 && (
-        <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label="セクション">
-          <option value="all">セクション: 全て</option>
+        <select className="select-sm" value={domain} onChange={(e) => change({ domain: e.target.value })} aria-label={tr("セクション")}>
+          <option value="all">{tr("セクション: 全て")}</option>
           {domains.map((d) => (
             <option key={d} value={d}>{sectionOf(d)}</option>
           ))}
@@ -155,18 +156,18 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
   const activeFilters = (milestone !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (domain !== "all" ? 1 : 0);
   // スマホの上の段に出す、かけている条件
   const filterSummary = [
-    milestone === "all" ? null : milestone === "none" ? "マイルストーンなし" : `🎯 ${milestones.find((m) => String(m.number) === milestone)?.title ?? milestone}`,
-    assignee === "all" ? null : assignee === "none" ? "担当なし" : `👤 ${assignee}`,
+    milestone === "all" ? null : milestone === "none" ? tr("マイルストーンなし") : `🎯 ${milestones.find((m) => String(m.number) === milestone)?.title ?? milestone}`,
+    assignee === "all" ? null : assignee === "none" ? tr("担当なし") : `👤 ${assignee}`,
     domain === "all" ? null : sectionOf(domain),
   ]
     .filter(Boolean)
-    .join(" ・ ") || "すべて";
+    .join(tr(" ・ ")) || tr("すべて");
 
   // スマホの「絞り込み」と、かけている条件（小さく出すときは、見出しの横に置く）
   const mobileFilter = (
     <>
       <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-        表示するタスク{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+        {tr("表示するタスク")}{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
       </button>
       <span className="insights-filter-summary">{filterSummary}</span>
     </>
@@ -179,22 +180,21 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
         <div className="toolbar insights-filters m-compact">{mobileFilter}</div>
       ) : (
         <div className="toolbar insights-filters">
-          <span className="insights-filter-label">表示するタスク</span>
-          {filterSelects}
+          {trx("<0>表示するタスク</0>{filterSelects}", { filterSelects }, [<span className="insights-filter-label" />])}
           {(milestone !== "all" || assignee !== "all" || domain !== "all") && (
-            <button type="button" className="link-button" onClick={() => change(ALL)}>すべて表示する</button>
+            <button type="button" className="link-button" onClick={() => change(ALL)}>{tr("すべて表示する")}</button>
           )}
         </div>
       )}
       {isMobile && (
         <MobileSheet
           open={sheetOpen}
-          title="表示するタスク"
+          title={tr("表示するタスク")}
           onClose={() => setSheetOpen(false)}
           footer={
             <>
-              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => change(ALL)}>すべて外す</button>
-              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>閉じる</button>
+              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => change(ALL)}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{tr("閉じる")}</button>
             </>
           }
         >
@@ -203,7 +203,7 @@ export function InsightsView({ issues, closedIssues, milestones, labels, collabo
       )}
 
       <AnalyticsPanel scope={scope} scopeText={scopeText} stateOrder={stateOrder} onSelectIssue={onSelectIssue}
-        title={compact ? "📈 オーバービュー" : "📈 タスクの数"} foldable={false}
+        title={compact ? tr("📈 オーバービュー") : tr("📈 タスクの数")} foldable={false}
         compact={compact} headExtra={compact ? mobileFilter : undefined} onMore={onMore} />
 
       {!compact && <MemberNow members={collaborators} issues={issues} events={events} me={me} onSelectIssue={onSelectIssue} onSelectMember={onSelectMember} />}

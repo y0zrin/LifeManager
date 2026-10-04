@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { GitHubIssue } from "../../lib/types";
 import { Buncho } from "./Buncho";
+import { tr } from "../../lib/i18n";
 
 /** 送れなかった仮の Issue の「もう一度」「やめる」（App が渡す） */
 export const SendingContext = createContext<{ retry: (n: number) => void; discard: (n: number) => void }>({
@@ -9,7 +10,7 @@ export const SendingContext = createContext<{ retry: (n: number) => void; discar
 });
 
 /** 「送っています…」（くるくる。文鳥のテーマでは、くるくるの代わりに文鳥が手紙を運ぶ） */
-export function SendingChip({ label = "送っています…" }: { label?: string }) {
+export function SendingChip({ label = tr("送っています…") }: { label?: string }) {
   return (
     <span className="sending-chip" role="status">
       <i className="sending-spin" aria-hidden="true" />
@@ -30,7 +31,7 @@ export function SendingBird() {
 
 /** 「⚠ 送れませんでした」 */
 export function FailedChip() {
-  return <span className="failed-chip">⚠ 送れませんでした</span>;
+  return <span className="failed-chip">{tr("⚠ 送れませんでした")}</span>;
 }
 
 /** 仮の Issue（送っている・送れなかった）の印と、送れなかったときの「もう一度」「やめる」。ふつうの Issue なら何も出さない */
@@ -44,10 +45,10 @@ export function IssueSendState({ issue, actions = true }: { issue: GitHubIssue; 
       {actions && (
         <span className="failed-actions" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
           <button type="button" className="btn-primary" onClick={() => retry(issue.number)}>
-            もう一度
+            {tr("もう一度")}
           </button>
           <button type="button" className="btn-sm" onClick={() => discard(issue.number)}>
-            やめる
+            {tr("やめる")}
           </button>
           <small className="failed-why" title={issue._failed}>
             {issue._failed.length > 40 ? `${issue._failed.slice(0, 40)}…` : issue._failed}

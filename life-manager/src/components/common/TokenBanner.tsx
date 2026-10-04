@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { checkToken, expiryOf, EXPIRY_WARN_DAYS } from "../../lib/auth";
 import { THIS_DEVICE } from "../../lib/platform";
+import { tr, jaOf } from "../../lib/i18n";
 
 interface TokenBannerProps {
   owner: string;
@@ -22,19 +23,19 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
       .then((report) => {
         if (!alive) return;
         const expiry = expiryOf(report);
-        if (expiry && expiry.days < 0) setText(`${owner}/${repo} で使うトークンの期限が切れています（${report.login}）。`);
+        if (expiry && expiry.days < 0) setText(tr("{owner}/{repo} で使うトークンの期限が切れています（{login}）。", { owner, repo, login: report.login }));
         else if (expiry && expiry.days <= EXPIRY_WARN_DAYS) {
           setText(
             report.kind === "app"
-              ? `${THIS_DEVICE}で使うログインの期限まであと ${expiry.days} 日です（${report.login}）。「ログインし直す（期限を延ばす）」で延ばせます。`
-              : `${owner}/${repo} で使うトークンは、あと ${expiry.days} 日で期限が切れます（${report.login}）。`,
+              ? tr("{THIS_DEVICE}で使うログインの期限まであと {days} 日です（{login}）。「ログインし直す（期限を延ばす）」で延ばせます。", { THIS_DEVICE, days: expiry.days, login: report.login })
+              : tr("{owner}/{repo} で使うトークンは、あと {days} 日で期限が切れます（{login}）。", { owner, repo, days: expiry.days, login: report.login }),
           );
         }
       })
       .catch((e) => {
         // つながらないだけのときは知らせない
         const message = String(e);
-        if (alive && !message.includes("通信できませんでした")) setText(`${owner}/${repo} で使うトークンが使えません（${message}）。`);
+        if (alive && !jaOf(message).includes("通信できませんでした")) setText(tr("{owner}/{repo} で使うトークンが使えません（{message}）。", { owner, repo, message }));
       });
     return () => {
       alive = false;
@@ -46,10 +47,10 @@ export function TokenBanner({ owner, repo, onOpenSettings }: TokenBannerProps) {
     <div className="token-banner" role="status">
       <span>⚠ {text}</span>
       <button type="button" className="btn-sm" onClick={onOpenSettings}>
-        設定 → トークン を開く
+        {tr("設定 → トークン を開く")}
       </button>
       <button type="button" className="btn-sm" onClick={() => setClosed(true)}>
-        あとで
+        {tr("あとで")}
       </button>
     </div>
   );

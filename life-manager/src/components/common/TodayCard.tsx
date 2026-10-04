@@ -5,6 +5,7 @@ import * as gitApi from "../../lib/git";
 import { celebrateDone } from "../../lib/celebrate";
 import { countOf } from "../../lib/count";
 import { dayKey, doneToday, localDayStart } from "../../lib/today";
+import { tr, trx } from "../../lib/i18n";
 
 interface TodayCardProps {
   closedIssues: GitHubIssue[];
@@ -65,9 +66,9 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
   const finished = finishedDay === day;
 
   function finishDay(button: HTMLElement) {
-    const parts = [`タスク ${countOf(done.length, "件")}`, ...(commits !== null ? [`コミット ${commits} 回`] : [])];
-    const text = done.length > 0 || (commits ?? 0) > 0 ? `今日は${parts.join("、")}` : "今日はここまで";
-    celebrateDone("今日", button, text);
+    const parts = [tr("タスク {countOf}", { countOf: countOf(done.length, tr("件")) }), ...(commits !== null ? [tr("コミット {commits} 回", { commits })] : [])];
+    const text = done.length > 0 || (commits ?? 0) > 0 ? tr("今日は{join}", { join: parts.join("、") }) : tr("今日はここまで");
+    celebrateDone(tr("今日"), button, text);
     try {
       localStorage.setItem(STORE, day);
     } catch {
@@ -79,17 +80,15 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
   return (
     <div className={`today-card${finished ? " is-finished" : ""}`}>
       <div className="today-head">
-        <b>{finished ? "🌙 おつかれさまでした" : "☀️ 今日のあなた"}</b>
+        <b>{finished ? tr("🌙 おつかれさまでした") : tr("☀️ 今日のあなた")}</b>
       </div>
       <div className="today-nums">
         <div>
-          <b>{done.length}</b>
-          <span>終えたタスク</span>
+          {trx("<0>{length}</0><1>終えたタスク</1>", { length: done.length }, [<b />, <span />])}
         </div>
         {commits !== null && (
           <div>
-            <b>{commits}</b>
-            <span>コミット</span>
+            {trx("<0>{commits}</0><1>コミット</1>", { commits }, [<b />, <span />])}
           </div>
         )}
       </div>
@@ -100,17 +99,17 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
               ✓ <span className="today-task-n">#{i.number}</span> {i.title}
             </button>
           ))}
-          {done.length > SHOWN && <span className="today-more">ほか {done.length - SHOWN}</span>}
+          {done.length > SHOWN && <span className="today-more">{tr("ほか")}{" "} {done.length - SHOWN}</span>}
         </div>
       )}
       <div className="today-actions">
         {finished ? (
           <button type="button" className="btn-sm" onClick={onOpenJournal}>
-            📓 日誌を書く
+            {tr("📓 日誌を書く")}
           </button>
         ) : (
           <button type="button" className="btn-sm" onClick={(e) => finishDay(e.currentTarget)}>
-            🌙 今日はここまで
+            {tr("🌙 今日はここまで")}
           </button>
         )}
       </div>

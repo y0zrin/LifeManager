@@ -5,6 +5,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Part, Todo } from "./activity";
 import { countOf } from "./count";
 import { helpSummary } from "./help";
+import { tr, weekdayShort } from "./i18n";
 
 export type NoticeKind =
   | "help" | "helped" | "assigned" | "review" | "mention" | "changes" | "approved" | "checks" | "due" | "run" | "milestone" | "summary";
@@ -50,28 +51,28 @@ export const NOTICE_COLORS: Record<NoticeKind, string> = {
 };
 
 export const NOTICE_LABELS: Record<NoticeKind, string> = {
-  help: "助けて",
-  helped: "解決",
-  assigned: "担当",
-  review: "レビュー",
-  mention: "名前を呼ばれた",
-  changes: "修正の依頼",
-  approved: "承認",
-  checks: "チェックの失敗",
-  due: "期限",
-  run: "Actions の失敗",
-  milestone: "達成",
-  summary: "まとめ",
+  help: tr("助けて"),
+  helped: tr("解決"),
+  assigned: tr("担当"),
+  review: tr("レビュー"),
+  mention: tr("名前を呼ばれた"),
+  changes: tr("修正の依頼"),
+  approved: tr("承認"),
+  checks: tr("チェックの失敗"),
+  due: tr("期限"),
+  run: tr("Actions の失敗"),
+  milestone: tr("達成"),
+  summary: tr("まとめ"),
 };
 
 /** りれきの絞り込み */
 export const NOTICE_GROUPS: { key: string; label: string; kinds: NoticeKind[] | null }[] = [
-  { key: "all", label: "すべて", kinds: null },
-  { key: "help", label: "🆘 助けて", kinds: ["help", "helped"] },
-  { key: "mine", label: "自分の番", kinds: ["assigned", "due", "changes", "mention"] },
-  { key: "review", label: "レビュー", kinds: ["review", "approved"] },
-  { key: "fail", label: "失敗", kinds: ["checks", "run"] },
-  { key: "done", label: "達成", kinds: ["milestone"] },
+  { key: "all", label: tr("すべて"), kinds: null },
+  { key: "help", label: tr("🆘 助けて"), kinds: ["help", "helped"] },
+  { key: "mine", label: tr("自分の番"), kinds: ["assigned", "due", "changes", "mention"] },
+  { key: "review", label: tr("レビュー"), kinds: ["review", "approved"] },
+  { key: "fail", label: tr("失敗"), kinds: ["checks", "run"] },
+  { key: "done", label: tr("達成"), kinds: ["milestone"] },
 ];
 
 /** 知らせの窓を出す角（出さない = アプリの中だけ） */
@@ -109,7 +110,7 @@ export function newNoticeId(): string {
 
 /** 「あなたがすること」の文（Issue・プルリクは「#11 題名」） */
 export function partsText(parts: Part[]): string {
-  return parts.map((p) => (typeof p === "string" ? p : `${p.kind === "pull" ? "🔃 " : ""}#${p.number}${p.title ? ` ${p.title}` : ""}`)).join("");
+  return parts.map((p) => (typeof p === "string" ? p : p.kind === "actor" ? p.name : `${p.kind === "pull" ? "🔃 " : ""}#${p.number}${p.title ? ` ${p.title}` : ""}`)).join("");
 }
 
 function kindOfTodo(key: string): NoticeKind {
@@ -190,8 +191,8 @@ export function summaryNotice(total: number, fresh: number, repo: string): Notic
     kind: "summary",
     icon: "📰",
     tone: "",
-    title: `あなたがすることが ${countOf(all, "件")}あります`,
-    body: `${fresh < all ? `新しく ${countOf(fresh, "件")} ・ ` : ""}ヒストリーの「あなたがすること」で見られます`,
+    title: tr("あなたがすることが {countOf}あります", { countOf: countOf(all, tr("件")) }),
+    body: tr("{v}ヒストリーの「あなたがすること」で見られます", { v: fresh < all ? tr("新しく {countOf} ・ ", { countOf: countOf(fresh, tr("件")) }) : "" }),
     at: new Date().toISOString(),
     repo,
     target: { kind: "view", view: "activity" },
@@ -200,15 +201,15 @@ export function summaryNotice(total: number, fresh: number, repo: string): Notic
 
 /** マイルストーンを達成した知らせ */
 export function milestoneNotice(o: { number: number; title: string; doneCount: number; amount: string | null; leftDays: number | null }, repo: string): Notice {
-  const when = o.leftDays === null ? "" : o.leftDays > 0 ? ` ・ 期限の ${o.leftDays} 日前` : o.leftDays === 0 ? " ・ 期限の日" : ` ・ 期限の ${-o.leftDays} 日後`;
+  const when = o.leftDays === null ? "" : o.leftDays > 0 ? tr(" ・ 期限の {leftDays} 日前", { leftDays: o.leftDays }) : o.leftDays === 0 ? tr(" ・ 期限の日") : tr(" ・ 期限の {v} 日後", { v: -o.leftDays });
   return {
     id: newNoticeId(),
     key: `milestone:${o.number}`,
     kind: "milestone",
     icon: "🏆",
     tone: "ok",
-    title: `${o.title} を達成しました`,
-    body: `${o.doneCount} 件のタスク${o.amount ? `（${o.amount}）` : ""}${when}`,
+    title: tr("{title} を達成しました", { title: o.title }),
+    body: tr("{doneCount} 件のタスク{v}{when}", { doneCount: o.doneCount, v: o.amount ? `（${o.amount}）` : "", when }),
     at: new Date().toISOString(),
     repo,
     target: { kind: "view", view: "milestones" },
@@ -249,8 +250,8 @@ export function dayHead(iso: string, now = new Date()): { date: string; dow: str
   const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
   return {
     date: `${d.getMonth() + 1}/${d.getDate()}`,
-    dow: "日月火水木金土"[d.getDay()],
-    rel: days === 0 ? "今日" : days === 1 ? "昨日" : days === 2 ? "おととい" : "",
+    dow: weekdayShort(d),
+    rel: days === 0 ? tr("今日") : days === 1 ? tr("昨日") : days === 2 ? tr("おととい") : "",
   };
 }
 

@@ -4,6 +4,7 @@ import { isMobile } from "../../lib/platform";
 import { isEscape } from "../../lib/keys";
 import type { Project } from "../../lib/types";
 import { repoKey as keyOf, useRepoFolderActions } from "../../hooks/useRepoFolderActions";
+import { tr } from "../../lib/i18n";
 
 interface RepoSwitcherProps {
   projects: Project[];
@@ -104,7 +105,7 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
   return (
     <div className="repo-switcher" ref={rootRef}>
       <button type="button" ref={buttonRef} className={`repo-switch${isOpen ? " open" : ""}`} onClick={toggle}
-        title="リポジトリを切り替える・追加する" aria-haspopup={onOpenPicker ? "dialog" : "menu"} aria-expanded={isOpen}>
+        title={tr("リポジトリを切り替える・追加する")} aria-haspopup={onOpenPicker ? "dialog" : "menu"} aria-expanded={isOpen}>
         <span className="repo-switch-icon" aria-hidden="true">📦</span>
         <span className="repo-switch-name">{label}</span>
         <span className="repo-switch-chev" aria-hidden="true">▾</span>
@@ -112,7 +113,7 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
       {isOpen && (
         <div className="repo-pop" style={pos}>
           {projects.length > 4 && (
-            <input className="input-full repo-pop-search" value={query} autoFocus placeholder="リポジトリを探す"
+            <input className="input-full repo-pop-search" value={query} autoFocus placeholder={tr("リポジトリを探す")}
               onChange={(e) => setQuery(e.target.value)} />
           )}
           <div className="repo-pop-list">
@@ -129,11 +130,11 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                         <span className="repo-row-name">{p.name || k}</span>
                         {p.name && p.name !== k && <span className="repo-row-sub">{k}</span>}
                         {!isMobile && (
-                          <span className="repo-row-sub" title={folder}>{folder ? `📁 ${folder}` : "この PC にはありません"}</span>
+                          <span className="repo-row-sub" title={folder}>{folder ? `📁 ${folder}` : tr("この PC にはありません")}</span>
                         )}
                       </span>
                     </button>
-                    <button type="button" className={`repo-row-more${menuFor === k ? " on" : ""}`} aria-label={`${k} の操作`}
+                    <button type="button" className={`repo-row-more${menuFor === k ? " on" : ""}`} aria-label={tr("{k} の操作", { k })}
                       disabled={busy !== null} onClick={() => { setMenuFor(menuFor === k ? null : k); setConfirmRemove(null); }}>
                       ⋯
                     </button>
@@ -143,37 +144,37 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                       {!isMobile &&
                         (folder ? (
                           <>
-                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>📁 この PC のフォルダを変える…</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを変える…")}</button>
                             <button type="button" role="menuitem" onClick={() => revealItemInDir(folder).catch((e) => setNote({ key: k, kind: "error", text: String(e) }))}>
-                              🗂 エクスプローラーで表示
+                              {tr("🗂 エクスプローラーで表示")}
                             </button>
-                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clearFolder(p))}>フォルダの設定を外す（フォルダは消えません）</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clearFolder(p))}>{tr("フォルダの設定を外す（フォルダは消えません）")}</button>
                           </>
                         ) : (
                           <>
-                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clone(p))}>⬇ この PC にクローンする…</button>
-                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>📁 この PC のフォルダを選ぶ…</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clone(p))}>{tr("⬇ この PC にクローンする…")}</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを選ぶ…")}</button>
                           </>
                         ))}
-                      <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>↗ GitHub で開く</button>
+                      <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>{tr("↗ GitHub で開く")}</button>
                       {isCurrent ? (
-                        <span className="repo-row-menu-note">今のリポジトリは一覧から外せません（ほかに切り替えてから）</span>
+                        <span className="repo-row-menu-note">{tr("今のリポジトリは一覧から外せません（ほかに切り替えてから）")}</span>
                       ) : confirmRemove === k ? (
                         <span className="repo-row-confirm">
-                          一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）
+                          {tr("一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）")}
                           <span className="repo-row-confirm-actions">
-                            <button type="button" className="btn-danger" onClick={async () => closeMenuIf(await remove(p))} disabled={busy !== null}>外す</button>
-                            <button type="button" className="btn-sm" onClick={() => setConfirmRemove(null)}>やめる</button>
+                            <button type="button" className="btn-danger" onClick={async () => closeMenuIf(await remove(p))} disabled={busy !== null}>{tr("外す")}</button>
+                            <button type="button" className="btn-sm" onClick={() => setConfirmRemove(null)}>{tr("やめる")}</button>
                           </span>
                         </span>
                       ) : (
-                        <button type="button" role="menuitem" className="repo-row-menu-red" onClick={() => setConfirmRemove(k)}>一覧から外す</button>
+                        <button type="button" role="menuitem" className="repo-row-menu-red" onClick={() => setConfirmRemove(k)}>{tr("一覧から外す")}</button>
                       )}
                     </div>
                   )}
                   {busy === k && (
                     <p className="repo-note">
-                      <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは大きなリポジトリだと時間がかかります）
+                      <i className="spinner" aria-hidden="true" /> {" "}{tr("実行しています…（クローンは大きなリポジトリだと時間がかかります）")}
                     </p>
                   )}
                   {note?.key === k && (
@@ -185,10 +186,10 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                 </div>
               );
             })}
-            {shown.length === 0 && <p className="repo-note">{projects.length === 0 ? "まだありません" : "見つかりません"}</p>}
+            {shown.length === 0 && <p className="repo-note">{projects.length === 0 ? tr("まだありません") : tr("見つかりません")}</p>}
           </div>
           <button type="button" className="repo-add" onClick={() => { setIsOpen(false); onAdd(); }} disabled={busy !== null}>
-            ＋ リポジトリを追加…
+            {tr("＋ リポジトリを追加…")}
           </button>
         </div>
       )}

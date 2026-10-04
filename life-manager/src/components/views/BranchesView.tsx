@@ -15,6 +15,7 @@ import {
 import { easeScrollTo } from "../../lib/motion";
 import type { GitActions } from "../../hooks/useGitActions";
 import { BranchPicker } from "../git/BranchPicker";
+import { tr, trx } from "../../lib/i18n";
 
 interface BranchesViewProps {
   history: GitHistory;
@@ -58,11 +59,11 @@ const fade = (d: number) => Math.max(0, 1 - Math.min(1, Math.abs(d)) * 0.45 - Ma
 
 export function roleOf(e: BranchEntry, local: boolean): string {
   const parts: string[] = [];
-  if (e.isDefault) parts.push("既定のブランチ");
-  if (e.isCurrent) parts.push("チェックアウト中");
-  if (local && !e.onPc) parts.push("GitHub にだけある");
-  if (local && e.onPc && !e.onGitHub) parts.push("この PC にだけある");
-  return parts.join("・") || "ブランチ";
+  if (e.isDefault) parts.push(tr("既定のブランチ"));
+  if (e.isCurrent) parts.push(tr("チェックアウト中"));
+  if (local && !e.onPc) parts.push(tr("GitHub にだけある"));
+  if (local && e.onPc && !e.onGitHub) parts.push(tr("この PC にだけある"));
+  return parts.join(tr("・")) || tr("ブランチ");
 }
 
 /** ブランチ画面: ブランチごとのページを左右にスライドして見る。名前の帯はスライドに合わせて大きさが変わる。
@@ -190,7 +191,7 @@ export function BranchesView(props: BranchesViewProps) {
   if (entries.length === 0) {
     return (
       <div className="content">
-        <p className="work-loading">ブランチがまだありません</p>
+        <p className="work-loading">{tr("ブランチがまだありません")}</p>
       </div>
     );
   }
@@ -198,7 +199,7 @@ export function BranchesView(props: BranchesViewProps) {
   return (
     <div className="bview">
       <div className="bv-strip" ref={stripRef}>
-        <button type="button" className="bv-edge l" aria-label="前のブランチ" disabled={index === 0} onClick={() => go(index - 1)}>
+        <button type="button" className="bv-edge l" aria-label={tr("前のブランチ")} disabled={index === 0} onClick={() => go(index - 1)}>
           ‹
         </button>
         <div className="bv-names">
@@ -232,7 +233,7 @@ export function BranchesView(props: BranchesViewProps) {
         <button
           type="button"
           className="bv-edge r"
-          aria-label="次のブランチ"
+          aria-label={tr("次のブランチ")}
           disabled={index === entries.length - 1}
           onClick={() => go(index + 1)}
         >
@@ -339,7 +340,7 @@ const BranchPage = memo(function BranchPage({
       if (r.kind === "branch" && r.name === entry.name) continue;
       if (r.kind === "remote" && r.name !== `origin/${entry.name}`) continue;
       if (r.kind === "remote" && r.hash === entry.tip) continue;
-      const chip = r.kind === "remote" ? { kind: "remote", name: "GitHub の位置" } : { kind: r.kind, name: r.name };
+      const chip = r.kind === "remote" ? { kind: "remote", name: tr("GitHub の位置") } : { kind: r.kind, name: r.name };
       map.set(r.hash, [...(map.get(r.hash) ?? []), chip]);
     }
     return map;
@@ -414,8 +415,8 @@ const BranchPage = memo(function BranchPage({
       <button
         type="button"
         className="row-more"
-        aria-label="コミットの操作"
-        title="コミットの操作（右クリックでも開けます）"
+        aria-label={tr("コミットの操作")}
+        title={tr("コミットの操作（右クリックでも開けます）")}
         onClick={(ev) => onCommitMenu(belowButton(ev.currentTarget), c)}
       >
         ⋯
@@ -427,57 +428,57 @@ const BranchPage = memo(function BranchPage({
     <div className="bv-scroll" ref={scrollRef}>
       <div className="p-info">
         <div className="p-chips">
-          {info && info.ahead > 0 && <span className="chip warn" title="まだ GitHub に送っていないコミット">↑{info.ahead} 未プッシュ</span>}
-          {info && info.behind > 0 && <span className="chip warn" title="GitHub にあって、まだ取り込んでいないコミット">↓{info.behind} 未プル</span>}
-          {info?.gone && <span className="chip ng">GitHub で削除済み</span>}
-          {local && entry.onPc && !entry.onGitHub && <span className="chip muted">未公開</span>}
-          {local && !entry.onPc && <span className="chip muted">GitHub にだけある</span>}
+          {info && info.ahead > 0 && <span className="chip warn" title={tr("まだ GitHub に送っていないコミット")}>{trx("↑{ahead} 未プッシュ", { ahead: info.ahead })}</span>}
+          {info && info.behind > 0 && <span className="chip warn" title={tr("GitHub にあって、まだ取り込んでいないコミット")}>{trx("↓{behind} 未プル", { behind: info.behind })}</span>}
+          {info?.gone && <span className="chip ng">{tr("GitHub で削除済み")}</span>}
+          {local && entry.onPc && !entry.onGitHub && <span className="chip muted">{tr("未公開")}</span>}
+          {local && !entry.onPc && <span className="chip muted">{tr("GitHub にだけある")}</span>}
           {entry.isCurrent && changes > 0 && (
             <button type="button" className="chip wip-link" onClick={onOpenWork}>
-              ✎ 作業中の変更 {changes} → 作業をする
+              {trx("✎ 作業中の変更 {changes} → 作業をする", { changes })}
             </button>
           )}
           <span className="p-actions">
             {/* 見ているブランチを、切り替えずにフェッチ・プル（作業フォルダは今のブランチのまま） */}
             {local && actions && entry.onGitHub && (
               <>
-                <button type="button" className="btn-sm" onClick={() => actions.fetchBranch(entry)} title={`git fetch origin ${entry.name}（GitHub の ${entry.name} を読むだけ）`}>
-                  ⟳ フェッチ
+                <button type="button" className="btn-sm" onClick={() => actions.fetchBranch(entry)} title={tr("git fetch origin {name}（GitHub の {name} を読むだけ）", { name: entry.name })}>
+                  {tr("⟳ フェッチ")}
                 </button>
                 <button type="button" className="btn-sm" onClick={() => actions.pullBranch(entry)}
-                  title={entry.isCurrent ? "git pull" : entry.onPc ? `git fetch origin ${entry.name}:${entry.name}（切り替えずに、GitHub の最新にする）` : `git branch --track ${entry.name} origin/${entry.name}（切り替えずに、この PC に作る）`}>
-                  ⬇ プル
+                  title={entry.isCurrent ? "git pull" : entry.onPc ? tr("git fetch origin {name}:{name}（切り替えずに、GitHub の最新にする）", { name: entry.name }) : tr("git branch --track {name} origin/{name}（切り替えずに、この PC に作る）", { name: entry.name })}>
+                  {tr("⬇ プル")}
                 </button>
               </>
             )}
             {local && actions && !entry.isCurrent && (
               <button type="button" className="btn-sm" onClick={() => actions.requestSwitch(entry.name)} title={`git switch ${entry.name}`}>
-                このブランチに切り替える
+                {tr("このブランチに切り替える")}
               </button>
             )}
-            <button type="button" className="btn-sm" onClick={onOpenOverview} title="全体図（−キー）">
-              全体図で見る
+            <button type="button" className="btn-sm" onClick={onOpenOverview} title={tr("全体図（−キー）")}>
+              {tr("全体図で見る")}
             </button>
             <button type="button" className="btn-sm" onClick={(ev) => onBranchMenu(belowButton(ev.currentTarget), entry)}>
-              ⋯ ブランチの操作
+              {tr("⋯ ブランチの操作")}
             </button>
           </span>
         </div>
         <div className="p-meta">
-          {tip && <span>最終更新 {shortWhen(tip.date)}</span>}
+          {tip && <span>{trx("最終更新 {shortWhen}", { shortWhen: shortWhen(tip.date) })}</span>}
           <span>
             {chain.length}
-            {chain.length >= MAX_CHAIN ? "+" : ""} コミット
+            {chain.length >= MAX_CHAIN ? "+" : ""} {" "}{tr("コミット")}
           </span>
           {vsDefault && defaultEntry && (vsDefault.ahead > 0 || vsDefault.behind > 0) && (
             <span>
-              {defaultEntry.name} より
-              {vsDefault.ahead > 0 && ` ${vsDefault.ahead} 先行`}
+              {trx("{name} より", { name: defaultEntry.name })}
+              {vsDefault.ahead > 0 && tr(" {ahead} 先行", { ahead: vsDefault.ahead })}
               {vsDefault.ahead > 0 && vsDefault.behind > 0 && "、"}
-              {vsDefault.behind > 0 && ` ${vsDefault.behind} 遅れ`}
+              {vsDefault.behind > 0 && tr(" {behind} 遅れ", { behind: vsDefault.behind })}
             </span>
           )}
-          {vsDefault && defaultEntry && vsDefault.ahead === 0 && vsDefault.behind === 0 && <span>{defaultEntry.name} と同じ</span>}
+          {vsDefault && defaultEntry && vsDefault.ahead === 0 && vsDefault.behind === 0 && <span>{trx("{name} と同じ", { name: defaultEntry.name })}</span>}
         </div>
       </div>
 
@@ -494,7 +495,7 @@ const BranchPage = memo(function BranchPage({
                     <span className="c-time">{timeOf(it.commits[0].date)}</span>
                     <span className="c-dot auto" />
                     <span className="c-msg">
-                      🤖 アプリの自動コミット {it.commits.length} 件 <span className="c-sub">{appCommitBreakdown(it.commits)}</span>
+                      {trx("🤖 アプリの自動コミット {length} 件 <0>{appCommitBreakdown}</0>", { length: it.commits.length, appCommitBreakdown: appCommitBreakdown(it.commits) }, [<span className="c-sub" />])}
                     </span>
                     <span className="c-chips" />
                     <span className="c-hash">▾</span>
@@ -507,7 +508,7 @@ const BranchPage = memo(function BranchPage({
           </section>
         ))}
         {(chain.length >= MAX_CHAIN || history.truncated) && (
-          <p className="c-more">これより前のコミットは読み込んでいません</p>
+          <p className="c-more">{tr("これより前のコミットは読み込んでいません")}</p>
         )}
       </div>
     </div>

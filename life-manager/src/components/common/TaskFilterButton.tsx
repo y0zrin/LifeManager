@@ -4,6 +4,7 @@ import type { LabelFilter, LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter, StateFilter } from "../../lib/savedViews";
 import { useDismiss } from "../../hooks/useDismiss";
 import { sectionOf } from "../../lib/section";
+import { tr } from "../../lib/i18n";
 
 /** ラベルの種類（"状態:" など）と、その見出し・ラベル */
 export interface FilterCategory {
@@ -30,7 +31,7 @@ export interface TaskFilterProps {
   showState?: boolean;
 }
 
-const STATE_LABELS: Record<StateFilter, string> = { open: "オープンのみ", closed: "クローズのみ", all: "両方" };
+const STATE_LABELS: Record<StateFilter, string> = { open: tr("オープンのみ"), closed: tr("クローズのみ"), all: tr("両方") };
 
 /** かけている絞り込みの数（検索は別。表示は「オープンのみ」がはじめ） */
 export function filterCount(p: Pick<TaskFilterProps, "filters" | "assignee" | "milestone" | "state">): number {
@@ -57,8 +58,8 @@ export function TaskFilterGroups(props: TaskFilterProps) {
   }
 
   const people = [
-    { login: "", name: "全員" },
-    ...(currentUser ? [{ login: currentUser, name: "自分" }] : []),
+    { login: "", name: tr("全員") },
+    ...(currentUser ? [{ login: currentUser, name: tr("自分") }] : []),
     ...collaborators.filter((c) => c.login !== currentUser).map((c) => ({ login: c.login, name: c.login })),
   ];
 
@@ -73,12 +74,12 @@ export function TaskFilterGroups(props: TaskFilterProps) {
             <div className="task-filter-name">
               {c.name}
               {values.length > 1 && (
-                <span className="task-filter-mode" role="group" aria-label={`${c.name}の選び方`}>
-                  <button type="button" className={mode === "any" ? "on" : ""} title="選んだラベルがどれか付いている" onClick={() => onFiltersChange({ ...filters, [c.prefix]: { values, mode: "any" } })}>
-                    どれか
+                <span className="task-filter-mode" role="group" aria-label={tr("{name}の選び方", { name: c.name })}>
+                  <button type="button" className={mode === "any" ? "on" : ""} title={tr("選んだラベルがどれか付いている")} onClick={() => onFiltersChange({ ...filters, [c.prefix]: { values, mode: "any" } })}>
+                    {tr("どれか")}
                   </button>
-                  <button type="button" className={mode === "all" ? "on" : ""} title="選んだラベルがすべて付いている" onClick={() => onFiltersChange({ ...filters, [c.prefix]: { values, mode: "all" } })}>
-                    すべて
+                  <button type="button" className={mode === "all" ? "on" : ""} title={tr("選んだラベルがすべて付いている")} onClick={() => onFiltersChange({ ...filters, [c.prefix]: { values, mode: "all" } })}>
+                    {tr("すべて")}
                   </button>
                 </span>
               )}
@@ -93,7 +94,7 @@ export function TaskFilterGroups(props: TaskFilterProps) {
         );
       })}
       <div className="task-filter-group">
-        <div className="task-filter-name">担当者</div>
+        <div className="task-filter-name">{tr("担当者")}</div>
         {people.map((p) => (
           <button key={p.login || "all"} type="button" className={`task-filter-opt${assignee === p.login ? " on" : ""}`} aria-pressed={assignee === p.login} onClick={() => onAssigneeChange(p.login)}>
             {p.name}
@@ -101,28 +102,28 @@ export function TaskFilterGroups(props: TaskFilterProps) {
         ))}
       </div>
       <div className="task-filter-group">
-        <div className="task-filter-name">マイルストーン</div>
+        <div className="task-filter-name">{tr("マイルストーン")}</div>
         <select
           value={milestone ?? ""}
           className="select-sm"
-          aria-label="マイルストーン"
+          aria-label={tr("マイルストーン")}
           onChange={(e) => onMilestoneChange(e.target.value === "" ? null : e.target.value === "none" ? "none" : Number(e.target.value))}
         >
-          <option value="">全て</option>
+          <option value="">{tr("全て")}</option>
           {milestones.map((m) => (
             <option key={m.number} value={m.number}>
               🎯 {m.title}
             </option>
           ))}
           {typeof milestone === "number" && !milestones.some((m) => m.number === milestone) && (
-            <option value={milestone}>🎯 {milestoneTitle(milestone) ?? `#${milestone}`}（クローズ）</option>
+            <option value={milestone}>🎯 {milestoneTitle(milestone) ?? `#${milestone}`}{tr("（クローズ）")}</option>
           )}
-          <option value="none">マイルストーンなし</option>
+          <option value="none">{tr("マイルストーンなし")}</option>
         </select>
       </div>
       {showState && (
       <div className="task-filter-group">
-        <div className="task-filter-name">表示</div>
+        <div className="task-filter-name">{tr("表示")}</div>
         {(Object.keys(STATE_LABELS) as StateFilter[]).map((s) => (
           <button key={s} type="button" className={`task-filter-opt${state === s ? " on" : ""}`} aria-pressed={state === s} onClick={() => onStateChange(s)}>
             {STATE_LABELS[s]}
@@ -144,23 +145,23 @@ export function TaskFilterButton(props: TaskFilterProps) {
   return (
     <span className="task-filter" ref={ref}>
       <button type="button" className={`select-sm task-filter-button${count ? " task-filter-button--on" : ""}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        表示するタスク{count > 0 && <span className="task-filter-count">{count}</span>} ▾
+        {tr("表示するタスク")}{count > 0 && <span className="task-filter-count">{count}</span>} ▾
       </button>
       {open && (
-        <div className="task-filter-pop" role="dialog" aria-label="表示するタスク">
+        <div className="task-filter-pop" role="dialog" aria-label={tr("表示するタスク")}>
           <div className="task-filter-head">
-            <b>表示するタスク</b>
+            <b>{tr("表示するタスク")}</b>
           </div>
           <TaskFilterGroups {...props} />
           <div className="task-filter-foot">
             {count > 0 && (
               <button type="button" className="link-button" onClick={() => clearAll(props)}>
-                すべて外す
+                {tr("すべて外す")}
               </button>
             )}
             <span className="grow" />
             <button type="button" className="btn-sm" onClick={() => setOpen(false)}>
-              閉じる
+              {tr("閉じる")}
             </button>
           </div>
         </div>
@@ -176,31 +177,31 @@ export function TaskFilterChips(props: TaskFilterProps) {
   for (const c of categories) {
     const f = filters[c.prefix];
     if (!f?.values.length) continue;
-    const names = f.values.map((v) => (v.startsWith(c.prefix) ? v.slice(c.prefix.length) : sectionOf(v))).join("・");
+    const names = f.values.map((v) => (v.startsWith(c.prefix) ? v.slice(c.prefix.length) : sectionOf(v))).join(tr("・"));
     chips.push({
       key: c.prefix,
-      text: `${c.name}: ${names}${f.values.length > 1 ? (f.mode === "all" ? "（すべて）" : "（どれか）") : ""}`,
+      text: `${c.name}: ${names}${f.values.length > 1 ? (f.mode === "all" ? tr("（すべて）") : tr("（どれか）")) : ""}`,
       clear: () => onFiltersChange({ ...filters, [c.prefix]: { values: [], mode: f.mode } }),
     });
   }
-  if (assignee) chips.push({ key: "assignee", text: `担当者: ${assignee === currentUser ? "自分" : assignee}`, clear: () => onAssigneeChange("") });
+  if (assignee) chips.push({ key: "assignee", text: tr("担当者: {v}", { v: assignee === currentUser ? tr("自分") : assignee }), clear: () => onAssigneeChange("") });
   if (milestone !== null)
-    chips.push({ key: "milestone", text: `マイルストーン: ${milestone === "none" ? "なし" : milestoneTitle(milestone) ?? `#${milestone}`}`, clear: () => onMilestoneChange(null) });
-  if (state !== "open") chips.push({ key: "state", text: `表示: ${STATE_LABELS[state]}`, clear: () => onStateChange("open") });
+    chips.push({ key: "milestone", text: tr("マイルストーン: {v}", { v: milestone === "none" ? tr("なし") : milestoneTitle(milestone) ?? `#${milestone}` }), clear: () => onMilestoneChange(null) });
+  if (state !== "open") chips.push({ key: "state", text: tr("表示: {STATE_LABELS}", { STATE_LABELS: STATE_LABELS[state] }), clear: () => onStateChange("open") });
   if (chips.length === 0) return null;
   return (
     <div className="task-filter-chips">
       {chips.map((c) => (
         <span key={c.key} className="task-filter-chip">
           {c.text}
-          <button type="button" aria-label={`${c.text} を外す`} onClick={c.clear}>
+          <button type="button" aria-label={tr("{text} を外す", { text: c.text })} onClick={c.clear}>
             ×
           </button>
         </span>
       ))}
       {chips.length > 1 && (
         <button type="button" className="link-button" onClick={() => clearAll(props)}>
-          すべて外す
+          {tr("すべて外す")}
         </button>
       )}
     </div>

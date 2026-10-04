@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { THEMES, type Theme } from "../../lib/theme";
 import { ThemeMini } from "./ThemeMini";
 import { isMobile } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
+import { LanguageSelect } from "./LanguageSelect";
 
 /** はじめに見た目を選んだ印（この PC に。はじめて起動したときだけ出すため） */
 const CHOSEN_KEY = "theme-chosen";
@@ -78,21 +80,18 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
   }, [at, move, onDone]);
 
   return (
-    <div className="picker tp" role="dialog" aria-label="見た目を選ぶ">
+    <div className="picker tp" role="dialog" aria-label={tr("見た目を選ぶ")}>
       <div className="picker-top">
-        <span className="picker-logo" aria-hidden="true">L</span>
-        <span>Life Manager へようこそ</span>
+        {trx("<0>L</0><1>Life Manager へようこそ</1>", undefined, [<span className="picker-logo" aria-hidden="true" />, <span />])}
         <span className="picker-grow" />
-        <div className="tp-steps" aria-label="はじめの手順">
-          <span className="on">1. 見た目</span>
-          <span>2. GitHub にログイン</span>
-          <span>3. 使い方を選ぶ</span>
-          <span>4. 準備する</span>
+        <LanguageSelect className="lang-select--picker" />
+        <div className="tp-steps" aria-label={tr("はじめの手順")}>
+          {trx("<0>1. 見た目</0><1>2. GitHub にログイン</1><2>3. 使い方を選ぶ</2><3>4. 準備する</3>", undefined, [<span className="on" />, <span />, <span />, <span />])}
         </div>
       </div>
-      <h2 className="picker-title">好きな見た目を選んでください</h2>
+      <h2 className="picker-title">{tr("好きな見た目を選んでください")}</h2>
       <p className="tp-sub">
-        アプリぜんたいの色、ボード、机が変わります。<b>あとから 設定 → 表示 でいつでも変えられます</b>
+        {trx("アプリぜんたいの色、ボード、机が変わります。<0>あとから 設定 → 表示 でいつでも変えられます</0>", undefined, [<b />])}
       </p>
 
       <div className="picker-deck">
@@ -101,7 +100,7 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
           if (Math.abs(d) > 2) return null;
           return (
             <div key={t.key} className={`picker-card tp-card ${placeOf(d)}`} role={d === 0 ? undefined : "button"} tabIndex={-1}
-              aria-hidden={Math.abs(d) > 1 || undefined} onClick={d === 0 ? undefined : () => move(d)} title={d === 0 ? undefined : `${t.label} を選ぶ`}>
+              aria-hidden={Math.abs(d) > 1 || undefined} onClick={d === 0 ? undefined : () => move(d)} title={d === 0 ? undefined : tr("{label} を選ぶ", { label: t.label })}>
               <ThemeMini theme={t.key} still={d !== 0} />
               <div className="tp-foot">
                 <div>
@@ -110,15 +109,15 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
                 </div>
                 {d === 0 && (
                   <button type="button" className="picker-open" onClick={() => onDone(t.key)} autoFocus>
-                    このテーマではじめる
+                    {tr("このテーマではじめる")}
                   </button>
                 )}
               </div>
             </div>
           );
         })}
-        <button type="button" className="picker-arrow left" onClick={() => move(-1)} aria-label="前のテーマ" tabIndex={-1}>‹</button>
-        <button type="button" className="picker-arrow right" onClick={() => move(1)} aria-label="次のテーマ" tabIndex={-1}>›</button>
+        <button type="button" className="picker-arrow left" onClick={() => move(-1)} aria-label={tr("前のテーマ")} tabIndex={-1}>‹</button>
+        <button type="button" className="picker-arrow right" onClick={() => move(1)} aria-label={tr("次のテーマ")} tabIndex={-1}>›</button>
       </div>
 
       <div className="picker-strip">
@@ -129,8 +128,8 @@ export function ThemePicker({ initial, onPreview, onDone }: ThemePickerProps) {
         ))}
       </div>
       {!isMobile && (<div className="picker-hint" aria-hidden="true">
-        <span><b>← →</b>選ぶ</span>
-        <span><b>Enter</b>このテーマではじめる</span>
+        <span>{trx("<0>← →</0>選ぶ", undefined, [<b />])}</span>
+        <span>{trx("<0>Enter</0>このテーマではじめる", undefined, [<b />])}</span>
       </div>)}
     </div>
   );

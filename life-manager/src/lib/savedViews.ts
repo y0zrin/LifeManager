@@ -1,5 +1,6 @@
 // タスク一覧の「保存した見方」。リポジトリの config/views.yaml に置き、チームで共有する
 import { GROUP_LABELS, SORT_LABELS, type GroupKey, type LabelFilters, type ListMode, type SortKey } from "./taskList";
+import { tr } from "./i18n";
 
 export type StateFilter = "open" | "closed" | "all";
 
@@ -90,8 +91,8 @@ export function sameSettings(a: ViewSettings, b: ViewSettings): boolean {
 
 /** マイルストーンの絞り込みの説明（「マイルストーン:0.5.0」など）。titleOf は番号から名前を引く */
 export function describeMilestone(m: MilestoneFilter, titleOf?: (n: number) => string | undefined): string {
-  if (m === "none") return "マイルストーンなし";
-  return `マイルストーン:${titleOf?.(m) ?? `#${m}`}`;
+  if (m === "none") return tr("マイルストーンなし");
+  return tr("マイルストーン:{v}", { v: titleOf?.(m) ?? `#${m}` });
 }
 
 /** メニューに出す、見方の中身の短い説明 */
@@ -99,12 +100,12 @@ export function describeView(v: ViewSettings, milestoneTitle?: (n: number) => st
   const parts: string[] = [];
   if (v.milestone !== undefined) parts.push(describeMilestone(v.milestone, milestoneTitle));
   for (const f of Object.values(v.filters)) {
-    if (f && f.values.length > 0) parts.push(f.values.join(f.mode === "all" ? "＋" : "・"));
+    if (f && f.values.length > 0) parts.push(f.values.join(f.mode === "all" ? "＋" : tr("・")));
   }
-  if (v.assignee) parts.push(v.assignee === ME ? "担当:自分" : `担当:${v.assignee}`);
-  if (v.state !== "open") parts.push(v.state === "closed" ? "クローズのみ" : "オープンとクローズ");
+  if (v.assignee) parts.push(v.assignee === ME ? tr("担当:自分") : tr("担当:{assignee}", { assignee: v.assignee }));
+  if (v.state !== "open") parts.push(v.state === "closed" ? tr("クローズのみ") : tr("オープンとクローズ"));
   parts.push(SORT_LABELS[v.sort]);
-  if (v.group !== "none") parts.push(`${GROUP_LABELS[v.group]}でまとめる`);
-  parts.push(v.mode === "table" ? "表" : "カード");
+  if (v.group !== "none") parts.push(tr("{GROUP_LABELS}でまとめる", { GROUP_LABELS: GROUP_LABELS[v.group] }));
+  parts.push(v.mode === "table" ? tr("表") : tr("カード"));
   return parts.join("／");
 }

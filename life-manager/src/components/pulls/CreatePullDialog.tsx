@@ -16,6 +16,7 @@ import {
 import { issueForBranch } from "../../lib/branchName";
 import { PullFiles } from "./PullFiles";
 import { countOf } from "../../lib/count";
+import { tr, trx } from "../../lib/i18n";
 
 interface CreatePullDialogProps {
   owner: string;
@@ -38,7 +39,7 @@ interface CreatePullDialogProps {
 
 /** 本文のひな形（何を変えたか・どう確かめたかを書くと、レビューする人が見やすい） */
 function template(issue: number | null) {
-  return `${issue !== null ? `Closes #${issue}\n\n` : ""}## 何を変えたか\n- \n\n## どう確かめたか\n- \n`;
+  return tr("{v}## 何を変えたか\n- \n\n## どう確かめたか\n- \n", { v: issue !== null ? `Closes #${issue}\n\n` : "" });
 }
 
 /** 行の数がないファイル（画像・音・3D・フォント・圧縮など） */
@@ -172,15 +173,15 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
 
   return createPortal(
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
-      <div className="git-dialog pr-ui pr-dialog" role="dialog" aria-modal="true" aria-label="プルリクを作る" onClick={(e) => e.stopPropagation()}>
-        <h3>＋ プルリクを作る</h3>
+      <div className="git-dialog pr-ui pr-dialog" role="dialog" aria-modal="true" aria-label={tr("プルリクを作る")} onClick={(e) => e.stopPropagation()}>
+        <h3>{tr("＋ プルリクを作る")}</h3>
         {infoError && <p className="git-dialog-error">{infoError}</p>}
 
         <div className="pr-dialog-branches">
           <label>
-            <span className="git-dialog-label">入れたい変更のあるブランチ</span>
+            <span className="git-dialog-label">{tr("入れたい変更のあるブランチ")}</span>
             <select className="select-sm" value={head} onChange={(e) => chooseHead(e.target.value)} disabled={!info}>
-              <option value="">{info ? "選んでください" : "読み込んでいます…"}</option>
+              <option value="">{info ? tr("選んでください") : tr("読み込んでいます…")}</option>
               {branches
                 .filter((b) => b !== base)
                 .map((b) => (
@@ -192,19 +193,19 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
           </label>
           <span className="pr-dialog-arrow" aria-hidden="true">→</span>
           <label>
-            <span className="git-dialog-label">入れる先</span>
+            <span className="git-dialog-label">{tr("入れる先")}</span>
             <select className="select-sm" value={base} onChange={(e) => setBase(e.target.value)} disabled={!info}>
               {branches.map((b) => (
                 <option key={b} value={b}>
                   {b}
-                  {b === info?.default_branch ? "（既定）" : ""}
+                  {b === info?.default_branch ? tr("（既定）") : ""}
                 </option>
               ))}
             </select>
           </label>
         </div>
         {initialHead && info && !branches.includes(initialHead) && (
-          <p className="git-dialog-error">ブランチ {initialHead} はまだ GitHub にありません。先にプッシュします。</p>
+          <p className="git-dialog-error">{trx("ブランチ {initialHead} はまだ GitHub にありません。先にプッシュします。", { initialHead })}</p>
         )}
 
         {head && base && head !== base && (
@@ -212,22 +213,22 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
             {cmpError ? (
               <p className="git-dialog-error">{cmpError}</p>
             ) : !cmp ? (
-              <p className="muted">違いを読み込んでいます…</p>
+              <p className="muted">{tr("違いを読み込んでいます…")}</p>
             ) : noDiff ? (
               <p className="git-dialog-error">
-                <b>{head}</b> には、<b>{base}</b> に無いコミットがありません。先に変更をコミットしてプッシュします。
+                {trx("<0>{head}</0> には、<1>{base}</1> に無いコミットがありません。先に変更をコミットしてプッシュします。", { head, base }, [<b />, <b />])}
               </p>
             ) : (
               <>
                 <div className="pr-dialog-summary">
                   <span>
-                    <b>{cmp.ahead_by}</b> コミット・<b>{cmp.files.length}</b> ファイル <span className="add">+{added}{uncounted > 0 && " 以上"}</span> <span className="del">−{deleted}{uncounted > 0 && " 以上"}</span>
+                    {trx("<0>{ahead_by}</0> コミット・<1>{length}</1> ファイル", { ahead_by: cmp.ahead_by, length: cmp.files.length }, [<b />, <b />])}{" "} <span className="add">+{added}{uncounted > 0 && tr(" 以上")}</span> <span className="del">−{deleted}{uncounted > 0 && tr(" 以上")}</span>
                   </span>
-                  {cmp.behind_by > 0 && <span className="muted">（{base} にはこのブランチに無いコミットが {countOf(cmp.behind_by, "件")}あります）</span>}
-                  {uncounted > 0 && <span className="muted">（差分が大きいので、{uncounted} ファイルは行の数を数えていません）</span>}
+                  {cmp.behind_by > 0 && <span className="muted">{trx("（{base} にはこのブランチに無いコミットが", { base })}{" "} {countOf(cmp.behind_by, tr("件"))}{tr("あります）")}</span>}
+                  {uncounted > 0 && <span className="muted">{trx("（差分が大きいので、{uncounted} ファイルは行の数を数えていません）", { uncounted })}</span>}
                   <span className="grow" />
                   <button type="button" className="btn-sm" onClick={() => setShowDiff((v) => !v)} aria-expanded={showDiff}>
-                    {showDiff ? "差分をたたむ ▴" : "変更を見る ▾"}
+                    {showDiff ? tr("差分をたたむ ▴") : tr("変更を見る ▾")}
                   </button>
                 </div>
                 <ul className="pr-dialog-commits">
@@ -236,7 +237,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
                       <code>{c.sha.slice(0, 7)}</code> {firstLine(c.message)}
                     </li>
                   ))}
-                  {cmp.commits.length > 5 && <li className="muted">ほか {cmp.commits.length - 5} コミット</li>}
+                  {cmp.commits.length > 5 && <li className="muted">{tr("ほか")}{" "} {cmp.commits.length - 5} {" "}{tr("コミット")}</li>}
                 </ul>
                 {showDiff && (
                   <div className="pr-dialog-diff">
@@ -247,10 +248,10 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
             )}
             {already && (
               <p className="pr-dialog-exists">
-                このブランチのプルリクはもうあります: <b>#{already.number} {already.title}</b>{" "}
+                {trx("このブランチのプルリクはもうあります: <0>#{number} {title}</0>", { number: already.number, title: already.title }, [<b />])}{" "}
                 {onOpenExisting && (
                   <button type="button" className="btn-sm" onClick={() => onOpenExisting(already.number)}>
-                    開く
+                    {tr("開く")}
                   </button>
                 )}
               </p>
@@ -259,9 +260,9 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
         )}
 
         <label>
-          <span className="git-dialog-label">つなげる Issue（マージすると閉じます）</span>
+          <span className="git-dialog-label">{tr("つなげる Issue（マージすると閉じます）")}</span>
           <select className="select-sm" value={issue ?? ""} onChange={(e) => chooseIssue(e.target.value ? Number(e.target.value) : null)}>
-            <option value="">なし</option>
+            <option value="">{tr("なし")}</option>
             {issues.map((i) => (
               <option key={i.number} value={i.number}>
                 #{i.number} {i.title}
@@ -270,16 +271,16 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
           </select>
         </label>
         <label>
-          <span className="git-dialog-label">題名</span>
-          <input className="git-dialog-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="何をしたか（例: ボスが画面の外に出ないようにする）" />
+          <span className="git-dialog-label">{tr("題名")}</span>
+          <input className="git-dialog-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("何をしたか（例: ボスが画面の外に出ないようにする）")} />
         </label>
         <label>
-          <span className="git-dialog-label">説明</span>
+          <span className="git-dialog-label">{tr("説明")}</span>
           <textarea className="git-dialog-input pr-dialog-body" rows={7} value={body} onChange={(e) => setBody(e.target.value)} />
         </label>
         {candidates.length > 0 && (
           <div className="pr-dialog-reviewers">
-            <span className="git-dialog-label">レビューをお願いする人</span>
+            <span className="git-dialog-label">{tr("レビューをお願いする人")}</span>
             {candidates.map((c) => (
               <label key={c.login} className="pr-dialog-reviewer">
                 <input
@@ -294,15 +295,15 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
         )}
         <label className="chk pr-dialog-draft">
           <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} />
-          <span>下書きにする</span>
+          <span>{tr("下書きにする")}</span>
         </label>
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm" disabled={busy} onClick={onClose}>
-            やめる
+            {tr("やめる")}
           </button>
           <button type="button" className="btn-primary" disabled={!canCreate} onClick={(e) => submit(e.currentTarget)}>
-            {busy ? "作っています…" : draft ? "下書きのプルリクを作る" : "プルリクを作る"}
+            {busy ? tr("作っています…") : draft ? tr("下書きのプルリクを作る") : tr("プルリクを作る")}
           </button>
         </div>
       </div>

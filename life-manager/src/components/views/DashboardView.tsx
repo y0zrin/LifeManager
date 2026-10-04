@@ -26,6 +26,7 @@ import {
 } from "../../lib/taskList";
 import { Avatar } from "../common/Avatar";
 import { inCategory, SECTION_PREFIX } from "../../lib/section";
+import { tr, trx, jaOf, labelText } from "../../lib/i18n";
 
 /** 並び・まとめ方・カード／表は、次に開いたときも同じにする */
 const SORT_STORE = "task-list-sort";
@@ -75,21 +76,21 @@ type IssueUpdates = { title?: string; body?: string; labels?: string[]; assignee
 function bulkMessage(action: BulkAction, n: number): string {
   switch (action.kind) {
     case "close":
-      return `${n} 件を完了にしました`;
+      return tr("{n} 件を完了にしました", { n });
     case "reopen":
-      return `${n} 件を再開しました`;
+      return tr("{n} 件を再開しました", { n });
     case "status":
-      return `${n} 件の状態を「${action.label.replace("状態:", "")}」にしました`;
+      return tr("{n} 件の状態を「{replace}」にしました", { n, replace: tr(action.label.replace("状態:", "")) });
     case "label":
-      return `${n} 件にラベル「${action.label}」を付けました`;
+      return tr("{n} 件にラベル「{label}」を付けました", { n, label: action.label });
     case "milestone":
-      return action.number === null ? `${n} 件のマイルストーンを外しました` : `${n} 件のマイルストーンを「${action.title}」にしました`;
+      return action.number === null ? tr("{n} 件のマイルストーンを外しました", { n }) : tr("{n} 件のマイルストーンを「{title}」にしました", { n, title: action.title });
     case "assignee":
-      return action.login === null ? `${n} 件の担当を外しました` : `${n} 件の担当を「${action.login}」にしました`;
+      return action.login === null ? tr("{n} 件の担当を外しました", { n }) : tr("{n} 件の担当を「{login}」にしました", { n, login: action.login });
     case "estimate":
-      return action.value === null ? `${n} 件の見積もりを外しました` : `${n} 件の見積もりを「${action.value}」にしました`;
+      return action.value === null ? tr("{n} 件の見積もりを外しました", { n }) : tr("{n} 件の見積もりを「{value}」にしました", { n, value: action.value });
     case "schedule":
-      return `${n} 件の日程を、見積もりから決めました`;
+      return tr("{n} 件の日程を、見積もりから決めました", { n });
   }
 }
 
@@ -244,7 +245,7 @@ export function DashboardView({
     setTemplateNote(null);
     if (titleUntouched) setIssueTitle(t?.title ?? "");
     if (bodyUntouched) setIssueBody(t?.body ?? "");
-    else if (t) setTemplateNote("本文に書いた内容があるので、テンプレートの本文は入れませんでした。本文を消してから選ぶと入ります");
+    else if (t) setTemplateNote(tr("本文に書いた内容があるので、テンプレートの本文は入れませんでした。本文を消してから選ぶと入ります"));
     setIssueSelectedLabels(t && t.labels.length > 0 ? t.labels : ["種別:イシュー", "状態:未整理"]);
     setAppliedTemplate(t);
   }
@@ -323,7 +324,7 @@ export function DashboardView({
 
   const categories = ["種別:", SECTION_PREFIX, "状態:", "優先:", ESTIMATE_PREFIX] as const;
   const categoryLabels: Record<string, string> = {
-    "種別:": "種別", [SECTION_PREFIX]: "セクション", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
+    "種別:": tr("種別"), [SECTION_PREFIX]: tr("セクション"), "状態:": tr("状態"), "優先:": tr("優先"), [ESTIMATE_PREFIX]: tr("見積"),
   };
 
   const allIssues = [...issues, ...closedIssues];
@@ -537,7 +538,7 @@ export function DashboardView({
     const skipped = plans ? targets.length - plans.size : 0;
     if (plans) targets = targets.filter((i) => plans.has(i.number));
     if (targets.length === 0) {
-      if (plans) setBulkDone("日程を決められるタスクはありません（日程があるか、見積もりがありません）");
+      if (plans) setBulkDone(tr("日程を決められるタスクはありません（日程があるか、見積もりがありません）"));
       return;
     }
     setBulkDone(null);
@@ -546,7 +547,7 @@ export function DashboardView({
     // まとめて完了にしたものは、知らせの「元に戻す」で開き直せる（#232）
     const closedNow: number[] = [];
     for (const issue of targets) {
-      setBulkBusy(`${done + failed + 1} / ${targets.length} 件目…`);
+      setBulkBusy(tr("{v} / {length} 件目…", { v: done + failed + 1, length: targets.length }));
       try {
         await applyBulk(action, issue, plans);
         done++;
@@ -559,11 +560,11 @@ export function DashboardView({
     setPicked(new Set());
     setBulkDone(
       bulkMessage(action, done) +
-        (skipped ? `（${skipped} 件は日程があるか見積もりがないので、そのまま）` : "") +
-        (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""),
+        (skipped ? tr("（{skipped} 件は日程があるか見積もりがないので、そのまま）", { skipped }) : "") +
+        (failed ? tr("（{failed} 件はできませんでした。上の知らせを見てください）", { failed }) : ""),
     );
     if (action.kind === "close" && done > 0) {
-      celebrateDone(`${done} 件`, undefined, undefined, () => {
+      celebrateDone(tr("{done} 件", { done }), undefined, undefined, () => {
         void (async () => {
           for (const n of closedNow) await onReopen(n);
         })();
@@ -615,8 +616,7 @@ export function DashboardView({
           <Fragment key={g.title || "all"}>
             {g.title && (
               <div className="task-group-head">
-                {g.title}
-                <span>{g.rows.length} 件</span>
+                {trx("{title}<0>{length} 件</0>", { title: labelText(g.title), length: g.rows.length }, [<span />])}
                 <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
               </div>
             )}
@@ -634,13 +634,13 @@ export function DashboardView({
           </Fragment>
         ))
       )}
-      {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
+      {filteredIssues.length === 0 && status && (jaOf(status).includes("見つかりません") || jaOf(status).includes("認証エラー") || jaOf(status).includes("アクセス拒否")) ? (
         <div className="error-message">
           <p className="error-message__title">⚠️ {status}</p>
-          <p className="error-message__detail">設定画面でリポジトリやトークンを確認してください。</p>
+          <p className="error-message__detail">{tr("設定画面でリポジトリやトークンを確認してください。")}</p>
         </div>
       ) : filteredIssues.length === 0 ? (
-        <p className="empty-message">イシューがありません</p>
+        <p className="empty-message">{tr("イシューがありません")}</p>
       ) : null}
     </>
   );
@@ -653,7 +653,7 @@ export function DashboardView({
         <div className="search-bar">
           <input value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Issue を検索..."
+            placeholder={tr("Issue を検索...")}
             className="search-input" />
           {searchQuery && (
             <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
@@ -662,44 +662,44 @@ export function DashboardView({
         {isMobile ? (
           <>
             <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-              表示するタスク{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
+              {tr("表示するタスク")}{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
             </button>
-            <button type="button" onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm m-add-btn" aria-label={showIssueForm ? "作るのをやめる" : "イシューを作る"}>
+            <button type="button" onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm m-add-btn" aria-label={showIssueForm ? tr("作るのをやめる") : tr("イシューを作る")}>
               {showIssueForm ? "×" : "＋"}
             </button>
           </>
         ) : (
         <>
         <TaskFilterButton {...filterProps} />
-        <span className="list-mode" role="group" aria-label="見せ方">
+        <span className="list-mode" role="group" aria-label={tr("見せ方")}>
           {(["card", "table"] as ListMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
-              {m === "card" ? "カード" : "表"}
+              {m === "card" ? tr("カード") : tr("表")}
             </button>
           ))}
         </span>
-        <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+        <select value={group} className="select-sm" aria-label={tr("まとめる")} onChange={(e) => changeGroup(e.target.value as GroupKey)}>
           {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
-            <option key={k} value={k}>まとめる: {GROUP_LABELS[k]}</option>
+            <option key={k} value={k}>{trx("まとめる: {GROUP_LABELS}", { GROUP_LABELS: GROUP_LABELS[k] })}</option>
           ))}
         </select>
-        <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
+        <select value={sortKey} className="select-sm" aria-label={tr("並び")} onChange={(e) => changeSort(e.target.value as SortKey)}>
           {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-            <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
+            <option key={k} value={k}>{trx("並び: {SORT_LABELS}", { SORT_LABELS: SORT_LABELS[k] })}</option>
           ))}
         </select>
         <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
           onClick={() => (picking ? quitPicking() : setPicking(true))}>
-          ☑ 選ぶ
+          {tr("☑ 選ぶ")}
         </button>
         <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
         <span className="issue-count task-list-count">
-          {filteredIssues.length} 件
+          {trx("{length} 件", { length: filteredIssues.length })}
           <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
         </span>
-        <button onClick={onRefresh} className="btn-sm">更新</button>
+        <button onClick={onRefresh} className="btn-sm">{tr("更新")}</button>
         <button onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm">
-          {showIssueForm ? "×" : "+ イシュー作成"}
+          {showIssueForm ? "×" : tr("+ イシュー作成")}
         </button>
         </>
         )}
@@ -709,48 +709,48 @@ export function DashboardView({
       {isMobile && (
         <MobileSheet
           open={sheetOpen}
-          title="表示するタスク"
+          title={tr("表示するタスク")}
           onClose={() => setSheetOpen(false)}
           footer={
             <>
-              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0} onClick={() => clearAll(filterProps)}>すべて外す</button>
-              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{filteredIssues.length} 件を見る</button>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0} onClick={() => clearAll(filterProps)}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{trx("{length} 件を見る", { length: filteredIssues.length })}</button>
             </>
           }
         >
-          <SheetRow label="並び">
-            <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
+          <SheetRow label={tr("並び")}>
+            <select value={sortKey} className="select-sm" aria-label={tr("並び")} onChange={(e) => changeSort(e.target.value as SortKey)}>
               {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
                 <option key={k} value={k}>{SORT_LABELS[k]}</option>
               ))}
             </select>
           </SheetRow>
-          <SheetRow label="まとめる">
-            <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+          <SheetRow label={tr("まとめる")}>
+            <select value={group} className="select-sm" aria-label={tr("まとめる")} onChange={(e) => changeGroup(e.target.value as GroupKey)}>
               {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
                 <option key={k} value={k}>{GROUP_LABELS[k]}</option>
               ))}
             </select>
           </SheetRow>
-          <SheetRow label="見せ方">
-            <span className="list-mode" role="group" aria-label="見せ方">
+          <SheetRow label={tr("見せ方")}>
+            <span className="list-mode" role="group" aria-label={tr("見せ方")}>
               {(["card", "table"] as ListMode[]).map((m) => (
                 <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
-                  {m === "card" ? "カード" : "表"}
+                  {m === "card" ? tr("カード") : tr("表")}
                 </button>
               ))}
             </span>
           </SheetRow>
-          <SheetRow label="保存した見方">
+          <SheetRow label={tr("保存した見方")}>
             <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
           </SheetRow>
           <TaskFilterGroups {...filterProps} />
-          <SheetRow label="ほか">
+          <SheetRow label={tr("ほか")}>
             <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
               onClick={() => { setSheetOpen(false); if (picking) quitPicking(); else setPicking(true); }}>
-              ☑ 選んでまとめて変える
+              {tr("☑ 選んでまとめて変える")}
             </button>
-            <button type="button" onClick={() => { setSheetOpen(false); onRefresh(); }} className="btn-sm">更新</button>
+            <button type="button" onClick={() => { setSheetOpen(false); onRefresh(); }} className="btn-sm">{tr("更新")}</button>
           </SheetRow>
         </MobileSheet>
       )}
@@ -771,7 +771,7 @@ export function DashboardView({
               onChange={(e) => { setIssueTitle(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              placeholder="タイトル" className="input-full" />
+              placeholder={tr("タイトル")} className="input-full" />
             {showSuggestions && suggestions.length > 0 && (
               <div className="suggestion-dropdown">
                 {suggestions.map((s) => (
@@ -788,7 +788,7 @@ export function DashboardView({
             )}
           </div>
           <textarea ref={bodyRef} value={issueBody} onChange={(e) => setIssueBody(e.target.value)}
-            placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full"
+            placeholder={tr("本文（タスクリストは - [ ] で記述）")} className="textarea-full"
             // テンプレートの本文が見えるよう、選んだら高くする
             style={appliedTemplate ? { height: "180px" } : undefined} />
           <button type="button" className="btn-sm" style={{ fontSize: "11px", marginBottom: "6px" }}
@@ -806,10 +806,10 @@ export function DashboardView({
                 ta.focus();
                 ta.setSelectionRange(cursor, cursor);
               });
-            }}>+ タスク項目</button>
+            }}>{tr("+ タスク項目")}</button>
           <div className="label-selector">
             {issueSelectedLabels.filter((name) => !labels.some((l) => l.name === name)).map((name) => (
-              <span key={name} className="label-chip active label-chip--new" title="まだリポジトリにないラベルです（作るときに GitHub が作ります）"
+              <span key={name} className="label-chip active label-chip--new" title={tr("まだリポジトリにないラベルです（作るときに GitHub が作ります）")}
                 onClick={() => setIssueSelectedLabels(issueSelectedLabels.filter((n) => n !== name))}>
                 {name}
               </span>
@@ -836,7 +836,7 @@ export function DashboardView({
           </div>
           {/* 見積もり（ラベル「見積:3pt」など。1 つだけ） */}
           <div className="est-row est-row--form">
-            <span className="est-row-label">📏 見積もり</span>
+            <span className="est-row-label">{tr("📏 見積もり")}</span>
             <EstimatePicker
               value={issueSelectedLabels.map(parseEstimateLabel).find((e) => e !== null) ?? null}
               onChange={(v) => setIssueSelectedLabels(withEstimate(issueSelectedLabels, v, unit))}
@@ -844,14 +844,14 @@ export function DashboardView({
             />
           </div>
           <select value={issueMilestone || ""} onChange={(e) => setIssueMilestone(e.target.value ? parseInt(e.target.value) : undefined)} className="select-sm">
-            <option value="">マイルストーンなし</option>
+            <option value="">{tr("マイルストーンなし")}</option>
             {milestones.map((m) => (
               <option key={m.number} value={m.number}>{m.title}</option>
             ))}
           </select>
           {collaborators.length > 0 && (
             <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>担当者:</span>
+              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>{tr("担当者:")}</span>
               <div className="label-selector" style={{ marginTop: "4px" }}>
                 {collaborators.map((c) => {
                   const active = issueAssignees.includes(c.login);
@@ -874,17 +874,17 @@ export function DashboardView({
           )}
           {/* ガント日程 */}
           <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px" }}>
-            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>日程:</span>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>{tr("日程:")}</span>
             <input type="date" value={issueGanttStart} onChange={(e) => setIssueGanttStart(e.target.value)}
               style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
             <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
             <input type="date" value={issueGanttEnd} onChange={(e) => setIssueGanttEnd(e.target.value)}
               style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>(ガント)</span>
+            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>{tr("(ガント)")}</span>
           </div>
           {/* リマインダー設定 */}
           <div style={{ marginTop: "4px" }}>
-            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>リマインダー (任意):</span>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>{tr("リマインダー (任意):")}</span>
             <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" }}>
               <input type="datetime-local" value={issueReminderDatetime}
                 onChange={(e) => setIssueReminderDatetime(e.target.value)}
@@ -907,7 +907,7 @@ export function DashboardView({
               </label>
             </div>
           </div>
-          <button onClick={handleIssueCreate} className="btn-primary">作成</button>
+          <button onClick={handleIssueCreate} className="btn-primary">{tr("作成")}</button>
         </div>
       )}
 
@@ -917,9 +917,9 @@ export function DashboardView({
           <div className="task-split-list" ref={listRef} style={{ width: `${splitLeft}%` }}>
             {list}
           </div>
-          <div className="task-split-grip" role="separator" aria-orientation="vertical" title="ドラッグで幅を変える" onMouseDown={startDrag} />
+          <div className="task-split-grip" role="separator" aria-orientation="vertical" title={tr("ドラッグで幅を変える")} onMouseDown={startDrag} />
           <div className="task-split-detail">
-            {detail ?? <p className="task-split-empty">タスクを選ぶとここに詳細が出ます（↑↓ で上下のタスクへ）</p>}
+            {detail ?? <p className="task-split-empty">{tr("タスクを選ぶとここに詳細が出ます（↑↓ で上下のタスクへ）")}</p>}
           </div>
         </div>
       ) : (

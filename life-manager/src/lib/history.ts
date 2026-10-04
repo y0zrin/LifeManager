@@ -1,18 +1,19 @@
 // ブランチ画面・全体図のための履歴の組み立て（ブランチの一覧、1 本のブランチのコミット、全体図のレーン）
 import type { GitBranch, GitCommit, GitHistory } from "./types";
+import { tr, weekdayShort } from "./i18n";
 
 // --- LifeManager が自分で作るコミット（日次ログ・設定の保存など）。履歴では畳んで見せる ---
 
 const APP_COMMITS: [string, RegExp][] = [
-  ["日次ログ", /の日次ログを生成$/],
-  ["ノート", /のノートを更新$/],
-  ["ルーチン設定", /^ルーチン設定を更新$/],
-  ["通知設定", /^(通知スケジュール|イベント通知)設定を更新$/],
-  ["リマインダー", /^(リマインダーを更新|発火済みリマインダーを削除)$/],
-  ["ボード設定", /^ボード設定を更新$/],
-  ["保存した見方", /^保存した見方を更新$/],
-  ["見積もりの単位", /^見積もりの単位を更新$/],
-  ["Issue テンプレート", /^Issue テンプレートを追加（.*）$/],
+  [tr("日次ログ"), /の日次ログを生成$/],
+  [tr("ノート"), /のノートを更新$/],
+  [tr("ルーチン設定"), /^ルーチン設定を更新$/],
+  [tr("通知設定"), /^(通知スケジュール|イベント通知)設定を更新$/],
+  [tr("リマインダー"), /^(リマインダーを更新|発火済みリマインダーを削除)$/],
+  [tr("ボード設定"), /^ボード設定を更新$/],
+  [tr("保存した見方"), /^保存した見方を更新$/],
+  [tr("見積もりの単位"), /^見積もりの単位を更新$/],
+  [tr("Issue テンプレート"), /^Issue テンプレートを追加（.*）$/],
 ];
 
 /** アプリの自動コミットなら、その種類（日次ログなど）。そうでなければ null */
@@ -24,7 +25,7 @@ export function appCommitKind(subject: string): string | null {
 export function appCommitBreakdown(commits: GitCommit[]): string {
   const counts = new Map<string, number>();
   for (const c of commits) {
-    const k = appCommitKind(c.subject) ?? "その他";
+    const k = appCommitKind(c.subject) ?? tr("その他");
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ");
@@ -280,8 +281,6 @@ export function layoutGraph(h: GitHistory, seeds: string[]): GraphLayout {
 
 // --- 日付の表示 ---
 
-const WEEKDAYS = "日月火水木金土";
-
 export function dayKey(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -290,13 +289,13 @@ export function dayKey(iso: string) {
 /** 9月27日（日） */
 export function longDay(iso: string) {
   const d = new Date(iso);
-  return `${d.getMonth() + 1}月${d.getDate()}日（${WEEKDAYS[d.getDay()]}）`;
+  return tr("{m}月{d}日（{w}）", { m: d.getMonth() + 1, d: d.getDate(), w: weekdayShort(d) });
 }
 
 /** 9/27（日） */
 export function shortDay(iso: string) {
   const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
+  return tr("{m}/{d}（{w}）", { m: d.getMonth() + 1, d: d.getDate(), w: weekdayShort(d) });
 }
 
 export function timeOf(iso: string) {

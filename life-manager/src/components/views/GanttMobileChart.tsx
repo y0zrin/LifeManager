@@ -9,6 +9,7 @@ import { dateToDays, barColorOf, relatedOf } from "../../lib/ganttRenderer";
 import { arrowKey } from "../../lib/ganttArrows";
 import { issueRef } from "../../lib/issueRef";
 import { Avatar } from "../common/Avatar";
+import { tr, trx } from "../../lib/i18n";
 
 export type MobileScale = "all" | "week" | "day";
 
@@ -148,7 +149,7 @@ export function GanttMobileChart({
       lastMonth = m;
       out.push({
         x: PAD_L + (i + 0.5) * dayW,
-        label: step === 30 ? `${m}月` : newMonth ? `${m}/${d}` : `${d}`,
+        label: step === 30 ? tr("{m}月", { m }) : newMonth ? `${m}/${d}` : `${d}`,
         strong: newMonth,
         weekend: step <= 2 && (dow === 0 || dow === 6),
       });
@@ -284,8 +285,8 @@ export function GanttMobileChart({
                   {t.label}
                 </span>
               ))}
-              <span className="mg-tag today" style={{ left: xOf(today) + dayW / 2 }}>今日</span>
-              {deadline && <span className="mg-tag due" style={{ left: xOf(deadline) + dayW }}>期限 {md(deadline)}</span>}
+              <span className="mg-tag today" style={{ left: xOf(today) + dayW / 2 }}>{tr("今日")}</span>
+              {deadline && <span className="mg-tag due" style={{ left: xOf(deadline) + dayW }}>{trx("期限 {md}", { md: md(deadline) })}</span>}
             </div>
 
             <div className="mg-rows" style={{ height: rowsHeight }}>
@@ -312,17 +313,17 @@ export function GanttMobileChart({
                     <div className="mg-title">
                       <span className="mg-num">{issueRef(t.issueNumber)}</span>
                       <span className="mg-name">{t.title}</span>
-                      {t.tentative && <span className="gantt-kari">仮</span>}
+                      {t.tentative && <span className="gantt-kari">{tr("仮")}</span>}
                       {t.estimate && <span className="est-chip gantt-est">{t.estimate}</span>}
                       {mk.reversed.length > 0 && (
-                        <span className="mg-mark rev" title={`${mk.reversed.map(issueRef).join(" ")} が終わる前に始まる日程です（順番が逆）`}>⚠</span>
+                        <span className="mg-mark rev" title={tr("{join} が終わる前に始まる日程です（順番が逆）", { join: mk.reversed.map(issueRef).join(" ") })}>⚠</span>
                       )}
                       {mk.late.length > 0 && (
-                        <span className="mg-mark late" title={`先行の ${mk.late.map(issueRef).join(" ")} が遅れています`}>⏳</span>
+                        <span className="mg-mark late" title={tr("先行の {join} が遅れています", { join: mk.late.map(issueRef).join(" ") })}>⏳</span>
                       )}
-                      {r === "pred" && <span className="gantt-rel pred">先行</span>}
-                      {r === "succ" && <span className="gantt-rel succ">後続</span>}
-                      {!hasBar(t) && t.state !== "closed" && <span className="gantt-none">日程なし</span>}
+                      {r === "pred" && <span className="gantt-rel pred">{tr("先行")}</span>}
+                      {r === "succ" && <span className="gantt-rel succ">{tr("後続")}</span>}
+                      {!hasBar(t) && t.state !== "closed" && <span className="gantt-none">{tr("日程なし")}</span>}
                       {t.assignees[0] && (
                         <Avatar login={t.assignees[0].login} url={t.assignees[0].avatar_url} title={t.assignees.map((a) => a.login).join(", ")} className="avatar-sm mg-who" />
                       )}
@@ -360,10 +361,10 @@ export function GanttMobileChart({
 
             {doneNoBar.length > 0 && (
               <button type="button" className="mg-fold" onClick={(e) => { e.stopPropagation(); setShowDone(!showDone); }}>
-                {showDone ? "▾" : "▸"} 終わった {doneNoBar.length} 件（日程なし）
+                {showDone ? "▾" : "▸"} {" "}{trx("終わった {length} 件（日程なし）", { length: doneNoBar.length })}
               </button>
             )}
-            {focus === null && <div className="mg-hint">帯か題名を押すと、先行と後続が出ます</div>}
+            {focus === null && <div className="mg-hint">{tr("帯か題名を押すと、先行と後続が出ます")}</div>}
           </div>
         )}
       </div>
@@ -376,41 +377,41 @@ export function GanttMobileChart({
           </div>
           <div className="mg-info-meta">
             {[
-              links.self.startDate && links.self.endDate ? `${links.self.tentative ? "仮に " : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}` : "日程なし",
-              links.self.estimate ? `見積 ${links.self.estimate}` : null,
-              `進み ${links.self.progressValue}%`,
-              links.self.assignees.length > 0 ? `担当 ${links.self.assignees.map((a) => a.login).join(", ")}` : "担当なし",
+              links.self.startDate && links.self.endDate ? `${links.self.tentative ? tr("仮に ") : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}` : tr("日程なし"),
+              links.self.estimate ? tr("見積 {estimate}", { estimate: links.self.estimate }) : null,
+              tr("進み {v}%", { v: links.self.progressValue }),
+              links.self.assignees.length > 0 ? tr("担当 {join}", { join: links.self.assignees.map((a) => a.login).join(", ") }) : tr("担当なし"),
             ]
               .filter(Boolean)
-              .join(" ・ ")}
+              .join(tr(" ・ "))}
           </div>
           {links.excerpt && <div className="mg-info-body">{links.excerpt}</div>}
           {(["pred", "succ"] as const).map((kind) => {
             const list = kind === "pred" ? links.preds : links.succs;
             return (
               <div key={kind} className="mg-info-links">
-                <span className={`gantt-info-label ${kind}`}>{kind === "pred" ? "先行" : "後続"}</span>
-                {list.length === 0 && <span className="mg-info-none">なし</span>}
+                <span className={`gantt-info-label ${kind}`}>{kind === "pred" ? tr("先行") : tr("後続")}</span>
+                {list.length === 0 && <span className="mg-info-none">{tr("なし")}</span>}
                 {list.map((l) => (
                   <span key={l.n} className="mg-link">
                     <button type="button" className={`gantt-link ${l.reason ? "off" : kind}`} disabled={l.reason !== null} onClick={() => jumpTo(l.n)}>
                       {issueRef(l.n)} {shortTitle(l.title, 12)}
-                      {l.redundant ? "（点線）" : ""}
+                      {l.redundant ? tr("（点線）") : ""}
                       {l.reason ? `（${l.reason}）` : ""}
                     </button>
-                    {l.broken && <span className="gantt-link-warn">順番が逆</span>}
-                    {l.late && <span className="mg-link-late">遅れている</span>}
+                    {l.broken && <span className="gantt-link-warn">{tr("順番が逆")}</span>}
+                    {l.late && <span className="mg-link-late">{tr("遅れている")}</span>}
                   </span>
                 ))}
               </div>
             );
           })}
           <div className="mg-info-actions">
-            <button type="button" className="btn-sm" onClick={() => onFocus(null)}>外す</button>
+            <button type="button" className="btn-sm" onClick={() => onFocus(null)}>{tr("外す")}</button>
             {links.self.tentative && (
-              <button type="button" className="btn-sm" onClick={() => onFixTentative(links.self)}>この日程で決める</button>
+              <button type="button" className="btn-sm" onClick={() => onFixTentative(links.self)}>{tr("この日程で決める")}</button>
             )}
-            <button type="button" className="btn-primary" onClick={() => onOpenIssue(links.self.issueNumber)}>詳細を開く</button>
+            <button type="button" className="btn-primary" onClick={() => onOpenIssue(links.self.issueNumber)}>{tr("詳細を開く")}</button>
           </div>
         </div>
       )}

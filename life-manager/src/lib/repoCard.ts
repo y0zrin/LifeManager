@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
 
 /** リポジトリを選ぶ画面のカード。読めなかったところは null（人数は、書き込めない人には読めないことがある） */
 export interface RepoCard {

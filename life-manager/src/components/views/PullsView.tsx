@@ -19,10 +19,11 @@ import { PULL_PERMISSIONS, commitsChecks, isPermissionError, type CheckSummary }
 import { PermissionPrompt } from "../actions/PermissionPrompt";
 import { PullDetail } from "../pulls/PullDetail";
 import { CreatePullDialog } from "../pulls/CreatePullDialog";
+import { tr, trx } from "../../lib/i18n";
 
 type Filter = "open" | "merged" | "closed";
 const FILTERS: Filter[] = ["open", "merged", "closed"];
-const FILTER_LABELS: Record<Filter, string> = { open: "開いている", merged: "マージ済み", closed: "閉じた" };
+const FILTER_LABELS: Record<Filter, string> = { open: tr("開いている"), merged: tr("マージ済み"), closed: tr("閉じた") };
 
 const inFilter = (s: PullStatus, f: Filter) => (f === "open" ? s === "open" || s === "draft" : s === f);
 
@@ -149,7 +150,7 @@ export function PullsView(props: PullsViewProps) {
         <div className="pulls-top">
           <span className="grow" />
           <button type="button" className="btn-primary" onClick={() => setCreate({ head: localBranch, issue: null })}>
-            ＋ プルリクを作る
+            {tr("＋ プルリクを作る")}
           </button>
         </div>
         <div className="pulls-filters" role="tablist">
@@ -161,15 +162,15 @@ export function PullsView(props: PullsViewProps) {
           ))}
         </div>
         <div className="pulls-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="題名・#番号・ブランチ・作った人で探す" aria-label="プルリクを探す" />
-          <button type="button" className="btn-sm" onClick={load} disabled={loading} title="読み直す">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr("題名・#番号・ブランチ・作った人で探す")} aria-label={tr("プルリクを探す")} />
+          <button type="button" className="btn-sm" onClick={load} disabled={loading} title={tr("読み直す")}>
             {loading ? "…" : "↻"}
           </button>
         </div>
         {notice && (
           <p className="pulls-notice">
             {notice}
-            <button type="button" className="git-notice-close" aria-label="閉じる" onClick={() => setNotice(null)}>
+            <button type="button" className="git-notice-close" aria-label={tr("閉じる")} onClick={() => setNotice(null)}>
               ×
             </button>
           </p>
@@ -184,20 +185,20 @@ export function PullsView(props: PullsViewProps) {
               <div className="pulls-empty">
                 <p className="git-dialog-error">{error}</p>
                 <button type="button" className="btn-sm" onClick={load}>
-                  もう一度読み込む
+                  {tr("もう一度読み込む")}
                 </button>
               </div>
             )
           ) : !pulls ? (
-            <p className="pulls-empty muted">読み込んでいます…</p>
+            <p className="pulls-empty muted">{tr("読み込んでいます…")}</p>
           ) : shown.length === 0 ? (
             <div className="pulls-empty">
               {query ? (
-                <p className="muted">見つかりません。</p>
+                <p className="muted">{tr("見つかりません。")}</p>
               ) : filter === "open" ? (
-                <p>開いているプルリクはありません。</p>
+                <p>{tr("開いているプルリクはありません。")}</p>
               ) : (
-                <p className="muted">{FILTER_LABELS[filter]}プルリクはありません。</p>
+                <p className="muted">{trx("{FILTER_LABELS}プルリクはありません。", { FILTER_LABELS: FILTER_LABELS[filter] })}</p>
               )}
             </div>
           ) : (
@@ -229,17 +230,17 @@ export function PullsView(props: PullsViewProps) {
                     ))}
                   </div>
                   <div className="pr-item-meta">
-                    {v && v.approved.length > 0 && <span className="ok">✔ 承認 {v.approved.length}</span>}
-                    {v && v.changes_requested.length > 0 && <span className="ng">✖ 修正の依頼 {v.changes_requested.length}</span>}
-                    {ck && ck.failure > 0 && <span className="ng">✖ チェック {ck.failure}</span>}
-                    {ck && ck.failure === 0 && ck.pending > 0 && <span className="t-wait">● チェック中</span>}
-                    {ck && ck.failure === 0 && ck.pending === 0 && ck.success > 0 && <span className="ok">✔ チェック</span>}
+                    {v && v.approved.length > 0 && <span className="ok">{trx("✔ 承認 {length}", { length: v.approved.length })}</span>}
+                    {v && v.changes_requested.length > 0 && <span className="ng">{trx("✖ 修正の依頼 {length}", { length: v.changes_requested.length })}</span>}
+                    {ck && ck.failure > 0 && <span className="ng">{trx("✖ チェック {failure}", { failure: ck.failure })}</span>}
+                    {ck && ck.failure === 0 && ck.pending > 0 && <span className="t-wait">{tr("● チェック中")}</span>}
+                    {ck && ck.failure === 0 && ck.pending === 0 && ck.success > 0 && <span className="ok">{tr("✔ チェック")}</span>}
                     {s === "open" && v && v.approved.length === 0 && v.changes_requested.length === 0 && (
-                      <span className="muted">{p.requested_reviewers.length > 0 ? `レビュー待ち（${p.requested_reviewers.map((r) => r.login).join("、")}）` : "レビューまだ"}</span>
+                      <span className="muted">{p.requested_reviewers.length > 0 ? tr("レビュー待ち（{join}）", { join: p.requested_reviewers.map((r) => r.login).join("、") }) : tr("レビューまだ")}</span>
                     )}
                     <span className="grow" />
                     <span className="muted">
-                      {p.user?.login ?? ""}・{ago(s === "merged" ? p.merged_at : p.updated_at)}
+                      {p.user?.login ?? ""}{trx("・{ago}", { ago: ago(s === "merged" ? p.merged_at : p.updated_at) })}
                     </span>
                   </div>
                 </button>
@@ -270,10 +271,10 @@ export function PullsView(props: PullsViewProps) {
         ) : (
           <div className="pulls-intro">
             <ol className="pulls-steps">
-              <li>ブランチで作業してコミットとプッシュをする（作業をする）</li>
-              <li>「＋ プルリクを作る」でお願いを出す（Issue とつなげるとマージで閉じます）</li>
-              <li>チームの人が「変更されたファイル」を見て、承認・修正の依頼・コメント</li>
-              <li>よければマージ。ブランチを片づけて完了</li>
+              <li>{tr("ブランチで作業してコミットとプッシュをする（作業をする）")}</li>
+              <li>{tr("「＋ プルリクを作る」でお願いを出す（Issue とつなげるとマージで閉じます）")}</li>
+              <li>{tr("チームの人が「変更されたファイル」を見て、承認・修正の依頼・コメント")}</li>
+              <li>{tr("よければマージ。ブランチを片づけて完了")}</li>
             </ol>
           </div>
         )}
@@ -297,7 +298,7 @@ export function PullsView(props: PullsViewProps) {
           onCreated={(p, warning, issue) => {
             setCreate(null);
             if (issue !== null) onPullCreatedForIssue?.(issue);
-            setNotice(warning ? `#${p.number} を作りました。${warning}` : null);
+            setNotice(warning ? tr("#{number} を作りました。{warning}", { number: p.number, warning }) : null);
             setFilter("open");
             load();
             onSelect(p.number);

@@ -1,8 +1,9 @@
 // GitHub とやりとりするフック（useGitHub と、その分け先）で共通に使うもの
 import type { EventNotificationConfig, EventNotice, EventType } from "../../lib/types";
+import { tr, jaOf } from "../../lib/i18n";
 
 /** つながらないときの変更は送信待ちに並ぶ（結果に _pending が付く）。そのときに状態の表示に添える言葉 */
-export const PENDING_NOTE = "（未送信。つながったら GitHub に送ります）";
+export const PENDING_NOTE = tr("（未送信。つながったら GitHub に送ります）");
 
 export function isPending(result: unknown): boolean {
   try {
@@ -14,7 +15,7 @@ export function isPending(result: unknown): boolean {
 
 /** 設定の保存の結果（バックエンドが返す言葉）が、送信待ちに並んだことを表しているか */
 export function pendingNote(result: unknown): string {
-  return String(result).includes("未送信") ? PENDING_NOTE : "";
+  return jaOf(String(result)).includes("未送信") ? PENDING_NOTE : "";
 }
 
 /** 分けたフックに渡す、今のリポジトリと状態の表示 */

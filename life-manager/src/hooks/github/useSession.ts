@@ -1,7 +1,8 @@
 // つないでいるリポジトリ・ログイン・プロジェクト（リポジトリ）の一覧・自分
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import type { Project } from "../../lib/types";
+import { tr } from "../../lib/i18n";
 
 export function useSession() {
   const [connected, setConnected] = useState(false);
@@ -19,9 +20,9 @@ export function useSession() {
 
   function friendlyError(e: unknown): string {
     const msg = String(e);
-    if (msg.includes("404")) return `リポジトリ ${owner}/${repo} が見つかりません。リポジトリ名を確認するか、トークンの権限を確認してください。`;
-    if (msg.includes("401")) return "認証エラー: トークンが無効または期限切れです。設定画面でトークンを再設定してください。";
-    if (msg.includes("403")) return "アクセス拒否: このリポジトリへの権限がありません。トークンのスコープを確認してください。";
+    if (msg.includes("404")) return tr("リポジトリ {owner}/{repo} が見つかりません。リポジトリ名を確認するか、トークンの権限を確認してください。", { owner, repo });
+    if (msg.includes("401")) return tr("認証エラー: トークンが無効または期限切れです。設定画面でトークンを再設定してください。");
+    if (msg.includes("403")) return tr("アクセス拒否: このリポジトリへの権限がありません。トークンのスコープを確認してください。");
     return String(e);
   }
 
@@ -50,7 +51,7 @@ export function useSession() {
       const result = await invoke("add_project", { owner: projOwner, repo: projRepo, name: projName, token: token ?? null });
       setProjects(JSON.parse(result as string));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -59,9 +60,9 @@ export function useSession() {
     try {
       const result = await invoke("remove_project", { owner: projOwner, repo: projRepo });
       setProjects(JSON.parse(result as string));
-      setStatus("プロジェクトを削除しました");
+      setStatus(tr("プロジェクトを削除しました"));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -69,9 +70,9 @@ export function useSession() {
   async function setProjectToken(projOwner: string, projRepo: string, token: string) {
     try {
       await invoke("set_project_token", { owner: projOwner, repo: projRepo, token });
-      setStatus(`${projOwner}/${projRepo} のトークンを更新しました`);
+      setStatus(tr("{projOwner}/{projRepo} のトークンを更新しました", { projOwner, projRepo }));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -95,9 +96,9 @@ export function useSession() {
       await invoke("set_repo_config", { owner: newOwner, repo: newRepo });
       setOwner(newOwner);
       setRepo(newRepo);
-      setStatus("リポジトリ設定を保存しました");
+      setStatus(tr("リポジトリ設定を保存しました"));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -107,7 +108,7 @@ export function useSession() {
     await loadRepoConfig();
     await loadProjects();
     setConnected(true);
-    setStatus("接続済み");
+    setStatus(tr("接続済み"));
   }
 
   return {

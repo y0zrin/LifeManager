@@ -8,6 +8,7 @@ import { Buncho } from "../common/Buncho";
 import { bunchoFlock } from "../../lib/buncho";
 import { playDing, playFanfare, playTick } from "../../lib/celebrateSound";
 import { CelebrationFx, IMPACT } from "./CelebrationFx";
+import { tr, trx } from "../../lib/i18n";
 
 interface MilestoneCelebrationProps {
   /** 画面の動きが「ふつう」か（少なめなら、動かさずに出す） */
@@ -78,9 +79,9 @@ function CountUp({ text, delay, sound, still }: { text: string; delay: number; s
 /** 期限まで何日残したか（「2 日前」「ぴったり」「3 日」） */
 function timingOf(leftDays: number | null): { value: string; label: string } | null {
   if (leftDays === null) return null;
-  if (leftDays > 0) return { value: `${leftDays} 日前`, label: "期限より" };
-  if (leftDays === 0) return { value: "ぴったり", label: "期限の日に" };
-  return { value: `${-leftDays} 日`, label: "期限をすぎて" };
+  if (leftDays > 0) return { value: tr("{leftDays} 日前", { leftDays }), label: tr("期限より") };
+  if (leftDays === 0) return { value: tr("ぴったり"), label: tr("期限の日に") };
+  return { value: tr("{v} 日", { v: -leftDays }), label: tr("期限をすぎて") };
 }
 
 function Trophy() {
@@ -156,12 +157,12 @@ function Stamp({ theme, title }: { theme: string; title: string }) {
         <g className="h-petals">{petals}</g>
         <circle className="h-ring" cx="100" cy="100" r="70" />
         <circle className="h-ring thin" cx="100" cy="100" r="60" />
-        <text className="h-text" x="100" y="94" textAnchor="middle">よく</text>
-        <text className="h-text" x="100" y="124" textAnchor="middle">できました</text>
+        <text className="h-text" x="100" y="94" textAnchor="middle">{tr("よく")}</text>
+        <text className="h-text" x="100" y="124" textAnchor="middle">{tr("できました")}</text>
       </svg>
     );
   }
-  const word = theme === "quest" ? "撃破" : "達成";
+  const word = theme === "quest" ? tr("撃破") : tr("達成");
   const now = new Date();
   const date = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
   return (
@@ -246,8 +247,8 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
   const countAt = (i: number) => IMPACT + 0.55 + i * 0.3;
   const stats = (
     <div className="ms-cel-stats">
-      <div><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /><span>{quest ? "倒したタスク" : "終えたタスク"}</span></div>
-      {d.amount && <div><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /><span>{quest ? "経験値" : "見積もり"}</span></div>}
+      <div><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /><span>{quest ? tr("倒したタスク") : tr("終えたタスク")}</span></div>
+      {d.amount && <div><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /><span>{quest ? tr("経験値") : tr("見積もり")}</span></div>}
       {timing && <div><CountUp text={timing.value} delay={countAt(2)} sound={sound} still={still} /><span>{timing.label}</span></div>}
     </div>
   );
@@ -263,7 +264,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
           </span>
         ),
       )}
-      {quest ? "パーティのみんなで" : "チームのみんなで"}
+      {quest ? tr("パーティのみんなで") : tr("チームのみんなで")}
     </div>
   );
 
@@ -273,8 +274,8 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
       <>
         <Trophy />
         <div className="ms-cel-kick">{quest ? "BOSS DEFEATED" : "MILESTONE COMPLETE"}</div>
-        <div className="ms-cel-title">{d.title} {quest ? "撃破！" : "達成！"}</div>
-        <div className="ms-cel-sub">{d.doneCount} 件のタスクをぜんぶ終えました</div>
+        <div className="ms-cel-title">{d.title} {quest ? tr("撃破！") : tr("達成！")}</div>
+        <div className="ms-cel-sub">{trx("{doneCount} 件のタスクをぜんぶ終えました", { doneCount: d.doneCount })}</div>
         {stats}
         {team}
       </>
@@ -283,8 +284,8 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
     body = (
       <>
         <div className="ms-cel-kick sky">MISSION COMPLETE</div>
-        <div className="ms-cel-title sky">{d.title} クリア！</div>
-        <div className="ms-cel-sub">おつかれさまでした</div>
+        <div className="ms-cel-title sky">{trx("{title} クリア！", { title: d.title })}</div>
+        <div className="ms-cel-sub">{tr("おつかれさまでした")}</div>
         {stats}
         {team}
       </>
@@ -294,12 +295,12 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
       <>
         <div className="ms-cel-lanterns" aria-hidden="true">
           {Array.from({ length: 7 }, (_, i) => (
-            <span key={i} style={{ animationDelay: `${0.2 + i * 0.18}s` }}>祭</span>
+            <span key={i} style={{ animationDelay: `${0.2 + i * 0.18}s` }}>{tr("祭")}</span>
           ))}
         </div>
         <div className="ms-cel-kick sky">SUMMER FESTIVAL</div>
-        <div className="ms-cel-title sky">{d.title} 達成！</div>
-        <div className="ms-cel-sub">夏まつりだ。おつかれさまでした</div>
+        <div className="ms-cel-title sky">{trx("{title} 達成！", { title: d.title })}</div>
+        <div className="ms-cel-sub">{tr("夏まつりだ。おつかれさまでした")}</div>
         {stats}
         {team}
       </>
@@ -318,8 +319,8 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
           ))}
         </div>
         <div className="ms-cel-kick sky">MORNING SONG</div>
-        <div className="ms-cel-title sky">{d.title} 達成！</div>
-        <div className="ms-cel-sub">朝のさえずり。おつかれさまでした</div>
+        <div className="ms-cel-title sky">{trx("{title} 達成！", { title: d.title })}</div>
+        <div className="ms-cel-sub">{tr("朝のさえずり。おつかれさまでした")}</div>
         {stats}
         {team}
       </>
@@ -329,7 +330,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
       <>
         <div className="ms-cel-boss"><StageArt no={d.no} last={d.last} quest /></div>
         <div className="ms-cel-kick boss">BOSS DEFEATED</div>
-        <div className="ms-cel-banner">ボス撃破！</div>
+        <div className="ms-cel-banner">{tr("ボス撃破！")}</div>
         <div className="ms-cel-sub">{d.title}</div>
         {stats}
       </>
@@ -338,10 +339,10 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
         <div className="ms-cel-kick">STAGE CLEAR</div>
         <div className="ms-cel-banner">{d.title}</div>
         <div className="ms-cel-stars">{"★".repeat(stars)}<span className="off">{"★".repeat(3 - stars)}</span></div>
-        <div className="ms-cel-starnote">{stars === 3 ? "★ 期限まで ・ ★ ぜんぶ終えた ・ ★ クリア" : "★ ぜんぶ終えた ・ ★ クリア（期限はすぎました）"}</div>
+        <div className="ms-cel-starnote">{stars === 3 ? tr("★ 期限まで ・ ★ ぜんぶ終えた ・ ★ クリア") : tr("★ ぜんぶ終えた ・ ★ クリア（期限はすぎました）")}</div>
         <div className="ms-cel-tally">
-          <div><span>終えたタスク</span><i /><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /></div>
-          {d.amount && <div><span>見積もり</span><i /><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /></div>}
+          <div><span>{tr("終えたタスク")}</span><i /><CountUp text={String(d.doneCount)} delay={countAt(0)} sound={sound} still={still} /></div>
+          {d.amount && <div><span>{tr("見積もり")}</span><i /><CountUp text={d.amount} delay={countAt(1)} sound={sound} still={still} /></div>}
           {timing && <div><span>{timing.label}</span><i /><CountUp text={timing.value} delay={countAt(2)} sound={sound} still={still} /></div>}
         </div>
       </>
@@ -350,15 +351,15 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
     body = (
       <>
         <Stamp theme={theme} title={d.title} />
-        <div className="ms-cel-title plain">おつかれさまでした！</div>
-        <div className="ms-cel-sub">{d.title} のタスク {d.doneCount} 件をぜんぶ終えました</div>
+        <div className="ms-cel-title plain">{tr("おつかれさまでした！")}</div>
+        <div className="ms-cel-sub">{trx("{title} のタスク {doneCount} 件をぜんぶ終えました", { title: d.title, doneCount: d.doneCount })}</div>
         {team}
       </>
     );
   }
 
   return createPortal(
-    <div className={`ms-cel p-${pattern}${still ? " still" : ""}`} role="dialog" aria-label={`${d.title} を達成しました`} onClick={() => setCel(null)}>
+    <div className={`ms-cel p-${pattern}${still ? " still" : ""}`} role="dialog" aria-label={tr("{title} を達成しました", { title: d.title })} onClick={() => setCel(null)}>
       <div className="ms-cel-dim" />
       {(pattern === "trophy" || pattern === "clear") && <div className="ms-cel-rays" />}
       {(pattern === "fireworks" || pattern === "matsuri") && <Fireworks />}
@@ -372,9 +373,9 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
           {d.canClose ? (
             <>
               <button type="button" className="ms-cel-btn" disabled={closing} onClick={closeMilestone}>
-                {closing ? "閉じています…" : "マイルストーンを閉じる"}
+                {closing ? tr("閉じています…") : tr("マイルストーンを閉じる")}
               </button>
-              <button type="button" className="ms-cel-btn sub" onClick={() => setCel(null)}>あとで</button>
+              <button type="button" className="ms-cel-btn sub" onClick={() => setCel(null)}>{tr("あとで")}</button>
             </>
           ) : (
             <button type="button" className="ms-cel-btn" autoFocus onClick={() => setCel(null)}>OK</button>

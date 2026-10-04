@@ -3,6 +3,7 @@ import * as git from "../../lib/git";
 import { buildResolved, linesOf, parseConflict, sideNames, type ConflictChoice, type ConflictHunk } from "../../lib/conflict";
 import type { GitStatus } from "../../lib/types";
 import type { GitActions } from "../../hooks/useGitActions";
+import { tr, trx } from "../../lib/i18n";
 
 interface MergeToolProps {
   folder: string;
@@ -33,13 +34,13 @@ function SideBox({ side, label, lines, state, order, onUse }: {
     <div className={`mt-side mt-side--${side}${state ? ` mt-side--${state}` : ""}`}>
       <div className="mt-side-head">
         <span className="mt-side-label">{label}</span>
-        {state === "use" && <span className="mt-badge mt-badge--use">✔ {order ? `${order} 番目に` : ""}使う</span>}
-        {state === "drop" && <span className="mt-badge mt-badge--drop">✖ 捨てる</span>}
+        {state === "use" && <span className="mt-badge mt-badge--use">✔ {order ? tr("{order} 番目に", { order }) : ""}{tr("使う")}</span>}
+        {state === "drop" && <span className="mt-badge mt-badge--drop">{tr("✖ 捨てる")}</span>}
       </div>
-      <pre className="mt-lines">{lines.length > 0 ? lines.join("\n") : <span className="mt-empty">（この側では、ここは消されています）</span>}</pre>
+      <pre className="mt-lines">{lines.length > 0 ? lines.join("\n") : <span className="mt-empty">{tr("（この側では、ここは消されています）")}</span>}</pre>
       {onUse && (
         <button type="button" className={`mt-use mt-use--${side}`} onClick={onUse}>
-          {side === "ours" ? "✔ 今のブランチの方を使う" : "✔ 取り込む側を使う"}
+          {side === "ours" ? tr("✔ 今のブランチの方を使う") : tr("✔ 取り込む側を使う")}
         </button>
       )}
     </div>
@@ -96,10 +97,10 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
   const wholeSideButtons = (
     <>
       <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.takeConflictSide(file, "ours", names.ours)}>
-        まるごと今のブランチの方に…
+        {tr("まるごと今のブランチの方に…")}
       </button>
       <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.takeConflictSide(file, "theirs", names.theirs)}>
-        まるごと取り込む側に…
+        {tr("まるごと取り込む側に…")}
       </button>
     </>
   );
@@ -108,39 +109,39 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
     return (
       <div className="mt">
         <p className="mt-error">⚠ {error}</p>
-        <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)}>読み直す</button>
+        <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)}>{tr("読み直す")}</button>
       </div>
     );
   }
-  if (!data) return <div className="mt"><p className="mt-hint">読み込んでいます…</p></div>;
+  if (!data) return <div className="mt"><p className="mt-hint">{tr("読み込んでいます…")}</p></div>;
 
   // 印で直せないファイル: 片方で消された・文字でない（画像など）・印が見つからない
   if (!parsed || hunks.length === 0) {
     return (
       <div className="mt">
-        <div className="mt-head"><b>競合を直す — {file}</b></div>
+        <div className="mt-head"><b>{trx("競合を直す — {file}", { file })}</b></div>
         {data.missing ? (
-          <p>このファイルは片方で消され、もう片方では変えられていました。</p>
+          <p>{tr("このファイルは片方で消され、もう片方では変えられていました。")}</p>
         ) : data.binary ? (
-          <p>文字でないファイル（画像など）なので、か所ごとには選べません。</p>
+          <p>{tr("文字でないファイル（画像など）なので、か所ごとには選べません。")}</p>
         ) : (
           <p>
-            競合の印（<code>{"<<<<<<<"}</code>）が見つかりません。エディタなどで、もう直してあるなら、このままステージします。
+            {trx("競合の印（<0><<<<<<<</0>）が見つかりません。エディタなどで、もう直してあるなら、このままステージします。", undefined, [<code />])}
           </p>
         )}
         <div className="mt-foot">
           {!data.missing && !data.binary && (
             <button type="button" className="btn-primary" disabled={busy} onClick={() => actions.resolveConflict(file, data.text)}>
-              このままステージする
+              {tr("このままステージする")}
             </button>
           )}
           {data.missing && (
             <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.takeConflictSide(file, "delete", "")}>
-              消したままにする…
+              {tr("消したままにする…")}
             </button>
           )}
           {wholeSideButtons}
-          <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)}>読み直す</button>
+          <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)}>{tr("読み直す")}</button>
         </div>
       </div>
     );
@@ -149,14 +150,10 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
   return (
     <div className="mt">
       <div className="mt-head">
-        <b>競合を直す — {file}</b>
-        <span className={`mt-progress${done === hunks.length ? " all" : ""}`}>
-          {hunks.length} か所のうち {done} か所 直した
-        </span>
+        {trx("<0>競合を直す — {file}</0><1>{length} か所のうち {done} か所 直した</1>", { file, length: hunks.length, done }, [<b />, <span className={`mt-progress${done === hunks.length ? " all" : ""}`} />])}
       </div>
       <p className="mt-lead">
-        同じところが、<span className="mt-name--ours">{names.ours}</span>と<span className="mt-name--theirs">{names.theirs}</span>
-        で違います。か所ごとに、<b>使う方</b>を選んでください。
+        {trx("同じところが、<0>{ours}</0>と<1>{theirs}</1>で違います。か所ごとに、<2>使う方</2>を選んでください。", { ours: names.ours, theirs: names.theirs }, [<span className="mt-name--ours" />, <span className="mt-name--theirs" />, <b />])}
       </p>
 
       {hunks.map((h) => {
@@ -171,21 +168,21 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
         const choiceText = !choice
           ? ""
           : choice.kind === "ours"
-            ? `${names.ours}を使う`
+            ? tr("{ours}を使う", { ours: names.ours })
             : choice.kind === "theirs"
-              ? `${names.theirs}を使う`
+              ? tr("{theirs}を使う", { theirs: names.theirs })
               : choice.kind === "both"
-                ? "両方を残す"
-                : "自分で書いた内容にする";
+                ? tr("両方を残す")
+                : tr("自分で書いた内容にする");
         return (
           <div key={h.index} className={`mt-hunk${choice ? " done" : ""}`}>
             <div className="mt-hunk-head">
-              <b>{numberOf(h.index)} {h.line} 行目</b>
+              <b>{trx("{numberOf} {line} 行目", { numberOf: numberOf(h.index), line: h.line })}</b>
               {h.before !== null && h.before.trim() !== "" && <code className="mt-ctx">{h.before}</code>}
               {choice && <span className="mt-done">✔ {choiceText}</span>}
               {choice && (
                 <button type="button" className="link-button mt-redo" onClick={() => choose(h.index, undefined)}>
-                  やり直す
+                  {tr("やり直す")}
                 </button>
               )}
             </div>
@@ -193,16 +190,16 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
             {editing === h.index ? (
               <div className="mt-custom">
                 <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={Math.min(12, Math.max(3, draft.split("\n").length + 1))} autoFocus />
-                <p className="mt-hint">両方の内容を入れてあります。残したい形に書き直してください（印は入れません）。</p>
+                <p className="mt-hint">{tr("両方の内容を入れてあります。残したい形に書き直してください（印は入れません）。")}</p>
                 <div className="mt-custom-actions">
                   <button type="button" className="btn-primary" onClick={() => { choose(h.index, { kind: "custom", text: draft }); setEditing(null); }}>
-                    これにする
+                    {tr("これにする")}
                   </button>
-                  <button type="button" className="btn-sm" onClick={() => setEditing(null)}>やめる</button>
+                  <button type="button" className="btn-sm" onClick={() => setEditing(null)}>{tr("やめる")}</button>
                 </div>
               </div>
             ) : choice?.kind === "custom" ? (
-              <pre className="mt-result">{choice.text || "（何も残さない）"}</pre>
+              <pre className="mt-result">{choice.text || tr("（何も残さない）")}</pre>
             ) : (
               <div className="mt-sides">
                 <SideBox side="ours" label={names.ours} lines={h.ours} state={stateOf("ours")} order={orderOf("ours")}
@@ -214,9 +211,9 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
 
             {!choice && editing !== h.index && (
               <div className="mt-more">
-                <button type="button" className="btn-sm" onClick={() => choose(h.index, { kind: "both", first: "ours" })}>両方を残す（左 → 右の順）</button>
-                <button type="button" className="btn-sm" onClick={() => choose(h.index, { kind: "both", first: "theirs" })}>両方を残す（右 → 左の順）</button>
-                <button type="button" className="btn-sm" onClick={() => startEditing(h)}>自分で書く…</button>
+                <button type="button" className="btn-sm" onClick={() => choose(h.index, { kind: "both", first: "ours" })}>{tr("両方を残す（左 → 右の順）")}</button>
+                <button type="button" className="btn-sm" onClick={() => choose(h.index, { kind: "both", first: "theirs" })}>{tr("両方を残す（右 → 左の順）")}</button>
+                <button type="button" className="btn-sm" onClick={() => startEditing(h)}>{tr("自分で書く…")}</button>
               </div>
             )}
           </div>
@@ -225,13 +222,13 @@ export function MergeTool({ folder, file, status, actions, busy }: MergeToolProp
 
       <div className="mt-foot">
         <button type="button" className="btn-primary" disabled={busy || resolved === null} onClick={() => resolved !== null && actions.resolveConflict(file, resolved)}
-          title={resolved === null ? "すべてのか所で、使う方を選ぶと押せます" : undefined}>
-          直したのでステージする
+          title={resolved === null ? tr("すべてのか所で、使う方を選ぶと押せます") : undefined}>
+          {tr("直したのでステージする")}
         </button>
-        <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.openFile(file)}>エディタで開く</button>
+        <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.openFile(file)}>{tr("エディタで開く")}</button>
         {wholeSideButtons}
-        <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)} title="エディタで直したあとなど">読み直す</button>
-        <code className="mt-cmd">書き込んで {git.displayCommand(["add", "--", file])}</code>
+        <button type="button" className="btn-sm" onClick={() => setReloadSeq((n) => n + 1)} title={tr("エディタで直したあとなど")}>{tr("読み直す")}</button>
+        <code className="mt-cmd">{trx("書き込んで {displayCommand}", { displayCommand: git.displayCommand(["add", "--", file]) })}</code>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { GitLineStat, GitRun } from "../../lib/types";
+import { tr, trx } from "../../lib/i18n";
 
 export type DiffRow = { kind: "f" | "h" | "a" | "d" | "c" | "note"; text: string };
 
@@ -19,7 +20,7 @@ export function parseDiff(text: string, withFiles = false): DiffRow[] {
       inHunk = true;
       rows.push({ kind: "h", text: line });
     } else if (!inHunk) {
-      if (line.startsWith("Binary files")) rows.push({ kind: "note", text: "バイナリファイルのため、中身は表示しません" });
+      if (line.startsWith("Binary files")) rows.push({ kind: "note", text: tr("バイナリファイルのため、中身は表示しません") });
       // バックエンドからのお知らせ（大きいファイルなど）
       else if (line.startsWith("（")) rows.push({ kind: "note", text: line });
     } else if (line.startsWith("+")) {
@@ -51,14 +52,14 @@ export function DiffView({ title, lines, run, error, loading }: DiffViewProps) {
         <span className="dr-diff-path" title={title}>{title}</span>
         {lines && <span className="add">+{lines.added}</span>}
         {lines && lines.deleted > 0 && <span className="del">−{lines.deleted}</span>}
-        {run && <code className="dr-diff-cmd" title="この差分を出したコマンド">{run.command}</code>}
+        {run && <code className="dr-diff-cmd" title={tr("この差分を出したコマンド")}>{run.command}</code>}
       </div>
       {error ? (
         <div className="note error">{error}</div>
       ) : !run ? (
-        <div className="note">{loading ? "読み込んでいます…" : ""}</div>
+        <div className="note">{loading ? tr("読み込んでいます…") : ""}</div>
       ) : rows.length === 0 ? (
-        <div className="note">表示できる差分はありません</div>
+        <div className="note">{tr("表示できる差分はありません")}</div>
       ) : (
         <DiffRows rows={rows} />
       )}
@@ -73,7 +74,7 @@ export function DiffRows({ rows }: { rows: DiffRow[] }) {
       {rows.slice(0, MAX_ROWS).map((r, i) => (
         <div key={i} className={r.kind}>{r.text}</div>
       ))}
-      {rows.length > MAX_ROWS && <div className="note">…（長いので、最初の {MAX_ROWS} 行だけ表示しています）</div>}
+      {rows.length > MAX_ROWS && <div className="note">{trx("…（長いので、最初の {MAX_ROWS} 行だけ表示しています）", { MAX_ROWS })}</div>}
     </div>
   );
 }

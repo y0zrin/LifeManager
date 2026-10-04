@@ -13,6 +13,7 @@ import { branchPull, type PullSummary } from "../../lib/pulls";
 import { countOf } from "../../lib/count";
 import { commentPreview } from "../../lib/help";
 import { branchNameFor, rememberWorkBranch, workBranchOf } from "../../lib/branchName";
+import { tr, trx } from "../../lib/i18n";
 
 /** コミット欄の書きかけ（画面を切り替えても消えないよう、App で持つ） */
 export interface CommitDraft {
@@ -85,9 +86,9 @@ type IssueChoice = number | null;
 
 // 作業をする（#218）: ① 選ぶ → ② 作業報告 → ③ コミット・プッシュ。② と ③ は、④ 完了にする（Issue を閉じる）までくり返す。
 // 閉じるまでを 1 つの作業とする
-const STEP_NAMES = ["作業を選ぶ", "作業報告", "コミット・プッシュ", "完了"];
+const STEP_NAMES = [tr("作業を選ぶ"), tr("作業報告"), tr("コミット・プッシュ"), tr("完了")];
 /** 上の 1 行の段に出す短い名前 */
-const STEP_SHORT = ["選ぶ", "作業報告", "コミット・プッシュ", "完了"];
+const STEP_SHORT = [tr("選ぶ"), tr("作業報告"), tr("コミット・プッシュ"), tr("完了")];
 const IN_PROGRESS = "状態:進行中";
 
 // --- 取り組み中の Issue は、リポジトリごとにこの PC に覚えておく ---
@@ -174,14 +175,14 @@ function nearestMilestone(milestones: GitHubMilestone[]): string {
 // --- 表示の小物 ---
 
 const STATUS_TITLES: Record<string, string> = {
-  A: "追加したファイル",
-  M: "変更したファイル",
-  D: "削除したファイル",
-  R: "名前を変えたファイル",
-  C: "コピーしたファイル",
-  T: "種類が変わったファイル",
-  U: "競合（コンフリクト）しているファイル",
-  "?": "まだ git が追跡していない新しいファイル",
+  A: tr("追加したファイル"),
+  M: tr("変更したファイル"),
+  D: tr("削除したファイル"),
+  R: tr("名前を変えたファイル"),
+  C: tr("コピーしたファイル"),
+  T: tr("種類が変わったファイル"),
+  U: tr("競合（コンフリクト）しているファイル"),
+  "?": tr("まだ git が追跡していない新しいファイル"),
 };
 
 function formatWhen(iso: string) {
@@ -225,12 +226,12 @@ interface Flow {
 
 /** プルリクのレビューの進み（流れの「マージ」の段の小さな字） */
 function reviewLabel(pr: PullSummary): string {
-  if (pr.draft) return "下書き";
-  if (pr.checks && pr.checks.failure > 0) return "✖ チェック";
+  if (pr.draft) return tr("下書き");
+  if (pr.checks && pr.checks.failure > 0) return tr("✖ チェック");
   const v = pr.verdicts;
-  if (v && v.changes_requested.length > 0) return "修正の依頼";
-  if (v && v.approved.length > 0) return `承認 ${v.approved.length}`;
-  return "レビュー待ち";
+  if (v && v.changes_requested.length > 0) return tr("修正の依頼");
+  if (v && v.approved.length > 0) return tr("承認 {length}", { length: v.approved.length });
+  return tr("レビュー待ち");
 }
 
 export function WorkView(props: WorkViewProps) {
@@ -240,9 +241,9 @@ export function WorkView(props: WorkViewProps) {
     return (
       <div className="content">
         <div className="work-setup">
-          <h2>作業を始める準備</h2>
+          <h2>{tr("作業を始める準備")}</h2>
           <p>
-            「作業をする」では、マイルストーンと Issue を選び、作業報告とコミット・プッシュを、Issue を完了にするまでくり返します。そのあいだ、実行する git のコマンドが見られます。まず、このリポジトリをこの PC のどのフォルダに置くかを決めましょう。
+            {tr("「作業をする」では、マイルストーンと Issue を選び、作業報告とコミット・プッシュを、Issue を完了にするまでくり返します。そのあいだ、実行する git のコマンドが見られます。まず、このリポジトリをこの PC のどのフォルダに置くかを決めましょう。")}
           </p>
           <LocalFolderSetting
             owner={owner}
@@ -262,9 +263,9 @@ export function WorkView(props: WorkViewProps) {
     return (
       <div className="content">
         <div className="work-setup">
-          <h2>作業フォルダを読めませんでした</h2>
+          <h2>{tr("作業フォルダを読めませんでした")}</h2>
           <p className="local-folder-message local-folder-message--error">{g.loadError}</p>
-          <p>フォルダを移動したり消したりした場合は、選び直してください。</p>
+          <p>{tr("フォルダを移動したり消したりした場合は、選び直してください。")}</p>
           <LocalFolderSetting
             owner={owner}
             repo={repo}
@@ -282,7 +283,7 @@ export function WorkView(props: WorkViewProps) {
   if (!g.status) {
     return (
       <div className="content">
-        <p className="work-loading">読み込んでいます…</p>
+        <p className="work-loading">{tr("読み込んでいます…")}</p>
       </div>
     );
   }
@@ -476,14 +477,14 @@ function Workspace({
     const reports = issue ? reportCounts[String(issue.number)] ?? 0 : 0;
     const labels = [
       "",
-      issue ? `#${issue.number} ${issue.title}` : closedIssue ? `#${closedIssue.number}` : "選ぶ",
-      reports > 0 ? `作業報告 ${reports} 回` : "作業報告",
-      changeCount ? `コミット・プッシュ（${changeCount} ファイル）` : needsPush ? `コミット・プッシュ（${published ? `↑${st.ahead}` : "未公開"}）` : "コミット・プッシュ",
+      issue ? `#${issue.number} ${issue.title}` : closedIssue ? `#${closedIssue.number}` : tr("選ぶ"),
+      reports > 0 ? tr("作業報告 {reports} 回", { reports }) : tr("作業報告"),
+      changeCount ? tr("コミット・プッシュ（{changeCount} ファイル）", { changeCount }) : needsPush ? tr("コミット・プッシュ（{v}）", { v: published ? `↑${st.ahead}` : tr("未公開") }) : tr("コミット・プッシュ"),
       closedIssue
-        ? "完了（閉じました）"
+        ? tr("完了（閉じました）")
         : onBranch && pr
-          ? `完了（#${pr.number} ${pr.merged ? "マージ済み" : pr.state === "open" ? reviewLabel(pr) : "閉じた"}）`
-          : "完了",
+          ? tr("完了（#{number} {v}）", { number: pr.number, v: pr.merged ? tr("マージ済み") : pr.state === "open" ? reviewLabel(pr) : tr("閉じた") })
+          : tr("完了"),
     ];
     return { step, labels };
   })();
@@ -504,17 +505,17 @@ function Workspace({
     onBranch && pr?.merged
       ? [
           {
-            label: `このブランチで続ける（${defaultBranch} の最新を取り込む）`,
+            label: tr("このブランチで続ける（{defaultBranch} の最新を取り込む）", { defaultBranch }),
             run: async () => {
-              const fetched = await g.exec("GitHub から読んでいます", gitApi.fetch, "GitHub から読みました");
-              if (fetched.ok) await g.exec("取り込んでいます", (p) => gitApi.merge(p, `origin/${defaultBranch}`), `${defaultBranch} の最新を ${st.branch} に取り込みました`);
+              const fetched = await g.exec(tr("GitHub から読んでいます"), gitApi.fetch, tr("GitHub から読みました"));
+              if (fetched.ok) await g.exec(tr("取り込んでいます"), (p) => gitApi.merge(p, `origin/${defaultBranch}`), tr("{defaultBranch} の最新を {branch} に取り込みました", { defaultBranch, branch: st.branch }));
             },
           },
           {
-            label: `${defaultBranch} に戻って最新にする`,
+            label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }),
             run: async () => {
-              const switched = await g.exec("切り替えています", (p) => gitApi.switchBranch(p, defaultBranch, false), `${defaultBranch} に切り替えました`);
-              if (switched.ok) await g.exec("プルしています", gitApi.pull, `${defaultBranch} を最新にしました`);
+              const switched = await g.exec(tr("切り替えています"), (p) => gitApi.switchBranch(p, defaultBranch, false), tr("{defaultBranch} に切り替えました", { defaultBranch }));
+              if (switched.ok) await g.exec(tr("プルしています"), gitApi.pull, tr("{defaultBranch} を最新にしました", { defaultBranch }));
             },
           },
         ]
@@ -526,18 +527,18 @@ function Workspace({
 
   // ④ 完了の画面: ブランチで作業していれば、プルリク → マージ → 閉じる。既定のブランチで直接なら、そのまま閉じる
   const unsentNote =
-    changeCount > 0 || needsPush ? <span className="w-flow-warn">まだコミット・プッシュしていない変更があります（③ コミット・プッシュ）。</span> : null;
+    changeCount > 0 || needsPush ? <span className="w-flow-warn">{tr("まだコミット・プッシュしていない変更があります（③ コミット・プッシュ）。")}</span> : null;
   const complete: { hint: ReactNode; buttons: StepButton[] } = (() => {
     if (closedIssue) {
       return {
         hint: (
           <>
-            #{closedIssue.number} は閉じられました{pr?.merged ? `（#${pr.number} のマージで）` : ""}。
+            {trx("#{number} は閉じられました", { number: closedIssue.number })}{pr?.merged ? tr("（#{number} のマージで）", { number: pr.number }) : ""}。
           </>
         ),
         buttons: [
           {
-            label: "完了（次の作業へ）",
+            label: tr("完了（次の作業へ）"),
             run: () => {
               celebrateDone(`#${closedIssue.number}`);
               clearReports(closedIssue.number);
@@ -549,26 +550,24 @@ function Workspace({
         ],
       };
     }
-    if (!issue) return { hint: <>先に ① で、取り組む Issue を選びます。</>, buttons: [{ label: "① 作業を選ぶ", run: () => setViewStep(1), primary: true }] };
-    const done: StepButton = { label: `#${issue.number} を完了にする`, run: finish(issue.number) };
+    if (!issue) return { hint: <>{tr("先に ① で、取り組む Issue を選びます。")}</>, buttons: [{ label: tr("① 作業を選ぶ"), run: () => setViewStep(1), primary: true }] };
+    const done: StepButton = { label: tr("#{number} を完了にする", { number: issue.number }), run: finish(issue.number) };
     if (onBranch && hasOwnCommits) {
       if (!published || needsPush) {
         return {
           hint: (
             <>
-              このブランチ（<b>{st.branch}</b>）のコミットを、まだ GitHub に送っていません。
-              {unsentNote}
+              {trx("このブランチ（<0>{branch}</0>）のコミットを、まだ GitHub に送っていません。{unsentNote}", { branch: st.branch, unsentNote }, [<b />])}
             </>
           ),
-          buttons: [{ label: "③ コミット・プッシュへ", run: () => setViewStep(3), primary: true }, { label: "このまま完了にする", run: done.run }],
+          buttons: [{ label: tr("③ コミット・プッシュへ"), run: () => setViewStep(3), primary: true }, { label: tr("このまま完了にする"), run: done.run }],
         };
       }
       if (pr?.merged) {
         return {
           hint: (
             <>
-              プルリク <b>#{pr.number}</b> はマージ済みです。
-              {unsentNote}
+              {trx("プルリク <0>#{number}</0> はマージ済みです。{unsentNote}", { number: pr.number, unsentNote }, [<b />])}
             </>
           ),
           buttons: [{ ...done, primary: true }, ...branchAfter],
@@ -578,19 +577,19 @@ function Workspace({
         return {
           hint: (
             <>
-              プルリク <b>#{pr.number}</b> を出しています（{reviewLabel(pr)}）。
+              {trx("プルリク <0>#{number}</0> を出しています（{reviewLabel}）。", { number: pr.number, reviewLabel: reviewLabel(pr) }, [<b />])}
               {pr.checks && pr.checks.failure > 0 && (
                 <span className="w-flow-warn">
-                  ✖ チェック（Actions のテストなど）が {countOf(pr.checks.failure, "件")}失敗しています。
+                  {tr("✖ チェック（Actions のテストなど）が")}{" "} {countOf(pr.checks.failure, tr("件"))}{tr("失敗しています。")}
                 </span>
               )}
               {unsentNote}
             </>
           ),
           buttons: [
-            { label: `#${pr.number} を開く（レビュー・マージ）`, run: () => onOpenPull(pr.number), primary: true },
-            { label: "もう一度読む", run: reloadPr },
-            { label: "マージせずに完了にする", run: done.run },
+            { label: tr("#{number} を開く（レビュー・マージ）", { number: pr.number }), run: () => onOpenPull(pr.number), primary: true },
+            { label: tr("もう一度読む"), run: reloadPr },
+            { label: tr("マージせずに完了にする"), run: done.run },
           ],
         };
       }
@@ -598,14 +597,14 @@ function Workspace({
         hint:
           (pr && pr.state === "closed" && !pr.merged) || prError || unsentNote ? (
             <>
-              {pr && pr.state === "closed" && !pr.merged && <>前のプルリク #{pr.number} はマージせずに閉じられています。</>}
+              {pr && pr.state === "closed" && !pr.merged && <>{trx("前のプルリク #{number} はマージせずに閉じられています。", { number: pr.number })}</>}
               {prError && <span className="w-flow-warn">{prError}</span>}
               {unsentNote}
             </>
           ) : null,
         buttons: [
-          { label: "プルリクを作る…", run: () => onCreatePull(st.branch, issue.number), primary: true },
-          { label: "プルリクを出さずに完了にする", run: done.run },
+          { label: tr("プルリクを作る…"), run: () => onCreatePull(st.branch, issue.number), primary: true },
+          { label: tr("プルリクを出さずに完了にする"), run: done.run },
         ],
       };
     }
@@ -614,11 +613,10 @@ function Workspace({
         <>
           {onDefault ? (
             <>
-              既定のブランチ（<b>{st.branch}</b>）で作業しました。
+              {trx("既定のブランチ（<0>{branch}</0>）で作業しました。", { branch: st.branch }, [<b />])}
             </>
           ) : null}
-          Issue を閉じて完了にします。
-          {unsentNote}
+          {trx("Issue を閉じて完了にします。{unsentNote}", { unsentNote })}
         </>
       ),
       buttons: [{ ...done, primary: true }],
@@ -633,7 +631,7 @@ function Workspace({
 
   return (
     <div className={`wview${changeCount === 0 ? " no-changes" : ""}${draft.allowEmpty ? " empty" : ""}`}>
-      <ol className="w-steps" aria-label="作業の流れ">
+      <ol className="w-steps" aria-label={tr("作業の流れ")}>
         {STEP_SHORT.map((name, i) => {
           const n = i + 1;
           // 済みの印は ① だけ（② と ③ は完了までくり返す）
@@ -641,8 +639,8 @@ function Workspace({
           return (
             <Fragment key={n}>
               {n === 4 && (
-                <li className="w-steps-loop" title="完了にするまで、② 作業報告と ③ コミット・プッシュをくり返します">
-                  ↻<span className="w-loop-lb"> 完了までくり返す</span>
+                <li className="w-steps-loop" title={tr("完了にするまで、② 作業報告と ③ コミット・プッシュをくり返します")}>
+                  {trx("↻<0> 完了までくり返す</0>", undefined, [<span className="w-loop-lb" />])}
                 </li>
               )}
               <li>
@@ -665,28 +663,28 @@ function Workspace({
       {(st.conflicted || st.operation) && (
         <div className="w-banner warn">
           <span>
-            {st.operation && <b>{OPERATION_NAMES[st.operation]}の途中です。</b>}
+            {st.operation && <b>{trx("{OPERATION_NAMES}の途中です。", { OPERATION_NAMES: OPERATION_NAMES[st.operation] })}</b>}
             {st.conflicted ? (
               <>
-                ⚠ 競合（コンフリクト）しているファイルがあります。ファイルを選ぶと右に「競合を直す」が出ます。か所ごとに使う方を選んで「直したのでステージする」を押します（<code>git add</code>）。
+                {trx("⚠ 競合（コンフリクト）しているファイルがあります。ファイルを選ぶと右に「競合を直す」が出ます。か所ごとに使う方を選んで「直したのでステージする」を押します（<0>git add</0>）。", undefined, [<code />])}
               </>
             ) : (
-              "競合はすべて直してあります。"
+              tr("競合はすべて直してあります。")
             )}
             {st.operation === "merge"
-              ? "そのあとコミットするとマージが完了します。"
+              ? tr("そのあとコミットするとマージが完了します。")
               : st.operation
-                ? <>そのあと「続ける」を押します（<code>git {st.operation} --continue</code>）。</>
-                : "そのあとコミットします。"}
+                ? <>{trx("そのあと「続ける」を押します（<0>git {operation} --continue</0>）。", { operation: st.operation }, [<code />])}</>
+                : tr("そのあとコミットします。")}
           </span>
           {st.operation && st.operation !== "merge" && (
             <button type="button" className="btn-sm" disabled={st.conflicted || g.busy !== null} onClick={actions.continueOperation}>
-              続ける
+              {tr("続ける")}
             </button>
           )}
           {st.operation && (
             <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={actions.abortOperation}>
-              {OPERATION_NAMES[st.operation]}を中止…
+              {trx("{OPERATION_NAMES}を中止…", { OPERATION_NAMES: OPERATION_NAMES[st.operation] })}
             </button>
           )}
         </div>
@@ -694,10 +692,10 @@ function Workspace({
       {!st.branch && st.head && (
         <div className="w-banner">
           <span>
-            ブランチから切り離された状態です（<code>{st.head}</code>）。ここでコミットしても、どのブランチにも属しません。
+            {trx("ブランチから切り離された状態です（<0>{head}</0>）。ここでコミットしても、どのブランチにも属しません。", { head: st.head }, [<code />])}
           </span>
           <button type="button" className="btn-sm" onClick={() => actions.createBranch()}>
-            ここからブランチを作成…
+            {tr("ここからブランチを作成…")}
           </button>
         </div>
       )}
@@ -730,7 +728,7 @@ function Workspace({
           note={
             flow.step === 1 && onBranch && pr?.merged ? (
               <>
-                このブランチ（<b>{st.branch}</b>）のプルリク <b>#{pr.number}</b> はマージ済みです。
+                {trx("このブランチ（<0>{branch}</0>）のプルリク <1>#{number}</1> はマージ済みです。", { branch: st.branch, number: pr.number }, [<b />, <b />])}
               </>
             ) : null
           }
@@ -756,29 +754,29 @@ function Workspace({
       {/* ③ コミット・プッシュ: 今のブランチと、変更がないときのプッシュ（またはプル） */}
       <div className="w-cp-strip">
         <span className="w-cp-branch">
-          ブランチ <b>{st.branch || `切り離し ${st.head}`}</b>
-          {onDefault && <small>（既定のブランチに直接コミットします）</small>}
+          {tr("ブランチ")}{" "} <b>{st.branch || tr("切り離し {head}", { head: st.head })}</b>
+          {onDefault && <small>{tr("（既定のブランチに直接コミットします）")}</small>}
         </span>
         {onDefault && issue && (
           <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={() => actions.createBranch(branchNameFor(issue))}>
-            ブランチを分ける…
+            {tr("ブランチを分ける…")}
           </button>
         )}
         <span className="w-cp-right">
           {changeCount === 0 && needsPush ? (
             st.behind > 0 ? (
               <button type="button" className="btn-primary" disabled={g.busy !== null} onClick={actions.pull}>
-                プルする（GitHub に新しいコミットがあります）
+                {tr("プルする（GitHub に新しいコミットがあります）")}
               </button>
             ) : (
               <button type="button" className="btn-primary" disabled={g.busy !== null} onClick={actions.push}>
-                プッシュする（{published ? `↑${st.ahead}` : "はじめて送る"}）
+                {tr("プッシュする（")}{published ? `↑${st.ahead}` : tr("はじめて送る")}）
               </button>
             )
           ) : changeCount === 0 ? (
-            <span className="w-cp-none">変更はありません</span>
+            <span className="w-cp-none">{tr("変更はありません")}</span>
           ) : (
-            <span className="w-cp-none">変更にチェックを入れ、要約を書いて「コミットしてプッシュ」（<code>git add</code> → <code>git commit</code> → <code>git push</code>）</span>
+            <span className="w-cp-none">{trx("変更にチェックを入れ、要約を書いて「コミットしてプッシュ」（<0>git add</0> → <1>git commit</1> → <2>git push</2>）", undefined, [<code />, <code />, <code />])}</span>
           )}
         </span>
       </div>
@@ -786,11 +784,11 @@ function Workspace({
         <div className="w-left">
           <div className="w-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={tab === "changes"} className={`w-tab${tab === "changes" ? " on" : ""}`} onClick={() => changeTab("changes")}>
-              変更 <span className="count">{changeCount}</span>
+              {trx("変更 <0>{changeCount}</0>", { changeCount }, [<span className="count" />])}
               {tab === "changes" && <span className="tab-active-bar" aria-hidden="true" />}
             </button>
             <button type="button" role="tab" aria-selected={tab === "stash"} className={`w-tab${tab === "stash" ? " on" : ""}`} onClick={() => changeTab("stash")}>
-              退避中 <span className="count">{g.stashes.length}</span>
+              {trx("退避中 <0>{length}</0>", { length: g.stashes.length }, [<span className="count" />])}
               {tab === "stash" && <span className="tab-active-bar" aria-hidden="true" />}
             </button>
           </div>
@@ -846,7 +844,7 @@ function Workspace({
               <FileDiff folder={folder} file={currentFile} side={current.side} />
             )
           ) : (
-            <div className="w-right-empty">表示する差分はありません</div>
+            <div className="w-right-empty">{tr("表示する差分はありません")}</div>
           )}
         </div>
       </div>
@@ -939,8 +937,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
   return (
     <div className="w-issue-step">
       <h4 className="w-step-title">
-        <i>1</i>
-        作業を選ぶ
+        {trx("<0>1</0>作業を選ぶ", undefined, [<i />])}
       </h4>
       {note && (
         <div className="w-step-note">
@@ -954,30 +951,30 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
       )}
       {(now || missing) && (
         <div className="w-issue-now">
-          <span className="w-issue-now-k">今の作業</span>
+          <span className="w-issue-now-k">{tr("今の作業")}</span>
           <span className="wi-num">#{now ? now.number : choice}</span>
-          <span className="wi-t">{now ? `${now.title}${closedIssue ? "（クローズ済み）" : ""}` : "（クローズされたか、見つかりません）"}</span>
+          <span className="wi-t">{now ? `${now.title}${closedIssue ? tr("（クローズ済み）") : ""}` : tr("（クローズされたか、見つかりません）")}</span>
           {issue && <span className="wi-meta">{issueMeta(issue)}</span>}
           {issue && (
             <span className="wi-actions">
               <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
-                Issue を開く
+                {tr("Issue を開く")}
               </button>
             </span>
           )}
         </div>
       )}
       <div className="w-pick-bar">
-        <select className="select-sm w-ms-select" value={ms} onChange={(e) => changeMs(e.target.value)} aria-label="マイルストーン">
-          <option value="all">マイルストーン: すべて</option>
+        <select className="select-sm w-ms-select" value={ms} onChange={(e) => changeMs(e.target.value)} aria-label={tr("マイルストーン")}>
+          <option value="all">{tr("マイルストーン: すべて")}</option>
           {openMs.map((m) => (
             <option key={m.number} value={String(m.number)}>
               🎯 {m.title}
-              {m.due_on ? `（期限 ${formatWhen(m.due_on).split(" ")[0]}）` : ""}
+              {m.due_on ? tr("（期限 {v}）", { v: formatWhen(m.due_on).split(" ")[0] }) : ""}
             </option>
           ))}
           {closedMs.length > 0 && (
-            <optgroup label="閉じたマイルストーン">
+            <optgroup label={tr("閉じたマイルストーン")}>
               {closedMs.map((m) => (
                 <option key={m.number} value={String(m.number)}>
                   {m.title}
@@ -985,11 +982,11 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
               ))}
             </optgroup>
           )}
-          <option value="none">マイルストーンなし</option>
+          <option value="none">{tr("マイルストーンなし")}</option>
         </select>
         <input
           className="input-full w-issue-search"
-          placeholder="番号やタイトルで探す"
+          placeholder={tr("番号やタイトルで探す")}
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -1014,40 +1011,40 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
               >
                 <span className="wi-num">#{i.number}</span>
                 <span className="wi-t">{i.title}</span>
-                {inProgress(i) && <span className="w-issue-chip">進行中</span>}
-                <span className={`w-issue-who${mine(i) ? " mine" : ""}`}>{mine(i) ? "自分" : who.length > 0 ? `担当: ${who.join("・")}` : "担当なし"}</span>
+                {inProgress(i) && <span className="w-issue-chip">{tr("進行中")}</span>}
+                <span className={`w-issue-who${mine(i) ? " mine" : ""}`}>{mine(i) ? tr("自分") : who.length > 0 ? tr("担当: {join}", { join: who.join(tr("・")) }) : tr("担当なし")}</span>
                 {i.milestone && <span className="wi-m">🎯 {i.milestone.title}</span>}
-                <span className="w-issue-go">{chosen ? "今の作業" : mine(i) ? "始める" : "自分に割り当てて始める"}</span>
+                <span className="w-issue-go">{chosen ? tr("今の作業") : mine(i) ? tr("始める") : tr("自分に割り当てて始める")}</span>
               </button>
               {picking === i.number && !chosen && (
                 <div className="w-start-choice">
-                  <div className="w-start-q">#{i.number} を、どのブランチで作業しますか？</div>
+                  <div className="w-start-q">{trx("#{number} を、どのブランチで作業しますか？", { number: i.number })}</div>
                   <div className="w-step-actions">
                     {branch === own ? (
                       <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "here", own)}>
-                        「{own}」（今のブランチ）で始める
+                        {trx("「{own}」（今のブランチ）で始める", { own })}
                       </button>
                     ) : (
                       <>
                         {hasOwn ? (
                           <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
-                            「{own}」に切り替えて始める
+                            {trx("「{own}」に切り替えて始める", { own })}
                           </button>
                         ) : (
                           <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "create", own)}>
-                            ブランチ「{own}」を作って始める
+                            {trx("ブランチ「{own}」を作って始める", { own })}
                           </button>
                         )}
                         <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", own)}>
-                          今のブランチ（{branch || "切り離し"}）で始める
+                          {tr("今のブランチ（")}{branch || tr("切り離し")}{tr("）で始める")}
                         </button>
                       </>
                     )}
                     <button type="button" className="btn-sm" onClick={() => setPicking(null)}>
-                      やめる
+                      {tr("やめる")}
                     </button>
                   </div>
-                  {onDefault && <p className="w-start-note">今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。</p>}
+                  {onDefault && <p className="w-start-note">{trx("今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。", { branch })}</p>}
                 </div>
               )}
             </Fragment>
@@ -1055,13 +1052,13 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
         })}
         {list.length === 0 && (
           <div className="bsw-empty">
-            {issues.length === 0 ? "未完了の Issue はありません" : ms !== "all" && issues.some((i) => !inMilestone(i)) ? "このマイルストーンに、当てはまる Issue はありません" : "一致する Issue はありません"}
+            {issues.length === 0 ? tr("未完了の Issue はありません") : ms !== "all" && issues.some((i) => !inMilestone(i)) ? tr("このマイルストーンに、当てはまる Issue はありません") : tr("一致する Issue はありません")}
             {/* 作るところへ（#247）: マイルストーンがなければマイルストーンから。あれば、そのマイルストーンのボードでタスクを足す */}
             {!q && (
               <div className="w-empty-actions">
                 {openMs.length === 0 ? (
                   <button type="button" className="btn-primary" onClick={onOpenMilestones}>
-                    🎯 マイルストーンを作る
+                    {tr("🎯 マイルストーンを作る")}
                   </button>
                 ) : (
                   <button
@@ -1069,7 +1066,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                     className="btn-primary"
                     onClick={() => onAddOnBoard(ms === "all" || ms === "none" ? null : Number(ms))}
                   >
-                    📊 ボードでタスクを足す
+                    {tr("📊 ボードでタスクを足す")}
                   </button>
                 )}
               </div>
@@ -1126,13 +1123,12 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
     return (
       <div className="w-step-panel">
         <h4 className="w-step-title">
-          <i>2</i>
-          作業報告
+          {trx("<0>2</0>作業報告", undefined, [<i />])}
         </h4>
-        <p className="hint">先に ① で、取り組む Issue を選びます。</p>
+        <p className="hint">{tr("先に ① で、取り組む Issue を選びます。")}</p>
         <div className="w-step-actions">
           <button type="button" className="btn-primary" onClick={onPickIssue}>
-            ① 作業を選ぶ
+            {tr("① 作業を選ぶ")}
           </button>
         </div>
       </div>
@@ -1147,11 +1143,11 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
     try {
       await onComment(issue.number, body);
       setText("");
-      setNote({ ok: true, text: `#${issue.number} に書き込みました` });
+      setNote({ ok: true, text: tr("#{number} に書き込みました", { number: issue.number }) });
       onReported();
       load();
     } catch (e) {
-      setNote({ ok: false, text: `書き込めませんでした（${String(e)}）` });
+      setNote({ ok: false, text: tr("書き込めませんでした（{String}）", { String: String(e) }) });
     } finally {
       setSending(false);
     }
@@ -1161,16 +1157,13 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
   return (
     <div className="w-step-panel w-report">
       <h4 className="w-step-title">
-        <i>2</i>
-        作業報告
+        {trx("<0>2</0>作業報告", undefined, [<i />])}
       </h4>
       <div className="w-issue-now">
-        <span className="w-issue-now-k">今の作業</span>
-        <span className="wi-num">#{issue.number}</span>
-        <span className="wi-t">{issue.title}</span>
+        {trx("<0>今の作業</0><1>#{number}</1><2>{title}</2>", { number: issue.number, title: issue.title }, [<span className="w-issue-now-k" />, <span className="wi-num" />, <span className="wi-t" />])}
         <span className="wi-actions">
           <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
-            Issue を開く
+            {tr("Issue を開く")}
           </button>
         </span>
       </div>
@@ -1178,7 +1171,7 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
         className="w-report-text"
         rows={5}
         value={text}
-        placeholder="例: ジャンプの高さを調整した。着地の判定がずれるので、次は当たり判定を直す"
+        placeholder={tr("例: ジャンプの高さを調整した。着地の判定がずれるので、次は当たり判定を直す")}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (isEnter(e) && (e.ctrlKey || e.metaKey)) {
@@ -1189,25 +1182,25 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
       />
       <div className="w-step-actions">
         <button type="button" className="btn-primary" disabled={!text.trim() || sending} onClick={() => void send()}>
-          {sending ? "書き込んでいます…" : "Issue に書き込む"}
+          {sending ? tr("書き込んでいます…") : tr("Issue に書き込む")}
         </button>
         {changesWaiting && (
           <button type="button" className="btn-sm" onClick={onGoCommit}>
-            ③ コミット・プッシュへ
+            {tr("③ コミット・プッシュへ")}
           </button>
         )}
         <button type="button" className="btn-sm" onClick={onGoComplete}>
-          ④ 完了へ
+          {tr("④ 完了へ")}
         </button>
-        <span className="w-report-key">Ctrl+Enter でも書き込めます</span>
+        <span className="w-report-key">{tr("Ctrl+Enter でも書き込めます")}</span>
       </div>
       {note && <p className={`w-report-note${note.ok ? "" : " err"}`}>{note.text}</p>}
       <div className="w-report-past">
-        <h5>この Issue のコメント{comments ? `（${comments.length}）` : ""}</h5>
+        <h5>{tr("この Issue のコメント")}{comments ? `（${comments.length}）` : ""}</h5>
         {comments === null ? (
-          <p className="muted">読み込んでいます…</p>
+          <p className="muted">{tr("読み込んでいます…")}</p>
         ) : comments.length === 0 ? (
-          <p className="muted">まだありません</p>
+          <p className="muted">{tr("まだありません")}</p>
         ) : (
           past.map((c) => (
             <div key={c.id} className="w-report-item">
@@ -1217,7 +1210,7 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
             </div>
           ))
         )}
-        {comments && comments.length > past.length && <p className="muted">ほか {comments.length - past.length} 件は、Issue を開くと見られます</p>}
+        {comments && comments.length > past.length && <p className="muted">{tr("ほか")}{" "} {comments.length - past.length} {" "}{tr("件は、Issue を開くと見られます")}</p>}
       </div>
     </div>
   );
@@ -1262,7 +1255,7 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
         <input
           type="checkbox"
           checked={side === "staged"}
-          aria-label={side === "staged" ? "ステージから外す" : conflict ? "直したのでステージする" : "ステージする"}
+          aria-label={side === "staged" ? tr("ステージから外す") : conflict ? tr("直したのでステージする") : tr("ステージする")}
           title={gitApi.displayCommand(side === "staged" ? ["restore", "--staged", "--", f.path, ...(f.orig_path ? [f.orig_path] : [])] : ["add", "--", f.path])}
           onClick={(e) => e.stopPropagation()}
           onChange={toggle}
@@ -1280,38 +1273,38 @@ function ChangesPane({ conflicts, staged, unstaged, selected, onSelect, actions,
     <div className="w-pane">
       {total === 0 ? (
         <div className="ws-none">
-          作業中の変更はありません。
+          {tr("作業中の変更はありません。")}
           <button type="button" className="btn-sm" onClick={onEmptyCommit}>
-            空コミット…
+            {tr("空コミット…")}
           </button>
         </div>
       ) : (
         <div className="dr-files">
           {conflicts.length > 0 && (
             <>
-              <div className="dr-sec warn">競合<span className="count">{conflicts.length}</span></div>
+              <div className="dr-sec warn">{trx("競合<0>{length}</0>", { length: conflicts.length }, [<span className="count" />])}</div>
               {conflicts.map((f) => row(f, "unstaged", true))}
             </>
           )}
           <div className="dr-sec">
-            ステージ済み<span className="count">{staged.length}</span>
+            {trx("ステージ済み<0>{length}</0>", { length: staged.length }, [<span className="count" />])}
             {staged.length > 0 && (
               <button type="button" className="sec-btn" onClick={() => actions.unstage(["."])} title="git restore --staged -- .">
-                すべて外す
+                {tr("すべて外す")}
               </button>
             )}
           </div>
           {staged.map((f) => row(f, "staged"))}
           <div className="dr-sec">
-            未ステージ<span className="count">{unstaged.length}</span>
+            {trx("未ステージ<0>{length}</0>", { length: unstaged.length }, [<span className="count" />])}
             {unstaged.length > 0 && (
               <button type="button" className="sec-btn" onClick={() => actions.stage(["."])} title="git add -- .">
-                すべてステージ
+                {tr("すべてステージ")}
               </button>
             )}
           </div>
           {unstaged.map((f) => row(f, "unstaged"))}
-          <div className="dr-empty-note">空コミットではファイルの変更は含めません</div>
+          <div className="dr-empty-note">{tr("空コミットではファイルの変更は含めません")}</div>
         </div>
       )}
     </div>
@@ -1324,20 +1317,20 @@ function StashPane({ stashes, actions, busy }: { stashes: GitStash[]; actions: G
   return (
     <div className="w-pane">
       <div className="ws-stash">
-        {stashes.length === 0 && <span className="ws-stash-none">退避中の変更はありません</span>}
+        {stashes.length === 0 && <span className="ws-stash-none">{tr("退避中の変更はありません")}</span>}
         {stashes.map((s) => (
           <div key={s.index} className="ws-stash-item">
             <div className="ws-stash-msg" title={s.message}>{s.message}</div>
             <div className="ws-stash-row">
               <span className="ws-stash-ref">stash@{`{${s.index}}`}</span>
               <span className="ws-stash-when">{formatWhen(s.date)}</span>
-              {s.files !== null && <span className="chip muted">{s.files === 0 ? "中身は空" : `${s.files} ファイル`}</span>}
+              {s.files !== null && <span className="chip muted">{s.files === 0 ? tr("中身は空") : tr("{files} ファイル", { files: s.files })}</span>}
               <span className="ws-stash-actions">
                 <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.stashPop(s.index)} title={`git stash pop stash@{${s.index}}`}>
-                  戻す
+                  {tr("戻す")}
                 </button>
                 <button type="button" className="btn-sm" disabled={busy} onClick={() => actions.stashDrop(s)}>
-                  削除…
+                  {tr("削除…")}
                 </button>
               </span>
             </div>
@@ -1409,7 +1402,7 @@ function CommitForm({
       <input
         ref={summaryRef}
         className="input-full"
-        placeholder={draft.allowEmpty ? "空コミットの目的（例: CI を動かす、区切りを付ける）" : "変更の要約（必須）"}
+        placeholder={draft.allowEmpty ? tr("空コミットの目的（例: CI を動かす、区切りを付ける）") : tr("変更の要約（必須）")}
         autoComplete="off"
         value={draft.summary}
         onChange={(e) => set({ summary: e.target.value })}
@@ -1417,10 +1410,10 @@ function CommitForm({
           if (isEnter(e) && (e.ctrlKey || e.metaKey) && !blocked) onCommit(messages, !!st.branch);
         }}
       />
-      {summaryError && <div className="field-err">要約を入力してください</div>}
+      {summaryError && <div className="field-err">{tr("要約を入力してください")}</div>}
       <textarea
         className="input-full"
-        placeholder="説明（任意）"
+        placeholder={tr("説明（任意）")}
         rows={2}
         value={draft.body}
         onChange={(e) => set({ body: e.target.value })}
@@ -1429,54 +1422,53 @@ function CommitForm({
         {issue && (
           <label className="chk">
             <input type="checkbox" checked={draft.linkIssue} onChange={(e) => set({ linkIssue: e.target.checked })} />
-            要約の末尾に Issue 番号（{tag}）を付ける
+            {trx("要約の末尾に Issue 番号（{tag}）を付ける", { tag })}
           </label>
         )}
         {issue && (
           <label className="chk">
             <input type="checkbox" checked={draft.closes} onChange={(e) => set({ closes: e.target.checked })} />
-            マージされたら {tag} を閉じる（Closes {tag}）
+            {trx("マージされたら {tag} を閉じる（Closes {tag}）", { tag })}
           </label>
         )}
         <label
           className="chk"
-          title={lastPushed ? "直前のコミットはもう GitHub に送ってあるので、修正できません。送り直すには強制プッシュが必要になります" : "直前のコミットに今の変更と要約を入れ直します"}
+          title={lastPushed ? tr("直前のコミットはもう GitHub に送ってあるので、修正できません。送り直すには強制プッシュが必要になります") : tr("直前のコミットに今の変更と要約を入れ直します")}
         >
           <input type="checkbox" checked={draft.amend} disabled={lastPushed} onChange={(e) => set({ amend: e.target.checked })} />
-          直前のコミットを修正する（amend）
+          {tr("直前のコミットを修正する（amend）")}
         </label>
         <label className="chk">
           <input type="checkbox" checked={draft.allowEmpty} onChange={(e) => set({ allowEmpty: e.target.checked })} />
-          変更なしでコミットする（空コミット）
+          {tr("変更なしでコミットする（空コミット）")}
         </label>
       </div>
       {st.head && (
-        <div className="w-last" title="amend で修正されるのはこのコミット">
-          直前のコミット：<span className="w-last-msg">{st.last_subject}</span> <code>{st.head}</code>
+        <div className="w-last" title={tr("amend で修正されるのはこのコミット")}>
+          {trx("直前のコミット：<0>{last_subject}</0> <1>{head}</1>", { last_subject: st.last_subject, head: st.head }, [<span className="w-last-msg" />, <code />])}
         </div>
       )}
       <div className="cmd-preview">
-        <span>実行するコマンド</span>
-        <code>{preview}</code>
+        {trx("<0>実行するコマンド</0><1>{preview}</1>", { preview }, [<span />, <code />])}
       </div>
       {needsIssue && (
         <p className="w-form-note">
-          先に取り組む Issue を選びます。{" "}
+          {tr("先に取り組む Issue を選びます。")}{" "}
           <button type="button" className="link-button" onClick={onPickIssue}>
-            ① 作業を選ぶ
+            {tr("① 作業を選ぶ")}
           </button>
         </p>
       )}
       {nothingToCommit && !hasConflicts && !needsIssue && (
-        <p className="w-form-note">コミットするファイルにチェックを入れてください（または「空コミット」にします）</p>
+        <p className="w-form-note">{tr("コミットするファイルにチェックを入れてください（または「空コミット」にします）")}</p>
       )}
-      {hasConflicts && <p className="w-form-note">競合しているファイルを直して、ステージしてからコミットします</p>}
+      {hasConflicts && <p className="w-form-note">{tr("競合しているファイルを直して、ステージしてからコミットします")}</p>}
       <div className="dr-actions">
         <button type="button" className="btn-primary" disabled={blocked || !st.branch} onClick={() => onCommit(messages, true)}>
-          コミットしてプッシュ
+          {tr("コミットしてプッシュ")}
         </button>
         <button type="button" className="btn-sm" disabled={blocked} onClick={() => onCommit(messages, false)}>
-          コミットだけ
+          {tr("コミットだけ")}
         </button>
       </div>
     </div>
@@ -1497,7 +1489,7 @@ function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]
   const blocked = found.some(isStaged);
   return (
     <div className={`w-watch${blocked ? " is-blocked" : ""}`} role="alert">
-      <b className="w-watch-title">⚠ コミットしない方がよいものがあります</b>
+      <b className="w-watch-title">{tr("⚠ コミットしない方がよいものがあります")}</b>
       <ul>
         {found.map((f) => {
           const rule = f.kind === "large" ? gitApi.ignoreRules(f.path)[0] : gitApi.folderIgnoreRule(f.path);
@@ -1507,27 +1499,27 @@ function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]
                 className="w-watch-what"
                 title={
                   f.kind === "large"
-                    ? "GitHub は 100 MB をこえるファイルを受け取らないので、プッシュが断られます。記録するなら Git LFS を使います"
-                    : `消しても ${f.tool} がまた作るので、記録しません`
+                    ? tr("GitHub は 100 MB をこえるファイルを受け取らないので、プッシュが断られます。記録するなら Git LFS を使います")
+                    : tr("消しても {tool} がまた作るので、記録しません", { tool: f.tool })
                 }
               >
                 <code>{f.kind === "large" ? f.path : `${f.path}/`}</code>
-                <span>{f.kind === "large" ? `${megabytes(f.size ?? 0)}（GitHub は 100 MB まで）` : `${f.tool} が作るフォルダ（ファイル ${countOf(f.files, "個")}）`}</span>
+                <span>{f.kind === "large" ? tr("{megabytes}（GitHub は 100 MB まで）", { megabytes: megabytes(f.size ?? 0) }) : tr("{tool} が作るフォルダ（ファイル {countOf}）", { tool: f.tool, countOf: countOf(f.files, tr("個")) })}</span>
               </div>
               <button
                 type="button"
                 className="btn-sm"
                 disabled={busy}
-                title={`.gitignore に ${rule.pattern} を書き足します。チェックを入れたものは外します（${gitApi.displayCommand(["rm", ...(rule.recursive ? ["-r"] : []), "--cached", "--", rule.pathspec])}）`}
+                title={tr(".gitignore に {pattern} を書き足します。チェックを入れたものは外します（{displayCommand}）", { pattern: rule.pattern, displayCommand: gitApi.displayCommand(["rm", ...(rule.recursive ? ["-r"] : []), "--cached", "--", rule.pathspec]) })}
                 onClick={() => void actions.ignoreNow(rule)}
               >
-                .gitignore に足す
+                {tr(".gitignore に足す")}
               </button>
             </li>
           );
         })}
       </ul>
-      {blocked && <p className="w-watch-note">チェックが入っているあいだは、コミットできません</p>}
+      {blocked && <p className="w-watch-note">{tr("チェックが入っているあいだは、コミットできません")}</p>}
     </div>
   );
 }

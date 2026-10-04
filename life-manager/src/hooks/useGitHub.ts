@@ -1,11 +1,12 @@
 import { useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../lib/invoke";
 import { useSession } from "./github/useSession";
 import { useRepoMeta } from "./github/useRepoMeta";
 import { useRepoSettings } from "./github/useRepoSettings";
 import { useJournal } from "./github/useJournal";
 import { useIssues } from "./github/useIssues";
 import type { RepoScope } from "./github/shared";
+import { tr } from "../lib/i18n";
 
 /**
  * GitHub とやりとりする中央のフック。中身は分野ごとのフック（hooks/github/）に分けてあり、
@@ -54,7 +55,7 @@ export function useGitHub() {
       loadAll().then(() => {
         if (needsReload) {
           session.setNeedsReload(false);
-          setStatus("プロジェクトを切り替えました");
+          setStatus(tr("プロジェクトを切り替えました"));
         }
       });
     }
@@ -74,7 +75,7 @@ export function useGitHub() {
       session.setOwner(projOwner);
       session.setRepo(projRepo);
       session.setNeedsReload(true);
-      setStatus(`プロジェクトを切り替え中...`);
+      setStatus(tr("プロジェクトを切り替え中..."));
     } catch (e) {
       setStatus(friendlyError(e));
       throw e;
@@ -89,7 +90,7 @@ export function useGitHub() {
     session.setConnected(false);
     session.setCurrentUser("");
     issueOps.clear();
-    setStatus("ログアウトしました");
+    setStatus(tr("ログアウトしました"));
   }
 
   /** アカウントを切り替えた・足したあと: 前のアカウントのデータを捨てて、今のアカウントのリポジトリを読み直す */
@@ -109,10 +110,10 @@ export function useGitHub() {
     try {
       await invoke("set_token", { token });
       session.setConnected(true);
-      setStatus("トークンを設定しました");
+      setStatus(tr("トークンを設定しました"));
       await loadAll();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }

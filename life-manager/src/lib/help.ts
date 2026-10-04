@@ -1,6 +1,7 @@
 // 「助けを求める」（🆘）のコメント: 作る・読む。GitHub の Issue に、呼んだ人あてのコメントとして残す
 // （GitHub の画面でも読める形。アプリは、見えない印で見分けて、赤い 🆘 で出す）
 import { HELP_DONE_MARK, HELP_MARK } from "./activity";
+import { tr } from "./i18n";
 
 /** いっしょに送るもの */
 export interface HelpContext {
@@ -89,9 +90,9 @@ export function splitCode(line: string): { code: boolean; text: string }[] {
 export function commentPreview(body: string): string {
   if (isHelp(body)) {
     const first = parseHelp(body).message.split("\n").find((l) => l.trim())?.trim();
-    return `🆘 助けてください${first ? ` ・ ${first}` : ""}`;
+    return tr("🆘 助けてください{v}", { v: first ? tr(" ・ {first}", { first }) : "" });
   }
-  if (isHelpDone(body)) return "✅ 解決しました";
+  if (isHelpDone(body)) return tr("✅ 解決しました");
   return body.replace(/<!--[\s\S]*?-->/g, "").trim();
 }
 
@@ -101,6 +102,6 @@ export function helpSummary(body: string): string {
   const first = h.message.split("\n").find((l) => l.trim())?.trim() ?? "";
   const codeOf = (head: string) => h.items.find((l) => l.startsWith(head))?.match(/`([^`]*)`/)?.[1];
   const failed = codeOf(FAILURE_HEAD);
-  const facts = [codeOf("ブランチ "), failed ? `${failed} が失敗` : ""].filter(Boolean).join(" ・ ");
+  const facts = [codeOf("ブランチ "), failed ? tr("{failed} が失敗", { failed }) : ""].filter(Boolean).join(tr(" ・ "));
   return [first ? `「${first.length > 60 ? `${first.slice(0, 60)}…` : first}」` : "", facts].filter(Boolean).join("\n");
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactElement } 
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { daysUntil } from "../../lib/due";
 import { JournalCalendar, calendarMilestones, calendarTasks, fromYmd, md, ymd } from "./JournalCalendar";
+import { tr, trx } from "../../lib/i18n";
 
 interface TimelineViewProps {
   issues: GitHubIssue[];
@@ -16,7 +17,7 @@ interface TimelineViewProps {
   onSelectIssue: (n: number) => void;
 }
 
-const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+const weekdayLabels = [tr("日"), tr("月"), tr("火"), tr("水"), tr("木"), tr("金"), tr("土")];
 
 /** 帯の色の順（予定の並び） */
 const KIND_ORDER = { prog: 0, check: 1, block: 2, todo: 3, done: 4 } as const;
@@ -55,7 +56,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
   const today = ymd(new Date());
 
   function extractNotes(md: string): string {
-    const marker = "## ノート\n";
+    const marker = tr("## ノート\n");
     const idx = md.indexOf(marker);
     if (idx < 0) return "";
     const rest = md.substring(idx + marker.length);
@@ -156,7 +157,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
 
   // ノートセクションを除いたMarkdownを返す
   function stripNotesSection(md: string): string {
-    const marker = "## ノート\n";
+    const marker = tr("## ノート\n");
     const idx = md.indexOf(marker);
     if (idx < 0) return md;
     const before = md.substring(0, idx);
@@ -259,7 +260,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
   const plans = (
     <div className="jv-sec">
       <h3 className="jv-sec-title">
-        この日の予定 <small>{planCount} 件</small>
+        {trx("この日の予定 <0>{planCount} 件</0>", { planCount }, [<small />])}
       </h3>
       {dayTasks.map((t) => (
         <button key={t.number} type="button" className="jv-plan" onClick={() => onSelectIssue(t.number)} title={`#${t.number} ${t.title}`}>
@@ -268,17 +269,15 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
             <span className="jv-no">#{t.number}</span> {t.title}
           </span>
           {t.end === selectedDate ? (
-            <span className="jv-due">この日が期限</span>
+            <span className="jv-due">{tr("この日が期限")}</span>
           ) : (
-            <span className="jv-when">{t.start === selectedDate ? `この日から（〜${md(t.end)}）` : `${md(t.start)}〜${md(t.end)}`}</span>
+            <span className="jv-when">{t.start === selectedDate ? tr("この日から（〜{md}）", { md: md(t.end) }) : `${md(t.start)}〜${md(t.end)}`}</span>
           )}
         </button>
       ))}
       {dayMilestones.map((m) => (
         <div key={m.number} className="jv-plan ms">
-          <span aria-hidden="true">🎯</span>
-          <span className="jv-plan-t">{m.title}</span>
-          <span className="jv-due">この日が期限</span>
+          {trx("<0>🎯</0><1>{title}</1><2>この日が期限</2>", { title: m.title }, [<span aria-hidden="true" />, <span className="jv-plan-t" />, <span className="jv-due" />])}
         </div>
       ))}
       {nextMilestone && (
@@ -286,45 +285,45 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
           <span aria-hidden="true">🎯</span>
           <span className="jv-plan-t">{nextMilestone.title}</span>
           <span className="jv-when">
-            次の期限 {md(nextMilestone.date)}
-            {isToday ? `（あと ${daysUntil(nextMilestone.date)} 日）` : ""}
+            {trx("次の期限 {md}", { md: md(nextMilestone.date) })}
+            {isToday ? tr("（あと {daysUntil} 日）", { daysUntil: daysUntil(nextMilestone.date) }) : ""}
           </span>
         </div>
       )}
-      {planCount === 0 && !nextMilestone && <p className="jv-none">この日の予定はありません</p>}
+      {planCount === 0 && !nextMilestone && <p className="jv-none">{tr("この日の予定はありません")}</p>}
     </div>
   );
 
   const journal = (
     <div className="jv-sec">
       <h3 className="jv-sec-title">
-        📓 日誌
+        {tr("📓 日誌")}
         <span className="grow" />
         <button type="button" className="btn-primary jv-btn" onClick={handleGenerate} disabled={generating || loading}>
-          {generating ? "作っています…" : journalContent ? "更新" : "日誌を作る"}
+          {generating ? tr("作っています…") : journalContent ? tr("更新") : tr("日誌を作る")}
         </button>
       </h3>
       {loading ? (
-        <div className="empty-message">読み込み中...</div>
+        <div className="empty-message">{tr("読み込み中...")}</div>
       ) : journalContent ? (
         <>
           {/* ノート（インライン編集） */}
           <div className="jv-note">
             <div className="jv-note-head">
-              <span>ノート</span>
+              <span>{tr("ノート")}</span>
               {notesDirty && (
                 <button type="button" className="btn-primary jv-btn" onClick={handleSaveNotes} disabled={savingNotes}>
-                  {savingNotes ? "保存中..." : "保存"}
+                  {savingNotes ? tr("保存中...") : tr("保存")}
                 </button>
               )}
             </div>
-            <textarea value={notesText} onChange={(e) => setNotesText(e.target.value)} placeholder="この日のメモを自由に記入..." />
+            <textarea value={notesText} onChange={(e) => setNotesText(e.target.value)} placeholder={tr("この日のメモを自由に記入...")} />
           </div>
           {/* 残りのセクション（題名の行とノートを除いて表示） */}
           {renderMarkdown(stripNotesSection(journalContent).split("\n").filter((l) => !l.startsWith("# ")).join("\n"))}
         </>
       ) : (
-        <p className="jv-none">この日の日誌はまだありません</p>
+        <p className="jv-none">{tr("この日の日誌はまだありません")}</p>
       )}
     </div>
   );
@@ -346,15 +345,15 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
           onOpenIssue={onSelectIssue}
         />
       </section>
-      <section className="form-card jv-day" aria-label={`${sel.getMonth() + 1}月${sel.getDate()}日`}>
+      <section className="form-card jv-day" aria-label={tr("{v}月{getDate}日", { v: sel.getMonth() + 1, getDate: sel.getDate() })}>
         <div className="jv-day-head">
           <h2>
-            {sel.getMonth() + 1} 月 {sel.getDate()} 日（{weekday}）
+            {sel.getMonth() + 1} {" "}{trx("月 {getDate} 日（{weekday}）", { getDate: sel.getDate(), weekday })}
           </h2>
-          {isToday && <span className="jv-today">今日</span>}
+          {isToday && <span className="jv-today">{tr("今日")}</span>}
           <span className="grow" />
-          <button type="button" className="btn-sm" onClick={() => moveDay(-1)} aria-label="前の日">◀</button>
-          <button type="button" className="btn-sm" onClick={() => moveDay(1)} aria-label="次の日">▶</button>
+          <button type="button" className="btn-sm" onClick={() => moveDay(-1)} aria-label={tr("前の日")}>◀</button>
+          <button type="button" className="btn-sm" onClick={() => moveDay(1)} aria-label={tr("次の日")}>▶</button>
         </div>
         {plans}
         {journal}

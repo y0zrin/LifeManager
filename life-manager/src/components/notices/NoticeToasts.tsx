@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { ago } from "../../lib/pulls";
 import { NOTICE_COLORS, type Notice } from "../../lib/notices";
+import { tr, trx } from "../../lib/i18n";
 
 interface NoticeToastsProps {
   /** 出している知らせ（新しい順。3 つまで） */
@@ -24,20 +25,20 @@ export function NoticeToasts({ notices, more, onOpen, onClose, onOpenHistory }: 
         <div key={n.id} className={`nt-toast k-${n.kind}`} style={{ "--k": NOTICE_COLORS[n.kind] } as CSSProperties}>
           <span className="nt-toast-ic" aria-hidden="true">{n.icon}</span>
           <div className="nt-toast-body">
-            <button type="button" className="nt-toast-title" onClick={() => onOpen(n)} title="開く">{n.title}</button>
+            <button type="button" className="nt-toast-title" onClick={() => onOpen(n)} title={tr("開く")}>{n.title}</button>
             {n.body && <div className="nt-toast-text">{n.body}</div>}
             <div className="nt-toast-actions">
-              {n.target && <button type="button" className="btn-primary nt-toast-open" onClick={() => onOpen(n)}>開く</button>}
-              {n.kind === "help" && <button type="button" className="btn-sm" onClick={() => onClose(n.id)}>あとで</button>}
+              {n.target && <button type="button" className="btn-primary nt-toast-open" onClick={() => onOpen(n)}>{tr("開く")}</button>}
+              {n.kind === "help" && <button type="button" className="btn-sm" onClick={() => onClose(n.id)}>{tr("あとで")}</button>}
               <span className="nt-toast-when">{ago(n.at)}</span>
             </div>
           </div>
-          <button type="button" className="nt-toast-x" onClick={() => onClose(n.id)} aria-label="閉じる" title="閉じる">×</button>
+          <button type="button" className="nt-toast-x" onClick={() => onClose(n.id)} aria-label={tr("閉じる")} title={tr("閉じる")}>×</button>
         </div>
       ))}
       {more > 0 && (
         <button type="button" className="nt-toast-more" onClick={onOpenHistory}>
-          ほか {more} 件 ・ 🔔 おしらせで見る
+          {trx("ほか {more} 件 ・ 🔔 おしらせで見る", { more })}
         </button>
       )}
     </div>

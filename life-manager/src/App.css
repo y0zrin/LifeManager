@@ -24653,3 +24653,29 @@ button.jv-plan:hover {
   font-size: 10px;
   line-height: 1;
 }
+
+/* 言語を選ぶ（#256） */
+.lang-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-sm);
+}
+
+.lang-select-icon {
+  font-size: var(--font-md);
+}
+
+.lang-select--picker {
+  font-size: var(--font-sm);
+}
+
+.setup-card {
+  position: relative;
+}
+
+.lang-select--setup {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+}

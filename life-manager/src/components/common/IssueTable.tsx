@@ -8,6 +8,7 @@ import { IssueSendState, isUnsent } from "./Sending";
 import { PendingChip } from "./PendingChip";
 import { SubIssueBadge } from "./SubIssueMarks";
 import { Avatar } from "./Avatar";
+import { tr, trx, labelText } from "../../lib/i18n";
 
 interface IssueTableProps {
   groups: TaskGroup[];
@@ -40,15 +41,15 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
       <table className="task-table">
         <thead>
           <tr>
-            {picking && <th aria-label="選ぶ" />}
+            {picking && <th aria-label={tr("選ぶ")} />}
             <th>#</th>
-            <th>題</th>
-            <th>状態</th>
-            <th>優先</th>
-            <th>見積</th>
-            <th>担当</th>
-            <th>マイルストーン</th>
-            <th>期限</th>
+            <th>{tr("題")}</th>
+            <th>{tr("状態")}</th>
+            <th>{tr("優先")}</th>
+            <th>{tr("見積")}</th>
+            <th>{tr("担当")}</th>
+            <th>{tr("マイルストーン")}</th>
+            <th>{tr("期限")}</th>
           </tr>
         </thead>
         <tbody>
@@ -56,8 +57,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
             g.title ? (
               <tr key={`g:${g.title}`} className="task-table-group">
                 <td colSpan={columns}>
-                  {g.title}
-                  <span>{g.rows.length} 件</span>
+                  {trx("{title}<0>{length} 件</0>", { title: labelText(g.title), length: g.rows.length }, [<span />])}
                   <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
                 </td>
               </tr>
@@ -82,7 +82,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                   {picking && (
                     <td className="tt-pick">
                       <input type="checkbox" checked={isPicked} disabled={isUnsent(issue)} onChange={() => onTogglePick(issue.number)}
-                        onClick={(e) => e.stopPropagation()} aria-label={`${issueRef(issue.number)} を選ぶ`} />
+                        onClick={(e) => e.stopPropagation()} aria-label={tr("{issueRef} を選ぶ", { issueRef: issueRef(issue.number) })} />
                     </td>
                   )}
                   <td className="tt-num">{issueRef(issue.number)}</td>
@@ -94,7 +94,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                     {issue._pending && <PendingChip />}
                     <IssueSendState issue={issue} />
                   </td>
-                  <td>{issue.state === "closed" ? <span className="tt-pill tt-pill--closed">完了</span> : <LabelPill issue={issue} prefix="状態:" />}</td>
+                  <td>{issue.state === "closed" ? <span className="tt-pill tt-pill--closed">{tr("完了")}</span> : <LabelPill issue={issue} prefix="状態:" />}</td>
                   <td><LabelPill issue={issue} prefix="優先:" /></td>
                   <td><EstimateChip issue={issue} plain /></td>
                   <td>

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { invoke, type InvokeArgs } from "./invoke";
 import type { GitHubComment } from "./types";
 
 // --- GitHub へ送っているあいだの数（上のバーの「送っています N」） ---

@@ -8,6 +8,7 @@ import {
 } from "../../lib/sprint";
 import { useEstimateUnit } from "./EstimateChip";
 import { countOf } from "../../lib/count";
+import { tr, trx } from "../../lib/i18n";
 
 /** サイクルタイムを読む Issue の数（新しく閉じた順） */
 const MAX_FLOW = 40;
@@ -51,7 +52,7 @@ function saveCache(owner: string, repo: string, cache: StartedCache) {
   }
 }
 
-const fmtDays = (v: number) => `${formatNumber(Math.round(v * 10) / 10)} 日`;
+const fmtDays = (v: number) => tr("{formatNumber} 日", { formatNumber: formatNumber(Math.round(v * 10) / 10) });
 
 /**
  * マイルストーンの画面の上の「チームのペース」。終わったマイルストーンごとの終えた量（ベロシティ）と、
@@ -59,7 +60,7 @@ const fmtDays = (v: number) => `${formatNumber(Math.round(v * 10) / 10)} 日`;
  */
 export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mode, onModeChange, onListTimeline, onSelectIssue }: TeamPaceProps) {
   const unit = useEstimateUnit();
-  const fmt = (v: number) => (mode === "count" ? `${formatNumber(v)} 件` : formatEstimate(Math.round(v * 10) / 10, unit));
+  const fmt = (v: number) => (mode === "count" ? tr("{formatNumber} 件", { formatNumber: formatNumber(v) }) : formatEstimate(Math.round(v * 10) / 10, unit));
 
   // --- ベロシティ ---
   const values = entries.map((e) => (mode === "count" ? e.closedCount : e.done));
@@ -126,14 +127,14 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
   const medLead = median(leads);
 
   return (
-    <section className="pace" aria-label="チームのペース">
+    <section className="pace" aria-label={tr("チームのペース")}>
       <div className="pace-head">
-        <b>🏃 チームのペース</b>
-        <span className="pace-scope">終わったマイルストーンから{entries.length > 0 ? `（最近 ${countOf(entries.length, "個")}）` : ""}</span>
-        <span className="pace-mode" role="group" aria-label="数え方">
+        <b>{tr("🏃 チームのペース")}</b>
+        <span className="pace-scope">{tr("終わったマイルストーンから")}{entries.length > 0 ? tr("（最近 {countOf}）", { countOf: countOf(entries.length, tr("個")) }) : ""}</span>
+        <span className="pace-mode" role="group" aria-label={tr("数え方")}>
           {(["estimate", "count"] as PaceMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => onModeChange(m)}>
-              {m === "estimate" ? "見積もり" : "件数"}
+              {m === "estimate" ? tr("見積もり") : tr("件数")}
             </button>
           ))}
         </span>
@@ -143,20 +144,20 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
         <p className="pace-note">
           {mode === "estimate" && finishedCount > 0 ? (
             <>
-              終わったマイルストーン（{countOf(finishedCount, "個")}）の Issue には、見積もりが付いていません。
-              <button type="button" className="link-button" onClick={() => onModeChange("count")}>件数で数える</button>
+              {tr("終わったマイルストーン（")}{countOf(finishedCount, tr("個"))}{tr("）の Issue には、見積もりが付いていません。")}
+              <button type="button" className="link-button" onClick={() => onModeChange("count")}>{tr("件数で数える")}</button>
             </>
           ) : (
-            "終わったマイルストーンがまだありません。"
+            tr("終わったマイルストーンがまだありません。")
           )}
         </p>
       ) : (
         <div className="pace-grid">
           <div className="pace-box">
-            <h5>ベロシティ（1 つのマイルストーンで終えた量）</h5>
+            <h5>{tr("ベロシティ（1 つのマイルストーンで終えた量）")}</h5>
             <div className="pace-bars">
               {entries.map((e, k) => (
-                <div key={e.number} className="pace-bar" title={`${e.title}: ${fmt(values[k])}（閉じた Issue ${e.closedCount} 件）`}>
+                <div key={e.number} className="pace-bar" title={tr("{title}: {fmt}（閉じた Issue {closedCount} 件）", { title: e.title, fmt: fmt(values[k]), closedCount: e.closedCount })}>
                   <small className="pace-bar-v">{mode === "count" ? formatNumber(values[k]) : formatNumber(Math.round(values[k] * 10) / 10)}</small>
                   <i style={{ height: `${(values[k] / maxV) * 100}%` }} />
                   <small className="pace-bar-t">{e.title}</small>
@@ -165,23 +166,22 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
             </div>
             {avg !== null && (
               <p className="pace-note">
-                次のスプリントに入れる量の目安: <b className="pace-em">{fmt(avg)}</b>（最近 {countOf(values.length, "個")}の平均。直近 {countOf(recent.length, "個")}は {fmt(Math.min(...recent))}〜{fmt(Math.max(...recent))}）
+                {trx("次のスプリントに入れる量の目安: <0>{fmt}</0>（最近", { fmt: fmt(avg) }, [<b className="pace-em" />])}{" "} {countOf(values.length, tr("個"))}{tr("の平均。直近")}{" "} {countOf(recent.length, tr("個"))}{trx("は {fmt}〜{fmt2}）", { fmt: fmt(Math.min(...recent)), fmt2: fmt(Math.max(...recent)) })}
               </p>
             )}
           </div>
 
           <div className="pace-box">
-            <h5>サイクルタイム（「進行中」にしてから閉じるまで）</h5>
+            <h5>{tr("サイクルタイム（「進行中」にしてから閉じるまで）")}</h5>
             {medCycle !== null ? (
               <div className="pace-flow-head">
-                <span className="pace-big">{fmtDays(medCycle)}</span>
-                <span className="pace-note">真ん中の値・{cycles.length} 件</span>
-                {medLead !== null && <span className="pace-note">作ってから閉じるまで（リードタイム）は {fmtDays(medLead)}</span>}
+                {trx("<0>{fmtDays}</0><1>真ん中の値・{length} 件</1>", { fmtDays: fmtDays(medCycle), length: cycles.length }, [<span className="pace-big" />, <span className="pace-note" />])}
+                {medLead !== null && <span className="pace-note">{trx("作ってから閉じるまで（リードタイム）は {fmtDays}", { fmtDays: fmtDays(medLead) })}</span>}
               </div>
             ) : (
               <p className="pace-note">
-                {reading ? "変更の履歴を読んでいます…" : `「${IN_PROGRESS_LABEL}」を付けてから閉じた Issue が、まだありません。`}
-                {medLead !== null && <>作ってから閉じるまで（リードタイム）は {fmtDays(medLead)}。</>}
+                {reading ? tr("変更の履歴を読んでいます…") : tr("「{IN_PROGRESS_LABEL}」を付けてから閉じた Issue が、まだありません。", { IN_PROGRESS_LABEL })}
+                {medLead !== null && <>{trx("作ってから閉じるまで（リードタイム）は {fmtDays}。", { fmtDays: fmtDays(medLead) })}</>}
               </p>
             )}
             {cycles.length > 0 && (
@@ -196,10 +196,10 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
             )}
             {slowest.length > 0 && (
               <p className="pace-note">
-                長くかかった:{" "}
+                {tr("長くかかった:")}{" "}
                 {slowest.map((f, k) => (
                   <span key={f.issue.number}>
-                    {k > 0 && "・"}
+                    {k > 0 && tr("・")}
                     <button type="button" className="pace-ref" onClick={() => onSelectIssue(f.issue.number)} title={f.issue.title}>
                       {issueRef(f.issue.number)}
                     </button>{" "}
@@ -208,8 +208,8 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
                 ))}
               </p>
             )}
-            {reading && <p className="pace-note">変更の履歴を読んでいます（{reading.done} / {reading.total} 件）…</p>}
-            {readError && <p className="pace-note">変更の履歴を読めませんでした（{readError}）。つながっているときに開き直すと、続きから読みます。</p>}
+            {reading && <p className="pace-note">{trx("変更の履歴を読んでいます（{done} / {total} 件）…", { done: reading.done, total: reading.total })}</p>}
+            {readError && <p className="pace-note">{trx("変更の履歴を読めませんでした（{readError}）。つながっているときに開き直すと、続きから読みます。", { readError })}</p>}
           </div>
         </div>
       )}

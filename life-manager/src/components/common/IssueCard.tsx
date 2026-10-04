@@ -12,6 +12,7 @@ import { issueRef } from "../../lib/issueRef";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import { Avatar } from "./Avatar";
 import { isMobile } from "../../lib/platform";
+import { tr } from "../../lib/i18n";
 
 export function IssueCard({
   issue,
@@ -126,7 +127,7 @@ export function IssueCard({
         <div style={{ flex: 1 }}>
           {picking && (
             <input type="checkbox" className="issue-card-pick" checked={picked} disabled={unsent}
-              onChange={() => onTogglePick?.(issue.number)} aria-label={`${issueRef(issue.number)} を選ぶ`} />
+              onChange={() => onTogglePick?.(issue.number)} aria-label={tr("{issueRef} を選ぶ", { issueRef: issueRef(issue.number) })} />
           )}
           <span className="issue-card-number">{issueRef(issue.number)}</span>
           {issue._pending && <PendingChip />}
@@ -152,7 +153,7 @@ export function IssueCard({
 
       {todoTotal > 0 && (
         <div data-todo-progress style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", margin: "4px 0" }}>
-          {isMobile ? "☑" : "タスク:"} {todoDone}/{todoTotal}
+          {isMobile ? "☑" : tr("タスク:")} {todoDone}/{todoTotal}
           <div style={{ width: "100px", height: "4px", background: "var(--border-default)", borderRadius: "2px", display: "inline-block", marginLeft: "6px", verticalAlign: "middle" }}>
             <div style={{ width: `${(todoDone / todoTotal) * 100}%`, height: "100%", background: "var(--accent-green)", borderRadius: "2px" }} />
           </div>
@@ -175,12 +176,12 @@ export function IssueCard({
 
       {!picking && !unsent && <div className="issue-card-actions">
         {issue.state === "open" ? (
-          <button className="btn-sm" onClick={(e) => finish(e.currentTarget)} disabled={leaving !== "none"}>完了</button>
+          <button className="btn-sm" onClick={(e) => finish(e.currentTarget)} disabled={leaving !== "none"}>{tr("完了")}</button>
         ) : (
-          <button className="btn-sm" onClick={() => onReopen(issue.number)}>再開</button>
+          <button className="btn-sm" onClick={() => onReopen(issue.number)}>{tr("再開")}</button>
         )}
         {isMemo && issue.state === "open" && (
-          <button className="btn-sm" onClick={() => onPromote(issue.number)}>昇華</button>
+          <button className="btn-sm" onClick={() => onPromote(issue.number)}>{tr("昇華")}</button>
         )}
         {issue.state === "open" && (
           <select
@@ -189,11 +190,11 @@ export function IssueCard({
             onChange={(e) => onStatusChange(issue.number, e.target.value)}
             style={{ fontSize: "var(--font-xs)" }}
           >
-            <option value="">状態変更...</option>
-            <option value="状態:未整理">未整理</option>
-            <option value="状態:進行中">進行中</option>
-            <option value="状態:ブロック">ブロック</option>
-            <option value="状態:いつか">いつか</option>
+            <option value="">{tr("状態変更...")}</option>
+            <option value="状態:未整理">{tr("未整理")}</option>
+            <option value="状態:進行中">{tr("進行中")}</option>
+            <option value="状態:ブロック">{tr("ブロック")}</option>
+            <option value="状態:いつか">{tr("いつか")}</option>
           </select>
         )}
       </div>}

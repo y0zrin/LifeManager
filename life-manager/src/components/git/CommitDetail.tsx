@@ -7,6 +7,7 @@ import { isEscape } from "../../lib/keys";
 import { filesFromShow } from "../../lib/showFiles";
 import { baseName, KIND_ICONS, kindOf, type MediaFile } from "../../lib/media";
 import { MediaViewer } from "../media/MediaViewer";
+import { tr } from "../../lib/i18n";
 
 /**
  * どこから読むか：この PC の作業フォルダ（git show）か、GitHub（作業フォルダのないとき・スマホ版）。
@@ -89,7 +90,7 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
           owner: source.owner,
           repo: source.repo,
         },
-        commitLabel: `${commit.hash.slice(0, 7)} ${subject}${author ? ` ・ ${author}` : ""}`,
+        commitLabel: `${commit.hash.slice(0, 7)} ${subject}${author ? tr(" ・ {author}", { author }) : ""}`,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [shown, commit.hash, sourceKey, subject, author],
@@ -97,10 +98,10 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={onClose}>
-      <div className="commit-detail" role="dialog" aria-modal="true" aria-label="コミットの内容" onClick={(e) => e.stopPropagation()}>
+      <div className="commit-detail" role="dialog" aria-modal="true" aria-label={tr("コミットの内容")} onClick={(e) => e.stopPropagation()}>
         <div className="cd-head">
-          <div className="cd-title">{subject || "読み込んでいます…"}</div>
-          <button type="button" className="git-notice-close" aria-label="閉じる" onClick={onClose}>
+          <div className="cd-title">{subject || tr("読み込んでいます…")}</div>
+          <button type="button" className="git-notice-close" aria-label={tr("閉じる")} onClick={onClose}>
             ×
           </button>
           <div className="cd-meta">
@@ -110,7 +111,7 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
         </div>
         <div className="cd-body">
           {error && <p className="git-dialog-error">{error}</p>}
-          {!run && !error && <p className="git-dialog-running">読み込んでいます…</p>}
+          {!run && !error && <p className="git-dialog-running">{tr("読み込んでいます…")}</p>}
           {parts && (
             <>
               {parts.message.split("\n").slice(1).join("\n").trim() && (
@@ -126,7 +127,7 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
               )}
               {mediaFiles.length > 0 && (
                 <div className="cd-files">
-                  <span className="cd-files-label">👁 ファイルを見る</span>
+                  <span className="cd-files-label">{tr("👁 ファイルを見る")}</span>
                   {mediaFiles.map((f, i) => (
                     <button key={f.path} type="button" className={`cd-file${f.status === "removed" ? " removed" : ""}`} onClick={() => setViewing(i)} title={f.path}>
                       <span aria-hidden="true">{KIND_ICONS[kindOf(f.path)]}</span> {baseName(f.path)}
@@ -139,14 +140,14 @@ export function CommitDetail({ source, commit, onClose }: CommitDetailProps) {
                   <DiffRows rows={rows} />
                 </div>
               ) : (
-                <p className="git-dialog-running">ファイルの変更はありません（空コミット、またはマージのコミットです）</p>
+                <p className="git-dialog-running">{tr("ファイルの変更はありません（空コミット、またはマージのコミットです）")}</p>
               )}
             </>
           )}
         </div>
       </div>
       {viewing !== null && (
-        <MediaViewer files={mediaFiles} start={viewing} title="このコミットのファイル" onClose={() => setViewing(null)}
+        <MediaViewer files={mediaFiles} start={viewing} title={tr("このコミットのファイル")} onClose={() => setViewing(null)}
           loadPatch={async (f) => (run ? shown.find((s) => s.path === f.path)?.patch ?? null : null)} />
       )}
     </div>

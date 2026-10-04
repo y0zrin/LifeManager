@@ -1,5 +1,5 @@
 // PC の git を呼び出す（スマホ版では使わない）。バックエンドの git::commands と対応する
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
 import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus, WatchFinding } from "./types";
 import { rememberGitFailure } from "./gitFailure";
 

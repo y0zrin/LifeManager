@@ -23,6 +23,7 @@ import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
 import { isMobile, keyHint } from "../../lib/platform";
 import { inCategory } from "../../lib/section";
+import { tr, trx } from "../../lib/i18n";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -34,7 +35,7 @@ const CONTENT_CLAMP_PX = 88;
 type EditRow = "labels" | "assignees" | "dates" | "deps" | "progress" | "reminder";
 
 /** ラベルを選ぶ欄の並び（カテゴリごとに 1 行） */
-const LABEL_GROUPS = ["種別", "状態", "優先", "セクション"];
+const LABEL_GROUPS = [tr("種別"), tr("状態"), tr("優先"), tr("セクション")];
 
 /** YYYY-MM-DD → M/D */
 function md(date: string): string {
@@ -200,7 +201,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   async function postComment(body: string, again?: GitHubComment) {
     const key = localKey;
     const now = new Date().toISOString();
-    const mine: GitHubComment = again ?? { id: -Date.now(), body, user: { login: me || "あなた", avatar_url: "" }, created_at: now, updated_at: now };
+    const mine: GitHubComment = again ?? { id: -Date.now(), body, user: { login: me || tr("あなた"), avatar_url: "" }, created_at: now, updated_at: now };
     putLocalComment(key, { ...mine, _sending: true, _failed: undefined });
     try {
       const created = await createComment(issue.number, body);
@@ -387,10 +388,10 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const linkCount = (issue.sub_issues_summary?.total ?? 0) + (issue.number > 0 ? relatedOf(issue, allIssues).length : 0);
   const commentCount = Math.max(issue.comments ?? 0, comments.length);
   const TABS: { key: DetailTab; label: string; count?: number }[] = [
-    { key: "history", label: "履歴", count: commentCount },
-    { key: "settings", label: "設定" },
-    { key: "links", label: "つながり", count: linkCount },
-    ...(artifacts && issue.number > 0 ? [{ key: "artifacts" as const, label: "成果物", count: artifactCount ?? undefined }] : []),
+    { key: "history", label: tr("履歴"), count: commentCount },
+    { key: "settings", label: tr("設定") },
+    { key: "links", label: tr("つながり"), count: linkCount },
+    ...(artifacts && issue.number > 0 ? [{ key: "artifacts" as const, label: tr("成果物"), count: artifactCount ?? undefined }] : []),
   ];
 
   // 設定の表に出す値
@@ -398,14 +399,14 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const ganttDays = ganttDates ? Math.round((Date.parse(ganttDates.end) - Date.parse(ganttDates.start)) / 86400000) + 1 : 0;
   const progressText =
     ganttProgress.mode === "manual"
-      ? `${ganttProgress.value}%（手で入れた値）`
+      ? tr("{value}%（手で入れた値）", { value: ganttProgress.value })
       : ganttProgress.mode === "binary"
         ? ganttProgress.value === "done"
-          ? "達成"
-          : "まだ"
+          ? tr("達成")
+          : tr("まだ")
         : todoTotal > 0
-          ? `チェックリスト ${todoDone}/${todoTotal}`
-          : "チェックリスト（項目なし）";
+          ? tr("チェックリスト {todoDone}/{todoTotal}", { todoDone, todoTotal })
+          : tr("チェックリスト（項目なし）");
   const progressRate =
     ganttProgress.mode === "manual"
       ? Number(ganttProgress.value) / 100
@@ -419,7 +420,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   const labelGroups = [
     ...LABEL_GROUPS.map((g) => ({ name: g, labels: availableLabels.filter((l) => inCategory(l.name, `${g}:`)) })),
     {
-      name: "そのほか",
+      name: tr("そのほか"),
       labels: availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX) && !LABEL_GROUPS.some((g) => inCategory(l.name, `${g}:`))),
     },
   ].filter((g) => g.labels.length > 0);
@@ -431,7 +432,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         <span className="idm-key">{name}</span>
         <div className="idm-val">{value}</div>
         {key ? (
-          <button type="button" className="idm-edit" onClick={() => toggleRow(key)} aria-expanded={openRow === key} title={`${name}を変える`}>
+          <button type="button" className="idm-edit" onClick={() => toggleRow(key)} aria-expanded={openRow === key} title={tr("{name}を変える", { name })}>
             {openRow === key ? "×" : mark}
           </button>
         ) : (
@@ -441,22 +442,22 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
       {key && openRow === key && editor && <div className="idm-editor">{editor}</div>}
     </>
   );
-  const editorButtons = (onSave: () => void, disabled = false, saveLabel = "保存") => (
+  const editorButtons = (onSave: () => void, disabled = false, saveLabel = tr("保存")) => (
     <div className="idm-editor-btns">
       <button type="button" className="btn-sm" onClick={cancelRow}>
-        やめる
+        {tr("やめる")}
       </button>
       <button type="button" className="btn-primary" onClick={onSave} disabled={disabled}>
         {saveLabel}
       </button>
     </div>
   );
-  const none = (text = "なし") => <span className="idm-none">{text}</span>;
+  const none = (text = tr("なし")) => <span className="idm-none">{text}</span>;
 
   const body = (
       <div onClick={(e) => e.stopPropagation()} className={inline ? "modal-content issue-detail-inline" : "modal-content issue-modal"}>
         {inline && (
-          <button type="button" onClick={onClose} className="issue-detail-close" title="閉じる">×</button>
+          <button type="button" onClick={onClose} className="issue-detail-close" title={tr("閉じる")}>×</button>
         )}
         {/* 見出し（番号・状態・閉じる・題・ラベル）。どのタブでも見える */}
         <div className="idm-head">
@@ -465,7 +466,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             <span style={{ color: "var(--text-faint)", fontSize: "var(--font-lg)" }}>{issueRef(issue.number)}</span>
             {issue._pending && <PendingChip />}
             <span style={{ color: "var(--text-faint)", fontSize: "var(--font-sm)" }}>
-              {issue.state === "open" ? "🟢 開いている" : `${issue.state_reason === "not_planned" ? "⚪" : "🟣"} 閉じた（${closeReasonText(issue.state_reason)}）`}
+              {issue.state === "open" ? tr("🟢 開いている") : tr("{v} 閉じた（{closeReasonText}）", { v: issue.state_reason === "not_planned" ? "⚪" : "🟣", closeReasonText: closeReasonText(issue.state_reason) })}
             </span>
             {issue.milestone && (
               <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>
@@ -476,8 +477,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               // 閉じ方（完了・予定なし・重複）を選んで閉じる。困ったら 🆘（チームの人を @ で呼ぶコメント）
               <span className="idm-head-actions">
                 {onAskHelp && issue.number > 0 && (
-                  <button type="button" className="btn-help" onClick={() => onAskHelp(issue)} title="チームの人を @ で呼んで、この Issue にコメントを残します">
-                    🆘 助けを求める
+                  <button type="button" className="btn-help" onClick={() => onAskHelp(issue)} title={tr("チームの人を @ で呼んで、この Issue にコメントを残します")}>
+                    {tr("🆘 助けを求める")}
                   </button>
                 )}
                 <CloseMenu issue={issue} allIssues={allIssues} onClose={(reason, original) => onCloseIssue(issue.number, reason, original)} onReopen={() => void onReopenIssue(issue.number)} />
@@ -488,7 +489,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 style={{ marginLeft: "auto", fontSize: "var(--font-sm)", padding: "3px 10px" }}
                 onClick={() => onReopenIssue(issue.number)}
               >
-                リオープン
+                {tr("リオープン")}
               </button>
             )}
           </div>
@@ -504,7 +505,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               className="idm-title-input"
             />
           ) : (
-            <h2 onClick={() => setEditingTitle(true)} className="idm-title" title={isMobile ? "押して編集" : "クリックして編集"}>
+            <h2 onClick={() => setEditingTitle(true)} className="idm-title" title={isMobile ? tr("押して編集") : tr("クリックして編集")}>
               {issue.title}
             </h2>
           )}
@@ -517,12 +518,12 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               setTab("settings");
               toggleRow("labels");
             }}
-            title="設定のタブで変える"
+            title={tr("設定のタブで変える")}
           >
             {shownLabels.map((l) => (
               <LabelBadge key={l.name} name={l.name} color={l.color} />
             ))}
-            {shownLabels.length === 0 && <span className="idm-none">ラベルなし</span>}
+            {shownLabels.length === 0 && <span className="idm-none">{tr("ラベルなし")}</span>}
             {(issue.assignees ?? []).map((a) => (
               <span key={a.login} className="idm-person">
                 <Avatar login={a.login} url={a.avatar_url} className="avatar-sm" />
@@ -545,10 +546,10 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             />
             <div style={{ display: "flex", gap: "6px", marginTop: "6px", alignItems: "center" }}>
               <button className="btn-primary" onClick={handleBodySave} style={{ fontSize: "12px", padding: "3px 10px" }}>
-                保存
+                {tr("保存")}
               </button>
               <button className="btn-sm" onClick={() => { setEditBody(splitAppMarks(issue.body).text); setEditingBody(false); }} style={{ fontSize: "12px" }}>
-                キャンセル
+                {tr("キャンセル")}
               </button>
               <button className="btn-sm" style={{ fontSize: "11px", marginLeft: "auto" }}
                 onClick={() => {
@@ -565,7 +566,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     ta.focus();
                     ta.setSelectionRange(cursor, cursor);
                   });
-                }}>+ タスク項目</button>
+                }}>{tr("+ タスク項目")}</button>
             </div>
           </div>
         ) : (
@@ -579,12 +580,12 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                   onToggle={onToggleTodo}
                 />
               ) : (
-                <div onClick={() => setEditingBody(true)} className="idm-body" title={isMobile ? "押して編集" : "クリックして編集"}>
-                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>本文なし（{isMobile ? "押して" : "クリックで"}追加）</span>}
+                <div onClick={() => setEditingBody(true)} className="idm-body" title={isMobile ? tr("押して編集") : tr("クリックして編集")}>
+                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>{tr("本文なし（")}{isMobile ? tr("押して") : tr("クリックで")}{tr("追加）")}</span>}
                 </div>
               )}
               {/* 編集ボタン（右上に小さく配置） */}
-              <button className="btn-sm idm-body-edit" onClick={() => setEditingBody(true)} title="本文を編集">
+              <button className="btn-sm idm-body-edit" onClick={() => setEditingBody(true)} title={tr("本文を編集")}>
                 ✏️
               </button>
             </div>
@@ -592,12 +593,12 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               <div className="idm-content-foot">
                 {contentLong && (
                   <button type="button" className="link-button" onClick={() => setContentOpen(!contentOpen)} aria-expanded={contentOpen}>
-                    {contentOpen ? "たたむ ▴" : "すべて表示 ▾"}
+                    {contentOpen ? tr("たたむ ▴") : tr("すべて表示 ▾")}
                   </button>
                 )}
                 {todoTotal > 0 && (
                   <>
-                    <span className="idm-none">チェック {todoDone}/{todoTotal}</span>
+                    <span className="idm-none">{trx("チェック {todoDone}/{todoTotal}", { todoDone, todoTotal })}</span>
                     <span className="idm-content-bar" aria-hidden="true">
                       <i style={{ width: `${(todoDone / todoTotal) * 100}%` }} />
                     </span>
@@ -609,7 +610,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         )}
 
         {/* タブ */}
-        <div className="idm-tabs" role="tablist" aria-label="Issue の詳細">
+        <div className="idm-tabs" role="tablist" aria-label={tr("Issue の詳細")}>
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -629,10 +630,10 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         {tab === "settings" && (
           <div className="idm-props">
             <div className="idm-grp">
-              <small className="idm-grp-title">分ける</small>
+              <small className="idm-grp-title">{tr("分ける")}</small>
               {row(
                 "labels",
-                "ラベル",
+                tr("ラベル"),
                 shownLabels.length > 0 ? shownLabels.map((l) => <LabelBadge key={l.name} name={l.name} color={l.color} />) : none(),
                 <>
                   {/* 見積もりは下の「見積もり」で付け替える（ここで選ぶと 2 つ付いてしまうため出さない） */}
@@ -661,14 +662,14 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 </>,
               )}
               {/* 見積もりの目安は、ボタンにマウスを乗せると出る（表を低く保つため、ここでは説明の文を出さない） */}
-              {onSetEstimate && row(null, "見積もり", <EstimatePicker value={estimate} onChange={(v) => onSetEstimate(issue.number, v)} other showGuide={false} />)}
+              {onSetEstimate && row(null, tr("見積もり"), <EstimatePicker value={estimate} onChange={(v) => onSetEstimate(issue.number, v)} other showGuide={false} />)}
             </div>
 
             <div className="idm-grp">
-              <small className="idm-grp-title">だれが・いつまでに</small>
+              <small className="idm-grp-title">{tr("だれが・いつまでに")}</small>
               {row(
                 "assignees",
-                "担当",
+                tr("担当"),
                 issue.assignees && issue.assignees.length > 0
                   ? issue.assignees.map((a) => (
                       <span key={a.login} className="idm-person">
@@ -676,7 +677,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                         {a.login}
                       </span>
                     ))
-                  : none("だれもいない"),
+                  : none(tr("だれもいない")),
                 <>
                   <div className="label-selector" style={{ gap: "6px" }}>
                     {collaborators.map((c) => {
@@ -694,7 +695,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
               )}
               {row(
                 null,
-                "マイルストーン",
+                tr("マイルストーン"),
                 <select
                   className="select-sm idm-select"
                   value={issue.milestone?.number ?? ""}
@@ -703,7 +704,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     await updateIssue(issue.number, { milestone: val ? Number(val) : null });
                   }}
                 >
-                  <option value="">マイルストーンなし</option>
+                  <option value="">{tr("マイルストーンなし")}</option>
                   {milestones.map((m) => (
                     <option key={m.number} value={m.number}>
                       {m.title}
@@ -714,29 +715,29 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
             </div>
 
             <div className="idm-grp">
-              <small className="idm-grp-title">ガント</small>
+              <small className="idm-grp-title">{tr("ガント")}</small>
               {row(
                 "dates",
-                "日程",
-                ganttDates ? `${md(ganttDates.start)} → ${md(ganttDates.end)}（${ganttDays} 日）` : none(),
+                tr("日程"),
+                ganttDates ? tr("{md} → {md2}（{ganttDays} 日）", { md: md(ganttDates.start), md2: md(ganttDates.end), ganttDays }) : none(),
                 <>
-                  <p className="idm-editor-hint">ガントの帯になります。{!isMobile && "ガントで帯をドラッグしても変えられます。"}</p>
+                  <p className="idm-editor-hint">{tr("ガントの帯になります。")}{!isMobile && tr("ガントで帯をドラッグしても変えられます。")}</p>
                   <div className="idm-field">
-                    開始
-                    <input type="date" className="idm-input" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)} />→ 終了
+                    {tr("開始")}
+                    <input type="date" className="idm-input" value={ganttStart} onChange={(e) => setGanttStart(e.target.value)} />{tr("→ 終了")}
                     <input type="date" className="idm-input" value={ganttEnd} onChange={(e) => setGanttEnd(e.target.value)} />
                     {(ganttStart || ganttEnd) && (
                       <button type="button" className="link-button" onClick={() => { setGanttStart(""); setGanttEnd(""); }}>
-                        日程を外す
+                        {tr("日程を外す")}
                       </button>
                     )}
                   </div>
-                  {editorButtons(handleGanttSave, ganttSaving || (!!ganttStart !== !!ganttEnd), ganttSaving ? "保存中..." : "保存")}
+                  {editorButtons(handleGanttSave, ganttSaving || (!!ganttStart !== !!ganttEnd), ganttSaving ? tr("保存中...") : tr("保存"))}
                 </>,
               )}
               {row(
                 "deps",
-                "先行",
+                tr("先行"),
                 ganttDeps.length > 0
                   ? ganttDeps.map((n) => {
                       const dep = allIssues.find((i) => i.number === n);
@@ -771,7 +772,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                       onChange={(e) => { setDepSearch(e.target.value); setShowDepSuggestions(true); }}
                       onFocus={() => setShowDepSuggestions(true)}
                       onBlur={() => setTimeout(() => setShowDepSuggestions(false), 200)}
-                      placeholder="番号か題で探して足す…"
+                      placeholder={tr("番号か題で探して足す…")}
                       className="idm-input" style={{ width: "240px" }} />
                     {showDepSuggestions && depSuggestions.length > 0 && (
                       <div className="suggestion-dropdown" style={{ maxWidth: "300px" }}>
@@ -797,13 +798,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                       </div>
                     )}
                   </div>
-                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? "保存中..." : "保存")}
+                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? tr("保存中...") : tr("保存"))}
                 </>,
                 ganttDeps.length > 0 ? "✎" : "＋",
               )}
               {row(
                 "progress",
-                "進み",
+                tr("進み"),
                 <>
                   {progressText}
                   <span className="idm-mini" aria-hidden="true">
@@ -812,16 +813,16 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 </>,
                 <>
                   <div className="idm-field">
-                    数え方
+                    {tr("数え方")}
                     <select className="select-sm" value={ganttProgressMode} onChange={(e) => {
                       const mode = e.target.value as ProgressMode;
                       setGanttProgressMode(mode);
                       if (mode === "binary") setGanttProgressValue("undone");
                       else setGanttProgressValue("0");
                     }}>
-                      <option value="checkbox">チェックリストの数</option>
-                      <option value="manual">手で入れる（%）</option>
-                      <option value="binary">達成したか</option>
+                      <option value="checkbox">{tr("チェックリストの数")}</option>
+                      <option value="manual">{tr("手で入れる（%）")}</option>
+                      <option value="binary">{tr("達成したか")}</option>
                     </select>
                     {ganttProgressMode === "manual" && (
                       <>
@@ -835,25 +836,25 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                         style={{ backgroundColor: ganttProgressValue === "done" ? "var(--accent-green)" : undefined, color: ganttProgressValue === "done" ? "var(--text-on-accent)" : undefined }}
                         onClick={() => setGanttProgressValue(ganttProgressValue === "done" ? "undone" : "done")}
                       >
-                        {ganttProgressValue === "done" ? "達成" : "まだ"}
+                        {ganttProgressValue === "done" ? tr("達成") : tr("まだ")}
                       </button>
                     )}
                   </div>
-                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? "保存中..." : "保存")}
+                  {editorButtons(handleGanttSave, ganttSaving, ganttSaving ? tr("保存中...") : tr("保存"))}
                 </>,
               )}
             </div>
 
             <div className="idm-grp">
-              <small className="idm-grp-title">知らせ</small>
+              <small className="idm-grp-title">{tr("知らせ")}</small>
               {row(
                 "reminder",
-                "リマインダー",
+                tr("リマインダー"),
                 issueReminders.length > 0
                   ? issueReminders.map((r) => (
                       <span key={r.datetime} className="idm-dep">
-                        {new Date(r.datetime).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}（{r.channels.map((c) => (c === "os" ? "OS" : "Discord")).join("・")}）
-                        <span style={{ cursor: "pointer", color: "var(--accent-red)", marginLeft: "2px" }} title="取り消す"
+                        {new Date(r.datetime).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}（{r.channels.map((c) => (c === "os" ? "OS" : "Discord")).join(tr("・"))}）
+                        <span style={{ cursor: "pointer", color: "var(--accent-red)", marginLeft: "2px" }} title={tr("取り消す")}
                           onClick={() => onRemoveReminder(issue.number, r.datetime)}>×</span>
                       </span>
                     ))
@@ -884,7 +885,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                       setOpenRow(null);
                     },
                     !reminderDatetime || reminderChannels.length === 0,
-                    "足す",
+                    tr("足す"),
                   )}
                 </>,
                 "＋",
@@ -921,7 +922,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 onOpenIssue={onOpenIssue}
               />
             )}
-            {issue.number <= 0 && <p className="idm-none">まだ GitHub に送っていない Issue には、つながりを付けられません。</p>}
+            {issue.number <= 0 && <p className="idm-none">{tr("まだ GitHub に送っていない Issue には、つながりを付けられません。")}</p>}
           </>
         )}
 
@@ -934,13 +935,13 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyDown={(e) => { if (isEnter(e) && (e.ctrlKey || e.metaKey)) handleSubmit(); }}
-                placeholder={`コメントを追加...${keyHint(" (Ctrl+Enter で送信)")}`}
+                placeholder={tr("コメントを追加...{keyHint}", { keyHint: keyHint(tr(" (Ctrl+Enter で送信)")) })}
                 className="textarea-full"
                 style={{ minHeight: "60px" }}
               />
               <button onClick={handleSubmit} className="btn-primary" disabled={!newComment.trim()}
                 style={{ marginTop: "6px" }}>
-                コメント追加
+                {tr("コメント追加")}
               </button>
             </>
           );
@@ -968,12 +969,12 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           return (
             <>
               <div className="issue-timeline-head">
-                <h3 className="section-header">💬 コメント ({comments.length})</h3>
+                <h3 className="section-header">{trx("💬 コメント ({length})", { length: comments.length })}</h3>
                 <HistoryOrderToggle order={historyOrder} onChange={setHistoryOrder} />
               </div>
               {historyOrder === "newest" && <div className="issue-timeline-composer">{composer}</div>}
               {loading ? (
-                <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>読み込み中...</p>
+                <p style={{ color: "var(--text-muted)", fontSize: "12px" }}>{tr("読み込み中...")}</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
                   {sorted.map((c) => (
@@ -988,8 +989,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                         ) : c._failed ? (
                           <span style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
                             <FailedChip />
-                            <button type="button" className="btn-primary" onClick={() => retryComment(c)}>もう一度</button>
-                            <button type="button" className="btn-sm" onClick={() => restoreComment(c)}>書く欄に戻す</button>
+                            <button type="button" className="btn-primary" onClick={() => retryComment(c)}>{tr("もう一度")}</button>
+                            <button type="button" className="btn-sm" onClick={() => restoreComment(c)}>{tr("書く欄に戻す")}</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
@@ -1003,7 +1004,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                     </div>
                   ))}
                   {shownComments.length === 0 && (
-                    <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>コメントはまだありません</p>
+                    <p style={{ color: "var(--text-faint)", fontSize: "12px" }}>{tr("コメントはまだありません")}</p>
                   )}
                 </div>
               )}
@@ -1015,7 +1016,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
   );
   return inline ? body : (
     <div className="palette-overlay issue-overlay" onClick={onClose}>
-      <button onClick={onClose} className="modal-close-btn" title="閉じる (Esc)">×</button>
+      <button onClick={onClose} className="modal-close-btn" title={tr("閉じる (Esc)")}>×</button>
       {body}
     </div>
   );

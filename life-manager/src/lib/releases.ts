@@ -1,6 +1,7 @@
 // リリース（一覧・作る・直す・ファイルを添える・ノートを作る）
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
 import type { Person } from "./pulls";
+import { tr } from "./i18n";
 
 export interface ReleaseAsset {
   id: number;
@@ -82,9 +83,9 @@ export function formatSize(bytes: number): string {
 /** タグに使えない名前か（git の決まり: 空白・~ ^ : ? * [ \ ・.. ・最後の . や / など） */
 export function badTag(tag: string): string | null {
   const t = tag.trim();
-  if (!t) return "タグの名前を入れてください";
+  if (!t) return tr("タグの名前を入れてください");
   if (/[\s~^:?*[\\]/.test(t) || t.includes("..") || t.endsWith(".") || t.endsWith("/") || t.startsWith("-") || t.includes("@{")) {
-    return "タグの名前に使えない文字があります（空白や ~ ^ : ? * [ \\ など）";
+    return tr("タグの名前に使えない文字があります（空白や ~ ^ : ? * [ \\ など）");
   }
   return null;
 }

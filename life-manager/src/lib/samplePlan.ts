@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 // 見本の計画（#239）: 新しいチームが 1 回で作れる、マイルストーン 5 つと、よくあるタスク。
 // 中身はここだけに置く（1.1 のローカルだけの版でも、同じものを使う）
 
@@ -18,57 +19,57 @@ export interface PlanStage {
 /** ゲームを作るチームの見本: 企画 → プロトタイプ → α版 → β版 → 発表 */
 export const GAME_PLAN: PlanStage[] = [
   {
-    title: "企画",
+    title: tr("企画"),
     until: 0.15,
     tasks: [
-      { title: "企画書を書く", section: "プランナー" },
-      { title: "ゲームのいちばんおもしろいところを決める", section: "プランナー" },
-      { title: "参考にするゲームを集めて遊ぶ", section: "その他" },
-      { title: "役割と担当を決める", section: "その他" },
-      { title: "絵の雰囲気を決める", section: "デザイナー" },
-      { title: "エンジンとリポジトリを用意する", section: "プログラマー" },
+      { title: tr("企画書を書く"), section: "プランナー" },
+      { title: tr("ゲームのいちばんおもしろいところを決める"), section: "プランナー" },
+      { title: tr("参考にするゲームを集めて遊ぶ"), section: "その他" },
+      { title: tr("役割と担当を決める"), section: "その他" },
+      { title: tr("絵の雰囲気を決める"), section: "デザイナー" },
+      { title: tr("エンジンとリポジトリを用意する"), section: "プログラマー" },
     ],
   },
   {
-    title: "プロトタイプ",
+    title: tr("プロトタイプ"),
     until: 0.35,
     tasks: [
-      { title: "キャラクターを操作して動かせるようにする", section: "プログラマー" },
-      { title: "いちばんおもしろいところを仮の絵で遊べるようにする", section: "プログラマー" },
-      { title: "仮の絵と音を用意する", section: "デザイナー" },
-      { title: "テストプレイして、おもしろいかを確かめる", section: "プランナー" },
+      { title: tr("キャラクターを操作して動かせるようにする"), section: "プログラマー" },
+      { title: tr("いちばんおもしろいところを仮の絵で遊べるようにする"), section: "プログラマー" },
+      { title: tr("仮の絵と音を用意する"), section: "デザイナー" },
+      { title: tr("テストプレイして、おもしろいかを確かめる"), section: "プランナー" },
     ],
   },
   {
-    title: "α版",
+    title: tr("α版"),
     until: 0.65,
     tasks: [
-      { title: "主な機能をすべて入れる", section: "プログラマー" },
-      { title: "1 ステージを最初から最後まで遊べるようにする", section: "プランナー" },
-      { title: "本番の絵とアニメーションを作る", section: "デザイナー" },
-      { title: "タイトル画面とゲームオーバーを作る", section: "プログラマー" },
-      { title: "見つけた不具合を Issue にする", section: "その他" },
+      { title: tr("主な機能をすべて入れる"), section: "プログラマー" },
+      { title: tr("1 ステージを最初から最後まで遊べるようにする"), section: "プランナー" },
+      { title: tr("本番の絵とアニメーションを作る"), section: "デザイナー" },
+      { title: tr("タイトル画面とゲームオーバーを作る"), section: "プログラマー" },
+      { title: tr("見つけた不具合を Issue にする"), section: "その他" },
     ],
   },
   {
-    title: "β版",
+    title: tr("β版"),
     until: 0.9,
     tasks: [
-      { title: "すべての素材を入れる", section: "デザイナー" },
-      { title: "効果音と BGM を入れる", section: "デザイナー" },
-      { title: "難しさを調整する", section: "プランナー" },
-      { title: "不具合を直す", section: "プログラマー" },
-      { title: "ほかの人にテストプレイしてもらう", section: "プランナー" },
+      { title: tr("すべての素材を入れる"), section: "デザイナー" },
+      { title: tr("効果音と BGM を入れる"), section: "デザイナー" },
+      { title: tr("難しさを調整する"), section: "プランナー" },
+      { title: tr("不具合を直す"), section: "プログラマー" },
+      { title: tr("ほかの人にテストプレイしてもらう"), section: "プランナー" },
     ],
   },
   {
-    title: "発表",
+    title: tr("発表"),
     until: 1,
     tasks: [
-      { title: "発表の資料を作る", section: "プランナー" },
-      { title: "プレイ動画を撮る", section: "デザイナー" },
-      { title: "提出用のビルドを作る", section: "プログラマー" },
-      { title: "振り返りをする", section: "その他" },
+      { title: tr("発表の資料を作る"), section: "プランナー" },
+      { title: tr("プレイ動画を撮る"), section: "デザイナー" },
+      { title: tr("提出用のビルドを作る"), section: "プログラマー" },
+      { title: tr("振り返りをする"), section: "その他" },
     ],
   },
 ];

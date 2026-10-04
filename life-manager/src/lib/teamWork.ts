@@ -1,5 +1,6 @@
 // ヒストリーの「チームの仕事」: これまでの合計（減らない数）と、前に見た数・届いた節目（この PC に覚える）
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
+import { tr } from "./i18n";
 
 export interface TeamTotals {
   /** 既定のブランチのコミット */
@@ -16,11 +17,11 @@ export interface TeamTotals {
 export const teamTotals = (owner: string, repo: string) => invoke<TeamTotals>("team_totals", { owner, repo });
 
 export const TEAM_PARTS: { key: keyof TeamTotals; icon: string; label: string }[] = [
-  { key: "commits", icon: "⬆", label: "コミット" },
-  { key: "done", icon: "✅", label: "終えたタスク" },
-  { key: "merged", icon: "🔃", label: "マージしたプルリク" },
-  { key: "comments", icon: "💬", label: "コメント" },
-  { key: "releases", icon: "🏷", label: "リリース" },
+  { key: "commits", icon: "⬆", label: tr("コミット") },
+  { key: "done", icon: "✅", label: tr("終えたタスク") },
+  { key: "merged", icon: "🔃", label: tr("マージしたプルリク") },
+  { key: "comments", icon: "💬", label: tr("コメント") },
+  { key: "releases", icon: "🏷", label: tr("リリース") },
 ];
 
 /** 読めなかった数（null。問い合わせの 1 つが時間切れなど）は、前に見た数で埋める。一時的に読めなかっただけで、合計が減って見え、

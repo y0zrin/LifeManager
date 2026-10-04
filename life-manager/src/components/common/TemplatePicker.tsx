@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
+import { tr, trx } from "../../lib/i18n";
 
 interface TemplatePickerProps {
   /** リポジトリのテンプレート（null は読み込み中）。空なら見本を出す */
@@ -25,7 +26,7 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
     setMessage(null);
     try {
       await onPlaceBuiltins();
-      setMessage({ text: "テンプレートを置きました" });
+      setMessage({ text: tr("テンプレートを置きました") });
     } catch (e) {
       setMessage({ text: String(e), error: true });
     } finally {
@@ -36,40 +37,39 @@ export function TemplatePicker({ templates, selected, onSelect, onPlaceBuiltins,
   return (
     <div className="issue-templates">
       <div className="issue-templates-row">
-        <span className="issue-templates-label">テンプレート:</span>
+        <span className="issue-templates-label">{tr("テンプレート:")}</span>
         <button type="button" className={`template-chip${selected === null ? " on" : ""}`} onClick={() => onSelect(null)}>
-          なし
+          {tr("なし")}
         </button>
         {templates === null && !error ? (
-          <span className="issue-templates-note">読み込み中…</span>
+          <span className="issue-templates-note">{tr("読み込み中…")}</span>
         ) : (
           shown.map((t) => (
-            <button key={t.file} type="button" className={`template-chip${selected === t.file ? " on" : ""}`} title={t.about} onClick={() => onSelect(t)}>
-              {t.name}
-              {t.about && <small>{t.about}</small>}
+            <button key={t.file} type="button" className={`template-chip${selected === t.file ? " on" : ""}`} title={tr(t.about)} onClick={() => onSelect(t)}>
+              {tr(t.name)}
+              {t.about && <small>{tr(t.about)}</small>}
             </button>
           ))
         )}
       </div>
       {none && (
         <div className="issue-templates-none">
-          <b>このリポジトリにはまだテンプレートがありません。</b>見本の 3 つを使えます。{" "}
+          {trx("<0>このリポジトリにはまだテンプレートがありません。</0>見本の 3 つを使えます。", undefined, [<b />])}{" "}
           <button type="button" className="link-button" disabled={busy} onClick={place}>
-            このリポジトリに置く
+            {tr("このリポジトリに置く")}
           </button>
           <div className="cmd-preview">
-            <span>置くファイル</span>
-            <code>{BUILTIN_TEMPLATES.map((t) => `.github/ISSUE_TEMPLATE/${t.file}`).join("\n")}</code>
+            {trx("<0>置くファイル</0><1>{join}</1>", { join: BUILTIN_TEMPLATES.map((t) => `.github/ISSUE_TEMPLATE/${t.file}`).join("\n") }, [<span />, <code />])}
           </div>
         </div>
       )}
       {busy && (
         <p className="issue-templates-note">
-          <i className="spinner" aria-hidden="true" /> 置いています…
+          <i className="spinner" aria-hidden="true" /> {" "}{tr("置いています…")}
         </p>
       )}
       {message && <p className={`sub-issues-note${message.error ? " sub-issues-note--error" : " sub-issues-note--ok"}`}>{message.text}</p>}
-      {error && <p className="issue-templates-note">テンプレートを読めませんでした（{error}）。見本を出しています</p>}
+      {error && <p className="issue-templates-note">{trx("テンプレートを読めませんでした（{error}）。見本を出しています", { error })}</p>}
     </div>
   );
 }

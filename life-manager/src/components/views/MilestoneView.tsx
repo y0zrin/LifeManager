@@ -17,6 +17,7 @@ import {
 import { celebrateMilestone } from "../../lib/celebrate";
 import { StageArt } from "../milestones/StageArt";
 import { StageMeter } from "../milestones/StageMeter";
+import { tr, trx } from "../../lib/i18n";
 
 interface MilestoneViewProps {
   milestones: GitHubMilestone[];
@@ -53,7 +54,7 @@ function md(date: string): string {
 function rangeText(stage: Stage): string {
   const { start, end } = stage.range;
   if (start && end) return `${md(start)}〜${md(end)}`;
-  return end ? `〜${md(end)}` : "期限なし";
+  return end ? `〜${md(end)}` : tr("期限なし");
 }
 
 /** 見出しの小さな字（STAGE 3・BOSS 3・GOAL・LAST BOSS） */
@@ -139,7 +140,7 @@ export function MilestoneView({
   const entries = useMemo(() => velocity(issues, closedIssues, mode, unit), [issues, closedIssues, mode, unit]);
   const avg = average(entries.map((e) => (mode === "count" ? e.closedCount : e.done)));
   const finished = useMemo(() => finishedMilestones(issues, closedIssues), [issues, closedIssues]);
-  const fmtMode = (v: number) => (mode === "count" ? `${formatNumber(v)} 件` : formatEstimate(Math.round(v * 10) / 10, unit));
+  const fmtMode = (v: number) => (mode === "count" ? tr("{formatNumber} 件", { formatNumber: formatNumber(v) }) : formatEstimate(Math.round(v * 10) / 10, unit));
   // 入れた量（画面の数え方で）。まだ終わっていないマイルストーンは、最近のペースと比べる
   const planned = stage ? [...stage.open, ...stage.done].reduce((sum, i) => sum + weightOf(i, mode, unit), 0) : 0;
   const compare = stage && avg !== null && !finished.has(stage.ms.number) && stage.total > 0;
@@ -238,13 +239,13 @@ export function MilestoneView({
 
   const createForm = showForm && (
     <div className="form-card">
-      <input value={msTitle} onChange={(e) => setMsTitle(e.target.value)} placeholder={quest ? "ボスの名前（マイルストーン名）" : "マイルストーン名"} className="input-full" />
-      <input value={msDesc} onChange={(e) => setMsDesc(e.target.value)} placeholder="説明" className="input-full" />
+      <input value={msTitle} onChange={(e) => setMsTitle(e.target.value)} placeholder={quest ? tr("ボスの名前（マイルストーン名）") : tr("マイルストーン名")} className="input-full" />
+      <input value={msDesc} onChange={(e) => setMsDesc(e.target.value)} placeholder={tr("説明")} className="input-full" />
       <div className="ms-dates">
-        <DatePickerButton value={msStart} onChange={setMsStart} label={msStart ? `開始 ${msStart}` : "開始日を選択（スプリントの始まり）"} />
-        <DatePickerButton value={msDue} onChange={setMsDue} label={msDue || "期限を選択"} />
+        <DatePickerButton value={msStart} onChange={setMsStart} label={msStart ? tr("開始 {msStart}", { msStart }) : tr("開始日を選択（スプリントの始まり）")} />
+        <DatePickerButton value={msDue} onChange={setMsDue} label={msDue || tr("期限を選択")} />
       </div>
-      <button onClick={handleCreate} className="btn-primary">作成</button>
+      <button onClick={handleCreate} className="btn-primary">{tr("作成")}</button>
     </div>
   );
 
@@ -252,17 +253,17 @@ export function MilestoneView({
     <div className="content ms-view">
       <div className="toolbar">
         <button onClick={() => setShowForm(!showForm)} className="btn-sm">
-          {showForm ? "×" : quest ? "+ ボスを置く" : "+ マイルストーン"}
+          {showForm ? "×" : quest ? tr("+ ボスを置く") : tr("+ マイルストーン")}
         </button>
         <button type="button" onClick={() => setPlanOpen(true)} className="btn-sm">
-          📋 見本の計画から作る…
+          {tr("📋 見本の計画から作る…")}
         </button>
-        <button onClick={onRefresh} className="btn-sm">更新</button>
+        <button onClick={onRefresh} className="btn-sm">{tr("更新")}</button>
         {(issues.length > 0 || closedIssues.length > 0) && (
-          <span className="pace-mode ms-mode" role="group" aria-label="数え方" title="バーと目安を見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）">
+          <span className="pace-mode ms-mode" role="group" aria-label={tr("数え方")} title={tr("バーと目安を見積もりで数えるか件数で数えるか（オーバービューのチームのペースと同じ）")}>
             {(["estimate", "count"] as PaceMode[]).map((m) => (
               <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
-                {m === "estimate" ? "見積もり" : "件数"}
+                {m === "estimate" ? tr("見積もり") : tr("件数")}
               </button>
             ))}
           </span>
@@ -275,14 +276,14 @@ export function MilestoneView({
 
       {!stage ? (
         <div className={`ms-select ms-empty${quest ? " quest" : ""}`}>
-          <p>{quest ? "まだボスがいません。" : "まだマイルストーンがありません。"}</p>
+          <p>{quest ? tr("まだボスがいません。") : tr("まだマイルストーンがありません。")}</p>
           {!showForm && (
             <div className="ms-empty-actions">
               <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
-                {quest ? "+ 最初のボスを置く" : "+ 最初のマイルストーンを作る"}
+                {quest ? tr("+ 最初のボスを置く") : tr("+ 最初のマイルストーンを作る")}
               </button>
               <button type="button" className="btn-sm" onClick={() => setPlanOpen(true)}>
-                📋 見本の計画から作る…
+                {tr("📋 見本の計画から作る…")}
               </button>
             </div>
           )}
@@ -299,60 +300,60 @@ export function MilestoneView({
               hp={hp}
               repoKey={repoKey}
               unit={unit}
-              paceText={compare && avg !== null ? `目安 ${fmtMode(avg)} に対して ${fmtMode(planned)}` : null}
+              paceText={compare && avg !== null ? tr("目安 {fmtMode} に対して {fmtMode2}", { fmtMode: fmtMode(avg), fmtMode2: fmtMode(planned) }) : null}
               over={!!compare && avg !== null && planned > avg * 1.1}
             />
             {next && <SidePanel stage={next} side="r" quest={quest} onPick={() => go(at + 1)} />}
-            <button type="button" className="ms-arrow l" onClick={() => go(at - 1)} disabled={!prev} aria-label="前のマイルストーン" title="前へ（←）">‹</button>
-            <button type="button" className="ms-arrow r" onClick={() => go(at + 1)} disabled={!next} aria-label="次のマイルストーン" title="次へ（→）">›</button>
+            <button type="button" className="ms-arrow l" onClick={() => go(at - 1)} disabled={!prev} aria-label={tr("前のマイルストーン")} title={tr("前へ（←）")}>‹</button>
+            <button type="button" className="ms-arrow r" onClick={() => go(at + 1)} disabled={!next} aria-label={tr("次のマイルストーン")} title={tr("次へ（→）")}>›</button>
             <Road stages={stages} at={at} quest={quest} onPick={go} />
           </div>
 
           <div className="ms-tasks">
             <div className="ms-tasks-head">
-              <b>{quest ? `のこりのタスク ${stage.open.length}` : `残り ${stage.open.length}`}</b>
-              <span>{quest ? `倒したタスク ${stage.done.length}` : `終わった ${stage.done.length}`}</span>
+              <b>{quest ? tr("のこりのタスク {length}", { length: stage.open.length }) : tr("残り {length}", { length: stage.open.length })}</b>
+              <span>{quest ? tr("倒したタスク {length}", { length: stage.done.length }) : tr("終わった {length}", { length: stage.done.length })}</span>
               <span className="grow" />
               {!stage.closed && (
-                <button type="button" className="btn-sm ms-to-board" onClick={() => onAddOnBoard(stage.ms.number)} title="このマイルストーンのタスクを表示したボードを開きます。「＋ ここにタスクを追加」で足したタスクは、このマイルストーンに入ります">
-                  📊 ボードでタスクを足す
+                <button type="button" className="btn-sm ms-to-board" onClick={() => onAddOnBoard(stage.ms.number)} title={tr("このマイルストーンのタスクを表示したボードを開きます。「＋ ここにタスクを追加」で足したタスクは、このマイルストーンに入ります")}>
+                  {tr("📊 ボードでタスクを足す")}
                 </button>
               )}
               {stage.range.start && stage.total > 0 && (
                 <button type="button" className={`btn-sm${showBurndown ? " on" : ""}`} aria-pressed={showBurndown} onClick={() => setShowBurndown(!showBurndown)}>
-                  📉 バーンダウン
+                  {tr("📉 バーンダウン")}
                 </button>
               )}
               <button type="button" className="btn-sm" onClick={() => (editing ? setEditing(false) : startEditing(stage.ms))}>
-                {editing ? "編集をやめる" : "編集"}
+                {editing ? tr("編集をやめる") : tr("編集")}
               </button>
               {stage.closed ? (
-                <button type="button" className="btn-sm" disabled={busy} onClick={() => reopen(stage)}>再開</button>
+                <button type="button" className="btn-sm" disabled={busy} onClick={() => reopen(stage)}>{tr("再開")}</button>
               ) : (
-                <button type="button" className="btn-primary ms-close" disabled={busy} onClick={() => setConfirmClose(true)}>完了</button>
+                <button type="button" className="btn-primary ms-close" disabled={busy} onClick={() => setConfirmClose(true)}>{tr("完了")}</button>
               )}
             </div>
             {confirmClose && !stage.closed && (
               <div className="ms-confirm">
-                「{stage.ms.title}」を完了にします（GitHub のマイルストーンを閉じます）。
-                {stage.open.length > 0 && ` まだ ${stage.open.length} 件のタスクが残っています（タスクはそのまま残ります）。`}
+                {trx("「{title}」を完了にします（GitHub のマイルストーンを閉じます）。", { title: stage.ms.title })}
+                {stage.open.length > 0 && tr(" まだ {length} 件のタスクが残っています（タスクはそのまま残ります）。", { length: stage.open.length })}
                 <span className="ms-confirm-actions">
-                  <button type="button" className="btn-primary" disabled={busy} onClick={() => closeNow(stage)}>完了にする</button>
-                  <button type="button" className="btn-sm" onClick={() => setConfirmClose(false)}>やめる</button>
+                  <button type="button" className="btn-primary" disabled={busy} onClick={() => closeNow(stage)}>{tr("完了にする")}</button>
+                  <button type="button" className="btn-sm" onClick={() => setConfirmClose(false)}>{tr("やめる")}</button>
                 </span>
               </div>
             )}
             {editing && (
               <div className="form-card ms-edit">
-                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="マイルストーン名" className="input-full" />
-                <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="説明" className="input-full" />
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder={tr("マイルストーン名")} className="input-full" />
+                <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={tr("説明")} className="input-full" />
                 <div className="ms-dates">
-                  <DatePickerButton value={editStart} onChange={setEditStart} label={editStart ? `開始 ${editStart}` : "開始日を選択（決めなければ作った日）"} />
-                  <DatePickerButton value={editDue} onChange={setEditDue} label={editDue || "期限を選択"} />
+                  <DatePickerButton value={editStart} onChange={setEditStart} label={editStart ? tr("開始 {editStart}", { editStart }) : tr("開始日を選択（決めなければ作った日）")} />
+                  <DatePickerButton value={editDue} onChange={setEditDue} label={editDue || tr("期限を選択")} />
                 </div>
                 <div className="ms-confirm-actions">
-                  <button className="btn-primary" onClick={() => handleSaveEdit(stage.ms.number)}>保存</button>
-                  <button className="btn-sm" onClick={() => setEditing(false)}>キャンセル</button>
+                  <button className="btn-primary" onClick={() => handleSaveEdit(stage.ms.number)}>{tr("保存")}</button>
+                  <button className="btn-sm" onClick={() => setEditing(false)}>{tr("キャンセル")}</button>
                 </div>
               </div>
             )}
@@ -364,14 +365,14 @@ export function MilestoneView({
             </div>
             {stage.done.length > 0 && (
               <>
-                <p className="ms-done-label">{quest ? `倒したタスク（${stage.done.length}）` : `終わったタスク（${stage.done.length}）`}</p>
+                <p className="ms-done-label">{quest ? tr("倒したタスク（{length}）", { length: stage.done.length }) : tr("終わったタスク（{length}）", { length: stage.done.length })}</p>
                 <div className="ms-grid ms-grid-done">
                   {stage.done.map((i) => <TicketCard key={i.number} issue={i} onSelect={onSelectIssue} />)}
                 </div>
               </>
             )}
             {stage.open.length === 0 && stage.done.length === 0 && (
-              <p className="ms-none">このマイルストーンに入れたタスクはありません。</p>
+              <p className="ms-none">{tr("このマイルストーンに入れたタスクはありません。")}</p>
             )}
           </div>
         </>
@@ -408,12 +409,12 @@ function MainPanel({ stage, dir, quest, hp, repoKey, unit, paceText, over }: Mai
         <div key={hit} className={hit > 0 ? "ms-art-inner hit" : "ms-art-inner"}>
           <StageArt no={stage.no} last={stage.last} quest={quest} />
         </div>
-        {stage.cleared && quest && <span className="ms-gekiha">撃破</span>}
+        {stage.cleared && quest && <span className="ms-gekiha">{tr("撃破")}</span>}
       </div>
       <div className="ms-info">
         <div className="ms-kick">
           {kickerOf(stage, quest)}
-          <span>{rangeText(stage)}{days ? ` ・ ${days}` : ""}</span>
+          <span>{rangeText(stage)}{days ? tr(" ・ {days}", { days }) : ""}</span>
           {stage.cleared && !quest && <span className="ms-clear">CLEAR {"★".repeat(stage.stars)}</span>}
         </div>
         <h2 className="ms-name">{stage.ms.title}</h2>
@@ -428,20 +429,20 @@ function MainPanel({ stage, dir, quest, hp, repoKey, unit, paceText, over }: Mai
           ) : (
             <>
               <b>{percent}%</b>
-              <span>{stage.done.length} / {stage.done.length + stage.open.length} 件{stage.measure === "estimate" ? ` ・ ${fmt(done)} / ${fmt(stage.total)}` : ""}</span>
+              <span>{stage.done.length} / {stage.done.length + stage.open.length} {" "}{tr("件")}{stage.measure === "estimate" ? tr(" ・ {fmt} / {fmt2}", { fmt: fmt(done), fmt2: fmt(stage.total) }) : ""}</span>
             </>
           )}
           <span className="grow" />
-          <span>{stage.cleared ? (quest ? "倒した！" : "ぜんぶ終えました") : quest ? `倒すまで 残り ${stage.open.length} 件` : `残り ${stage.open.length} 件`}</span>
+          <span>{stage.cleared ? (quest ? tr("倒した！") : tr("ぜんぶ終えました")) : quest ? tr("倒すまで 残り {length} 件", { length: stage.open.length }) : tr("残り {length} 件", { length: stage.open.length })}</span>
         </div>
         <StageMeter seenKey={`${repoKey}#${stage.ms.number}#${stage.measure}`} remaining={stage.remaining} total={stage.total} hp={hp} fmt={fmt} onHit={() => setHit((h) => h + 1)} />
         <div className="ms-facts">
-          {hp && done > 0 && <span>{quest ? "与えたダメージ" : "終えた量"} <b>{fmt(done)}</b></span>}
-          {paceText && <span className={over ? "over" : ""} title="最近のマイルストーンで終えた量の平均（チームのペース）と比べています">{paceText}</span>}
+          {hp && done > 0 && <span>{quest ? tr("与えたダメージ") : tr("終えた量")} <b>{fmt(done)}</b></span>}
+          {paceText && <span className={over ? "over" : ""} title={tr("最近のマイルストーンで終えた量の平均（チームのペース）と比べています")}>{paceText}</span>}
         </div>
         {team.length > 0 && (
           <div className="ms-party">
-            {quest ? "パーティ" : "チーム"}
+            {quest ? tr("パーティ") : tr("チーム")}
             {team.map((u) => <Face key={u.login} login={u.login} url={u.avatar_url} />)}
           </div>
         )}
@@ -453,10 +454,10 @@ function MainPanel({ stage, dir, quest, hp, repoKey, unit, paceText, over }: Mai
 /** となりのマイルストーン（小さく。押すと移る） */
 function SidePanel({ stage, side, quest, onPick }: { stage: Stage; side: "l" | "r"; quest: boolean; onPick: () => void }) {
   return (
-    <button type="button" className={`ms-panel side ${side}${stage.cleared ? " cleared" : ""}`} onClick={onPick} title={`${stage.ms.title} へ`} tabIndex={-1}>
+    <button type="button" className={`ms-panel side ${side}${stage.cleared ? " cleared" : ""}`} onClick={onPick} title={tr("{title} へ", { title: stage.ms.title })} tabIndex={-1}>
       <span className={`ms-art${quest && stage.cleared ? " defeated" : ""}`}>
         <span className="ms-art-inner"><StageArt no={stage.no} last={stage.last} quest={quest} /></span>
-        {stage.cleared && quest && <span className="ms-gekiha">撃破</span>}
+        {stage.cleared && quest && <span className="ms-gekiha">{tr("撃破")}</span>}
       </span>
       <span className="ms-info">
         <span className="ms-kick">
@@ -504,7 +505,7 @@ function Road({ stages, at, quest, onPick }: { stages: Stage[]; at: number; ques
     <div className="ms-road-wrap" ref={wrapRef}>
       <div className="ms-road" style={{ minWidth: n * 90 }}>
         <div className="ms-road-line" />
-        {todayAt && <span className="ms-today" style={{ left: todayAt }}><b>今日</b></span>}
+        {todayAt && <span className="ms-today" style={{ left: todayAt }}><b>{tr("今日")}</b></span>}
         {stages.map((s, i) => (
           <button key={s.ms.number} type="button" className={`ms-node${i === at ? " on" : ""}${s.cleared ? " done" : ""}${s.last ? " goal" : ""}`}
             style={{ left: pos(i) }} onClick={() => onPick(i)} title={`${s.ms.title}（${rangeText(s)}）`} aria-current={i === at ? "true" : undefined}>
@@ -514,7 +515,7 @@ function Road({ stages, at, quest, onPick }: { stages: Stage[]; at: number; ques
         <span className="ms-pointer" style={{ left: pos(at) }} aria-hidden="true" />
         {stages.map((s, i) => (
           <span key={`d${s.ms.number}`} className={`ms-node-date${i === at ? " on" : ""}`} style={{ left: pos(i) }}>
-            {s.range.end ? `〜${md(s.range.end)}` : "期限なし"}
+            {s.range.end ? `〜${md(s.range.end)}` : tr("期限なし")}
           </span>
         ))}
       </div>

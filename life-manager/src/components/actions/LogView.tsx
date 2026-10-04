@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { errorRange, logLine } from "../../lib/actions";
+import { tr, trx } from "../../lib/i18n";
 
 interface LogViewProps {
   lines: string[];
@@ -26,11 +27,11 @@ export function LogView({ lines, truncated }: LogViewProps) {
   return (
     <div className="ac-log">
       {lines.length === 0 ? (
-        <div className="ac-log-note">ログは空です。</div>
+        <div className="ac-log-note">{tr("ログは空です。")}</div>
       ) : (
         <>
-          {!all && start > 0 && <div className="ac-log-note">…（エラーのまわりだけを出しています。上に {start} 行）</div>}
-          {all && truncated && <div className="ac-log-note">…（長いので、最後の {lines.length} 行だけです）</div>}
+          {!all && start > 0 && <div className="ac-log-note">{trx("…（エラーのまわりだけを出しています。上に {start} 行）", { start })}</div>}
+          {all && truncated && <div className="ac-log-note">{trx("…（長いので、最後の {length} 行だけです）", { length: lines.length })}</div>}
           {shown.map((l) => (
             <div key={l.n} className={`ac-log-line k-${l.kind}`}>
               <span className="ac-log-n">{l.n}</span>
@@ -41,7 +42,7 @@ export function LogView({ lines, truncated }: LogViewProps) {
       )}
       {(cut || all) && lines.length > 0 && (
         <button type="button" className="ac-log-toggle" onClick={() => setAll((v) => !v)}>
-          {all ? "エラーのまわりだけにする" : `ログをすべて見る（${lines.length} 行）`}
+          {all ? tr("エラーのまわりだけにする") : tr("ログをすべて見る（{length} 行）", { length: lines.length })}
         </button>
       )}
     </div>

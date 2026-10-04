@@ -3,6 +3,7 @@ import type { GitHubIssue, GitHubMilestone, GitHubUser } from "./types";
 import { dayOfDate, dayOfIso, dayOfTime, sprintRange, weightOf, type PaceMode, type SprintRange } from "./sprint";
 import { formatEstimate, formatNumber, type EstimateUnit } from "./estimate";
 import type { MilestoneClearDetail } from "./celebrate";
+import { tr } from "./i18n";
 
 /** 進み具合のバー。達成率（のびる）か HP（ボスの残りの体力。減る）か。auto はテーマに合わせる（クエストは HP） */
 export type MilestoneBar = "auto" | "progress" | "hp";
@@ -94,15 +95,15 @@ export function defaultStage(stages: Stage[], today: Date = new Date()): number 
 /** 量の書き方（見積もり: 「10pt」、件数: 「3 件」） */
 export function formatAmount(v: number, measure: PaceMode, unit: EstimateUnit): string {
   const rounded = Math.round(v * 10) / 10;
-  return measure === "count" ? `${formatNumber(rounded)} 件` : formatEstimate(rounded, unit);
+  return measure === "count" ? tr("{formatNumber} 件", { formatNumber: formatNumber(rounded) }) : formatEstimate(rounded, unit);
 }
 
 /** 期限までの日数（「あと 7 日」「今日まで」「3 日すぎ」。閉じたものと期限のないものは null） */
 export function daysLeftText(stage: Stage, today: Date = new Date()): string | null {
   if (stage.closed || !stage.ms.due_on) return null;
   const left = dayOfIso(stage.ms.due_on) - dayOfTime(today);
-  if (left > 0) return `あと ${left} 日`;
-  return left === 0 ? "今日まで" : `${-left} 日すぎ`;
+  if (left > 0) return tr("あと {left} 日", { left });
+  return left === 0 ? tr("今日まで") : tr("{v} 日すぎ", { v: -left });
 }
 
 /** ステージにかかわった人（担当。5 人まで） */

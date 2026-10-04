@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as git from "../../lib/git";
 import type { GitSetupStatus } from "../../lib/types";
 import { isEscape } from "../../lib/keys";
+import { tr, trx } from "../../lib/i18n";
 
 interface SetupDialogProps {
   status: GitSetupStatus;
@@ -19,7 +20,7 @@ type Step = "git" | "installing" | "failed" | "identity" | "ready";
 
 const INSTALL_COMMANDS: Record<string, string> = {
   winget: "winget install --id Git.Git -e --source winget",
-  download: "（Git for Windows の公式のインストーラーを GitHub から取ってきて実行）",
+  download: tr("（Git for Windows の公式のインストーラーを GitHub から取ってきて実行）"),
   xcode: "xcode-select --install",
 };
 
@@ -86,12 +87,12 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
       onChanged();
       if (!next.git) {
         // macOS はインストールの画面が別に出る。終わってから確かめ直してもらう
-        setInstalledNote(run.output || "インストールが終わったら、「もう一度確かめる」を押してください");
+        setInstalledNote(run.output || tr("インストールが終わったら、「もう一度確かめる」を押してください"));
         setStep("failed");
         return;
       }
-      onNotify("ok", `Git ${next.git} をインストールしました`, run.command);
-      setInstalledNote(`Git ${next.git} をインストールしました。`);
+      onNotify("ok", tr("Git {git} をインストールしました", { git: next.git }), run.command);
+      setInstalledNote(tr("Git {git} をインストールしました。", { git: next.git }));
       setName(next.user_name ?? "");
       setEmail(next.user_email ?? "");
       setStep(!next.user_name || !next.user_email ? "identity" : "ready");
@@ -106,7 +107,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
     setStatus(next);
     if (next.git) {
       onChanged();
-      setInstalledNote(`Git ${next.git} が使えるようになりました。`);
+      setInstalledNote(tr("Git {git} が使えるようになりました。", { git: next.git }));
       setError(null);
       setStep(!next.user_name || !next.user_email ? "identity" : "ready");
     }
@@ -117,7 +118,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
     setError(null);
     try {
       const run = await git.setIdentity(name, email);
-      onNotify("ok", "コミットに使う名前とメールアドレスを決めました", run.command);
+      onNotify("ok", tr("コミットに使う名前とメールアドレスを決めました"), run.command);
       onChanged();
       onClose(false);
     } catch (e) {
@@ -127,62 +128,61 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
     }
   }
 
-  const identityCommand = `${git.displayCommand(["config", "--global", "user.name", name.trim() || "名前"])} && ${git.displayCommand([
+  const identityCommand = `${git.displayCommand(["config", "--global", "user.name", name.trim() || tr("名前")])} && ${git.displayCommand([
     "config",
     "--global",
     "user.email",
-    email.trim() || "メールアドレス",
+    email.trim() || tr("メールアドレス"),
   ])}`;
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={close}>
-      <div className="git-dialog setup-dialog" role="dialog" aria-modal="true" aria-label="使う準備" onClick={(e) => e.stopPropagation()}>
+      <div className="git-dialog setup-dialog" role="dialog" aria-modal="true" aria-label={tr("使う準備")} onClick={(e) => e.stopPropagation()}>
         {(step === "git" || step === "installing" || step === "failed") && (
           <>
-            <h3>Git をインストールしますか？</h3>
+            <h3>{tr("Git をインストールしますか？")}</h3>
             <p className="git-dialog-message">
-              Life Manager の「作業をする」「ブランチ」「全体図」では、Git（ギット）を使います。Git はファイルの変更を記録する道具です。いつ、だれが、何を変えたかが残ります。この PC には Git が入っていないようです。
+              {tr("Life Manager の「作業をする」「ブランチ」「全体図」では、Git（ギット）を使います。Git はファイルの変更を記録する道具です。いつ、だれが、何を変えたかが残ります。この PC には Git が入っていないようです。")}
             </p>
             {status.installer ? (
               <>
                 <p className="git-dialog-note">
-                  インストールには数分かかります。
-                  {status.installer !== "xcode" && "途中で「このアプリがデバイスに変更を加えることを許可しますか？」と出たら「はい」を押してください。"}
+                  {tr("インストールには数分かかります。")}
+                  {status.installer !== "xcode" && tr("途中で「このアプリがデバイスに変更を加えることを許可しますか？」と出たら「はい」を押してください。")}
                 </p>
                 <div className="cmd-preview">
-                  <span>実行するコマンド</span>
-                  <code>{INSTALL_COMMANDS[status.installer]}</code>
+                  {trx("<0>実行するコマンド</0><1>{INSTALL_COMMANDS}</1>", { INSTALL_COMMANDS: INSTALL_COMMANDS[status.installer] }, [<span />, <code />])}
                 </div>
               </>
             ) : (
-              <p className="git-dialog-note">この PC では自動でインストールできません。Git のページからインストールしてください。</p>
+              <p className="git-dialog-note">{tr("この PC では自動でインストールできません。Git のページからインストールしてください。")}</p>
             )}
-            {step === "installing" && <p className="git-dialog-running"><i className="spinner" aria-hidden="true" /> Git をインストールしています…</p>}
+            {step === "installing" && <p className="git-dialog-running"><i className="spinner" aria-hidden="true" /> {" "}{tr("Git をインストールしています…")}</p>}
             {installedNote && step === "failed" && <p className="git-dialog-note">{installedNote}</p>}
             {error && <p className="git-dialog-error">{error}</p>}
             <div className="git-dialog-actions">
               {auto && step === "git" && (
                 <label className="chk setup-dont-show">
                   <input type="checkbox" checked={dontShow} onChange={(e) => setDontShow(e.target.checked)} />
-                  次からは起動時に表示しない
+                  {tr("次からは起動時に表示しない")}
                 </label>
               )}
               <button type="button" className="btn-sm" disabled={busy} onClick={close}>
-                あとで
+                {tr("あとで")}
               </button>
               {(step === "failed" || !status.installer) && (
                 <button type="button" className="btn-sm" onClick={() => openUrl("https://git-scm.com/downloads")}>
-                  Git のページを開く
+                  {tr("Git のページを開く")}
                 </button>
               )}
               {step === "failed" && (
                 <button type="button" className="btn-sm" onClick={recheck}>
-                  もう一度確かめる
+                  {tr("もう一度確かめる")}
                 </button>
               )}
               {status.installer && (
                 <button type="button" className="btn-primary" ref={firstRef} disabled={busy} onClick={install}>
-                  {step === "failed" ? "もう一度インストールする" : "インストールする"}
+                  {step === "failed" ? tr("もう一度インストールする") : tr("インストールする")}
                 </button>
               )}
             </div>
@@ -191,37 +191,35 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
 
         {step === "identity" && (
           <>
-            <h3>コミットに使う名前とメールアドレス</h3>
+            <h3>{tr("コミットに使う名前とメールアドレス")}</h3>
             {installedNote && <p className="local-folder-message local-folder-message--ok">{installedNote}</p>}
             <p className="git-dialog-message">
-              だれが変更したかを残すため、コミットには名前とメールアドレスを付けます。この PC で一度決めれば、すべてのリポジトリで使われます。
+              {tr("だれが変更したかを残すため、コミットには名前とメールアドレスを付けます。この PC で一度決めれば、すべてのリポジトリで使われます。")}
             </p>
             <label className="git-dialog-label">
-              名前
+              {tr("名前")}
               <input className="input-full" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} disabled={saving} />
             </label>
             <label className="git-dialog-label">
-              メールアドレス
+              {tr("メールアドレス")}
               <input className="input-full" value={email} autoComplete="off" spellCheck={false} onChange={(e) => setEmail(e.target.value)} disabled={saving} />
             </label>
             <p className="git-dialog-note">
-              はじめに入っているのは、GitHub が用意する公開用のアドレス（…@users.noreply.github.com）です。コミットは GitHub
-              で公開されるので、ふだんのメールアドレスの代わりにこれを使うと、アドレスを知られずにすみます。
+              {tr("はじめに入っているのは、GitHub が用意する公開用のアドレス（…@users.noreply.github.com）です。コミットは GitHub で公開されるので、ふだんのメールアドレスの代わりにこれを使うと、アドレスを知られずにすみます。")}
             </p>
             <div className="cmd-preview">
-              <span>実行するコマンド</span>
-              <code>{identityCommand}</code>
+              {trx("<0>実行するコマンド</0><1>{identityCommand}</1>", { identityCommand }, [<span />, <code />])}
             </div>
             {error && <p className="git-dialog-error">{error}</p>}
             <div className="git-dialog-actions">
               {auto && !installedNote && (
                 <label className="chk setup-dont-show">
                   <input type="checkbox" checked={dontShow} onChange={(e) => setDontShow(e.target.checked)} />
-                  次からは起動時に表示しない
+                  {tr("次からは起動時に表示しない")}
                 </label>
               )}
               <button type="button" className="btn-sm" disabled={saving} onClick={close}>
-                あとで
+                {tr("あとで")}
               </button>
               <button
                 type="button"
@@ -230,7 +228,7 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
                 disabled={saving || !name.trim() || !email.trim()}
                 onClick={saveIdentity}
               >
-                {saving ? "設定しています…" : "設定する"}
+                {saving ? tr("設定しています…") : tr("設定する")}
               </button>
             </div>
           </>
@@ -238,22 +236,22 @@ export function SetupDialog({ status: initial, auto, onClose, onChanged, onNotif
 
         {step === "ready" && (
           <>
-            <h3>使う準備はできています</h3>
+            <h3>{tr("使う準備はできています")}</h3>
             {installedNote && <p className="local-folder-message local-folder-message--ok">{installedNote}</p>}
             <dl className="setup-summary">
               <dt>Git</dt>
               <dd>{status.git}</dd>
-              <dt>コミットに使う名前</dt>
+              <dt>{tr("コミットに使う名前")}</dt>
               <dd>{status.user_name}</dd>
-              <dt>メールアドレス</dt>
+              <dt>{tr("メールアドレス")}</dt>
               <dd>{status.user_email}</dd>
             </dl>
             <div className="git-dialog-actions">
               <button type="button" className="btn-sm" onClick={() => setStep("identity")}>
-                名前とメールアドレスを変える
+                {tr("名前とメールアドレスを変える")}
               </button>
               <button type="button" className="btn-primary" ref={firstRef} onClick={close}>
-                閉じる
+                {tr("閉じる")}
               </button>
             </div>
           </>

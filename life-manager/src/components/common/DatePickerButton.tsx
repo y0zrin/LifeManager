@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { tr } from "../../lib/i18n";
 
 interface DatePickerButtonProps {
   value: string;
@@ -12,7 +13,7 @@ interface DatePickerButtonProps {
  * WebView2の日本語ロケールで曜日が壊れる問題を回避するため、
  * input[type="date"] のテキスト表示を隠しボタンUIで代替する。
  */
-export function DatePickerButton({ value, onChange, label = "日付選択", className = "btn-sm" }: DatePickerButtonProps) {
+export function DatePickerButton({ value, onChange, label = tr("日付選択"), className = "btn-sm" }: DatePickerButtonProps) {
   const ref = useRef<HTMLInputElement>(null);
 
   return (

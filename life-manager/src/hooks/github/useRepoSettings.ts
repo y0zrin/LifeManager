@@ -1,11 +1,12 @@
 // リポジトリに置く設定（ルーチン・通知・リマインダー・ボード・保存した見方・見積もりの単位・イベント通知）と、Discord への知らせ
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import { normalizeViews, type SavedView } from "../../lib/savedViews";
 import { DEFAULT_UNIT, isEstimateUnit, type EstimateUnit } from "../../lib/estimate";
 import { issueRef } from "../../lib/issueRef";
 import type { BoardConfig, EventNotificationConfig, EventType, NotificationSchedule, Reminder, Routine } from "../../lib/types";
 import { DEFAULT_EVENT_NOTIF_CONFIG, pendingNote, type MakeEventNotice, type RepoScope } from "./shared";
+import { tr } from "../../lib/i18n";
 
 export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -130,7 +131,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setRoutines(routinesList);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -140,9 +141,9 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
   async function sendNotification(title: string, body: string) {
     try {
       await invoke("send_notification", { title, body });
-      setStatus("通知を送信しました");
+      setStatus(tr("通知を送信しました"));
     } catch (e) {
-      setStatus("通知エラー: " + e);
+      setStatus(tr("通知エラー: ") + e);
     }
   }
 
@@ -156,9 +157,9 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       const result = await invoke("save_reminders", { owner, repo, reminders: json });
       await invoke("refresh_scheduler");
       setReminders(updated);
-      setStatus(`${issueRef(issueNumber)} のリマインダーを設定しました${pendingNote(result)}`);
+      setStatus(tr("{issueRef} のリマインダーを設定しました{pendingNote}", { issueRef: issueRef(issueNumber), pendingNote: pendingNote(result) }));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -172,9 +173,9 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       const result = await invoke("save_reminders", { owner, repo, reminders: json });
       await invoke("refresh_scheduler");
       setReminders(updated);
-      setStatus(`リマインダーを削除しました${pendingNote(result)}`);
+      setStatus(tr("リマインダーを削除しました{pendingNote}", { pendingNote: pendingNote(result) }));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -188,7 +189,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setNotificationSchedules(schedules);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -202,7 +203,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setEventNotifConfig(config);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -216,7 +217,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setBoardConfig(config);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -229,7 +230,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setSavedViews(views);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -243,7 +244,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       setEstimateUnit(unit);
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -255,7 +256,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       const result = await invoke("set_discord_webhook", { owner, repo, webhookUrl });
       setStatus(result as string);
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -275,7 +276,7 @@ export function useRepoSettings({ owner, repo, setStatus }: RepoScope) {
       const result = await invoke("test_discord_webhook", { webhookUrl });
       setStatus(result as string);
     } catch (e) {
-      setStatus("Discordテスト送信エラー: " + e);
+      setStatus(tr("Discordテスト送信エラー: ") + e);
       throw e;
     }
   }

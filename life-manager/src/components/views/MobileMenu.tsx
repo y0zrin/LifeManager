@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import type { ViewType } from "../../lib/types";
 import type { Todo } from "../../lib/activity";
+import { tr } from "../../lib/i18n";
 
 export interface MenuTile {
   key: ViewType;
@@ -28,19 +29,19 @@ interface MobileMenuProps {
 
 /** メニューの「あなたがすること」: 数と、はじめの 2 つ。押すとヒストリーを開く（全部はそこに） */
 export function MenuTodos({ todos, ready, onOpen }: { todos: Todo[]; ready: boolean; onOpen: () => void }) {
-  const text = (t: Todo) => t.parts.map((p) => (typeof p === "string" ? p : `#${p.number}${p.title ? ` ${p.title}` : ""}`)).join("");
+  const text = (t: Todo) => t.parts.map((p) => (typeof p === "string" ? p : p.kind === "actor" ? p.name : `#${p.number}${p.title ? ` ${p.title}` : ""}`)).join("");
   return (
     <button type="button" className="mm-todo" onClick={onOpen}>
       <span className="mm-todo-head">
-        <b>✅ あなたがすること</b>
+        <b>{tr("✅ あなたがすること")}</b>
         <span className={`mm-todo-n${todos.length ? " on" : ""}`}>{ready ? todos.length : "…"}</span>
         <span className="grow" />
-        <span className="mm-todo-more">ヒストリー ›</span>
+        <span className="mm-todo-more">{tr("ヒストリー ›")}</span>
       </span>
       {!ready ? (
-        <span className="mm-todo-line muted">読み込んでいます…</span>
+        <span className="mm-todo-line muted">{tr("読み込んでいます…")}</span>
       ) : todos.length === 0 ? (
-        <span className="mm-todo-line muted">今はありません</span>
+        <span className="mm-todo-line muted">{tr("今はありません")}</span>
       ) : (
         todos.slice(0, 2).map((t) => (
           <span key={t.key} className="mm-todo-line">
@@ -58,7 +59,7 @@ export function MobileMenu({ tiles, onOpen, team, overview, todo }: MobileMenuPr
       {team}
       {overview}
       {todo}
-      <nav className="mm-grid" aria-label="画面">
+      <nav className="mm-grid" aria-label={tr("画面")}>
         {tiles.map((t) => (
           <button key={t.key} type="button" className="mm-tile" onClick={() => onOpen(t.key)}>
             {t.badge ? <span className="mm-badge">{t.badge}</span> : null}

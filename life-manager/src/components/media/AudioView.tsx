@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useBlobUrl } from "../../hooks/useBlobUrl";
+import { tr, trx } from "../../lib/i18n";
 
 interface AudioViewProps {
   bytes: ArrayBuffer;
@@ -53,9 +54,9 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
       .then((b) => {
         if (!alive) return;
         setDecoded(b);
-        onInfo?.(`${(b.sampleRate / 1000).toFixed(1)} kHz ・ ${b.numberOfChannels === 1 ? "モノラル" : b.numberOfChannels === 2 ? "ステレオ" : `${b.numberOfChannels} ch`} ・ ${seconds(b.duration)} 秒`);
+        onInfo?.(tr("{toFixed} kHz ・ {v} ・ {seconds} 秒", { toFixed: (b.sampleRate / 1000).toFixed(1), v: b.numberOfChannels === 1 ? tr("モノラル") : b.numberOfChannels === 2 ? tr("ステレオ") : `${b.numberOfChannels} ch`, seconds: seconds(b.duration) }));
       })
-      .catch(() => alive && setError("波形を作れませんでした（再生はできることがあります）"))
+      .catch(() => alive && setError(tr("波形を作れませんでした（再生はできることがあります）")))
       .finally(() => void ctx.close());
     return () => {
       alive = false;
@@ -137,18 +138,18 @@ export function AudioView({ bytes, path, onInfo }: AudioViewProps) {
   return (
     <div className="mv-main full">
       <div className="mv-stage mv-audio">
-        <canvas ref={canvasRef} className="mv-wave" onClick={seek} title="押すとそこから再生します" />
+        <canvas ref={canvasRef} className="mv-wave" onClick={seek} title={tr("押すとそこから再生します")} />
         {error && <p className="mv-note">{error}</p>}
         <audio ref={audioRef} src={url ?? undefined} loop={loop} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onEnded={() => { setPlaying(false); setTime(0); }} />
         <div className="mv-row mv-audio-controls">
-          <button type="button" className="btn-primary" onClick={toggle}>{playing ? "⏸ 止める" : "▶ 再生"}</button>
-          <button type="button" className={`btn-sm${loop ? " on" : ""}`} aria-pressed={loop} onClick={() => setLoop(!loop)}>🔁 ループ</button>
+          <button type="button" className="btn-primary" onClick={toggle}>{playing ? tr("⏸ 止める") : tr("▶ 再生")}</button>
+          <button type="button" className={`btn-sm${loop ? " on" : ""}`} aria-pressed={loop} onClick={() => setLoop(!loop)}>{tr("🔁 ループ")}</button>
           {[0.5, 1, 2].map((r) => (
             <button key={r} type="button" className={`btn-sm${rate === r ? " on" : ""}`} onClick={() => setRate(r)}>{r}×</button>
           ))}
           <span className="grow" />
-          <span className="mv-time">{seconds(time)} / {seconds(duration)} 秒</span>
+          <span className="mv-time">{trx("{seconds} / {seconds2} 秒", { seconds: seconds(time), seconds2: seconds(duration) })}</span>
         </div>
       </div>
     </div>

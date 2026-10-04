@@ -14,6 +14,7 @@ import { isSectionLabel, sectionOf } from "../../lib/section";
 import { isMobile } from "../../lib/platform";
 import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { GanttMobileChart, type MobileScale } from "./GanttMobileChart";
+import { tr, trx } from "../../lib/i18n";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -471,22 +472,22 @@ export function GanttView({
       }
     }
     setFixAll(null);
-    setFixNote(`${done} 件の日程を決めました${failed ? `（${failed} 件は決められませんでした）` : ""}`);
+    setFixNote(tr("{done} 件の日程を決めました{v}", { done, v: failed ? tr("（{failed} 件は決められませんでした）", { failed }) : "" }));
   }
   const fixAllControl =
     fixAll === "confirm" ? (
       <span className="gantt-fixall">
-        仮の日程の {tentativeTasks.length} 件を、今の日程で決めますか？
-        <button type="button" className="btn-sm" onClick={() => setFixAll(null)}>やめる</button>
-        <button type="button" className="btn-sm primary" onClick={() => void fixAllTentative()}>決める</button>
+        {trx("仮の日程の {length} 件を、今の日程で決めますか？", { length: tentativeTasks.length })}
+        <button type="button" className="btn-sm" onClick={() => setFixAll(null)}>{tr("やめる")}</button>
+        <button type="button" className="btn-sm primary" onClick={() => void fixAllTentative()}>{tr("決める")}</button>
       </span>
     ) : fixAll !== null ? (
       <span className="gantt-fixall">
-        <i className="spinner" aria-hidden="true" /> 決めています（{fixAll.done} / {fixAll.total}）
+        <i className="spinner" aria-hidden="true" /> {" "}{trx("決めています（{done} / {total}）", { done: fixAll.done, total: fixAll.total })}
       </span>
     ) : showTentative && tentativeTasks.length > 0 ? (
       <button type="button" className="btn-sm" onClick={() => { setFixNote(null); setFixAll("confirm"); }}>
-        仮の日程を決める（{tentativeTasks.length} 件）
+        {trx("仮の日程を決める（{length} 件）", { length: tentativeTasks.length })}
       </button>
     ) : fixNote ? (
       <span className="gantt-fixall muted">{fixNote}</span>
@@ -536,11 +537,11 @@ export function GanttView({
       const t = taskOf.get(n);
       if (t?.startDate && t.endDate) return null;
       const issue = issueOf.get(n);
-      if (!issue) return "見つからない";
-      if (issue.state === "closed") return "閉じた";
-      if (!inMilestone.has(n)) return "ほかのマイルストーン";
-      if (!t) return "表示するタスクに入っていない";
-      return "日程なし";
+      if (!issue) return tr("見つからない");
+      if (issue.state === "closed") return tr("閉じた");
+      if (!inMilestone.has(n)) return tr("ほかのマイルストーン");
+      if (!t) return tr("表示するタスクに入っていない");
+      return tr("日程なし");
     };
     const link = (n: number, kind: "pred" | "succ"): GanttLink => {
       const t = taskOf.get(n);
@@ -651,66 +652,66 @@ export function GanttView({
     return (
       <div className="content gantt-screen m-gantt" style={{ padding: 0 }}>
         <div className="toolbar m-compact mg-toolbar">
-          <select className="select-sm mg-ms" aria-label="マイルストーン" value={selectedMilestone ?? ""} onChange={(e) => changeMilestone(e.target.value ? parseInt(e.target.value) : null)}>
-            <option value="">マイルストーンを選ぶ</option>
+          <select className="select-sm mg-ms" aria-label={tr("マイルストーン")} value={selectedMilestone ?? ""} onChange={(e) => changeMilestone(e.target.value ? parseInt(e.target.value) : null)}>
+            <option value="">{tr("マイルストーンを選ぶ")}</option>
             {milestones.map((m) => (
               <option key={m.number} value={m.number}>{m.title}</option>
             ))}
           </select>
-          <span className="list-mode mg-scale" role="group" aria-label="目盛り">
+          <span className="list-mode mg-scale" role="group" aria-label={tr("目盛り")}>
             {(["all", "week", "day"] as MobileScale[]).map((sc) => (
               <button key={sc} type="button" className={mobileScale === sc ? "on" : ""} aria-pressed={mobileScale === sc} onClick={() => setMobileScale(sc)}>
-                {sc === "all" ? "全体" : sc === "week" ? "週" : "日"}
+                {sc === "all" ? tr("全体") : sc === "week" ? tr("週") : tr("日")}
               </button>
             ))}
           </span>
           <button type="button" className={`btn-sm m-filter-btn${activeFilters ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-            表示するタスク{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
+            {tr("表示するタスク")}{activeFilters > 0 && <span className="m-filter-n">{activeFilters}</span>}
           </button>
         </div>
         <MobileSheet
           open={sheetOpen}
-          title="表示するタスク"
+          title={tr("表示するタスク")}
           onClose={() => setSheetOpen(false)}
           footer={
             <>
-              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => { setFilterAssignee(""); setFilterStatus(""); setFilterDomain(""); }}>すべて外す</button>
-              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{ganttTasks.length} 件を見る</button>
+              <button type="button" className="btn-sm" disabled={!activeFilters} onClick={() => { setFilterAssignee(""); setFilterStatus(""); setFilterDomain(""); }}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{trx("{length} 件を見る", { length: ganttTasks.length })}</button>
             </>
           }
         >
-          <SheetRow label="担当">
+          <SheetRow label={tr("担当")}>
             <select className="select-sm" value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
-              <option value="">全員</option>
+              <option value="">{tr("全員")}</option>
               {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </SheetRow>
-          <SheetRow label="状態">
+          <SheetRow label={tr("状態")}>
             <select className="select-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">全部</option>
-              {statusLabels.map((l) => <option key={l.name} value={l.name}>{l.name.replace(/^状態:/, "")}</option>)}
+              <option value="">{tr("全部")}</option>
+              {statusLabels.map((l) => <option key={l.name} value={l.name}>{tr(l.name.replace(/^状態:/, ""))}</option>)}
             </select>
           </SheetRow>
-          <SheetRow label="セクション">
+          <SheetRow label={tr("セクション")}>
             <select className="select-sm" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
-              <option value="">全部</option>
+              <option value="">{tr("全部")}</option>
               {domainLabels.map((l) => <option key={l.name} value={l.name}>{sectionOf(l.name)}</option>)}
             </select>
           </SheetRow>
-          <SheetRow label="見せ方">
+          <SheetRow label={tr("見せ方")}>
             <label className="chk gantt-tentative-toggle">
               <input type="checkbox" checked={showTentative} onChange={(e) => changeTentative(e.target.checked)} />
-              見積もりから仮の日程を置く
+              {tr("見積もりから仮の日程を置く")}
             </label>
-            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenColorSettings(); }}>⚙ 帯の色</button>
+            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenColorSettings(); }}>{tr("⚙ 帯の色")}</button>
           </SheetRow>
-          {fixAllControl && <SheetRow label="仮の日程">{fixAllControl}</SheetRow>}
+          {fixAllControl && <SheetRow label={tr("仮の日程")}>{fixAllControl}</SheetRow>}
         </MobileSheet>
 
         {selectedMilestone === null ? (
-          <div className="empty-message">マイルストーンを選んでください</div>
+          <div className="empty-message">{tr("マイルストーンを選んでください")}</div>
         ) : ganttTasks.length === 0 ? (
-          <div className="empty-message">当てはまるタスクがありません</div>
+          <div className="empty-message">{tr("当てはまるタスクがありません")}</div>
         ) : (
           <GanttMobileChart
             tasks={ganttTasks}
@@ -744,7 +745,7 @@ export function GanttView({
           value={selectedMilestone ?? ""}
           onChange={(e) => changeMilestone(e.target.value ? parseInt(e.target.value) : null)}
         >
-          <option value="">マイルストーンを選択</option>
+          <option value="">{tr("マイルストーンを選択")}</option>
           {milestones.map((m) => (
             <option key={m.number} value={m.number}>{m.title}</option>
           ))}
@@ -753,17 +754,17 @@ export function GanttView({
         {selectedMilestone !== null && (
           <>
             <select className="select-sm" value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
-              <option value="">全担当者</option>
+              <option value="">{tr("全担当者")}</option>
               {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
 
             <select className="select-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">全状態</option>
+              <option value="">{tr("全状態")}</option>
               {statusLabels.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
             </select>
 
             <select className="select-sm" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
-              <option value="">全セクション</option>
+              <option value="">{tr("全セクション")}</option>
               {domainLabels.map((l) => <option key={l.name} value={l.name}>{sectionOf(l.name)}</option>)}
             </select>
 
@@ -792,31 +793,28 @@ export function GanttView({
               }}>
               CP
             </button>
-            <button className="btn-sm" onClick={onOpenColorSettings} title="設定 → 表示 の「ガントの帯の色」を開きます"
+            <button className="btn-sm" onClick={onOpenColorSettings} title={tr("設定 → 表示 の「ガントの帯の色」を開きます")}
               style={{ fontSize: "var(--font-xs)" }}>
-              ⚙ 色の設定
+              {tr("⚙ 色の設定")}
             </button>
-            <label className="chk gantt-tentative-toggle" title="日程のないタスクに、見積もりから仮の帯（点線）を置きます">
+            <label className="chk gantt-tentative-toggle" title={tr("日程のないタスクに、見積もりから仮の帯（点線）を置きます")}>
               <input type="checkbox" checked={showTentative} onChange={(e) => changeTentative(e.target.checked)} />
-              見積もりから仮の日程を置く
+              {tr("見積もりから仮の日程を置く")}
             </label>
-            <label className="chk gantt-tentative-toggle" title="帯か左の一覧の行に乗せる（押す）と、そのタスクの先行と後続の矢印だけを出します">
+            <label className="chk gantt-tentative-toggle" title={tr("帯か左の一覧の行に乗せる（押す）と、そのタスクの先行と後続の矢印だけを出します")}>
               <input type="checkbox" checked={arrowsFocusOnly} onChange={(e) => changeArrows(e.target.checked)} />
-              矢印は選んだタスクだけ
+              {tr("矢印は選んだタスクだけ")}
             </label>
-            {fixAllControl}
-            <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }}>
-              {ganttTasks.length} 件
-            </span>
+            {trx("{fixAllControl}<0>{length} 件</0>", { fixAllControl, length: ganttTasks.length }, [<span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)" }} />])}
           </>
         )}
       </div>
 
       {/* Main area */}
       {selectedMilestone === null ? (
-        <div className="empty-message">マイルストーンを選択してください</div>
+        <div className="empty-message">{tr("マイルストーンを選択してください")}</div>
       ) : ganttTasks.length === 0 ? (
-        <div className="empty-message">該当するIssueがありません</div>
+        <div className="empty-message">{tr("該当するIssueがありません")}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }} onMouseEnter={cancelLeave} onMouseLeave={scheduleLeave}>
         <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", borderTop: "1px solid var(--border-default)" }}>
@@ -854,7 +852,7 @@ export function GanttView({
                 // 乗せたタスクと、その先行・後続の行には札（線をたどらなくても、名前で読める）
                 const relKind = rel === null ? null : task.issueNumber === rel.focus ? "focus" : rel.preds.has(task.issueNumber) ? "pred" : rel.succs.has(task.issueNumber) ? "succ" : null;
                 // 乗せているときも、押して固定したときも「選択中」（固定しているかは、下の帯の「📌 固定中」で分かる。#216）
-                const relLabel = relKind === "focus" ? "選択中" : relKind === "pred" ? "先行" : relKind === "succ" ? "後続" : null;
+                const relLabel = relKind === "focus" ? tr("選択中") : relKind === "pred" ? tr("先行") : relKind === "succ" ? tr("後続") : null;
                 return (
                   <div
                     key={task.issueNumber}
@@ -893,9 +891,9 @@ export function GanttView({
                     </span>
                     {relLabel && <span className={`gantt-rel ${relKind}`}>{relLabel}</span>}
                     {task.estimate && <span className="est-chip gantt-est">{task.estimate}</span>}
-                    {task.tentative && <span className="gantt-kari" title="日程が決まっていないので、見積もりから仮に置いています">仮</span>}
+                    {task.tentative && <span className="gantt-kari" title={tr("日程が決まっていないので、見積もりから仮に置いています")}>{tr("仮")}</span>}
                     {!task.startDate && !task.estimate && task.state === "open" && (
-                      <span className="gantt-none">日程・見積もりなし</span>
+                      <span className="gantt-none">{tr("日程・見積もりなし")}</span>
                     )}
                     <span style={{ color: "var(--text-faint)", flexShrink: 0, fontSize: "10px" }}>
                       {task.progressValue}%
@@ -972,10 +970,10 @@ export function GanttView({
                     type="button"
                     className={`gantt-edge ${ex.kind}`}
                     style={style}
-                    title="押すと、その行まで送ります"
+                    title={tr("押すと、その行まで送ります")}
                     onClick={() => jumpTo(ex.partner)}
                   >
-                    {arrow} {ex.kind === "pred" ? "先行" : "後続"} {issueRef(ex.partner)} {partner ? shortTitle(partner.title) : ""} へ
+                    {arrow} {ex.kind === "pred" ? tr("先行") : tr("後続")} {issueRef(ex.partner)} {partner ? shortTitle(partner.title) : ""} {" "}{tr("へ")}
                   </button>
                 );
               })}
@@ -988,12 +986,12 @@ export function GanttView({
                 }}>
                   <div className="gantt-tooltip-title">{issueRef(tentativePop.task.issueNumber)} {tentativePop.task.title}</div>
                   <div className="gantt-tentative-note">
-                    見積もり {tentativePop.task.estimate} → 仮に {tentativePop.task.startDate} 〜 {tentativePop.task.endDate}
+                    {trx("見積もり {estimate} → 仮に {startDate} 〜 {endDate}", { estimate: tentativePop.task.estimate, startDate: tentativePop.task.startDate, endDate: tentativePop.task.endDate })}
                   </div>
-                  <div className="gantt-tentative-note">日程が決まっていないので、見積もりから仮に置いています。</div>
+                  <div className="gantt-tentative-note">{tr("日程が決まっていないので、見積もりから仮に置いています。")}</div>
                   <div className="gantt-tentative-actions">
-                    <button type="button" className="btn-primary" onClick={() => fixTentative(tentativePop.task)}>この日程で決める</button>
-                    <button type="button" className="btn-sm" onClick={() => { const n = tentativePop.task.issueNumber; setTentativePop(null); onSelectIssue(n); }}>詳細を開く</button>
+                    <button type="button" className="btn-primary" onClick={() => fixTentative(tentativePop.task)}>{tr("この日程で決める")}</button>
+                    <button type="button" className="btn-sm" onClick={() => { const n = tentativePop.task.issueNumber; setTentativePop(null); onSelectIssue(n); }}>{tr("詳細を開く")}</button>
                   </div>
                 </div>
               )}
@@ -1009,49 +1007,49 @@ export function GanttView({
                 <span className="gantt-info-meta">
                   {[
                     links.self.startDate && links.self.endDate
-                      ? `${links.self.tentative ? "仮に " : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}`
-                      : "日程なし",
-                    links.self.estimate ? `見積 ${links.self.estimate}` : null,
-                    `進み ${links.self.progressValue}%`,
-                    links.self.assignees.length > 0 ? `担当 ${links.self.assignees.map((a) => a.login).join(", ")}` : "担当なし",
+                      ? `${links.self.tentative ? tr("仮に ") : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}`
+                      : tr("日程なし"),
+                    links.self.estimate ? tr("見積 {estimate}", { estimate: links.self.estimate }) : null,
+                    tr("進み {v}%", { v: links.self.progressValue }),
+                    links.self.assignees.length > 0 ? tr("担当 {join}", { join: links.self.assignees.map((a) => a.login).join(", ") }) : tr("担当なし"),
                   ]
                     .filter(Boolean)
-                    .join(" ・ ")}
+                    .join(tr(" ・ "))}
                 </span>
                 {pinnedIssue !== null && (
-                  <button type="button" className="btn-sm gantt-info-pin" title="固定をやめます（Esc か、何もない所を押しても外れます）" onClick={() => { setPinnedIssue(null); setFocusIssue(null); }}>
-                    📌 {issueRef(pinnedIssue)} を固定中 ✕
+                  <button type="button" className="btn-sm gantt-info-pin" title={tr("固定をやめます（Esc か、何もない所を押しても外れます）")} onClick={() => { setPinnedIssue(null); setFocusIssue(null); }}>
+                    {trx("📌 {issueRef} を固定中 ✕", { issueRef: issueRef(pinnedIssue) })}
                   </button>
                 )}
               </div>
               {/* タスクの内容（本文のはじめ。2 行まで） */}
               <div className={`gantt-info-body${links.excerpt ? "" : " none"}`} title={links.excerpt || undefined}>
-                {links.excerpt || "本文はありません"}
+                {links.excerpt || tr("本文はありません")}
               </div>
               {(["pred", "succ"] as const).map((kind) => {
                 const list = kind === "pred" ? links.preds : links.succs;
                 return (
                   <div key={kind} className="gantt-info-links">
-                    <span className={`gantt-info-label ${kind}`}>{kind === "pred" ? "先行" : "後続"}</span>
-                    {list.length === 0 && <span>なし</span>}
+                    <span className={`gantt-info-label ${kind}`}>{kind === "pred" ? tr("先行") : tr("後続")}</span>
+                    {list.length === 0 && <span>{tr("なし")}</span>}
                     {list.slice(0, LINKS_PER_LINE).map((l) => (
                       <span key={l.n} style={{ display: "contents" }}>
                         <button
                           type="button"
                           className={`gantt-link ${l.reason ? "off" : kind}`}
                           disabled={l.reason !== null}
-                          title={l.reason ? `${issueRef(l.n)} ${l.title}（${l.reason}。ガントに帯がありません）` : `${issueRef(l.n)} ${l.title}（押すと、その行まで送ります）`}
+                          title={l.reason ? tr("{issueRef} {title}（{reason}。ガントに帯がありません）", { issueRef: issueRef(l.n), title: l.title, reason: l.reason }) : tr("{issueRef} {title}（押すと、その行まで送ります）", { issueRef: issueRef(l.n), title: l.title })}
                           onClick={() => jumpTo(l.n)}
                         >
                           {issueRef(l.n)} {shortTitle(l.title, 10)}
-                          {l.redundant ? "（点線）" : ""}
+                          {l.redundant ? tr("（点線）") : ""}
                           {l.reason ? `（${l.reason}）` : ""}
                         </button>
-                        {l.broken && <span className="gantt-link-warn" title={kind === "pred" ? "この先行が終わる前に、このタスクがはじまります" : "このタスクが終わる前に、この後続がはじまります"}>順番が逆</span>}
+                        {l.broken && <span className="gantt-link-warn" title={kind === "pred" ? tr("この先行が終わる前に、このタスクがはじまります") : tr("このタスクが終わる前に、この後続がはじまります")}>{tr("順番が逆")}</span>}
                       </span>
                     ))}
                     {list.length > LINKS_PER_LINE && (
-                      <span title={list.slice(LINKS_PER_LINE).map((l) => `${issueRef(l.n)} ${l.title}`).join("\n")}>ほか {list.length - LINKS_PER_LINE} つ</span>
+                      <span title={list.slice(LINKS_PER_LINE).map((l) => `${issueRef(l.n)} ${l.title}`).join("\n")}>{tr("ほか")}{" "} {list.length - LINKS_PER_LINE} {" "}{tr("つ")}</span>
                     )}
                   </div>
                 );
@@ -1059,7 +1057,7 @@ export function GanttView({
             </>
           ) : (
             <span>
-              帯か左の一覧の行に乗せると、ここに先行と後続が出ます。
+              {tr("帯か左の一覧の行に乗せると、ここに先行と後続が出ます。")}
             </span>
           )}
         </div>

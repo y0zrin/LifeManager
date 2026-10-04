@@ -1,6 +1,7 @@
 import type { GitHubIssue } from "./types";
 import { dueOf } from "./due";
 import { isSectionLabel } from "./section";
+import { tr } from "./i18n";
 
 // --- ラベルの絞り込み（種類ごとに複数選べる。どれか＝OR、すべて＝AND） ---
 
@@ -28,11 +29,11 @@ export function matchesLabelFilters(issue: GitHubIssue, filters: LabelFilters): 
 export type SortKey = "new" | "old" | "updated" | "priority" | "due";
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  new: "新しい順",
-  old: "古い順",
-  updated: "更新が新しい順",
-  priority: "優先度順",
-  due: "期限が近い順",
+  new: tr("新しい順"),
+  old: tr("古い順"),
+  updated: tr("更新が新しい順"),
+  priority: tr("優先度順"),
+  due: tr("期限が近い順"),
 };
 
 /** 優先度の順番（高 → 中・なし → 低）。優先のない Issue は「中」と同じに扱う */
@@ -104,13 +105,13 @@ export type ListMode = "card" | "table";
 export type GroupKey = "none" | "tree" | "state" | "priority" | "field" | "assignee" | "milestone";
 
 export const GROUP_LABELS: Record<GroupKey, string> = {
-  none: "なし",
-  tree: "親子",
-  state: "状態",
-  priority: "優先",
-  field: "セクション",
-  assignee: "担当",
-  milestone: "マイルストーン",
+  none: tr("なし"),
+  tree: tr("親子"),
+  state: tr("状態"),
+  priority: tr("優先"),
+  field: tr("セクション"),
+  assignee: tr("担当"),
+  milestone: tr("マイルストーン"),
 };
 
 /** まとまり。まとめないときは見出しが空のまとまりが 1 つ */
@@ -121,13 +122,13 @@ export interface TaskGroup {
 
 // 当てはまらないものは、それぞれ最後のまとまりにする
 const NONE_TITLE: Record<Exclude<GroupKey, "none" | "tree">, string> = {
-  state: "状態なし",
-  priority: "優先なし",
-  field: "セクションなし",
-  assignee: "担当なし",
-  milestone: "マイルストーンなし",
+  state: tr("状態なし"),
+  priority: tr("優先なし"),
+  field: tr("セクションなし"),
+  assignee: tr("担当なし"),
+  milestone: tr("マイルストーンなし"),
 };
-const CLOSED_TITLE = "完了";
+const CLOSED_TITLE = tr("完了");
 
 function groupTitle(issue: GitHubIssue, key: Exclude<GroupKey, "none" | "tree">): string {
   const names = issue.labels.map((l) => l.name);
@@ -141,9 +142,9 @@ function groupTitle(issue: GitHubIssue, key: Exclude<GroupKey, "none" | "tree">)
     case "field":
       return names.find(isSectionLabel) ?? NONE_TITLE.field;
     case "assignee":
-      return issue.assignees?.[0] ? `担当:${issue.assignees[0].login}` : NONE_TITLE.assignee;
+      return issue.assignees?.[0] ? tr("担当:{login}", { login: issue.assignees[0].login }) : NONE_TITLE.assignee;
     case "milestone":
-      return issue.milestone ? `マイルストーン:${issue.milestone.title}` : NONE_TITLE.milestone;
+      return issue.milestone ? tr("マイルストーン:{title}", { title: issue.milestone.title }) : NONE_TITLE.milestone;
   }
 }
 

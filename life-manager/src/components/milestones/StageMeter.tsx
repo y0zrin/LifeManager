@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { readSeen, writeSeen, type Seen } from "../../lib/milestoneStage";
+import { tr } from "../../lib/i18n";
 
 interface StageMeterProps {
   /** 前に見たときの量を覚える鍵（「owner/repo#番号#数え方」） */
@@ -82,7 +83,7 @@ export function StageMeter({ seenKey, remaining, total, hp, fmt, onHit }: StageM
       deltaText = view.delta > 0 ? `−${amount}` : `+${amount}`;
       deltaClass = view.delta > 0 ? "dmg" : "heal";
     } else {
-      deltaText = view.delta > 0 ? `+${amount}` : `残り +${amount}`;
+      deltaText = view.delta > 0 ? `+${amount}` : tr("残り +{amount}", { amount });
       deltaClass = view.delta > 0 ? "gain" : "more";
     }
   }

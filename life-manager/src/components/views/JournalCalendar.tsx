@@ -1,6 +1,7 @@
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { parseGanttDates } from "../../lib/ganttParser";
 import { isSending } from "../../lib/issueRef";
+import { tr, trx } from "../../lib/i18n";
 
 /** カレンダーの帯（ガントの日付があるタスク）。kind は帯の色（状態） */
 export interface CalTask {
@@ -52,7 +53,7 @@ export function calendarTasks(issues: GitHubIssue[], me: string): CalTask[] {
     const st = i.labels.find((l) => l.name.startsWith("状態:"))?.name ?? "";
     const kind: CalTask["kind"] =
       i.state === "closed" ? "done" : st === "状態:進行中" ? "prog" : CHECK_STATES.has(st) ? "check" : st === "状態:ブロック" ? "block" : "todo";
-    const status = i.state === "closed" ? "完了" : st ? st.replace("状態:", "") : "状態なし";
+    const status = i.state === "closed" ? tr("完了") : st ? tr(st.replace("状態:", "")) : tr("状態なし");
     return [{ number: i.number, title: i.title, start: g.start, end: g.end, kind, status, mine: !!me && (i.assignees ?? []).some((a) => a.login === me) }];
   });
 }
@@ -66,7 +67,7 @@ export function calendarMilestones(milestones: GitHubMilestone[]): CalMilestone[
 
 /** 1 日に重ねて書く帯の数（それより多いと「+2」） */
 const LANES = 3;
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAYS = [tr("日"), tr("月"), tr("火"), tr("水"), tr("木"), tr("金"), tr("土")];
 
 interface JournalCalendarProps {
   /** 見ている月（その月の 1 日） */
@@ -106,18 +107,17 @@ export function JournalCalendar({ month, selected, today, journals, tasks, miles
 
   const head = (
     <div className="jc-head">
-      <button type="button" className="jc-nav" onClick={() => onMonth(-1)} aria-label="前の月">◀</button>
+      <button type="button" className="jc-nav" onClick={() => onMonth(-1)} aria-label={tr("前の月")}>◀</button>
       <span className="jc-month">
-        <small>{month.getFullYear()} 年</small>
-        {month.getMonth() + 1} 月
+        <small>{trx("{getFullYear} 年", { getFullYear: month.getFullYear() })}</small>
+        {month.getMonth() + 1} {" "}{tr("月")}
       </span>
-      <button type="button" className="jc-nav" onClick={() => onMonth(1)} aria-label="次の月">▶</button>
-      <button type="button" className="btn-sm jc-today" onClick={onToday}>今日</button>
+      <button type="button" className="jc-nav" onClick={() => onMonth(1)} aria-label={tr("次の月")}>▶</button>
+      <button type="button" className="btn-sm jc-today" onClick={onToday}>{tr("今日")}</button>
       {!compact && (
         <span className="jc-legend" aria-hidden="true">
-          <span><i className="jc-swatch" />タスクの期間</span>
-          <span>🎯 マイルストーンの期限</span>
-          <span>📓 日誌あり</span>
+          <span><i className="jc-swatch" />{tr("タスクの期間")}</span>
+          {trx("<0>🎯 マイルストーンの期限</0><1>📓 日誌あり</1>", undefined, [<span />, <span />])}
         </span>
       )}
     </div>
@@ -129,7 +129,7 @@ export function JournalCalendar({ month, selected, today, journals, tasks, miles
       ))}
     </div>
   );
-  const dayLabel = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`;
+  const dayLabel = (d: Date) => tr("{v}月{getDate}日", { v: d.getMonth() + 1, getDate: d.getDate() });
 
   if (compact) {
     // スマホ: 日ごとに、状態の色の点（4 つまで）と 🎯・📓
@@ -206,14 +206,14 @@ export function JournalCalendar({ month, selected, today, journals, tasks, miles
               })}
               {days.map((d, i) => {
                 const key = ymd(d);
-                return journals.has(key) ? <span key={`j${key}`} className="jc-jr" style={{ gridColumn: i + 1 }} title="日誌あり">📓</span> : null;
+                return journals.has(key) ? <span key={`j${key}`} className="jc-jr" style={{ gridColumn: i + 1 }} title={tr("日誌あり")}>📓</span> : null;
               })}
               {days.map((d, i) => {
                 const list = msByDate.get(ymd(d));
                 if (!list) return null;
                 return (
-                  <span key={`m${ymd(d)}`} className={`jc-ms${list.every((m) => !m.open) ? " closed" : ""}`} style={{ gridColumn: i + 1 }} title={list.map((m) => `🎯 ${m.title} の期限`).join("\n")}>
-                    🎯 {list[0].title}{list.length > 1 ? ` ほか ${list.length - 1}` : ""}
+                  <span key={`m${ymd(d)}`} className={`jc-ms${list.every((m) => !m.open) ? " closed" : ""}`} style={{ gridColumn: i + 1 }} title={list.map((m) => tr("🎯 {title} の期限", { title: m.title })).join("\n")}>
+                    🎯 {list[0].title}{list.length > 1 ? tr(" ほか {v}", { v: list.length - 1 }) : ""}
                   </span>
                 );
               })}
@@ -224,7 +224,7 @@ export function JournalCalendar({ month, selected, today, journals, tasks, miles
                   <button key={t.number} type="button"
                     className={`jc-bar k-${t.kind}${t.mine ? " mine" : ""}${contL ? " cont-l" : ""}${contR ? " cont-r" : ""}`}
                     style={{ gridColumn: `${a + 1} / ${b + 2}`, gridRow: 3 + lane }}
-                    title={`#${t.number} ${t.title}（${t.status}・${md(t.start)}〜${md(t.end)}）`}
+                    title={tr("#{number} {title}（{status}・{md}〜{md2}）", { number: t.number, title: t.title, status: t.status, md: md(t.start), md2: md(t.end) })}
                     onClick={() => onOpenIssue(t.number)}>
                     {contL ? "" : `#${t.number} `}
                     {t.title}

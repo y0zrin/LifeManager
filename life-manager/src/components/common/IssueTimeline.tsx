@@ -10,6 +10,7 @@ import { closeReasonText } from "./CloseMenu";
 import { isHelp, isHelpDone, parseHelp } from "../../lib/help";
 import { HelpContextBox } from "../notices/HelpParts";
 import { FailedChip, SendingChip } from "./Sending";
+import { tr, trx } from "../../lib/i18n";
 
 interface IssueTimelineProps {
   issue: GitHubIssue;
@@ -61,12 +62,12 @@ export function useHistoryOrder(): [HistoryOrder, (order: HistoryOrder) => void]
 /** 並びの切り替え（見出しの右） */
 export function HistoryOrderToggle({ order, onChange }: { order: HistoryOrder; onChange: (order: HistoryOrder) => void }) {
   return (
-    <span className="issue-timeline-filter" role="group" aria-label="並び">
+    <span className="issue-timeline-filter" role="group" aria-label={tr("並び")}>
       <button type="button" className={order === "newest" ? "on" : ""} aria-pressed={order === "newest"} onClick={() => onChange("newest")}>
-        新しい順
+        {tr("新しい順")}
       </button>
       <button type="button" className={order === "oldest" ? "on" : ""} aria-pressed={order === "oldest"} onClick={() => onChange("oldest")}>
-        古い順
+        {tr("古い順")}
       </button>
     </span>
   );
@@ -147,7 +148,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
   const issueLink = (ref: { number: number; title: string; html_url?: string; repository_url?: string; pull_request?: unknown }) => {
     const repo = ref.repository_url?.match(/\/repos\/([^/]+)\/([^/]+)$/);
     const same = !repo || isSameRepo({ owner: repo[1], repo: repo[2] }, index.owner, index.repo);
-    const label = `${ref.pull_request ? "プルリクエスト " : ""}${same ? issueRef(ref.number) : `${repo![2]}#${ref.number}`} ${ref.title}`;
+    const label = `${ref.pull_request ? tr("プルリクエスト ") : ""}${same ? issueRef(ref.number) : `${repo![2]}#${ref.number}`} ${ref.title}`;
     return (
       <button type="button" className="timeline-link" onClick={() => (same && !ref.pull_request ? onOpenIssue(ref.number) : ref.html_url && openUrl(ref.html_url))}>
         {label}
@@ -156,55 +157,55 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
   };
 
   const commitLink = (e: TimelineEvent) => (
-    <button type="button" className="timeline-link timeline-commit" title="変更内容を見る"
+    <button type="button" className="timeline-link timeline-commit" title={tr("変更内容を見る")}
       onClick={() => onShowCommit?.(e.commit_id!, e.actor?.login ?? "", e.created_at ?? "")}>
       {e.commit_id!.slice(0, 7)}
     </button>
   );
 
   function describe(e: TimelineEvent): { icon: string; text: ReactNode } | null {
-    const who = <b>{e.actor?.login ?? "だれか"}</b>;
+    const who = <b>{e.actor?.login ?? tr("だれか")}</b>;
     switch (e.event) {
       case "assigned":
-        return { icon: "👤", text: e.assignee?.login === e.actor?.login ? <>{who} が担当になりました</> : <>{who} が <b>{e.assignee?.login}</b> を担当にしました</> };
+        return { icon: "👤", text: e.assignee?.login === e.actor?.login ? <>{trx("{who} が担当になりました", { who })}</> : <>{trx("{who} が <0>{login}</0> を担当にしました", { who, login: e.assignee?.login }, [<b />])}</> };
       case "unassigned":
-        return { icon: "👤", text: <>{who} が <b>{e.assignee?.login}</b> を担当から外しました</> };
+        return { icon: "👤", text: <>{trx("{who} が <0>{login}</0> を担当から外しました", { who, login: e.assignee?.login }, [<b />])}</> };
       case "milestoned":
-        return { icon: "🎯", text: <>{who} がマイルストーン <b>{e.milestone?.title}</b> に入れました</> };
+        return { icon: "🎯", text: <>{trx("{who} がマイルストーン <0>{title}</0> に入れました", { who, title: e.milestone?.title }, [<b />])}</> };
       case "demilestoned":
-        return { icon: "🎯", text: <>{who} がマイルストーン <b>{e.milestone?.title}</b> から外しました</> };
+        return { icon: "🎯", text: <>{trx("{who} がマイルストーン <0>{title}</0> から外しました", { who, title: e.milestone?.title }, [<b />])}</> };
       case "renamed":
-        return { icon: "✏", text: <>{who} が題名を「{e.rename?.from}」から「{e.rename?.to}」に変えました</> };
+        return { icon: "✏", text: <>{trx("{who} が題名を「{from}」から「{to}」に変えました", { who, from: e.rename?.from, to: e.rename?.to })}</> };
       case "closed":
         return e.commit_id
-          ? { icon: "✅", text: <>コミット {commitLink(e)} で閉じられました</> }
-          : { icon: e.state_reason === "not_planned" ? "⊘" : e.state_reason === "duplicate" ? "🔁" : "✅", text: <>{who} が{closeReasonText(e.state_reason)}として閉じました</> };
+          ? { icon: "✅", text: <>{trx("コミット {commitLink} で閉じられました", { commitLink: commitLink(e) })}</> }
+          : { icon: e.state_reason === "not_planned" ? "⊘" : e.state_reason === "duplicate" ? "🔁" : "✅", text: <>{trx("{who} が{closeReasonText}として閉じました", { who, closeReasonText: closeReasonText(e.state_reason) })}</> };
       case "reopened":
-        return { icon: "🔄", text: <>{who} が開き直しました</> };
+        return { icon: "🔄", text: <>{trx("{who} が開き直しました", { who })}</> };
       case "marked_as_duplicate":
-        return { icon: "🔁", text: <>{who} が重複の印を付けました</> };
+        return { icon: "🔁", text: <>{trx("{who} が重複の印を付けました", { who })}</> };
       case "unmarked_as_duplicate":
-        return { icon: "🔁", text: <>{who} が重複の印を外しました</> };
+        return { icon: "🔁", text: <>{trx("{who} が重複の印を外しました", { who })}</> };
       case "cross-referenced":
-        return e.source?.issue ? { icon: "🔗", text: <>{issueLink(e.source.issue)} から触れられました</> } : null;
+        return e.source?.issue ? { icon: "🔗", text: <>{trx("{issueLink} から触れられました", { issueLink: issueLink(e.source.issue) })}</> } : null;
       case "referenced":
-        return e.commit_id ? { icon: "🔨", text: <>コミット {commitLink(e)} から触れられました</> } : null;
+        return e.commit_id ? { icon: "🔨", text: <>{trx("コミット {commitLink} から触れられました", { commitLink: commitLink(e) })}</> } : null;
       case "sub_issue_added":
-        return { icon: "🧩", text: <>{who} が子{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} を足しました</> };
+        return { icon: "🧩", text: <>{trx("{who} が子", { who })}{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} {" "}{tr("を足しました")}</> };
       case "sub_issue_removed":
-        return { icon: "🧩", text: <>{who} が子{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} を外しました</> };
+        return { icon: "🧩", text: <>{trx("{who} が子", { who })}{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} {" "}{tr("を外しました")}</> };
       case "parent_issue_added":
-        return { icon: "🧩", text: <>{who} が親{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} の子にしました</> };
+        return { icon: "🧩", text: <>{trx("{who} が親", { who })}{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} {" "}{tr("の子にしました")}</> };
       case "parent_issue_removed":
-        return { icon: "🧩", text: <>{who} が親{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} から外しました</> };
+        return { icon: "🧩", text: <>{trx("{who} が親", { who })}{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} {" "}{tr("から外しました")}</> };
       case "locked":
-        return { icon: "🔒", text: <>{who} がコメントできないようにしました</> };
+        return { icon: "🔒", text: <>{trx("{who} がコメントできないようにしました", { who })}</> };
       case "unlocked":
-        return { icon: "🔓", text: <>{who} がコメントできるようにしました</> };
+        return { icon: "🔓", text: <>{trx("{who} がコメントできるようにしました", { who })}</> };
       case "pinned":
-        return { icon: "📌", text: <>{who} がピン留めしました</> };
+        return { icon: "📌", text: <>{trx("{who} がピン留めしました", { who })}</> };
       case "transferred":
-        return { icon: "🚚", text: <>{who} がほかのリポジトリから移しました</> };
+        return { icon: "🚚", text: <>{trx("{who} がほかのリポジトリから移しました", { who })}</> };
       default:
         return null;
     }
@@ -213,16 +214,16 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
   return (
     <div className="issue-timeline">
       <div className="issue-timeline-head">
-        <h3 className="section-header">💬 コメントと変更の履歴 ({comments.length})</h3>
-        <span className="issue-timeline-filter" role="group" aria-label="出すもの">
-          <button type="button" className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>すべて</button>
-          <button type="button" className={filter === "comments" ? "on" : ""} onClick={() => setFilter("comments")}>コメントだけ</button>
+        <h3 className="section-header">{trx("💬 コメントと変更の履歴 ({length})", { length: comments.length })}</h3>
+        <span className="issue-timeline-filter" role="group" aria-label={tr("出すもの")}>
+          <button type="button" className={filter === "all" ? "on" : ""} onClick={() => setFilter("all")}>{tr("すべて")}</button>
+          <button type="button" className={filter === "comments" ? "on" : ""} onClick={() => setFilter("comments")}>{tr("コメントだけ")}</button>
         </span>
         <HistoryOrderToggle order={order} onChange={onOrderChange} />
       </div>
       {order === "newest" && composer && <div className="issue-timeline-composer">{composer}</div>}
       {loadingComments ? (
-        <p className="issue-timeline-note">読み込み中...</p>
+        <p className="issue-timeline-note">{tr("読み込み中...")}</p>
       ) : (
         <ul className="timeline">
           {items.map((item, i) => {
@@ -237,8 +238,8 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                   <div className="timeline-comment-head">
                     <span className="timeline-comment-who">
                       {c.user?.login ?? "unknown"}
-                      {help && <span className="help-badge">🆘 助けて</span>}
-                      {solved && <span className="help-solved">✅ 解決</span>}
+                      {help && <span className="help-badge">{tr("🆘 助けて")}</span>}
+                      {solved && <span className="help-solved">{tr("✅ 解決")}</span>}
                       {c._pending && <PendingChip />}
                     </span>
                     {c._sending ? <SendingChip /> : c._failed ? <FailedChip /> : <span className="timeline-when">{when(c.created_at)}</span>}
@@ -262,12 +263,12 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                     <div className="help-actions">
                       {onRetryComment && (
                         <button type="button" className="btn-primary" onClick={() => onRetryComment(c)}>
-                          もう一度
+                          {tr("もう一度")}
                         </button>
                       )}
                       {onRestoreComment && (
                         <button type="button" className="btn-sm" onClick={() => onRestoreComment(c)}>
-                          書く欄に戻す
+                          {tr("書く欄に戻す")}
                         </button>
                       )}
                     </div>
@@ -276,7 +277,7 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                     <div className="help-actions">
                       {onReplyHelp && (
                         <button type="button" className="btn-sm" onClick={() => onReplyHelp(c)}>
-                          💬 返事を書く
+                          {tr("💬 返事を書く")}
                         </button>
                       )}
                       {onResolveHelp && (
@@ -284,13 +285,13 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
                           type="button"
                           className="btn-sm"
                           disabled={resolving !== null}
-                          title="「解決しました」のコメントを残し、助けを求めた人と呼ばれた人に知らせます"
+                          title={tr("「解決しました」のコメントを残し、助けを求めた人と呼ばれた人に知らせます")}
                           onClick={() => {
                             setResolving(c.id);
                             onResolveHelp(c).finally(() => setResolving(null));
                           }}
                         >
-                          {resolving === c.id ? "送っています…" : "✅ 解決した"}
+                          {resolving === c.id ? tr("送っています…") : tr("✅ 解決した")}
                         </button>
                       )}
                     </div>
@@ -301,23 +302,23 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
             if (item.kind === "created") {
               return (
                 <li key="created" className="timeline-event">
-                  📝 {item.actor ? <b>{item.actor}</b> : "だれか"} が作りました<span className="timeline-when">{when(item.at)}</span>
+                  📝 {item.actor ? <b>{item.actor}</b> : tr("だれか")} {" "}{trx("が作りました<0>{when}</0>", { when: when(item.at) }, [<span className="timeline-when" />])}
                 </li>
               );
             }
             if (item.kind === "labels") {
               return (
                 <li key={`l${i}`} className="timeline-event">
-                  🏷 <b>{item.actor || "だれか"}</b> が
+                  🏷 <b>{item.actor || tr("だれか")}</b> {" "}{tr("が")}
                   {item.removed.length > 0 && (
                     <>
-                      {" "}{item.removed.map((e) => <LabelBadge key={`r${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} を外し
-                      {item.added.length > 0 ? "、" : "ました"}
+                      {" "}{item.removed.map((e) => <LabelBadge key={`r${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} {" "}{tr("を外し")}
+                      {item.added.length > 0 ? "、" : tr("ました")}
                     </>
                   )}
                   {item.added.length > 0 && (
                     <>
-                      {" "}{item.added.map((e) => <LabelBadge key={`a${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} を付けました
+                      {" "}{item.added.map((e) => <LabelBadge key={`a${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} {" "}{tr("を付けました")}
                     </>
                   )}
                   <span className="timeline-when">{when(item.at)}</span>
@@ -333,10 +334,10 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
               </li>
             );
           })}
-          {!loadingComments && comments.length === 0 && filter === "comments" && <li className="issue-timeline-note">コメントはまだありません</li>}
+          {!loadingComments && comments.length === 0 && filter === "comments" && <li className="issue-timeline-note">{tr("コメントはまだありません")}</li>}
         </ul>
       )}
-      {error && filter === "all" && <p className="issue-timeline-note">変更の履歴は出せませんでした（{error}）</p>}
+      {error && filter === "all" && <p className="issue-timeline-note">{trx("変更の履歴は出せませんでした（{error}）", { error })}</p>}
       {order === "oldest" && composer && <div className="issue-timeline-composer">{composer}</div>}
     </div>
   );

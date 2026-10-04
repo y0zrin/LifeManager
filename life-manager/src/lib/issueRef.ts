@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 // Issue の番号の見せ方。
 // オフラインのあいだに作った Issue は、まだ GitHub の番号がないので仮の番号（負の数）を持つ。
 // つながって GitHub に作られたら、本当の番号に置き換わる
@@ -24,5 +25,5 @@ export function isSending(n: number): boolean {
 /** 「#12」、仮の番号なら「仮1」、送っているあいだは「#—」 */
 export function issueRef(n: number): string {
   if (isSending(n)) return "#—";
-  return isTemporary(n) ? `仮${-n}` : `#${n}`;
+  return isTemporary(n) ? tr("仮{v}", { v: -n }) : `#${n}`;
 }

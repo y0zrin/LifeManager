@@ -28,6 +28,7 @@ import { RepoAccess } from "./RepoAccess";
 import { TokenEntry } from "./TokenEntry";
 import { TokenReportView } from "./TokenReportView";
 import { THIS_DEVICE } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface TokenSettingsProps {
   projects: Project[];
@@ -44,16 +45,16 @@ const onTop = (node: ReactNode) => createPortal(node, document.querySelector("ma
 
 /** 確かめた結果を、ひとことの状態にする */
 function statusOf(check: Check | undefined, repoIndex = 0): { tone: "ok" | "warn" | "ng" | "wait"; text: string } {
-  if (!check || check.loading) return { tone: "wait", text: "確かめています…" };
+  if (!check || check.loading) return { tone: "wait", text: tr("確かめています…") };
   if (check.error) return { tone: "ng", text: check.error };
   const report = check.report!;
   const expiry = expiryOf(report);
-  if (expiry && expiry.days < 0) return { tone: "ng", text: "期限が切れています" };
+  if (expiry && expiry.days < 0) return { tone: "ng", text: tr("期限が切れています") };
   const repo = report.repos[repoIndex];
-  if (repo && !repo.ok) return { tone: "ng", text: repo.problem === "not_found" ? "このリポジトリが見えません" : repo.problem === "org_restricted" ? "組織の許可がまだです" : "使えません" };
-  if (expiry && expiry.days <= EXPIRY_WARN_DAYS) return { tone: "warn", text: `あと ${expiry.days} 日で期限` };
-  if (repo?.message) return { tone: "warn", text: "見るだけ（書き込めません）" };
-  return { tone: "ok", text: "使える" };
+  if (repo && !repo.ok) return { tone: "ng", text: repo.problem === "not_found" ? tr("このリポジトリが見えません") : repo.problem === "org_restricted" ? tr("組織の許可がまだです") : tr("使えません") };
+  if (expiry && expiry.days <= EXPIRY_WARN_DAYS) return { tone: "warn", text: tr("あと {days} 日で期限", { days: expiry.days }) };
+  if (repo?.message) return { tone: "warn", text: tr("見るだけ（書き込めません）") };
+  return { tone: "ok", text: tr("使える") };
 }
 
 const ICON = { ok: "🟢", warn: "🟡", ng: "🔴", wait: "⚪" };
@@ -175,14 +176,14 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
 
   return (
     <div className="form-card token-settings">
-      <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>GitHub トークン</h3>
+      <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("GitHub トークン")}</h3>
 
       {/* いつものトークン */}
       <div className="token-card">
         <div className="token-card-row">
-          <span className="token-card-label">いつものトークン</span>
+          <span className="token-card-label">{tr("いつものトークン")}</span>
           {overview && !overview.has_default ? (
-            <span className="token-status token-status--ng">⚪ ありません（プロジェクト専用のトークンだけ）</span>
+            <span className="token-status token-status--ng">{tr("⚪ ありません（プロジェクト専用のトークンだけ）")}</span>
           ) : (
             <span className={`token-status token-status--${myStatus.tone}`}>
               {ICON[myStatus.tone]} {myStatus.text}
@@ -193,15 +194,15 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
           <div className="token-card-row">
             {mine.report.avatar_url && <img className="token-avatar" src={mine.report.avatar_url} alt="" />}
             <span>
-              <b>{mine.report.login}</b> としてつながっています
+              {trx("<0>{login}</0> としてつながっています", { login: mine.report.login }, [<b />])}
             </span>
             <span className="token-kind">{KIND_LABELS[mine.report.kind]}</span>
           </div>
         )}
         {mine.report && (
           <div className="token-card-sub">
-            {expiry ? `期限 ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）` : "期限なし"}
-            {checkedAt && ` ・ 確かめた日時 ${checkedAt.getMonth() + 1}/${checkedAt.getDate()} ${String(checkedAt.getHours()).padStart(2, "0")}:${String(checkedAt.getMinutes()).padStart(2, "0")}`}
+            {expiry ? tr("期限 {date}（{v}）", { date: expiry.date, v: expiry.days < 0 ? tr("切れています") : tr("あと {days} 日", { days: expiry.days }) }) : tr("期限なし")}
+            {checkedAt && tr(" ・ 確かめた日時 {v}/{getDate} {padStart}:{padStart2}", { v: checkedAt.getMonth() + 1, getDate: checkedAt.getDate(), padStart: String(checkedAt.getHours()).padStart(2, "0"), padStart2: String(checkedAt.getMinutes()).padStart(2, "0") })}
           </div>
         )}
         {keyNote && (
@@ -212,7 +213,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
               <>
                 {" "}
                 <button type="button" className="link-button" onClick={tryRefresh} disabled={keyBusy}>
-                  {keyBusy ? "新しくしています…" : "今すぐ新しくしてみる"}
+                  {keyBusy ? tr("新しくしています…") : tr("今すぐ新しくしてみる")}
                 </button>
               </>
             )}
@@ -221,33 +222,33 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         {byLogin && installUrl && mine.report && (
           <div className="token-card-row token-card-access">
             <RepoAccess me={{ login: mine.report.login, id: mine.report.id }} installUrl={installUrl} installations={installations}
-              onChanged={async (added) => { await loadInstallations(); await changed(`使えるリポジトリが増えました（${added.join("、")}）。左上のリポジトリの「＋ リポジトリを追加」で登録できます`); }} />
+              onChanged={async (added) => { await loadInstallations(); await changed(tr("使えるリポジトリが増えました（{join}）。左上のリポジトリの「＋ リポジトリを追加」で登録できます", { join: added.join("、") })); }} />
           </div>
         )}
         <div className="token-card-actions">
           {clientId && (
             <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "login" })}>
-              {byLogin ? "ログインし直す（期限を延ばす）" : "GitHub でログインし直す"}
+              {byLogin ? tr("ログインし直す（期限を延ばす）") : tr("GitHub でログインし直す")}
             </button>
           )}
           <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "default" })}>
-            トークンを入れる…
+            {tr("トークンを入れる…")}
           </button>
           <button type="button" className="btn-sm" onClick={() => { setMessage(null); refresh(); }}>
-            確かめる
+            {tr("確かめる")}
           </button>
           {!confirmOut ? (
             <button type="button" className="btn-sm token-signout" onClick={() => setConfirmOut(true)}>
-              ログアウト
+              {tr("ログアウト")}
             </button>
           ) : (
             <span className="token-confirm">
-              {THIS_DEVICE}から、あなたのトークンをすべて消します。
+              {trx("{THIS_DEVICE}から、あなたのトークンをすべて消します。", { THIS_DEVICE })}
               <button type="button" className="btn-sm token-signout" onClick={signOutNow}>
-                ログアウトする
+                {tr("ログアウトする")}
               </button>
               <button type="button" className="btn-sm" onClick={() => setConfirmOut(false)}>
-                やめる
+                {tr("やめる")}
               </button>
             </span>
           )}
@@ -257,13 +258,13 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
 
       {/* プロジェクトごと */}
       <div className="token-projects">
-        <div className="token-projects-title">プロジェクトごとに使うトークン</div>
+        <div className="token-projects-title">{tr("プロジェクトごとに使うトークン")}</div>
         <table>
           <thead>
             <tr>
-              <th>プロジェクト</th>
-              <th>使うトークン</th>
-              <th>状態</th>
+              <th>{tr("プロジェクト")}</th>
+              <th>{tr("使うトークン")}</th>
+              <th>{tr("状態")}</th>
             </tr>
           </thead>
           <tbody>
@@ -280,7 +281,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
                     <div className="token-projects-sub">{key}</div>
                   </td>
                   <td>
-                    {source === "project" ? "このプロジェクト専用" : source === "default" ? "いつもの" : "ありません"}
+                    {source === "project" ? tr("このプロジェクト専用") : source === "default" ? tr("いつもの") : tr("ありません")}
                     {check?.report && <div className="token-projects-sub">{check.report.login}（{KIND_LABELS[check.report.kind]}）</div>}
                   </td>
                   <td>
@@ -289,18 +290,18 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
                     </span>
                     {(st.tone === "ng" || st.tone === "warn") && check?.report && (
                       <button type="button" className="link-button token-howto" onClick={() => setOpen(open === key ? null : key)}>
-                        {open === key ? "閉じる" : "直し方"}
+                        {open === key ? tr("閉じる") : tr("直し方")}
                       </button>
                     )}
                     {open === key && check?.report && <TokenReportView report={check.report} installUrl={installUrl} />}
                     <div className="token-projects-actions">
                       <button type="button" className="btn-sm" onClick={() => setDialog({ kind: "project", owner: p.owner, repo: p.repo, name })}>
-                        {source === "project" ? "入れ替える…" : "専用のトークンにする…"}
+                        {source === "project" ? tr("入れ替える…") : tr("専用のトークンにする…")}
                       </button>
                       {source === "project" && (
                         <button type="button" className="btn-sm"
-                          onClick={async () => { await clearProjectToken(p.owner, p.repo); await changed(`${name} はいつものトークンを使うようにしました`); }}>
-                          いつものに戻す
+                          onClick={async () => { await clearProjectToken(p.owner, p.repo); await changed(tr("{name} はいつものトークンを使うようにしました", { name })); }}>
+                          {tr("いつものに戻す")}
                         </button>
                       )}
                     </div>
@@ -312,7 +313,7 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
         </table>
       </div>
       <p className="settings-hint">
-        プロジェクトで使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。チームの人のトークンは使わず、それぞれが自分のアカウントでログインします。リーダーはリポジトリに招待するだけです。
+        {tr("プロジェクトで使うトークンは「このプロジェクト専用 → いつもの」の順に決まります。チームの人のトークンは使わず、それぞれが自分のアカウントでログインします。リーダーはリポジトリに招待するだけです。")}
       </p>
 
       {dialog &&
@@ -320,25 +321,25 @@ export function TokenSettings({ projects, onChanged, onSignOut }: TokenSettingsP
           <div className="palette-overlay git-dialog-back" onClick={() => setDialog(null)}>
             <div className="git-dialog token-dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3>
-                {dialog.kind === "login" ? "GitHub でログインし直す" : dialog.kind === "default" ? "トークンを入れる（いつもの）" : `トークンを入れる（${dialog.name} 専用）`}
+                {dialog.kind === "login" ? tr("GitHub でログインし直す") : dialog.kind === "default" ? tr("トークンを入れる（いつもの）") : tr("トークンを入れる（{name} 専用）", { name: dialog.name })}
               </h3>
               {dialog.kind === "login" ? (
                 <>
-                  <p className="git-dialog-note">ログインし直すと、いつものトークンが新しくなります。{THIS_DEVICE}で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。</p>
-                  <GitHubLogin label="GitHub でログイン" onDone={() => changed("GitHub にログインし直しました")} />
+                  <p className="git-dialog-note">{trx("ログインし直すと、いつものトークンが新しくなります。{THIS_DEVICE}で使う期限も今日から数え直します（プロジェクト専用のトークンはそのまま）。", { THIS_DEVICE })}</p>
+                  <GitHubLogin label={tr("GitHub でログイン")} onDone={() => changed(tr("GitHub にログインし直しました"))} />
                 </>
               ) : dialog.kind === "default" ? (
                 <TokenEntry
                   repos={projects.filter((p) => sourceOf(p.owner, p.repo) !== "project").map((p) => ({ owner: p.owner, repo: p.repo }))}
-                  onSave={async (t) => { await setDefaultToken(t); await changed("いつものトークンを入れ替えました"); }}
+                  onSave={async (t) => { await setDefaultToken(t); await changed(tr("いつものトークンを入れ替えました")); }}
                   onCancel={() => setDialog(null)}
                 />
               ) : (
                 <TokenEntry
                   repos={[{ owner: dialog.owner, repo: dialog.repo }]}
                   owner={dialog.owner}
-                  saveLabel="このプロジェクト専用にする"
-                  onSave={async (t) => { await setProjectToken(dialog.owner, dialog.repo, t); await changed(`${dialog.name} 専用のトークンにしました`); }}
+                  saveLabel={tr("このプロジェクト専用にする")}
+                  onSave={async (t) => { await setProjectToken(dialog.owner, dialog.repo, t); await changed(tr("{name} 専用のトークンにしました", { name: dialog.name })); }}
                   onCancel={() => setDialog(null)}
                 />
               )}

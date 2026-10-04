@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CELEBRATE_EVENT, type CelebrateDetail } from "../../lib/celebrate";
 import { Buncho } from "./Buncho";
+import { tr } from "../../lib/i18n";
 
 interface CelebrationProps {
   /** 画面の動きが「ふつう」か（少なめなら、キラキラとスタンプは出さず、知らせだけ） */
@@ -17,7 +18,7 @@ const UNDO_MS = 6000;
 // キラキラの色（CSS の --spark-* と同じ並び）
 const SPARK_COLORS = ["var(--spark-1)", "var(--spark-2)", "var(--spark-3)", "var(--spark-4)", "var(--spark-5)", "var(--spark-6)", "var(--spark-7)", "var(--spark-8)"];
 
-const PHRASES = ["完了！", "おつかれさま！", "よくできました", "やったね！", "Nice!", "Great job!", "Well done!", "Awesome!", "Perfect!"];
+const PHRASES = [tr("完了！"), tr("おつかれさま！"), tr("よくできました"), tr("やったね！"), "Nice!", "Great job!", "Well done!", "Awesome!", "Perfect!"];
 
 const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -56,7 +57,7 @@ function KingyoStamp() {
           <circle cx="28" cy="8" r="1.6" className="k-eye" />
         </g>
       </svg>
-      <span className="cel-kingyo-word">{pick(["すくえた！", "すくえた！", "すくえた！", "やったね！", "大物！"])}</span>
+      <span className="cel-kingyo-word">{pick([tr("すくえた！"), tr("すくえた！"), tr("すくえた！"), tr("やったね！"), tr("大物！")])}</span>
     </div>
   );
 }
@@ -73,8 +74,8 @@ function BunchoStamp() {
         </span>
       </span>
       <span className="cel-buncho-word">
-        {pick(["おつかれさま", "おつかれさま", "できました", "ありがとう"])}
-        <b>済</b>
+        {pick([tr("おつかれさま"), tr("おつかれさま"), tr("できました"), tr("ありがとう")])}
+        <b>{tr("済")}</b>
       </span>
     </div>
   );
@@ -83,7 +84,7 @@ function BunchoStamp() {
 // スタンプの種類（毎回、前と違う種類にする）
 const STAMPS: (() => ReactNode)[] = [
   () => {
-    const [word, sub] = pick([["済", "DONE"], ["完了", "DONE"], ["OK", "DONE"]]);
+    const [word, sub] = pick([[tr("済"), "DONE"], [tr("完了"), "DONE"], ["OK", "DONE"]]);
     return (
       <div className="cel-stamp cel-hanko">
         <span className={word.length > 1 ? "cel-hanko-long" : undefined}>{word}</span>
@@ -93,7 +94,7 @@ const STAMPS: (() => ReactNode)[] = [
   },
   () => (
     <div className="cel-stamp cel-sensei">
-      <SenseiStamp lines={pick([["たいへん", "よく", "できました"], ["よく", "できました"], ["がん", "ばりました"]])} />
+      <SenseiStamp lines={pick([[tr("たいへん"), tr("よく"), tr("できました")], [tr("よく"), tr("できました")], [tr("がん"), tr("ばりました")]])} />
     </div>
   ),
   () => <div className="cel-stamp cel-badge">{pick(["Great job!", "Nice!", "Well done!", "Awesome!", "Perfect!", "Done!"])}</div>,
@@ -143,7 +144,7 @@ export function Celebration({ motion }: CelebrationProps) {
       }
       // 完了の知らせ（下のまんなか）。「元に戻す」があるときは、押せるように長めに出す
       const toastId = ++seq.current;
-      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.text ?? `${detail.label} を完了しました`}　${pick(PHRASES)}`, undo: detail.undo }]);
+      setToasts((prev) => [...prev.slice(-2), { id: toastId, text: `✨ ${detail.text ?? tr("{label} を完了しました", { label: detail.label })}　${pick(PHRASES)}`, undo: detail.undo }]);
       window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== toastId)), detail.undo ? UNDO_MS : 2800);
       if (!effects) return;
       // 押したところ（なければ知らせのすこし上）から、キラキラとスタンプ
@@ -196,7 +197,7 @@ export function Celebration({ motion }: CelebrationProps) {
                     setToasts((prev) => prev.filter((x) => x.id !== t.id));
                   }}
                 >
-                  元に戻す
+                  {tr("元に戻す")}
                 </button>
               </div>
             ) : (

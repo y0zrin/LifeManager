@@ -17,6 +17,7 @@ import {
 } from "../../lib/actions";
 import { ago } from "../../lib/pulls";
 import { LogView } from "./LogView";
+import { tr, trx } from "../../lib/i18n";
 
 interface RunDetailProps {
   owner: string;
@@ -124,9 +125,9 @@ export function RunDetail(props: RunDetailProps) {
   function rerun(failedOnly: boolean) {
     setConfirmRerun(null);
     return act(
-      "もう一度動かしています…",
+      tr("もう一度動かしています…"),
       () => rerunRun(owner, repo, run.id, failedOnly),
-      failedOnly ? "失敗したジョブをもう一度動かしました" : "すべてのジョブをもう一度動かしました",
+      failedOnly ? tr("失敗したジョブをもう一度動かしました") : tr("すべてのジョブをもう一度動かしました"),
     );
   }
 
@@ -161,37 +162,37 @@ export function RunDetail(props: RunDetailProps) {
     todo = (
       <ol>
         <li>
-          下のログの<b>赤い行</b>を見ます（どこで何が起きたか）。{failedStep && <>失敗したのは「{failedStep}」の手順です。</>}
+          {trx("下のログの<0>赤い行</0>を見ます（どこで何が起きたか）。", undefined, [<b />])}{failedStep && <>{trx("失敗したのは「{failedStep}」の手順です。", { failedStep })}</>}
         </li>
         {run.conclusion === "startup_failure" ? (
           <li>
-            始められなかったときは、ワークフローのファイル（<code>{run.path}</code>）の書き方に誤りがあります。
+            {trx("始められなかったときは、ワークフローのファイル（<0>{path}</0>）の書き方に誤りがあります。", { path: run.path }, [<code />])}
           </li>
         ) : run.conclusion === "timed_out" ? (
-          <li>時間切れです。重すぎる処理や、終わらずに待ち続けている手順がないかを見ます。</li>
+          <li>{tr("時間切れです。重すぎる処理や、終わらずに待ち続けている手順がないかを見ます。")}</li>
         ) : run.conclusion === "action_required" ? (
-          <li>持ち主の承認がいる実行です（フォークからのプルリクなど）。GitHub の画面で承認します。</li>
+          <li>{tr("持ち主の承認がいる実行です（フォークからのプルリクなど）。GitHub の画面で承認します。")}</li>
         ) : engine === "unity" ? (
           <li>
-            この PC の Unity で <b>Window → General → Test Runner</b> を開き、同じテスト（EditMode・PlayMode）を動かして確かめます。コンパイルエラーなら、Console に同じエラーが出ます。
+            {trx("この PC の Unity で <0>Window → General → Test Runner</0> を開き、同じテスト（EditMode・PlayMode）を動かして確かめます。コンパイルエラーなら、Console に同じエラーが出ます。", undefined, [<b />])}
           </li>
         ) : engine === "unreal" ? (
           <li>
-            この PC の Unreal で <b>Tools → Session Frontend → Automation</b> を開き、同じテストを動かして確かめます。C++ のビルドで失敗したときは、Visual Studio でビルドして同じエラーを見ます。
+            {trx("この PC の Unreal で <0>Tools → Session Frontend → Automation</0> を開き、同じテストを動かして確かめます。C++ のビルドで失敗したときは、Visual Studio でビルドして同じエラーを見ます。", undefined, [<b />])}
           </li>
         ) : (
           <li>
-            この PC の作業フォルダで{command ? <> <code>{command}</code> を動かして</> : "同じことをして"}、同じ失敗が出るかを確かめます。
+            {tr("この PC の作業フォルダで")}{command ? <> {" "}{trx("<0>{command}</0> を動かして", { command }, [<code />])}</> : tr("同じことをして")}{tr("、同じ失敗が出るかを確かめます。")}
           </li>
         )}
         <li>
-          直してコミットとプッシュをすると、自動でもう一度動きます。
+          {tr("直してコミットとプッシュをすると、自動でもう一度動きます。")}
           {onDefault
-            ? "急ぐときは失敗を入れたコミットを打ち消す（リバート）こともできます。"
+            ? tr("急ぐときは失敗を入れたコミットを打ち消す（リバート）こともできます。")
             : card?.pull
-              ? `プルリク #${card.pull.number} のチェックもやり直されます。`
+              ? tr("プルリク #{number} のチェックもやり直されます。", { number: card.pull.number })
               : ""}
-          ネットの不調などたまたまの失敗なら「失敗したものをもう一度」。
+          {tr("ネットの不調などたまたまの失敗なら「失敗したものをもう一度」。")}
         </li>
       </ol>
     );
@@ -210,67 +211,65 @@ export function RunDetail(props: RunDetailProps) {
         <span className="grow" />
         {canRun && failed && (
           <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => (privateRepo ? setConfirmRerun("failed") : rerun(true))}>
-            ↻ 失敗したものをもう一度{privateRepo ? "…" : ""}
+            {tr("↻ 失敗したものをもう一度")}{privateRepo ? "…" : ""}
           </button>
         )}
         {canRun && run.status === "completed" && (
           <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => (privateRepo ? setConfirmRerun("all") : rerun(false))}>
-            ↻ すべてもう一度{privateRepo ? "…" : ""}
+            {tr("↻ すべてもう一度")}{privateRepo ? "…" : ""}
           </button>
         )}
         {canCancel && active && (
-          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => act("止めています…", () => cancelRun(owner, repo, run.id), "止めました")}>
-            ■ 止める
+          <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => act(tr("止めています…"), () => cancelRun(owner, repo, run.id), tr("止めました"))}>
+            {tr("■ 止める")}
           </button>
         )}
         <button type="button" className="btn-sm" onClick={() => openUrl(run.html_url).catch(() => {})}>
-          GitHub で開く ↗
+          {tr("GitHub で開く ↗")}
         </button>
       </div>
       {confirmRerun && (
         <div className="ac-cost-confirm ac-rerun-confirm">
-          非公開のリポジトリなので、{ownerLabel ?? owner} の Actions の無料の時間を使います。{confirmRerun === "failed" ? "失敗したジョブを" : "すべてのジョブを"}もう一度動かしますか？
+          {tr("非公開のリポジトリなので、")}{ownerLabel ?? owner} {" "}{tr("の Actions の無料の時間を使います。")}{confirmRerun === "failed" ? tr("失敗したジョブを") : tr("すべてのジョブを")}{tr("もう一度動かしますか？")}
           <button type="button" className="btn-sm" onClick={() => setConfirmRerun(null)}>
-            やめる
+            {tr("やめる")}
           </button>
           <button type="button" className="btn-sm primary" disabled={busy !== null} onClick={() => rerun(confirmRerun === "failed")}>
-            無料の時間を使って動かす
+            {tr("無料の時間を使って動かす")}
           </button>
         </div>
       )}
       {!canRun && runNote && (failed || run.status === "completed") && <p className="muted">↻ {runNote}</p>}
       <div className="ac-meta">
-        <code className="pr-branch">{run.branch}</code> への{eventLabel(run.event)}（<code>{run.sha.slice(0, 7)}</code> {run.commit_message || run.title}）で動きました。
+        {trx("<0>{branch}</0> への{eventLabel}（<1>{slice}</1>", { branch: run.branch, eventLabel: eventLabel(run.event), slice: run.sha.slice(0, 7) }, [<code className="pr-branch" />, <code />])}{" "} {run.commit_message || run.title}{tr("）で動きました。")}
         {run.actor?.login ?? ""}
-        {run.started_at && `・${duration(run.started_at, run.status === "completed" ? run.updated_at : null)}`}
-        {`・${ago(run.created_at)}`}
+        {run.started_at && tr("・{duration}", { duration: duration(run.started_at, run.status === "completed" ? run.updated_at : null) })}
+        {tr("・{ago}", { ago: ago(run.created_at) })}
         {run.run_attempt > 1 &&
           (attempt ? (
-            <span className="muted">（もう一度動かした {run.run_attempt} 回目は止めました。下は {attempt} 回目の結果です）</span>
+            <span className="muted">{trx("（もう一度動かした {run_attempt} 回目は止めました。下は {attempt} 回目の結果です）", { run_attempt: run.run_attempt, attempt })}</span>
           ) : (
-            <span className="muted">（{run.run_attempt} 回目）</span>
+            <span className="muted">{trx("（{run_attempt} 回目）", { run_attempt: run.run_attempt })}</span>
           ))}
         {card?.pull && (
           <>
             {" "}
             <button type="button" className="pr-ref" onClick={() => onOpenPull(card.pull!.number)}>
-              プルリク #{card.pull.number}
+              {trx("プルリク #{number}", { number: card.pull.number })}
             </button>
           </>
         )}
       </div>
       {failures.length > 1 && (
         <div className="ac-streak">
-          {failures.map((f) => `#${f.run_number}`).join("・")} が<b>続けて失敗</b>しています（最初は {ago(failures[failures.length - 1].created_at)}、
-          <code>{failures[failures.length - 1].sha.slice(0, 7)}</code> {failures[failures.length - 1].commit_message}・
-          {failures[failures.length - 1].actor?.login ?? ""} から）
+          {failures.map((f) => `#${f.run_number}`).join(tr("・"))} {" "}{trx("が<0>続けて失敗</0>しています（最初は {ago}、<1>{slice}</1> {commit_message}・", { ago: ago(failures[failures.length - 1].created_at), slice: failures[failures.length - 1].sha.slice(0, 7), commit_message: failures[failures.length - 1].commit_message }, [<b />, <code />])}
+          {failures[failures.length - 1].actor?.login ?? ""} {" "}{tr("から）")}
         </div>
       )}
-      {card?.rerunning && <div className="ac-rerunning">● 今もう一度動いています（#{card.rerunning.run_number}）</div>}
+      {card?.rerunning && <div className="ac-rerunning">{trx("● 今もう一度動いています（#{run_number}）", { run_number: card.rerunning.run_number })}</div>}
       {todo && (
         <div className={`ac-todo${card ? ` l${card.level}` : ""}`}>
-          <b>何をすればよいか</b>
-          {todo}
+          {trx("<0>何をすればよいか</0>{todo}", { todo }, [<b />])}
         </div>
       )}
       {busy && <p className="muted">{busy}</p>}
@@ -280,9 +279,9 @@ export function RunDetail(props: RunDetailProps) {
       {jobsError ? (
         <p className="git-dialog-error">{jobsError}</p>
       ) : !jobs ? (
-        <p className="muted">ジョブを読み込んでいます…</p>
+        <p className="muted">{tr("ジョブを読み込んでいます…")}</p>
       ) : jobs.length === 0 ? (
-        <p className="muted">ジョブはまだありません（順番待ちなど）。</p>
+        <p className="muted">{tr("ジョブはまだありません（順番待ちなど）。")}</p>
       ) : (
         jobs.map((job) => {
           const r = resultOf(job);
@@ -305,17 +304,17 @@ export function RunDetail(props: RunDetailProps) {
                       <div key={s.number} className={`ac-step t-${sr.tone}`}>
                         <span className={`ac-icon t-${sr.tone}`}>{sr.icon}</span>
                         <span className="ac-step-name">{s.name}</span>
-                        <span className="muted">{s.conclusion === "skipped" ? "とばした" : duration(s.started_at, s.completed_at)}</span>
+                        <span className="muted">{s.conclusion === "skipped" ? tr("とばした") : duration(s.started_at, s.completed_at)}</span>
                       </div>
                     );
                   })}
                   {job.status !== "completed" ? (
-                    <p className="muted">動いています。終わるとログを見られます。</p>
+                    <p className="muted">{tr("動いています。終わるとログを見られます。")}</p>
                   ) : log === "loading" ? (
-                    <p className="muted">ログを読み込んでいます…</p>
+                    <p className="muted">{tr("ログを読み込んでいます…")}</p>
                   ) : !log ? (
                     <button type="button" className="btn-sm" onClick={() => loadLog(job.id)}>
-                      ログを見る
+                      {tr("ログを見る")}
                     </button>
                   ) : "error" in log ? (
                     <p className="git-dialog-error">{log.error}</p>

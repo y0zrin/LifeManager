@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { authInstallUrl, TOKENS_PAGE } from "../../lib/auth";
 import { hasPermission, installationPermissions, type InstallationInfo, type NeededPermission } from "../../lib/actions";
+import { tr, trx } from "../../lib/i18n";
 
 // 同じアカウントの権限は、開き直すまで覚えておく（画面ごとに読み直さない）
 const cache = new Map<string, InstallationInfo>();
@@ -35,10 +36,10 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
     };
   }, [owner]);
 
-  const names = need.map((p) => `${p.name}（${p.access === "write" ? "Read and write" : "Read-only"}）`).join("・");
+  const names = need.map((p) => `${p.name}（${p.access === "write" ? "Read and write" : "Read-only"}）`).join(tr("・"));
   const missing = info?.kind === "app" && info.installed ? need.filter((p) => !hasPermission(info.permissions, p)) : [];
   const mine = owner.toLowerCase() === currentUser.toLowerCase();
-  const leaderText = `Life Manager で使えるように、権限の更新（${need.map((p) => p.name).join("・")}）を承認してください。GitHub の Settings → Applications → Installed GitHub Apps → Life Manager App（Configure）で承認できます。`;
+  const leaderText = tr("Life Manager で使えるように、権限の更新（{join}）を承認してください。GitHub の Settings → Applications → Installed GitHub Apps → Life Manager App（Configure）で承認できます。", { join: need.map((p) => p.name).join(tr("・")) });
 
   async function copy() {
     try {
@@ -52,16 +53,16 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
 
   let body: ReactNode;
   if (!info) {
-    body = <p className="muted">Life Manager の権限を確かめています…</p>;
+    body = <p className="muted">{tr("Life Manager の権限を確かめています…")}</p>;
   } else if (info.kind === "token") {
     body = (
       <>
         <p>
-          今のトークン（自分で作ったトークン）に、<b>{names}</b> の権限を足します。GitHub のトークンの画面で、このトークンを選んで Edit → Repository permissions。
+          {trx("今のトークン（自分で作ったトークン）に、<0>{names}</0> の権限を足します。GitHub のトークンの画面で、このトークンを選んで Edit → Repository permissions。", { names }, [<b />])}
         </p>
         <div className="ac-setup-actions">
           <button type="button" className="btn-sm primary" onClick={() => openUrl(TOKENS_PAGE).catch(() => {})}>
-            トークンの画面を開く ↗
+            {tr("トークンの画面を開く ↗")}
           </button>
         </div>
       </>
@@ -70,12 +71,12 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
     body = (
       <>
         <p>
-          <b>{owner}</b> に Life Manager が入っていません。{mine ? "入れて、このリポジトリを選ぶと使えます。" : `持ち主（${owner}）が入れると使えます。`}
+          {trx("<0>{owner}</0> に Life Manager が入っていません。", { owner }, [<b />])}{mine ? tr("入れて、このリポジトリを選ぶと使えます。") : tr("持ち主（{owner}）が入れると使えます。", { owner })}
         </p>
         {mine && (
           <div className="ac-setup-actions">
             <button type="button" className="btn-sm primary" onClick={() => authInstallUrl().then((u) => openUrl(u)).catch(() => {})}>
-              Life Manager を入れる画面を開く ↗
+              {tr("Life Manager を入れる画面を開く ↗")}
             </button>
           </div>
         )}
@@ -85,32 +86,32 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
     body = (
       <>
         <p>
-          まだ承認されていない権限: <b>{missing.map((p) => p.name).join("・")}</b>。
-          {mine ? "開いた画面の上の「Review request」（権限の更新）から承認します。" : `持ち主（${owner}）が GitHub で承認します。`}
+          {tr("まだ承認されていない権限:")}{" "} <b>{missing.map((p) => p.name).join(tr("・"))}</b>。
+          {mine ? tr("開いた画面の上の「Review request」（権限の更新）から承認します。") : tr("持ち主（{owner}）が GitHub で承認します。", { owner })}
         </p>
         <div className="ac-setup-actions">
           {mine && info.html_url && (
             <button type="button" className="btn-sm primary" onClick={() => openUrl(info.html_url!).catch(() => {})}>
-              GitHub で承認する ↗
+              {tr("GitHub で承認する ↗")}
             </button>
           )}
           {!mine && (
             <button type="button" className="btn-sm primary" onClick={copy}>
-              {copied ? "✔ コピーしました" : "持ち主に送る文をコピー"}
+              {copied ? tr("✔ コピーしました") : tr("持ち主に送る文をコピー")}
             </button>
           )}
         </div>
-        <p className="muted">承認の知らせが届いていないときは、Life Manager の作り手が権限を足したあとに届きます。</p>
+        <p className="muted">{tr("承認の知らせが届いていないときは、Life Manager の作り手が権限を足したあとに届きます。")}</p>
       </>
     );
   } else {
     body = (
       <>
-        <p>権限はそろっています。このリポジトリが、Life Manager を使うリポジトリに選ばれていないかもしれません。</p>
+        <p>{tr("権限はそろっています。このリポジトリが、Life Manager を使うリポジトリに選ばれていないかもしれません。")}</p>
         {info.html_url && (
           <div className="ac-setup-actions">
             <button type="button" className="btn-sm primary" onClick={() => openUrl(info.html_url!).catch(() => {})}>
-              使うリポジトリを選ぶ画面を開く ↗
+              {tr("使うリポジトリを選ぶ画面を開く ↗")}
             </button>
           </div>
         )}
@@ -120,13 +121,13 @@ export function PermissionPrompt({ owner, currentUser, need, message, onRetry, c
 
   return (
     <div className={`ac-setup${compact ? " compact" : ""}`}>
-      {!compact && <b className="ac-setup-title">🔑 Life Manager の権限を足すと使えます</b>}
+      {!compact && <b className="ac-setup-title">{tr("🔑 Life Manager の権限を足すと使えます")}</b>}
       {body}
       {message && !compact && <p className="ac-setup-message">{message}</p>}
       {onRetry && (
         <div className="ac-setup-actions">
           <button type="button" className="btn-sm" onClick={onRetry}>
-            承認したのでもう一度読み込む
+            {tr("承認したのでもう一度読み込む")}
           </button>
         </div>
       )}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { GitHubUser } from "../../lib/types";
 import { Avatar } from "../common/Avatar";
 import { TEAM_PARTS, crossedStep, fillMissing, fmt, loadTeamSeen, roadOf, saveTeamSeen, sumTotals, teamTotals, type TeamSeen, type TeamTotals } from "../../lib/teamWork";
+import { tr, trx } from "../../lib/i18n";
 
 interface TeamWorkProps {
   owner: string;
@@ -85,8 +86,8 @@ export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }:
     return (
       <section className={`tw${compact ? " tw--compact" : ""}`}>
         <div className="tw-head">
-          <span className="tw-title">チームの仕事</span>
-          <span className="tw-sub">{error ? `読めませんでした（${error}）` : "数えています…"}</span>
+          <span className="tw-title">{tr("チームの仕事")}</span>
+          <span className="tw-sub">{error ? tr("読めませんでした（{error}）", { error }) : tr("数えています…")}</span>
         </div>
       </section>
     );
@@ -98,11 +99,11 @@ export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }:
   const delta = seen ? total - seen.total : 0;
   const faces = team.slice(0, 5);
   const facesNode = faces.length > 0 && (
-    <span className="tw-faces" title={team.map((u) => u.login).join("・")}>
+    <span className="tw-faces" title={team.map((u) => u.login).join(tr("・"))}>
       {faces.map((u) => (
         <Avatar key={u.login} login={u.login} url={u.avatar_url} className="avatar-sm" />
       ))}
-      <small>{team.length} 人で</small>
+      <small>{trx("{length} 人で", { length: team.length })}</small>
     </span>
   );
 
@@ -110,26 +111,24 @@ export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }:
     // スマホのメニュー: 見出し・数・前に見たときからの数・次の節目までの道を 3 段で。押すとヒストリー
     return (
       <button type="button" className={`tw tw--compact${reached && settled ? " reached" : ""}`} onClick={onOpen}
-        aria-label={`チームの仕事 これまでの合計 ${fmt(total)} 件（押すとヒストリーを開きます）`}>
+        aria-label={tr("チームの仕事 これまでの合計 {fmt} 件（押すとヒストリーを開きます）", { fmt: fmt(total) })}>
         <span className="tw-head">
-          <span className="tw-title">チームの仕事</span>
-          <span className="tw-sub">これまでの合計</span>
+          {trx("<0>チームの仕事</0><1>これまでの合計</1>", undefined, [<span className="tw-title" />, <span className="tw-sub" />])}
           <span className="grow" />
           {facesNode}
         </span>
         <span className="tw-cline">
           <span className="tw-num">
-            <b>{fmt(now)}</b>
-            <span>件</span>
+            {trx("<0>{fmt}</0><1>件</1>", { fmt: fmt(now) }, [<b />, <span />])}
           </span>
           {settled && delta > 0 && (
             <span className="tw-delta">
-              前に見たときから <b>+{fmt(delta)}</b>
+              {trx("前に見たときから <0>+{fmt}</0>", { fmt: fmt(delta) }, [<b />])}
             </span>
           )}
           <span className="grow" />
           <span className="tw-next">
-            次の節目 <b>{fmt(road.to)}</b> まで あと <b>{fmt(Math.max(0, road.to - now))}</b>
+            {trx("次の節目 <0>{fmt}</0> まで あと <1>{fmt2}</1>", { fmt: fmt(road.to), fmt2: fmt(Math.max(0, road.to - now)) }, [<b />, <b />])}
           </span>
         </span>
         <span className="tw-bar">
@@ -140,34 +139,32 @@ export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }:
   }
 
   return (
-    <section className={`tw${reached && settled ? " reached" : ""}`} aria-label={`チームの仕事 これまでの合計 ${fmt(total)} 件`}>
+    <section className={`tw${reached && settled ? " reached" : ""}`} aria-label={tr("チームの仕事 これまでの合計 {fmt} 件", { fmt: fmt(total) })}>
       <div className="tw-head">
-        <span className="tw-title">チームの仕事</span>
-        <span className="tw-sub">これまでの合計</span>
+        {trx("<0>チームの仕事</0><1>これまでの合計</1>", undefined, [<span className="tw-title" />, <span className="tw-sub" />])}
         <span className="grow" />
         {facesNode}
       </div>
       <div className="tw-body">
         <div>
-          <div className="tw-lead">これまでにチームで積み重ねたこと</div>
+          <div className="tw-lead">{tr("これまでにチームで積み重ねたこと")}</div>
           <div className="tw-num">
-            <b>{fmt(now)}</b>
-            <span>件</span>
+            {trx("<0>{fmt}</0><1>件</1>", { fmt: fmt(now) }, [<b />, <span />])}
           </div>
           {settled && delta > 0 && (
             <div className="tw-delta">
-              前に見たとき（{md(seen!.at)}）から <b>+{fmt(delta)}</b>
+              {trx("前に見たとき（{md}）から <0>+{fmt}</0>", { md: md(seen!.at), fmt: fmt(delta) }, [<b />])}
             </div>
           )}
           {settled && reached && (
-            <div className="tw-reach">✦ {fmt(reached)} に届きました（{md(new Date().toISOString())}）</div>
+            <div className="tw-reach">{trx("✦ {fmt} に届きました（{md}）", { fmt: fmt(reached), md: md(new Date().toISOString()) })}</div>
           )}
         </div>
         <div className="tw-road">
           <div className="tw-road-top">
             <span>{fmt(road.from)}</span>
             <span>
-              次の節目 <b>{fmt(road.to)}</b> まで あと <b>{fmt(Math.max(0, road.to - now))}</b>
+              {trx("次の節目 <0>{fmt}</0> まで あと <1>{fmt2}</1>", { fmt: fmt(road.to), fmt2: fmt(Math.max(0, road.to - now)) }, [<b />, <b />])}
             </span>
             <span>{fmt(road.to)}</span>
           </div>
@@ -178,7 +175,7 @@ export function TeamWork({ owner, repo, team, motion, compact = false, onOpen }:
       </div>
       <div className="tw-parts">
         {TEAM_PARTS.map((p) => (
-          <span key={p.key} className="tw-part" title={totals?.[p.key] === null ? "読めませんでした" : undefined}>
+          <span key={p.key} className="tw-part" title={totals?.[p.key] === null ? tr("読めませんでした") : undefined}>
             {p.icon} {p.label} <b>{totals?.[p.key] === null ? "—" : fmt(totals?.[p.key] ?? 0)}</b>
           </span>
         ))}

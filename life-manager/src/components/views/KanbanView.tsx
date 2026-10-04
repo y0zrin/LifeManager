@@ -19,6 +19,7 @@ import { issueForBranch } from "../../lib/branchName";
 import { isEnter, isEscape } from "../../lib/keys";
 import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
 import { isMobile as isPhone } from "../../lib/platform";
+import { tr } from "../../lib/i18n";
 
 interface KanbanViewProps {
   owner: string;
@@ -89,22 +90,22 @@ function useIsMobile(breakpoint = 640) {
 
 /** 空の区画に出す、どうすれば入るか */
 const EMPTY_HINTS: Record<string, string> = {
-  "状態:進行中": "「作業をする」で始めるとここに入ります",
-  "状態:チェック待ち": "プルリクを作るとここに入ります",
+  "状態:進行中": tr("「作業をする」で始めるとここに入ります"),
+  "状態:チェック待ち": tr("プルリクを作るとここに入ります"),
 };
 
 /** ボードの下の机（テーマごと）。付箋を置くと、自分の担当になる */
 const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: string; deco: string }> = {
-  chalk: { name: "✏️ 自分の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "📓✏️" },
-  white: { name: "🖥 自分のデスク", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "⌨️☕" },
-  quest: { name: "🛎 ギルドの受付", count: "受注した依頼", drop: "受付に出すと受注します（自分の担当になります）", empty: "受注した依頼はありません", deco: "🛎🪶" },
-  night: { name: "🌙 夜の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "🕯️☕" },
-  day: { name: "☀️ カフェのテーブル", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "🌿☕" },
-  spring: { name: "🌸 春の机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "🍡🍵" },
-  winter: { name: "❄️ こたつ", count: "自分の担当", drop: "こたつに入れると自分の担当になります", empty: "担当の付箋はありません", deco: "🍊🍊" },
-  kingyo: { name: "🎐 縁側", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "🍉🍧" },
+  chalk: { name: tr("✏️ 自分の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "📓✏️" },
+  white: { name: tr("🖥 自分のデスク"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "⌨️☕" },
+  quest: { name: tr("🛎 ギルドの受付"), count: tr("受注した依頼"), drop: tr("受付に出すと受注します（自分の担当になります）"), empty: tr("受注した依頼はありません"), deco: "🛎🪶" },
+  night: { name: tr("🌙 夜の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🕯️☕" },
+  day: { name: tr("☀️ カフェのテーブル"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🌿☕" },
+  spring: { name: tr("🌸 春の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍡🍵" },
+  winter: { name: tr("❄️ こたつ"), count: tr("自分の担当"), drop: tr("こたつに入れると自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍊🍊" },
+  kingyo: { name: tr("🎐 縁側"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍉🍧" },
   // 文机の上の小物（手紙・一輪挿し・湯のみ）は App.css の絵
-  buncho: { name: "🪶 文机", count: "自分の担当", drop: "ここに置くと自分の担当になります", empty: "担当の付箋はありません", deco: "" },
+  buncho: { name: tr("🪶 文机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "" },
 };
 
 /**
@@ -220,7 +221,7 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
 
   return (
     <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}${issue._sending ? " sending" : ""}${issue._failed ? " failed" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
-      {overdue && <span className="bd-late">期限切れ</span>}
+      {overdue && <span className="bd-late">{tr("期限切れ")}</span>}
       <div className="bd-nt">
         <span className="bd-no">{issueRef(issue.number)}</span>
         {issue.title}
@@ -233,18 +234,18 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
       )}
       <div className="bd-line">
         {quest && est && <span className="bd-stars">{starsOf(issue)}</span>}
-        {est && <span>{quest ? `報酬 ${formatEstimate(est.value, est.unit)}` : formatEstimate(est.value, est.unit)}</span>}
+        {est && <span>{quest ? tr("報酬 {formatEstimate}", { formatEstimate: formatEstimate(est.value, est.unit) }) : formatEstimate(est.value, est.unit)}</span>}
         {due && (
           <span className={overdue ? "bd-over" : ""}>
-            {quest ? `期限 ${m}/${d}` : overdue ? `${m}/${d} 期限切れ！` : `${m}/${d} まで`}
+            {quest ? tr("期限 {m}/{d}", { m, d }) : overdue ? tr("{m}/{d} 期限切れ！", { m, d }) : tr("{m}/{d} まで", { m, d })}
           </span>
         )}
-        {fields.length > 0 && <span>{fields.join("・")}</span>}
+        {fields.length > 0 && <span>{fields.join(tr("・"))}</span>}
       </div>
       <div className="bd-foot">
         {mine ? (
           quest ? (
-            <span className="bd-hanko">受注</span>
+            <span className="bd-hanko">{tr("受注")}</span>
           ) : (
             <span className="bd-magnet">{me.slice(0, 1).toUpperCase()}</span>
           )
@@ -252,14 +253,14 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
           <span className="bd-magnet other">{others[0].slice(0, 1).toUpperCase()}</span>
         ) : null}
         <span className={mine ? "bd-mine" : "bd-who"}>
-          {mine ? (others.length > 0 ? `自分・${others.join("・")}` : "自分") : others.length > 0 ? others.join("・") : quest ? "受注者 募集中" : "担当なし"}
+          {mine ? (others.length > 0 ? tr("自分・{join}", { join: others.join(tr("・")) }) : tr("自分")) : others.length > 0 ? others.join(tr("・")) : quest ? tr("受注者 募集中") : tr("担当なし")}
         </span>
-        {working && <span className="bd-flag work">✏️ 作業中</span>}
+        {working && <span className="bd-flag work">{tr("✏️ 作業中")}</span>}
         {pull && (
           <button
             type="button"
             className="bd-flag pr"
-            title={`プルリク #${pull.number} を開く`}
+            title={tr("プルリク #{number} を開く", { number: pull.number })}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -286,8 +287,8 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
   }, [open]);
   if (!open) {
     return (
-      <button type="button" className="bd-add" onClick={onOpen} title={target ? `${target} のタスクとして足します` : undefined}>
-        ＋ ここにタスクを追加{target && <span className="bd-add-target">🎯 {target}</span>}
+      <button type="button" className="bd-add" onClick={onOpen} title={target ? tr("{target} のタスクとして足します", { target }) : undefined}>
+        {tr("＋ ここにタスクを追加")}{target && <span className="bd-add-target">🎯 {target}</span>}
       </button>
     );
   }
@@ -310,8 +311,8 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
           className="bd-add-input"
           value={text}
           rows={2}
-          placeholder="タスクの名前"
-          aria-label="足すタスクの名前"
+          placeholder={tr("タスクの名前")}
+          aria-label={tr("足すタスクの名前")}
           onChange={(e) => setText(e.target.value.replace(/[\r\n]+/g, " "))}
           onKeyDown={(e) => {
             if (isEnter(e)) {
@@ -331,12 +332,12 @@ function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; 
       <div className="bd-add-actions">
         {/* 押しても欄から離れない（離れると、空のときは閉じてしまう） */}
         <button type="button" className="btn-primary btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={submit} disabled={!text.trim()}>
-          追加
+          {tr("追加")}
         </button>
         <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
-          やめる
+          {tr("やめる")}
         </button>
-        <small>{isPhone ? "追加したあとも、続けて書けます" : "Enter で貼って続けて書けます"}</small>
+        <small>{isPhone ? tr("追加したあとも、続けて書けます") : tr("Enter で貼って続けて書けます")}</small>
       </div>
     </div>
   );
@@ -367,7 +368,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     setGenre("triage");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce]);
-  const categoryNames: Record<string, string> = { "種別:": "種別", [SECTION_PREFIX]: "セクション", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
+  const categoryNames: Record<string, string> = { "種別:": tr("種別"), [SECTION_PREFIX]: tr("セクション"), "優先:": tr("優先"), [ESTIMATE_PREFIX]: tr("見積") };
   const filterProps: TaskFilterProps = {
     categories: Object.keys(categoryNames)
       .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => inCategory(l.name, prefix)) }))
@@ -399,7 +400,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         const map = new Map<number, PullMark>();
         for (const p of open) {
           const v = (verdicts as Record<string, { approved: string[]; changes_requested: string[] }>)[String(p.number)];
-          const state = p.draft ? "下書き" : v?.changes_requested.length ? "修正の依頼" : v?.approved.length ? "承認済み" : "レビュー待ち";
+          const state = p.draft ? tr("下書き") : v?.changes_requested.length ? tr("修正の依頼") : v?.approved.length ? tr("承認済み") : tr("レビュー待ち");
           const branchIssue = issueForBranch(p.head, issues, owner, repo);
           for (const n of [...closingIssues(p.body ?? ""), ...(branchIssue !== null ? [branchIssue] : [])]) {
             if (!map.has(n)) map.set(n, { number: p.number, state });
@@ -625,8 +626,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     .sort((a, b) => colIndex(a) - colIndex(b) || a.number - b.number);
   // 広げた机では、区画ごとに分けて並べる（区画にない状態は最後に「そのほか」）
   const myGroups = [
-    ...baseColumns.map((c) => ({ key: c.key, label: `${c.emoji} ${c.title}`, items: myIssues.filter((i) => (statusOf(i) || "none") === c.key) })),
-    { key: "@other", label: "そのほか", items: myIssues.filter((i) => colIndex(i) === baseColumns.length) },
+    ...baseColumns.map((c) => ({ key: c.key, label: `${c.emoji} ${tr(c.title)}`, items: myIssues.filter((i) => (statusOf(i) || "none") === c.key) })),
+    { key: "@other", label: tr("そのほか"), items: myIssues.filter((i) => colIndex(i) === baseColumns.length) },
   ].filter((g) => g.items.length > 0);
   const [deskNote, setDeskNote] = useState<string | null>(null);
   useEffect(() => {
@@ -640,18 +641,18 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     const names = (issue?.assignees ?? []).map((a) => a.login);
     if (!issue || !currentUser || names.includes(currentUser)) return;
     if (names.length > 0) {
-      setDeskNote(`#${n} は ${names.join("・")} の担当です（Issue の詳細で担当を変えられます）`);
+      setDeskNote(tr("#{n} は {join} の担当です（Issue の詳細で担当を変えられます）", { n, join: names.join(tr("・")) }));
       return;
     }
     onAssignToMe(n);
-    setDeskNote(look === "quest" ? `#${n} を受注しました` : `#${n} を自分の担当にしました`);
+    setDeskNote(look === "quest" ? tr("#{n} を受注しました", { n }) : tr("#{n} を自分の担当にしました", { n }));
   }
   // ドラッグ中に、机に置けるか
   const deskHint = (() => {
     if (!draggedIssue) return null;
     const names = (draggedIssue.assignees ?? []).map((a) => a.login);
-    if (names.includes(currentUser)) return { ok: false, text: look === "quest" ? "もう受注しています" : "もう自分の担当です" };
-    if (names.length > 0) return { ok: false, text: `ほかの人（${names.join("・")}）の担当です` };
+    if (names.includes(currentUser)) return { ok: false, text: look === "quest" ? tr("もう受注しています") : tr("もう自分の担当です") };
+    if (names.length > 0) return { ok: false, text: tr("ほかの人（{join}）の担当です", { join: names.join(tr("・")) }) };
     return { ok: true, text: desk.drop };
   })();
   const cols = columnsOf(genre);
@@ -685,7 +686,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
               setMoving(moving === key ? null : key);
             }}
           >
-            移動
+            {tr("移動")}
           </button>
         )}
         {isMobile && moving === key && (
@@ -698,7 +699,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                   setMoving(null);
                 }}
               >
-                🙋 {look === "quest" ? "受注する（自分の担当にする）" : "自分の担当にする"}
+                🙋 {look === "quest" ? tr("受注する（自分の担当にする）") : tr("自分の担当にする")}
               </button>
             )}
             {baseColumns
@@ -712,7 +713,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                     setMoving(null);
                   }}
                 >
-                  {c.emoji} {c.title}
+                  {c.emoji} {tr(c.title)}
                 </button>
               ))}
           </div>
@@ -725,7 +726,7 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     <div className="bd-view" ref={viewRef}>
       <div className={`bd-toolbar${isPhone ? " toolbar m-compact" : ""}`}>
         <div className="search-bar bd-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Issue を検索..." className="search-input" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr("Issue を検索...")} className="search-input" />
           {query && (
             <button className="search-clear" onClick={() => setQuery("")}>
               ×
@@ -735,17 +736,17 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         {isPhone ? (
           // スマホは「絞り込み」だけ。自分の担当だけ・フィルタ・区画の設定は板に
           <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) + (mineOnly ? 1 : 0) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
-            表示するタスク{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
+            {tr("表示するタスク")}{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
           </button>
         ) : (
           <>
             <TaskFilterButton {...filterProps} />
             <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
-              👤 自分の担当だけ{mineOnly ? " ✓" : ""}
+              {tr("👤 自分の担当だけ")}{mineOnly ? " ✓" : ""}
             </button>
             <span className="grow" />
-            <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
-              ⚙ 区画の設定
+            <button className="btn-sm" onClick={onOpenBoardSettings} title={tr("設定 → タスク の「ボードの区画」を開きます")}>
+              {tr("⚙ 区画の設定")}
             </button>
           </>
         )}
@@ -754,28 +755,28 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
       {isPhone && (
         <MobileSheet
           open={sheetOpen}
-          title="表示するタスク"
+          title={tr("表示するタスク")}
           onClose={() => setSheetOpen(false)}
           footer={
             <>
-              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0 && !mineOnly} onClick={() => { clearAll(filterProps); setMineOnly(false); }}>すべて外す</button>
-              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>閉じる</button>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0 && !mineOnly} onClick={() => { clearAll(filterProps); setMineOnly(false); }}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{tr("閉じる")}</button>
             </>
           }
         >
-          <SheetRow label="担当">
+          <SheetRow label={tr("担当")}>
             <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
-              👤 自分の担当だけ{mineOnly ? " ✓" : ""}
+              {tr("👤 自分の担当だけ")}{mineOnly ? " ✓" : ""}
             </button>
           </SheetRow>
           <TaskFilterGroups {...filterProps} />
-          <SheetRow label="ボード">
-            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenBoardSettings(); }}>⚙ 区画の設定</button>
+          <SheetRow label={tr("ボード")}>
+            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenBoardSettings(); }}>{tr("⚙ 区画の設定")}</button>
           </SheetRow>
         </MobileSheet>
       )}
 
-      <div className="bd-tabs" role="tablist" aria-label="ボード">
+      <div className="bd-tabs" role="tablist" aria-label={tr("ボード")}>
         {BOARD_GENRES.map((g) => (
           <button
             key={g.key}
@@ -788,13 +789,13 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           >
             {g.icon} {g.label}
             <span className="bd-tab-n">{countOf(g.key)}</span>
-            <small>{dragging !== null && genre !== g.key ? "ここに落とすと移せます" : g.about}</small>
+            <small>{dragging !== null && genre !== g.key ? tr("ここに落とすと移せます") : g.about}</small>
           </button>
         ))}
       </div>
 
       <div ref={wallRef} className={`bd-wall look-${look}`}>
-        {cols.length === 0 && <p className="bd-none">このボードに置く区画がありません（⚙ 区画の設定 で選べます）</p>}
+        {cols.length === 0 && <p className="bd-none">{tr("このボードに置く区画がありません（⚙ 区画の設定 で選べます）")}</p>}
         {cols.map((col, ci) => {
           const list = issuesOf(col);
           return (
@@ -807,13 +808,13 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
               )}
               <header className="bd-head">
                 <span className="bd-title">
-                  {col.emoji} {col.title}
+                  {col.emoji} {tr(col.title)}
                 </span>
                 <span className="bd-count">{list.length}</span>
                 <EstimateSumText sum={sumEstimates(list, unit)} showMissing={false} />
               </header>
               <div className="bd-notes">{list.map((issue) => slot(issue, "board"))}</div>
-              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」でここに移せます" : "ここへドラッグして貼ります")}</div>}
+              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? tr("「移動」でここに移せます") : tr("ここへドラッグして貼ります"))}</div>}
               <AddHere look={look} open={addingTo === col.key} target={typeof milestone === "number" ? milestones.find((m) => m.number === milestone)?.title ?? null : null} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
           );
@@ -828,13 +829,13 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           <button
             type="button"
             className="bd-desk-tab"
-            aria-label={deskOpen ? "机をたたむ（上下に引くと高さが変わります）" : "机を一番上まで広げる（上へ引くと好きな高さに）"}
+            aria-label={deskOpen ? tr("机をたたむ（上下に引くと高さが変わります）") : tr("机を一番上まで広げる（上へ引くと好きな高さに）")}
             aria-expanded={deskOpen}
-            title={deskOpen ? "押すとたたむ・上下に引くと高さが変わる" : "押すと一番上まで広がる・上へ引くと好きな高さに"}
+            title={deskOpen ? tr("押すとたたむ・上下に引くと高さが変わる") : tr("押すと一番上まで広がる・上へ引くと好きな高さに")}
             onPointerDown={onDeskGripDown}
             onClick={onDeskGripClick}
           >
-            {deskOpen ? "▼ たたむ" : "▲ 広げる"}
+            {deskOpen ? tr("▼ たたむ") : tr("▲ 広げる")}
           </button>
           <div className="bd-desk-name">
             <b>{desk.name}</b>
@@ -860,17 +861,17 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
                 key={issue.number}
                 type="button"
                 className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}${issue._sending ? " sending" : issue._failed ? " failed" : ""}`}
-                title={issue._sending ? `${issue.title}（送っています…）` : issue._failed ? `${issue.title}（送れませんでした。付箋の「もう一度」で送り直せます）` : issue.title}
+                title={issue._sending ? tr("{title}（送っています…）", { title: issue.title }) : issue._failed ? tr("{title}（送れませんでした。付箋の「もう一度」で送り直せます）", { title: issue.title }) : issue.title}
                 onMouseDown={isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
                 onClick={() => {
                   if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
                 }}
               >
-                {look === "quest" && <span className="bd-desk-hanko">受注</span>}
+                {look === "quest" && <span className="bd-desk-hanko">{tr("受注")}</span>}
                 <span className="bd-desk-no">
                   {issue._sending ? (
                     <>
-                      <i className="sending-spin" aria-label="送っています" />
+                      <i className="sending-spin" aria-label={tr("送っています")} />
                       <SendingBird />
                     </>
                   ) : issue._failed ? (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { baseName, extOf, formatBytes, KIND_GROUPS, KIND_ICONS, KIND_LABELS, kindOf, readMediaBytes, type MediaFile } from "../../lib/media";
 import { useBlobUrl } from "../../hooks/useBlobUrl";
@@ -11,6 +11,7 @@ import { ImageView } from "./ImageView";
 import { AudioView } from "./AudioView";
 import { ModelView } from "./ModelView";
 import { CodeView, CsvView, HtmlView, MarkdownView } from "./TextViews";
+import { tr } from "../../lib/i18n";
 
 interface MediaViewerProps {
   files: MediaFile[];
@@ -161,9 +162,9 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
 
   let content;
   if (removed) {
-    content = <div className="mv-main full"><p className="mv-note center">このコミットで消えたファイルです</p></div>;
+    content = <div className="mv-main full"><p className="mv-note center">{tr("このコミットで消えたファイルです")}</p></div>;
   } else if (!now) {
-    content = <div className="mv-main full"><p className="mv-note center"><i className="spinner" aria-hidden="true" /> 読み込んでいます…</p></div>;
+    content = <div className="mv-main full"><p className="mv-note center"><i className="spinner" aria-hidden="true" /> {" "}{tr("読み込んでいます…")}</p></div>;
   } else if (now.error) {
     content = <div className="mv-main full"><p className="mv-note center error">{now.error.replace(/^git [^\n]*\n/, "")}</p></div>;
   } else if (now.bytes) {
@@ -182,8 +183,8 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
       : (
         <div className="mv-main full">
           <div className="mv-note center">
-            この形式（.{ext || "?"}）はここでは見られません。
-            {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => openOutside(p)}>外部のアプリで開く</button></div>}
+            {tr("この形式（.")}{ext || "?"}{tr("）はここでは見られません。")}
+            {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => openOutside(p)}>{tr("外部のアプリで開く")}</button></div>}
           </div>
         </div>
       );
@@ -193,7 +194,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
 
   return createPortal(
     <div className="mv-back" onClick={onClose}>
-      <div className="mv" role="dialog" aria-modal="true" aria-label={`${baseName(file.path)} を見る`} onClick={(e) => e.stopPropagation()}>
+      <div className="mv" role="dialog" aria-modal="true" aria-label={tr("{baseName} を見る", { baseName: baseName(file.path) })} onClick={(e) => e.stopPropagation()}>
         <div className="mv-head">
           <span className="mv-icon" aria-hidden="true">{KIND_ICONS[kind]}</span>
           <span className="mv-path">
@@ -201,21 +202,21 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
             {dir && <small>{dir}</small>}
           </span>
           <span className="mv-badge k">{label}</span>
-          {(info[key] || now?.bytes) && <span className="mv-badge">{[info[key], now?.bytes ? formatBytes(now.bytes.byteLength) : ""].filter(Boolean).join(" ・ ")}</span>}
-          {file.status && file.status !== "modified" && <span className={`mv-badge st-${file.status}`}>{file.status === "added" ? "足した" : file.status === "removed" ? "消した" : "名前を変えた"}</span>}
+          {(info[key] || now?.bytes) && <span className="mv-badge">{[info[key], now?.bytes ? formatBytes(now.bytes.byteLength) : ""].filter(Boolean).join(tr(" ・ "))}</span>}
+          {file.status && file.status !== "modified" && <span className={`mv-badge st-${file.status}`}>{file.status === "added" ? tr("足した") : file.status === "removed" ? tr("消した") : tr("名前を変えた")}</span>}
           <span className="grow" />
           {file.commitLabel && <span className="mv-commit" title={file.commitLabel}>{file.commitLabel}</span>}
           {folder && (
             <button type="button" className="btn-sm" onClick={() => void revealItemInDir(joinPath(folder, file.path)).catch(() => {})}
-              title={file.source.kind === "commit" ? "作業フォルダの今のファイルをエクスプローラーで表示します" : undefined}>
-              🗂 エクスプローラーで表示
+              title={file.source.kind === "commit" ? tr("作業フォルダの今のファイルをエクスプローラーで表示します") : undefined}>
+              {tr("🗂 エクスプローラーで表示")}
             </button>
           )}
-          <button type="button" className="mv-close" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
+          <button type="button" className="mv-close" onClick={onClose} aria-label={tr("閉じる")} title={tr("閉じる（Esc）")}>×</button>
         </div>
         {outsideNote && <p className="mv-note error mv-outside-note" role="alert">{outsideNote}</p>}
         <div className="mv-body">
-          <nav className="mv-list" aria-label="ファイル">
+          <nav className="mv-list" aria-label={tr("ファイル")}>
             {title && <div className="mv-list-title">{title}</div>}
             {KIND_GROUPS.map((g) => {
               const items = files.map((f, i) => ({ f, i })).filter(({ f }) => g.kinds.includes(kindOf(f.path)));
@@ -230,7 +231,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
                       <span className="mv-item-name">
                         {baseName(f.path)}
                         <small>
-                          {f.status === "removed" ? "消した" : f.additions != null && f.deletions != null && (f.additions > 0 || f.deletions > 0) ? `+${f.additions} −${f.deletions}` : KIND_LABELS[kindOf(f.path)]}
+                          {f.status === "removed" ? tr("消した") : f.additions != null && f.deletions != null && (f.additions > 0 || f.deletions > 0) ? `+${f.additions} −${f.deletions}` : KIND_LABELS[kindOf(f.path)]}
                         </small>
                       </span>
                     </button>

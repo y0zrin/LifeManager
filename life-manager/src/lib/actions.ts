@@ -1,6 +1,7 @@
 // Actions（実行・ジョブ・ログ・もう一度実行・手で実行）と、セキュリティのお知らせ。
 // 「解決する順の山」の積み方（どれを先に直すか）は、このファイルの buildStack にまとめる
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
+import { tr, jaOf } from "./i18n";
 
 export interface Actor {
   login: string;
@@ -221,7 +222,7 @@ export const hasPermission = (granted: Record<string, string> | null | undefined
 };
 
 /** エラーが「権限が足りない」ものか（github/errors.rs の言いかえ） */
-export const isPermissionError = (message: string | null | undefined) => !!message && message.includes("の権限");
+export const isPermissionError = (message: string | null | undefined) => !!message && jaOf(message).includes("の権限");
 
 // --- GitHub とのやりとり ---
 
@@ -253,9 +254,9 @@ export function canManageActions(ov: Pick<ActionsOverview, "owner_type" | "can_a
 export type SetupItem = "workflow" | "dependabot" | "code";
 
 export const SETUP_ITEMS: { key: SetupItem; label: string; about: string }[] = [
-  { key: "workflow", label: "ワークフローを置く", about: "ワークフローがないとき、ひな形から置くのを勧めます" },
-  { key: "dependabot", label: "Dependabot のお知らせ", about: "止まっているとき、有効にするのを勧めます" },
-  { key: "code", label: "コードスキャン", about: "公開のリポジトリで使っていないとき、勧めます" },
+  { key: "workflow", label: tr("ワークフローを置く"), about: tr("ワークフローがないとき、ひな形から置くのを勧めます") },
+  { key: "dependabot", label: tr("Dependabot のお知らせ"), about: tr("止まっているとき、有効にするのを勧めます") },
+  { key: "code", label: tr("コードスキャン"), about: tr("公開のリポジトリで使っていないとき、勧めます") },
 ];
 
 const setupHiddenKey = (owner: string, repo: string) => `actions-setup-hidden:${owner}/${repo}`;
@@ -334,10 +335,10 @@ export const commitsChecks = (owner: string, repo: string, shas: string[]) => in
 export type Level = 1 | 2 | 3 | 4;
 
 export const LEVELS: { level: Level; icon: string; label: string }[] = [
-  { level: 1, icon: "🔴", label: "すぐ直す" },
-  { level: 2, icon: "🟠", label: "早めに" },
-  { level: 3, icon: "🟡", label: "手が空いたら" },
-  { level: 4, icon: "●", label: "待つだけ" },
+  { level: 1, icon: "🔴", label: tr("すぐ直す") },
+  { level: 2, icon: "🟠", label: tr("早めに") },
+  { level: 3, icon: "🟡", label: tr("手が空いたら") },
+  { level: 4, icon: "●", label: tr("待つだけ") },
 ];
 
 export interface StackCard {
@@ -384,14 +385,14 @@ export const isActive = (r: { status: string }) => ACTIVE.has(r.status);
 
 const SECURITY_LEVEL: Record<string, Level> = { critical: 1, high: 2, error: 2, medium: 3, moderate: 3, low: 3, warning: 3, note: 3 };
 export const SEVERITY_LABELS: Record<string, string> = {
-  critical: "重大",
-  high: "高",
-  medium: "中",
-  moderate: "中",
-  low: "低",
-  error: "エラー",
-  warning: "注意",
-  note: "メモ",
+  critical: tr("重大"),
+  high: tr("高"),
+  medium: tr("中"),
+  moderate: tr("中"),
+  low: tr("低"),
+  error: tr("エラー"),
+  warning: tr("注意"),
+  note: tr("メモ"),
 };
 
 /**
@@ -442,16 +443,16 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
       const why =
         level === 1
           ? branch === ov.default_branch
-            ? `${branch} はみんなが使うブランチです。最初に直します`
-            : `${branch} は保護されたブランチです。最初に直します`
+            ? tr("{branch} はみんなが使うブランチです。最初に直します", { branch })
+            : tr("{branch} は保護されたブランチです。最初に直します", { branch })
           : level === 2
-            ? "直してからマージします"
-            : `まだプルリクのないブランチです。作業している人が直します（${last.actor?.login ?? "?"}）`;
+            ? tr("直してからマージします")
+            : tr("まだプルリクのないブランチです。作業している人が直します（{v}）", { v: last.actor?.login ?? "?" });
       cards.push({
         key,
         level,
         kind: "run",
-        title: level === 2 && pull ? `プルリク #${pull.number} の ${last.name} が失敗しています` : `${branch} の ${last.name} が失敗しています`,
+        title: level === 2 && pull ? tr("プルリク #{number} の {name} が失敗しています", { number: pull.number, name: last.name }) : tr("{branch} の {name} が失敗しています", { branch, name: last.name }),
         why,
         since: failures[failures.length - 1].created_at,
         streak,
@@ -467,7 +468,7 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
         key,
         level: 4,
         kind: "run",
-        title: `${active.name} #${active.run_number} が動いています`,
+        title: tr("{name} #{run_number} が動いています", { name: active.name, run_number: active.run_number }),
         why: "",
         since: active.created_at,
         streak: 0,
@@ -495,12 +496,12 @@ export function buildStack(ov: ActionsOverview, now = Date.now()): Stack {
         key: `dependabot|${a.number}`,
         level: SECURITY_LEVEL[severity] ?? 3,
         kind: "dependabot",
-        title: `🛡 ${a.package}${a.vulnerable ? ` ${a.vulnerable}` : ""} に危険度「${SEVERITY_LABELS[severity] ?? severity}」の問題`,
+        title: tr("🛡 {package}{v} に危険度「{v2}」の問題", { package: a.package, v: a.vulnerable ? ` ${a.vulnerable}` : "", v2: SEVERITY_LABELS[severity] ?? severity }),
         why: fixPull
-          ? `Dependabot のプルリク #${fixPull.number} をマージすると直ります`
+          ? tr("Dependabot のプルリク #{number} をマージすると直ります", { number: fixPull.number })
           : a.fixed
-            ? `${a.fixed} 以上に上げると直ります`
-            : "直した版はまだありません。使い方を見直すか、ほかのものに替えます",
+            ? tr("{fixed} 以上に上げると直ります", { fixed: a.fixed })
+            : tr("直した版はまだありません。使い方を見直すか、ほかのものに替えます"),
         since: a.created_at,
         streak: 0,
         dependabot: a,
@@ -539,16 +540,16 @@ export function runOfCheck(url: string | null | undefined): { runId: number; job
 // --- 見せ方 ---
 
 const EVENT_LABELS: Record<string, string> = {
-  push: "プッシュ",
-  pull_request: "プルリク",
-  pull_request_target: "プルリク",
-  schedule: "決まった時刻",
-  workflow_dispatch: "手で実行",
-  workflow_run: "ほかのワークフローのあと",
-  release: "リリース",
-  merge_group: "マージの列",
-  repository_dispatch: "外からの合図",
-  dynamic: "GitHub の自動",
+  push: tr("プッシュ"),
+  pull_request: tr("プルリク"),
+  pull_request_target: tr("プルリク"),
+  schedule: tr("決まった時刻"),
+  workflow_dispatch: tr("手で実行"),
+  workflow_run: tr("ほかのワークフローのあと"),
+  release: tr("リリース"),
+  merge_group: tr("マージの列"),
+  repository_dispatch: tr("外からの合図"),
+  dynamic: tr("GitHub の自動"),
 };
 
 export const eventLabel = (e: string) => EVENT_LABELS[e] ?? e;
@@ -562,25 +563,25 @@ export interface ResultInfo {
 /** 実行・ジョブ・ステップの結果の印 */
 export function resultOf(x: { status: string; conclusion: string | null }): ResultInfo {
   if (x.status !== "completed") {
-    if (x.status === "queued" || x.status === "pending" || x.status === "requested") return { icon: "●", tone: "wait", label: "順番待ち" };
-    if (x.status === "waiting") return { icon: "●", tone: "wait", label: "承認待ち" };
-    return { icon: "●", tone: "wait", label: "実行中" };
+    if (x.status === "queued" || x.status === "pending" || x.status === "requested") return { icon: "●", tone: "wait", label: tr("順番待ち") };
+    if (x.status === "waiting") return { icon: "●", tone: "wait", label: tr("承認待ち") };
+    return { icon: "●", tone: "wait", label: tr("実行中") };
   }
   switch (x.conclusion) {
     case "success":
-      return { icon: "✔", tone: "ok", label: "成功" };
+      return { icon: "✔", tone: "ok", label: tr("成功") };
     case "failure":
-      return { icon: "✖", tone: "ng", label: "失敗" };
+      return { icon: "✖", tone: "ng", label: tr("失敗") };
     case "timed_out":
-      return { icon: "✖", tone: "ng", label: "時間切れ" };
+      return { icon: "✖", tone: "ng", label: tr("時間切れ") };
     case "startup_failure":
-      return { icon: "✖", tone: "ng", label: "始められなかった" };
+      return { icon: "✖", tone: "ng", label: tr("始められなかった") };
     case "action_required":
-      return { icon: "!", tone: "warn", label: "承認がいる" };
+      return { icon: "!", tone: "warn", label: tr("承認がいる") };
     case "cancelled":
-      return { icon: "⊘", tone: "muted", label: "取り消し" };
+      return { icon: "⊘", tone: "muted", label: tr("取り消し") };
     case "skipped":
-      return { icon: "⊘", tone: "muted", label: "とばした" };
+      return { icon: "⊘", tone: "muted", label: tr("とばした") };
     default:
       return { icon: "○", tone: "muted", label: x.conclusion ?? "" };
   }
@@ -591,10 +592,10 @@ export function duration(start: string | null | undefined, end: string | null | 
   if (!start) return "";
   const s = Math.max(0, Math.round(((end ? Date.parse(end) : now) - Date.parse(start)) / 1000));
   if (Number.isNaN(s)) return "";
-  if (s < 60) return `${s} 秒`;
+  if (s < 60) return tr("{s} 秒", { s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} 分 ${String(s % 60).padStart(2, "0")} 秒`;
-  return `${Math.floor(m / 60)} 時間 ${m % 60} 分`;
+  if (m < 60) return tr("{m} 分 {padStart} 秒", { m, padStart: String(s % 60).padStart(2, "0") });
+  return tr("{floor} 時間 {v} 分", { floor: Math.floor(m / 60), v: m % 60 });
 }
 
 // --- ログ ---

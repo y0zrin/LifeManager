@@ -25,6 +25,7 @@ import { CommitDetail } from "../git/CommitDetail";
 import { MergeBox } from "./MergeBox";
 import { PullConversation } from "./PullConversation";
 import { PullFiles, type LineCommentDraft } from "./PullFiles";
+import { tr, trx } from "../../lib/i18n";
 
 type Tab = "conversation" | "files" | "commits" | "checks";
 const TABS: Tab[] = ["conversation", "files", "commits", "checks"];
@@ -199,11 +200,11 @@ export function PullDetail(props: PullDetailProps) {
     return (
       <div className="pr-detail">
         <button type="button" className="btn-sm pr-back" onClick={onBack}>
-          ← 一覧
+          {tr("← 一覧")}
         </button>
         <p className="git-dialog-error">{error}</p>
         <button type="button" className="btn-sm" onClick={loadDetail}>
-          もう一度読み込む
+          {tr("もう一度読み込む")}
         </button>
       </div>
     );
@@ -211,7 +212,7 @@ export function PullDetail(props: PullDetailProps) {
   if (!detail) {
     return (
       <div className="pr-detail">
-        <p className="muted">#{number} を読み込んでいます…</p>
+        <p className="muted">{trx("#{number} を読み込んでいます…", { number })}</p>
       </div>
     );
   }
@@ -243,11 +244,11 @@ export function PullDetail(props: PullDetailProps) {
     <div className="pr-detail">
       <div className="pr-head">
         <button type="button" className="btn-sm pr-back" onClick={onBack}>
-          ← 一覧
+          {tr("← 一覧")}
         </button>
         <span className={`pr-state s-${status}`}>{STATUS_LABELS[status]}</span>
         {editing ? (
-          <input className="pr-title-input" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} aria-label="題名" />
+          <input className="pr-title-input" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} aria-label={tr("題名")} />
         ) : (
           <h2 className="pr-title">
             {detail.title} <span className="muted">#{detail.number}</span>
@@ -256,59 +257,58 @@ export function PullDetail(props: PullDetailProps) {
         <span className="grow" />
         {!editing && (mine || canPush) && (
           <button type="button" className="btn-sm" onClick={() => setEditing({ title: detail.title, body: detail.body })}>
-            ✏️ 編集
+            {tr("✏️ 編集")}
           </button>
         )}
-        <button type="button" className="btn-sm" onClick={() => openUrl(detail.html_url).catch(() => {})} title="GitHub の画面で開く">
-          GitHub で開く ↗
+        <button type="button" className="btn-sm" onClick={() => openUrl(detail.html_url).catch(() => {})} title={tr("GitHub の画面で開く")}>
+          {tr("GitHub で開く ↗")}
         </button>
       </div>
       {editing && (
         <div className="pr-edit">
-          <textarea rows={8} value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} aria-label="説明" />
+          <textarea rows={8} value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} aria-label={tr("説明")} />
           {editError && <p className="git-dialog-error">{editError}</p>}
           <div className="pr-edit-actions">
             <button type="button" className="btn-sm" onClick={() => setEditing(null)}>
-              やめる
+              {tr("やめる")}
             </button>
             <button type="button" className="btn-sm primary" onClick={saveEdit}>
-              保存する
+              {tr("保存する")}
             </button>
           </div>
         </div>
       )}
 
       <div className="pr-flow">
-        <b>{author || "だれか"}</b> が <code className="pr-branch">{detail.head}</code> の {detail.commits} コミットを{" "}
-        <code className="pr-branch">{detail.base}</code> に{detail.merged ? "入れました" : status === "closed" ? "入れようとしました" : "入れたいと言っています"}
-        {!detail.same_repo && <span className="muted">（フォーク {detail.head_repo ?? "（消されました）"} から）</span>}
+        <b>{author || tr("だれか")}</b> {" "}{trx("が <0>{head}</0> の {commits} コミットを <1>{base}</1> に", { head: detail.head, commits: detail.commits, base: detail.base }, [<code className="pr-branch" />, <code className="pr-branch" />])}{detail.merged ? tr("入れました") : status === "closed" ? tr("入れようとしました") : tr("入れたいと言っています")}
+        {!detail.same_repo && <span className="muted">{tr("（フォーク")}{" "} {detail.head_repo ?? tr("（消されました）")} {" "}{tr("から）")}</span>}
       </div>
       {closes.length > 0 && (
         <div className="pr-link">
-          🔗 {detail.merged ? "マージで" : "マージすると"}{" "}
+          🔗 {detail.merged ? tr("マージで") : tr("マージすると")}{" "}
           {closes.map((n, i) => (
             <span key={n}>
-              {i > 0 && "・"}
+              {i > 0 && tr("・")}
               <button type="button" className="pr-ref" onClick={() => onOpenIssue(n)}>
                 #{n} {issueTitle(n) ?? ""}
               </button>
             </span>
           ))}{" "}
-          {toDefault ? (detail.merged ? "が閉じました" : "が閉じます") : <span className="muted">（{detail.base} は既定のブランチではないので、自動では閉じません）</span>}
-          <span className="muted">（本文の Closes）</span>
+          {toDefault ? (detail.merged ? tr("が閉じました") : tr("が閉じます")) : <span className="muted">{trx("（{base} は既定のブランチではないので、自動では閉じません）", { base: detail.base })}</span>}
+          <span className="muted">{tr("（本文の Closes）")}</span>
         </div>
       )}
 
       <div className="pr-reviewers">
-        <span className="muted">レビュー:</span>
-        {people.length === 0 && <span className="muted">まだお願いしていません</span>}
+        <span className="muted">{tr("レビュー:")}</span>
+        {people.length === 0 && <span className="muted">{tr("まだお願いしていません")}</span>}
         {people.map((login) => {
           const verdict = detail.verdicts.approved.includes(login) ? "ok" : detail.verdicts.changes_requested.includes(login) ? "ng" : "wait";
           return (
-            <span key={login} className={`pr-reviewer ${verdict}`} title={verdict === "ok" ? "承認しました" : verdict === "ng" ? "修正を依頼しました" : "レビューを待っています"}>
+            <span key={login} className={`pr-reviewer ${verdict}`} title={verdict === "ok" ? tr("承認しました") : verdict === "ng" ? tr("修正を依頼しました") : tr("レビューを待っています")}>
               {verdict === "ok" ? "✔" : verdict === "ng" ? "✖" : "⏳"} {login}
               {waiting.includes(login) && canPush && detail.state === "open" && (
-                <button type="button" className="pr-reviewer-x" aria-label={`${login} へのお願いを取り消す`} onClick={() => changeReviewers([], [login])}>
+                <button type="button" className="pr-reviewer-x" aria-label={tr("{login} へのお願いを取り消す", { login })} onClick={() => changeReviewers([], [login])}>
                   ×
                 </button>
               )}
@@ -318,14 +318,14 @@ export function PullDetail(props: PullDetailProps) {
         {canPush && detail.state === "open" && candidates.length > 0 && (
           <span className="pr-picker">
             <button type="button" className="btn-sm" onClick={() => setPicking((v) => !v)} aria-expanded={picking}>
-              ＋ お願いする ▾
+              {tr("＋ お願いする ▾")}
             </button>
             {picking && (
               <span className="pr-picker-menu" role="menu">
                 {candidates.map((c) => (
                   <button key={c.login} type="button" role="menuitem" onClick={() => changeReviewers([c.login], [])}>
                     {c.login}
-                    {reviewed.includes(c.login) && <span className="muted">（もう一度）</span>}
+                    {reviewed.includes(c.login) && <span className="muted">{tr("（もう一度）")}</span>}
                   </button>
                 ))}
               </span>
@@ -337,19 +337,19 @@ export function PullDetail(props: PullDetailProps) {
 
       <div className="pr-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "conversation"} className={`pr-tab${tab === "conversation" ? " on" : ""}`} onClick={() => changeTab("conversation")}>
-          会話
+          {tr("会話")}
           {tab === "conversation" && <span className="tab-active-bar" />}
         </button>
         <button type="button" role="tab" aria-selected={tab === "files"} className={`pr-tab pr-tab--files${tab === "files" ? " on" : ""}`} onClick={() => changeTab("files")}>
-          変更されたファイル <b>{files?.length ?? detail.changed_files}</b> <span className="add">+{added}</span> <span className="del">−{deleted}</span>
+          {tr("変更されたファイル")}{" "} <b>{files?.length ?? detail.changed_files}</b> <span className="add">+{added}</span> <span className="del">−{deleted}</span>
           {tab === "files" && <span className="tab-active-bar" />}
         </button>
         <button type="button" role="tab" aria-selected={tab === "commits"} className={`pr-tab${tab === "commits" ? " on" : ""}`} onClick={() => changeTab("commits")}>
-          コミット <b>{commits?.length ?? detail.commits}</b>
+          {tr("コミット")}{" "} <b>{commits?.length ?? detail.commits}</b>
           {tab === "commits" && <span className="tab-active-bar" />}
         </button>
         <button type="button" role="tab" aria-selected={tab === "checks"} className={`pr-tab${tab === "checks" ? " on" : ""}`} onClick={() => changeTab("checks")}>
-          チェック{" "}
+          {tr("チェック")}{" "}
           {checks &&
             (failedChecks > 0 ? (
               <b className="ng">✖ {failedChecks}</b>
@@ -406,10 +406,10 @@ export function PullDetail(props: PullDetailProps) {
           (checksError ? (
             <p className="git-dialog-error">{checksError}</p>
           ) : !checks ? (
-            <p className="muted">チェックを読み込んでいます…</p>
+            <p className="muted">{tr("チェックを読み込んでいます…")}</p>
           ) : checks.checks.length + checks.statuses.length === 0 ? (
             <div className="pulls-empty">
-              <p>このコミットにはチェックがありません。</p>
+              <p>{tr("このコミットにはチェックがありません。")}</p>
             </div>
           ) : (
             <>
@@ -427,7 +427,7 @@ export function PullDetail(props: PullDetailProps) {
                       </span>
                       <span className="muted">{duration(c.started_at, c.completed_at)}</span>
                       <button type="button" className="btn-sm" onClick={() => openCheck(c.details_url, c.html_url)}>
-                        {runOfCheck(c.details_url) ? "ログを見る →" : "開く ↗"}
+                        {runOfCheck(c.details_url) ? tr("ログを見る →") : tr("開く ↗")}
                       </button>
                     </div>
                   );
@@ -445,7 +445,7 @@ export function PullDetail(props: PullDetailProps) {
                       </span>
                       {s.target_url && (
                         <button type="button" className="btn-sm" onClick={() => openUrl(s.target_url!).catch(() => {})}>
-                          開く ↗
+                          {tr("開く ↗")}
                         </button>
                       )}
                     </div>
@@ -458,7 +458,7 @@ export function PullDetail(props: PullDetailProps) {
           (commitsError ? (
             <p className="git-dialog-error">{commitsError}</p>
           ) : !commits ? (
-            <p className="muted">コミットを読み込んでいます…</p>
+            <p className="muted">{tr("コミットを読み込んでいます…")}</p>
           ) : (
             <>
               <ol className="pr-commit-list">
@@ -472,7 +472,7 @@ export function PullDetail(props: PullDetailProps) {
                       <code>{c.sha.slice(0, 7)}</code>
                       <span className="pr-commit-subject">{firstLine(c.message)}</span>
                       <span className="muted">
-                        {c.author?.login ?? c.author_name}・{ago(c.date)}
+                        {c.author?.login ?? c.author_name}{trx("・{ago}", { ago: ago(c.date) })}
                       </span>
                     </button>
                   </li>

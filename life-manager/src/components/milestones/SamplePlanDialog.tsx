@@ -7,6 +7,7 @@ import { DatePickerButton } from "../common/DatePickerButton";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEscape } from "../../lib/keys";
 import { dayKey } from "../../lib/today";
+import { tr, trx, weekdayShort } from "../../lib/i18n";
 
 interface SamplePlanDialogProps {
   /** 今あるマイルストーン（同じ名前は作れない） */
@@ -23,8 +24,7 @@ const WEEKS = 8;
 /** 「3/12（木）」 */
 function shortDay(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
-  const w = "日月火水木金土"[new Date(y, m - 1, d).getDay()];
-  return `${m}/${d}（${w}）`;
+  return tr("{m}/{d}（{w}）", { m, d, w: weekdayShort(new Date(y, m - 1, d)) });
 }
 
 /**
@@ -65,23 +65,23 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
     try {
       for (let i = 0; i < GAME_PLAN.length; i++) {
         const title = titles[i].trim();
-        setBusy(`${title} を作っています（マイルストーン ${i + 1} / ${GAME_PLAN.length}）…`);
+        setBusy(tr("{title} を作っています（マイルストーン {v} / {length}）…", { title, v: i + 1, length: GAME_PLAN.length }));
         const number = await onCreateMilestone(title, withStartDate("", dates[i].start), `${dates[i].due}T00:00:00Z`);
-        if (number === null) throw new Error(`${title} の番号が分かりませんでした`);
+        if (number === null) throw new Error(tr("{title} の番号が分かりませんでした", { title }));
         made++;
         if (!withTasks) continue;
         for (const task of GAME_PLAN[i].tasks) {
-          setBusy(`${title} のタスクを作っています（${tasksMade + 1} / ${taskCount}）…`);
+          setBusy(tr("{title} のタスクを作っています（{v} / {taskCount}）…", { title, v: tasksMade + 1, taskCount }));
           await onCreateIssue(task.title, "", planTaskLabels(task), number);
           tasksMade++;
         }
       }
-      celebrateDone("見本の計画", origin, `マイルストーン ${made} つ${withTasks ? `とタスク ${tasksMade} 件` : ""}を作りました`);
+      celebrateDone(tr("見本の計画"), origin, tr("マイルストーン {made} つ{v}を作りました", { made, v: withTasks ? tr("とタスク {tasksMade} 件", { tasksMade }) : "" }));
       onClose();
     } catch (e) {
       // 途中で止まったら、作ったものも含めて今あるものと比べ直す
       setTakenAtStart(null);
-      setError(`途中で止まりました（マイルストーン ${made} つ、タスク ${tasksMade} 件まで作りました）: ${e instanceof Error ? e.message : String(e)}`);
+      setError(tr("途中で止まりました（マイルストーン {made} つ、タスク {tasksMade} 件まで作りました）: {v}", { made, tasksMade, v: e instanceof Error ? e.message : String(e) }));
     } finally {
       setBusy(null);
     }
@@ -89,16 +89,16 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
 
   return createPortal(
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
-      <div className="git-dialog sp-dialog" role="dialog" aria-modal="true" aria-label="見本の計画から作る" onClick={(e) => e.stopPropagation()}>
-        <h3>📋 見本の計画から作る</h3>
+      <div className="git-dialog sp-dialog" role="dialog" aria-modal="true" aria-label={tr("見本の計画から作る")} onClick={(e) => e.stopPropagation()}>
+        <h3>{tr("📋 見本の計画から作る")}</h3>
 
         <div className="sp-days">
-          <span className="git-dialog-label">始める日</span>
+          <span className="git-dialog-label">{tr("始める日")}</span>
           <DatePickerButton value={start} onChange={(v) => v && setStart(v)} label={shortDay(start)} />
-          <span className="git-dialog-label">発表の日</span>
+          <span className="git-dialog-label">{tr("発表の日")}</span>
           <DatePickerButton value={end} onChange={(v) => v && setEnd(v)} label={shortDay(end)} />
         </div>
-        {!dates && <p className="git-dialog-error">発表の日は、始める日から 5 日以上あとにします</p>}
+        {!dates && <p className="git-dialog-error">{tr("発表の日は、始める日から 5 日以上あとにします")}</p>}
 
         <ol className="sp-stages">
           {GAME_PLAN.map((stage, i) => (
@@ -108,7 +108,7 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
                   className="input-full sp-title"
                   value={titles[i]}
                   disabled={!!busy}
-                  aria-label={`${i + 1} つ目のマイルストーンの名前`}
+                  aria-label={tr("{v} つ目のマイルストーンの名前", { v: i + 1 })}
                   onChange={(e) => setTitles(titles.map((t, j) => (j === i ? e.target.value : t)))}
                 />
                 {dates && (
@@ -117,7 +117,7 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
                   </span>
                 )}
               </div>
-              {dup[i] && <span className="sp-dup">同じ名前のマイルストーンがあります</span>}
+              {dup[i] && <span className="sp-dup">{tr("同じ名前のマイルストーンがあります")}</span>}
               {withTasks && (
                 <ul className="sp-tasks">
                   {stage.tasks.map((t) => (
@@ -133,17 +133,17 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
 
         <label className="chk">
           <input type="checkbox" checked={withTasks} disabled={!!busy} onChange={(e) => setWithTasks(e.target.checked)} />
-          よくあるタスクも作る（{taskCount} 件）
+          {trx("よくあるタスクも作る（{taskCount} 件）", { taskCount })}
         </label>
 
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           {busy && <span className="git-dialog-running sp-busy">{busy}</span>}
           <button type="button" className="btn-sm" disabled={!!busy} onClick={onClose}>
-            やめる
+            {tr("やめる")}
           </button>
           <button type="button" className="btn-primary" disabled={!canCreate} onClick={(e) => void create(e.currentTarget)}>
-            作る（マイルストーン {GAME_PLAN.length} つ{withTasks ? `・タスク ${taskCount} 件` : ""}）
+            {trx("作る（マイルストーン {length} つ", { length: GAME_PLAN.length })}{withTasks ? tr("・タスク {taskCount} 件", { taskCount }) : ""}）
           </button>
         </div>
       </div>

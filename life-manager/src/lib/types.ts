@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 export interface GitHubUser {
   login: string;
   avatar_url: string;
@@ -230,15 +231,15 @@ export type EventType =
   | "issue_updated";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  issue_created: "Issue作成",
-  routine_created: "ルーチン実行",
-  issue_closed: "Issue完了",
-  issue_reopened: "Issue再開",
-  status_changed: "状態変更",
-  comment_added: "コメント追加",
-  todo_toggled: "チェックボックス操作",
-  issue_promoted: "メモ昇華",
-  issue_updated: "Issue編集",
+  issue_created: tr("Issue作成"),
+  routine_created: tr("ルーチン実行"),
+  issue_closed: tr("Issue完了"),
+  issue_reopened: tr("Issue再開"),
+  status_changed: tr("状態変更"),
+  comment_added: tr("コメント追加"),
+  todo_toggled: tr("チェックボックス操作"),
+  issue_promoted: tr("メモ昇華"),
+  issue_updated: tr("Issue編集"),
 };
 
 /** ボードのジャンル（タブ）: 未整理（整理して、やることを決める）・着手済み（やっていることを追う）・確認待ち（確かめて、終わらせる） */

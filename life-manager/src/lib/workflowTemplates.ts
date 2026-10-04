@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 // Actions のワークフローのひな形（リポジトリのファイルとフォルダから、合うものを選ぶ。Unity・Unreal は先に見る）。
 // 学ぶ人が読めるよう、1 行ずつ日本語の説明を付けておく
 
@@ -47,13 +48,13 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: "unity",
     name: "Unity（Unity Test Framework）",
     detail:
-      "Assets と ProjectSettings があるリポジトリ。EditMode と PlayMode のテストを GitHub のパソコンで動かします（GameCI）。テストがなくても、スクリプトのコンパイルエラーに気づけます",
+      tr("Assets と ProjectSettings があるリポジトリ。EditMode と PlayMode のテストを GitHub のパソコンで動かします（GameCI）。テストがなくても、スクリプトのコンパイルエラーに気づけます"),
     detect: (files) => has(files, "Assets/") && has(files, "ProjectSettings/"),
     file: ".github/workflows/unity-test.yml",
     prepare: {
-      text: "リポジトリの Settings → Secrets and variables → Actions に、秘密を 3 つ登録します: UNITY_LICENSE・UNITY_EMAIL・UNITY_PASSWORD。Unity Hub で Personal のライセンスを有効にすると、その PC に C:\\ProgramData\\Unity\\Unity_lic.ulf ができます。UNITY_LICENSE には、その中身をまるごと入れます。UNITY_EMAIL と UNITY_PASSWORD には、そのライセンスの Unity のアカウントを入れます。1 回目は Unity を用意するのに時間がかかります（10〜20 分ほど）。非公開のリポジトリでは、Actions の無料の時間（月 2,000 分）を使います。",
-      warning: "チームのリポジトリでは、書き込める人はワークフローを通して秘密を取り出せます。テスト用に別の Unity のアカウントを作って登録するのがおすすめです。",
-      links: [{ label: "秘密を登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/secrets/actions` }],
+      text: tr("リポジトリの Settings → Secrets and variables → Actions に、秘密を 3 つ登録します: UNITY_LICENSE・UNITY_EMAIL・UNITY_PASSWORD。Unity Hub で Personal のライセンスを有効にすると、その PC に C:\\ProgramData\\Unity\\Unity_lic.ulf ができます。UNITY_LICENSE には、その中身をまるごと入れます。UNITY_EMAIL と UNITY_PASSWORD には、そのライセンスの Unity のアカウントを入れます。1 回目は Unity を用意するのに時間がかかります（10〜20 分ほど）。非公開のリポジトリでは、Actions の無料の時間（月 2,000 分）を使います。"),
+      warning: tr("チームのリポジトリでは、書き込める人はワークフローを通して秘密を取り出せます。テスト用に別の Unity のアカウントを作って登録するのがおすすめです。"),
+      links: [{ label: tr("秘密を登録する画面を開く"), url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/secrets/actions` }],
     },
     yaml: (dir) => {
       const p = dir && dir !== "." ? dir : ".";
@@ -97,15 +98,15 @@ jobs:
   },
   {
     id: "unreal",
-    name: "Unreal Engine（自動テスト）",
+    name: tr("Unreal Engine（自動テスト）"),
     detail:
-      ".uproject があるリポジトリ。Automation のテストを Unreal の入った PC（セルフホストランナー）で動かします。GitHub のパソコンには Unreal が入っていません",
+      tr(".uproject があるリポジトリ。Automation のテストを Unreal の入った PC（セルフホストランナー）で動かします。GitHub のパソコンには Unreal が入っていません"),
     detect: (files) => files.some((f) => f.toLowerCase().endsWith(".uproject")),
     file: ".github/workflows/unreal-test.yml",
     prepare: {
-      text: "Unreal の入った Windows の PC（学校の PC など）を、このリポジトリのランナーに登録します: Settings → Actions → Runners → New self-hosted runner → Windows。出てくるコマンドをその PC の PowerShell で順に動かし、ラベルに unreal を足します。その PC の環境変数 UE_ROOT に、Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）を入れておきます。",
-      warning: "公開のリポジトリではセルフホストランナーを使わないでください。だれでもプルリクを通して、その PC でコードを動かせてしまいます。",
-      links: [{ label: "ランナーを登録する画面を開く", url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/actions/runners/new?arch=x64&os=win` }],
+      text: tr("Unreal の入った Windows の PC（学校の PC など）を、このリポジトリのランナーに登録します: Settings → Actions → Runners → New self-hosted runner → Windows。出てくるコマンドをその PC の PowerShell で順に動かし、ラベルに unreal を足します。その PC の環境変数 UE_ROOT に、Unreal の場所（例: C:\\Program Files\\Epic Games\\UE_5.4）を入れておきます。"),
+      warning: tr("公開のリポジトリではセルフホストランナーを使わないでください。だれでもプルリクを通して、その PC でコードを動かせてしまいます。"),
+      links: [{ label: tr("ランナーを登録する画面を開く"), url: (owner, repo) => `https://github.com/${owner}/${repo}/settings/actions/runners/new?arch=x64&os=win` }],
     },
     yaml: (dir) => {
       const p = dir && dir !== "." ? dir : ".";
@@ -157,7 +158,7 @@ jobs:
   {
     id: "node",
     name: "Node.js（npm test）",
-    detail: "package.json があるリポジトリ。npm ci でライブラリを入れて、npm test を動かします",
+    detail: tr("package.json があるリポジトリ。npm ci でライブラリを入れて、npm test を動かします"),
     detect: (files, lang) => has(files, "package.json") || lang === "TypeScript" || lang === "JavaScript",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
@@ -181,7 +182,7 @@ ${inDir(dir)}    steps:
   {
     id: "python",
     name: "Python（pytest）",
-    detail: "requirements.txt や pyproject.toml があるリポジトリ。pytest でテストを動かします",
+    detail: tr("requirements.txt や pyproject.toml があるリポジトリ。pytest でテストを動かします"),
     detect: (files, lang) => has(files, "requirements.txt", "pyproject.toml", "setup.py") || lang === "Python",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
@@ -204,7 +205,7 @@ ${inDir(dir)}    steps:
   {
     id: "rust",
     name: "Rust（cargo test）",
-    detail: "Cargo.toml があるリポジトリ",
+    detail: tr("Cargo.toml があるリポジトリ"),
     detect: (files, lang) => has(files, "Cargo.toml") || lang === "Rust",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
@@ -221,8 +222,8 @@ ${inDir(dir)}    steps:
   },
   {
     id: "dotnet",
-    name: "C#・.NET（dotnet test）",
-    detail: ".sln や .csproj があるリポジトリ",
+    name: tr("C#・.NET（dotnet test）"),
+    detail: tr(".sln や .csproj があるリポジトリ"),
     // Unity のプロジェクトも C# なので、Unity は先に見分ける（上の unity）
     detect: (files, lang) => ends(files, ".sln", ".csproj") || lang === "C#",
     file: ".github/workflows/test.yml",
@@ -244,7 +245,7 @@ ${inDir(dir)}    steps:
   {
     id: "go",
     name: "Go（go test）",
-    detail: "go.mod があるリポジトリ",
+    detail: tr("go.mod があるリポジトリ"),
     detect: (files, lang) => has(files, "go.mod") || lang === "Go",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
@@ -265,7 +266,7 @@ ${inDir(dir)}    steps:
   {
     id: "java",
     name: "Java（Maven）",
-    detail: "pom.xml があるリポジトリ",
+    detail: tr("pom.xml があるリポジトリ"),
     detect: (files, lang) => has(files, "pom.xml") || lang === "Java",
     file: ".github/workflows/test.yml",
     yaml: (dir) =>
@@ -287,8 +288,8 @@ ${inDir(dir)}    steps:
   },
   {
     id: "hello",
-    name: "はじめての見本（動かしてみるだけ）",
-    detail: "どの言語でも。Actions がどう動くかを見るための、あいさつとファイルの一覧を出すだけのもの",
+    name: tr("はじめての見本（動かしてみるだけ）"),
+    detail: tr("どの言語でも。Actions がどう動くかを見るための、あいさつとファイルの一覧を出すだけのもの"),
     detect: () => true,
     file: ".github/workflows/hello.yml",
     yaml: () =>

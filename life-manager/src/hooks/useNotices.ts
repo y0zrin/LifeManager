@@ -20,6 +20,7 @@ import {
   type Notice,
   type NoticeCorner,
 } from "../lib/notices";
+import { tr } from "../lib/i18n";
 
 /** 知らせたものの鍵（この PC に。ログインとリポジトリごと） */
 const NOTIFIED_KEEP = 500;
@@ -148,8 +149,8 @@ export function useNotices(o: {
       kind: "summary",
       icon: "🔔",
       tone: "",
-      title: "おしらせはここに出ます",
-      body: "× か「開く」で消えます。出す角は 設定 → 通知 で変えられます",
+      title: tr("おしらせはここに出ます"),
+      body: tr("× か「開く」で消えます。出す角は 設定 → 通知 で変えられます"),
       at: new Date().toISOString(),
       repo,
     };

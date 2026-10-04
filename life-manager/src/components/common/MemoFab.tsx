@@ -4,6 +4,7 @@ import type { MemoButtonPosition } from "../../hooks/useDisplaySettings";
 import { isComposing, isEnter, isEscape } from "../../lib/keys";
 import { isSectionLabel, sectionOf } from "../../lib/section";
 import { isMobile, keyHint } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface MemoFabProps {
   /** ボタンを置く角（hidden ならボタンを出さず、Ctrl+M で画面の上のほうに欄を開く） */
@@ -141,7 +142,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
   return (
     <div ref={wrapRef} className={`memo-fab-wrap at-${position}${open ? " open" : away ? " away" : ""}`}>
       {open && (
-        <div className="memo-pop" role="dialog" aria-label="メモを投入"
+        <div className="memo-pop" role="dialog" aria-label={tr("メモを投入")}
           onKeyDown={(e) => {
             if (isEscape(e)) {
               e.stopPropagation();
@@ -149,10 +150,9 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
             }
           }}>
           <div className="memo-pop-head">
-            <b>📝 メモを投入</b>
-            <span className="memo-pop-repo" title="メモはこのリポジトリの Issue（種別:メモ・状態:未整理）になります">{repoName}</span>
+            {trx("<0>📝 メモを投入</0><1>{repoName}</1>", { repoName }, [<b />, <span className="memo-pop-repo" title={tr("メモはこのリポジトリの Issue（種別:メモ・状態:未整理）になります")} />])}
           </div>
-          <input ref={inputRef} className="memo-pop-input" value={text} placeholder="思いついたことを 1 行で"
+          <input ref={inputRef} className="memo-pop-input" value={text} placeholder={tr("思いついたことを 1 行で")}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (isEnter(e)) {
@@ -161,32 +161,32 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
               }
             }} />
           <div className="memo-pop-row">
-            <select className="select-sm" value={current} aria-label="セクション" onChange={(e) => changeTheme(e.target.value)}>
-              <option value="">セクション: なし</option>
+            <select className="select-sm" value={current} aria-label={tr("セクション")} onChange={(e) => changeTheme(e.target.value)}>
+              <option value="">{tr("セクション: なし")}</option>
               {themes.map((t) => (
-                <option key={t} value={t}>セクション: {sectionOf(t)}</option>
+                <option key={t} value={t}>{trx("セクション: {sectionOf}", { sectionOf: sectionOf(t) })}</option>
               ))}
             </select>
-            <button type="button" className="btn-primary" disabled={!text.trim()} onClick={submit}>投入</button>
+            <button type="button" className="btn-primary" disabled={!text.trim()} onClick={submit}>{tr("投入")}</button>
           </div>
           {result?.kind === "sending" ? (
-            <p className="memo-pop-note">「{result.text}」を送っています…</p>
+            <p className="memo-pop-note">{trx("「{text}」を送っています…", { text: result.text })}</p>
           ) : result?.kind === "ok" ? (
-            <p className="memo-pop-note ok">✔ 「{result.text}」を投入しました</p>
+            <p className="memo-pop-note ok">{trx("✔ 「{text}」を投入しました", { text: result.text })}</p>
           ) : result?.kind === "error" ? (
-            <p className="memo-pop-note err">⚠ 「{result.text}」を送れませんでした。タスク一覧やボードの「もう一度」で送り直せます</p>
+            <p className="memo-pop-note err">{trx("⚠ 「{text}」を送れませんでした。タスク一覧やボードの「もう一度」で送り直せます", { text: result.text })}</p>
           ) : (
-            <p className="memo-pop-note">{isMobile ? "「投入」で入れたあとも、続けて書けます" : "Enter で投入（続けて書けます）・Esc で閉じる"}</p>
+            <p className="memo-pop-note">{isMobile ? tr("「投入」で入れたあとも、続けて書けます") : tr("Enter で投入（続けて書けます）・Esc で閉じる")}</p>
           )}
         </div>
       )}
       {position !== "hidden" && (
-        <button type="button" className="memo-fab" aria-label={`メモを投入${keyHint("（Ctrl+M）")}`} aria-expanded={open}
+        <button type="button" className="memo-fab" aria-label={tr("メモを投入{keyHint}", { keyHint: keyHint("（Ctrl+M）") })} aria-expanded={open}
           onClick={() => (open ? hide(false) : show())}>
           <span aria-hidden="true">📝</span>
         </button>
       )}
-      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">メモ{keyHint("（Ctrl+M）")}</span>}
+      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">{trx("メモ{keyHint}", { keyHint: keyHint("（Ctrl+M）") })}</span>}
     </div>
   );
 }

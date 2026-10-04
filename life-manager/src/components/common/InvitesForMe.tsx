@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { answerInvitation, listMyInvitations, orgInvitationUrl, type MyInvitations, type RepoInvitation } from "../../lib/team";
+import { tr, trx } from "../../lib/i18n";
 
 /** 自分宛ての招待を確かめに行く間隔 */
 const POLL_MS = 30000;
 
 function ago(iso: string): string {
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
-  return days <= 0 ? "今日" : days === 1 ? "昨日" : `${days} 日前`;
+  return days <= 0 ? tr("今日") : days === 1 ? tr("昨日") : tr("{days} 日前", { days });
 }
 
 interface InvitesForMeProps {
@@ -27,7 +28,7 @@ interface InvitesForMeProps {
  * 自分宛ての招待。リポジトリへの招待は、メールを開かずにここで「参加する」。
  * 組織への招待は、アプリに組織の権限（write:org）がないので、GitHub の画面を開いて参加する
  */
-export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty, joinLabel = "参加する" }: InvitesForMeProps) {
+export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty, joinLabel = tr("参加する") }: InvitesForMeProps) {
   const [data, setData] = useState<MyInvitations | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [declining, setDeclining] = useState<number | null>(null);
@@ -81,20 +82,20 @@ export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty, joi
           <span className="invite-icon" aria-hidden="true">📨</span>
           <span className="invite-main">
             <b>{inv.repository.full_name}</b>
-            <small>{inv.inviter ? `${inv.inviter.login} さんからの招待` : "リポジトリへの招待"}・{ago(inv.created_at)}</small>
+            <small>{inv.inviter ? tr("{login} さんからの招待", { login: inv.inviter.login }) : tr("リポジトリへの招待")}{trx("・{ago}", { ago: ago(inv.created_at) })}</small>
           </span>
           {declining === inv.id ? (
             <>
-              <span className="invite-ask">断りますか？（もう一度招待してもらうまで入れません）</span>
-              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => answer(inv, false)}>断る</button>
-              <button type="button" className="btn-sm" onClick={() => setDeclining(null)}>やめる</button>
+              <span className="invite-ask">{tr("断りますか？（もう一度招待してもらうまで入れません）")}</span>
+              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => answer(inv, false)}>{tr("断る")}</button>
+              <button type="button" className="btn-sm" onClick={() => setDeclining(null)}>{tr("やめる")}</button>
             </>
           ) : (
             <>
               <button type="button" className="btn-primary" disabled={busy !== null} onClick={() => answer(inv, true)}>
-                {busy === inv.id ? "参加しています…" : joinLabel}
+                {busy === inv.id ? tr("参加しています…") : joinLabel}
               </button>
-              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => setDeclining(inv.id)}>断る</button>
+              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => setDeclining(inv.id)}>{tr("断る")}</button>
             </>
           )}
         </div>
@@ -103,15 +104,14 @@ export function InvitesForMe({ onJoined, onOrgsChanged, poll = false, empty, joi
         <div key={o.organization.login} className="invite-row">
           <span className="invite-icon" aria-hidden="true">🏫</span>
           <span className="invite-main">
-            <b>組織 {o.organization.login}</b>
-            <small>組織への招待（GitHub の画面で「Join」を押して参加します）</small>
+            {trx("<0>組織 {login}</0><1>組織への招待（GitHub の画面で「Join」を押して参加します）</1>", { login: o.organization.login }, [<b />, <small />])}
           </span>
           <button type="button" className="btn-sm" onClick={() => openUrl(orgInvitationUrl(o.organization.login)).catch(() => {})}>
-            GitHub で参加 ↗
+            {tr("GitHub で参加 ↗")}
           </button>
         </div>
       ))}
-      {error && <p className="token-error">招待を読めませんでした（{error}）</p>}
+      {error && <p className="token-error">{trx("招待を読めませんでした（{error}）", { error })}</p>}
     </div>
   );
 }

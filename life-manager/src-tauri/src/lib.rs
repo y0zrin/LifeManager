@@ -1555,6 +1555,7 @@ pub fn run() {
             notice_window::notice_fit,
             notice_window::focus_main,
             notice_window::set_close_to_tray,
+            notice_window::set_tray_labels,
             github::artifacts::media_read_github,
             git::media::media_read_local,
             git::media::media_open_local,

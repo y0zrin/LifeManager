@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useDismiss } from "../../hooks/useDismiss";
 import { issueRef } from "../../lib/issueRef";
 import type { OfflineStatus } from "../../lib/types";
+import { tr, trx } from "../../lib/i18n";
 
 interface SyncIndicatorProps {
   status: OfflineStatus;
@@ -28,17 +29,17 @@ export function SyncIndicator({ status, syncing, stopped, onSync, onOpenConflict
 
   const tone = conflicts > 0 ? "warn" : status.offline ? "offline" : "pending";
   const label = [
-    status.offline ? "オフライン" : null,
-    pending > 0 ? `未送信 ${pending}` : null,
-    conflicts > 0 ? `確認 ${conflicts}` : null,
+    status.offline ? tr("オフライン") : null,
+    pending > 0 ? tr("未送信 {pending}", { pending }) : null,
+    conflicts > 0 ? tr("確認 {conflicts}", { conflicts }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
   const heading = status.offline
-    ? "GitHub につながっていません"
+    ? tr("GitHub につながっていません")
     : pending > 0
-      ? "GitHub に送る変更があります"
-      : "確かめてほしい変更があります";
+      ? tr("GitHub に送る変更があります")
+      : tr("確かめてほしい変更があります");
 
   return (
     <div className="sync-indicator" ref={ref}>
@@ -47,21 +48,21 @@ export function SyncIndicator({ status, syncing, stopped, onSync, onOpenConflict
         className={`sync-chip sync-chip--${tone}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        title="GitHub に送っていない変更"
+        title={tr("GitHub に送っていない変更")}
       >
         <span className={`sync-dot${syncing ? " sync-dot--busy" : ""}`} aria-hidden="true" />
         {label}
       </button>
       {open && (
-        <div className="sync-panel popover" role="dialog" aria-label="GitHub に送っていない変更">
+        <div className="sync-panel popover" role="dialog" aria-label={tr("GitHub に送っていない変更")}>
           <strong className="sync-panel-title">{heading}</strong>
-          {stopped && <p className="sync-panel-error">送れませんでした: {stopped}</p>}
+          {stopped && <p className="sync-panel-error">{trx("送れませんでした: {stopped}", { stopped })}</p>}
           {pending > 0 && (
             <ol className="sync-list">
               {status.pending.map((p, i) => (
                 <li key={i}>
-                  <span className="sync-list-num">{p.kind === "issue" ? issueRef(p.number) : p.kind === "config" ? "設定" : "日誌"}</span>
-                  <span className="sync-list-title">{p.title || "（タイトルなし）"}</span>
+                  <span className="sync-list-num">{p.kind === "issue" ? issueRef(p.number) : p.kind === "config" ? tr("設定") : tr("日誌")}</span>
+                  <span className="sync-list-title">{p.title || tr("（タイトルなし）")}</span>
                   <span className="sync-list-action">{p.action}</span>
                 </li>
               ))}
@@ -70,12 +71,12 @@ export function SyncIndicator({ status, syncing, stopped, onSync, onOpenConflict
           <div className="sync-panel-actions">
             {conflicts > 0 && (
               <button type="button" className="btn-sm" onClick={() => { close(); onOpenConflicts(); }}>
-                確認が必要な変更（{conflicts}）
+                {trx("確認が必要な変更（{conflicts}）", { conflicts })}
               </button>
             )}
             {(pending > 0 || status.offline) && (
               <button type="button" className="btn-primary" disabled={syncing} onClick={onSync}>
-                {syncing ? "送っています…" : pending > 0 ? "今すぐ送る" : "つながったか確かめる"}
+                {syncing ? tr("送っています…") : pending > 0 ? tr("今すぐ送る") : tr("つながったか確かめる")}
               </button>
             )}
           </div>

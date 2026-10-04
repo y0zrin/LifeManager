@@ -5,6 +5,7 @@ import {
   DEFAULT_UNIT, UNITS, estimateOf, formatEstimate,
   type Estimate, type EstimateSum, type EstimateUnit,
 } from "../../lib/estimate";
+import { tr, trx } from "../../lib/i18n";
 
 /** リポジトリの見積もりの単位（App が config/estimate.yaml から読んで渡す） */
 export const EstimateUnitContext = createContext<EstimateUnit>(DEFAULT_UNIT);
@@ -19,7 +20,7 @@ export function EstimateChip({ issue, plain = false }: { issue: GitHubIssue; pla
   if (!e) return plain ? <span className="tt-muted">—</span> : null;
   const text = formatEstimate(e.value, e.unit);
   return (
-    <span className="est-chip" title={`見積もり ${text}`}>
+    <span className="est-chip" title={tr("見積もり {text}", { text })}>
       {plain ? text : `📏 ${text}`}
     </span>
   );
@@ -29,12 +30,12 @@ export function EstimateChip({ issue, plain = false }: { issue: GitHubIssue; pla
 export function EstimateSumText({ sum, showMissing = true }: { sum: EstimateSum; showMissing?: boolean }) {
   if (sum.counted === 0 && sum.other === 0) return null;
   return (
-    <span className="est-sum" title={`見積もりのある ${sum.counted} 件の合計（${UNITS[sum.unit].name}）`}>
-      {sum.counted > 0 && <>見積 {formatEstimate(sum.total, sum.unit)}</>}
-      {sum.counted > 0 && showMissing && sum.missing > 0 && <span className="est-sum-missing">（見積もりなし {sum.missing} 件）</span>}
+    <span className="est-sum" title={tr("見積もりのある {counted} 件の合計（{name}）", { counted: sum.counted, name: UNITS[sum.unit].name })}>
+      {sum.counted > 0 && <>{trx("見積 {formatEstimate}", { formatEstimate: formatEstimate(sum.total, sum.unit) })}</>}
+      {sum.counted > 0 && showMissing && sum.missing > 0 && <span className="est-sum-missing">{trx("（見積もりなし {missing} 件）", { missing: sum.missing })}</span>}
       {sum.other > 0 && (
-        <span className="est-sum-missing" title={`ポイントと時間の単位は換算できないので、今の単位（${UNITS[sum.unit].name}）の合計に入れていません`}>
-          （単位の違う見積もり {sum.other} 件は数えていません）
+        <span className="est-sum-missing" title={tr("ポイントと時間の単位は換算できないので、今の単位（{name}）の合計に入れていません", { name: UNITS[sum.unit].name })}>
+          {trx("（単位の違う見積もり {other} 件は数えていません）", { other: sum.other })}
         </span>
       )}
     </span>
@@ -71,7 +72,7 @@ export function EstimatePicker({
 
   return (
     <>
-      <span className="est-picker" role="group" aria-label={`見積もり（${spec.name}）`}>
+      <span className="est-picker" role="group" aria-label={tr("見積もり（{name}）", { name: spec.name })}>
         {spec.values.map((v) => (
           <button key={v} type="button" className={current === v ? "on" : ""} aria-pressed={current === v}
             title={spec.valueGuide?.[v] ?? formatEstimate(v, unit)}
@@ -80,10 +81,10 @@ export function EstimatePicker({
           </button>
         ))}
         <button type="button" disabled={value === null} onClick={() => onChange(null)}>
-          なし
+          {tr("なし")}
         </button>
       </span>
-      {value && !inList && <span className="est-chip" title="今の見積もり">{formatEstimate(value.value, value.unit)}</span>}
+      {value && !inList && <span className="est-chip" title={tr("今の見積もり")}>{formatEstimate(value.value, value.unit)}</span>}
       {other && (
         <input
           className="est-other"
@@ -91,8 +92,8 @@ export function EstimatePicker({
           min="0"
           step="any"
           value={typed}
-          placeholder="ほかの数"
-          aria-label={`ほかの数（${spec.suffix}）`}
+          placeholder={tr("ほかの数")}
+          aria-label={tr("ほかの数（{suffix}）", { suffix: spec.suffix })}
           onChange={(e) => setTyped(e.target.value)}
           onKeyDown={(e) => { if (isEnter(e)) submitTyped(); }}
           onBlur={submitTyped}

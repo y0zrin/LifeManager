@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, TOKENS_PAGE, type TokenReport } from "../../lib/auth";
+import { tr, trx } from "../../lib/i18n";
 
 interface TokenReportViewProps {
   report: TokenReport;
@@ -13,29 +14,29 @@ export function TokenReportView({ report, installUrl }: TokenReportViewProps) {
   return (
     <ul className="token-checks">
       <li className="token-check--ok">
-        ✔ <b>{report.login}</b> {report.name && `（${report.name}）`}のトークン <span className="token-kind">{KIND_LABELS[report.kind]}</span>
+        ✔ <b>{report.login}</b> {report.name && `（${report.name}）`}{trx("のトークン <0>{KIND_LABELS}</0>", { KIND_LABELS: KIND_LABELS[report.kind] }, [<span className="token-kind" />])}
       </li>
       {expiry ? (
         <li className={expiry.days < 0 ? "token-check--ng" : expiry.days <= EXPIRY_WARN_DAYS ? "token-check--warn" : "token-check--ok"}>
-          {expiry.days < 0 ? "✖" : expiry.days <= EXPIRY_WARN_DAYS ? "⚠" : "✔"} 期限 {expiry.date}
-          {expiry.days < 0 ? "（切れています）" : `（あと ${expiry.days} 日）`}
+          {expiry.days < 0 ? "✖" : expiry.days <= EXPIRY_WARN_DAYS ? "⚠" : "✔"} {" "}{trx("期限 {date}", { date: expiry.date })}
+          {expiry.days < 0 ? tr("（切れています）") : tr("（あと {days} 日）", { days: expiry.days })}
         </li>
       ) : (
-        <li className="token-check--ok">✔ 期限なし</li>
+        <li className="token-check--ok">{tr("✔ 期限なし")}</li>
       )}
       {report.repos.map((r) => (
         <li key={`${r.owner}/${r.repo}`} className={r.ok ? (r.message ? "token-check--warn" : "token-check--ok") : "token-check--ng"}>
           {r.ok ? (r.message ? "⚠" : "✔") : "✖"} <b>{r.owner}/{r.repo}</b>
-          {r.ok && !r.message && " が見える・Issue を読める"}
+          {r.ok && !r.message && tr(" が見える・Issue を読める")}
           {r.message && <div className="token-check-fix">{r.message}</div>}
           {r.problem === "not_found" && report.kind === "fine-grained" && (
             <button type="button" className="btn-sm token-check-action" onClick={() => openUrl(TOKENS_PAGE)}>
-              GitHub のトークンの画面を開く
+              {tr("GitHub のトークンの画面を開く")}
             </button>
           )}
           {r.problem === "not_installed" && installUrl && (
             <button type="button" className="btn-sm token-check-action" onClick={() => openUrl(installUrl)}>
-              使用するリポジトリを選ぶ・追加する（GitHub が開きます）
+              {tr("使用するリポジトリを選ぶ・追加する（GitHub が開きます）")}
             </button>
           )}
         </li>

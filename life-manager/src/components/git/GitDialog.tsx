@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GitResult } from "../../hooks/useGit";
 import { isEnter, isEscape } from "../../lib/keys";
+import { tr, trx } from "../../lib/i18n";
 
 /**
  * git の操作の前に出すダイアログ。どれも「実行するコマンド」を見せる。
@@ -88,7 +89,7 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
     if (spec.kind !== "input" || running) return;
     const v = value.trim();
     if (!v) {
-      setError(`${spec.label}を入力してください`);
+      setError(tr("{label}を入力してください", { label: spec.label }));
       inputRef.current?.focus();
       return;
     }
@@ -153,13 +154,12 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
 
         {command && (
           <div className="cmd-preview">
-            <span>実行するコマンド</span>
-            <code>{command}</code>
+            {trx("<0>実行するコマンド</0><1>{command}</1>", { command }, [<span />, <code />])}
           </div>
         )}
 
         {error && <p className="git-dialog-error">{error}</p>}
-        {running && <p className="git-dialog-running">実行しています…</p>}
+        {running && <p className="git-dialog-running">{tr("実行しています…")}</p>}
 
         <div className="git-dialog-actions">
           <button
@@ -169,7 +169,7 @@ export function GitDialog({ spec, onClose }: GitDialogProps) {
             disabled={running}
             onClick={onClose}
           >
-            キャンセル
+            {tr("キャンセル")}
           </button>
           {spec.kind === "input" && (
             <button type="button" className="btn-primary" disabled={running} onClick={submitInput}>

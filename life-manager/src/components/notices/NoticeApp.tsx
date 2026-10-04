@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { loadDisplaySettings } from "../../hooks/useDisplaySettings";
 import { applyTheme } from "../../lib/theme";
 import { newNoticeId, type Notice } from "../../lib/notices";
 import { NoticeToasts } from "./NoticeToasts";
+import { tr } from "../../lib/i18n";
 
 /** 一度に出す知らせの数（ほかは「ほか N 件」） */
 const MAX_SHOWN = 3;
@@ -54,8 +55,8 @@ export function NoticeApp() {
             kind: "summary",
             icon: "📌",
             tone: "",
-            title: "Life Manager はインジケーター（画面の右下）に残っています",
-            body: "知らせはここに出します。終えるときはインジケーターのアイコンを右クリック →「終了する」。× で終えたいときは設定 → 通知 で変えられます",
+            title: tr("Life Manager はインジケーター（画面の右下）に残っています"),
+            body: tr("知らせはここに出します。終えるときはインジケーターのアイコンを右クリック →「終了する」。× で終えたいときは設定 → 通知 で変えられます"),
             at: new Date().toISOString(),
             repo: "",
           },

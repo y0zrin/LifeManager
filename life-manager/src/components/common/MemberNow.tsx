@@ -4,6 +4,7 @@ import type { ActivityEvent } from "../../lib/activity";
 import { IN_PROGRESS_LABEL } from "../../lib/sprint";
 import { ago } from "../../lib/pulls";
 import { Avatar } from "./Avatar";
+import { tr, trx } from "../../lib/i18n";
 
 interface MemberNowProps {
   members: GitHubUser[];
@@ -52,21 +53,19 @@ export function MemberNow({ members, issues, events, me, onSelectIssue, onSelect
 
   if (rows.length === 0) return null;
   return (
-    <section className="member-now" aria-label="メンバーの今">
+    <section className="member-now" aria-label={tr("メンバーの今")}>
       <div className="member-now-head">
-        <b>👥 メンバーの今</b>
+        <b>{tr("👥 メンバーの今")}</b>
       </div>
       <div className="mn-table" role="table">
         <div className="mn-row mn-cols" role="row">
-          <span role="columnheader">メンバー</span>
-          <span role="columnheader" title="GitHub で最後に動いた時刻（プッシュ、Issue、コメント、プルリクなど）">最後に動いた</span>
-          <span role="columnheader">進行中のタスク</span>
+          {trx("<0>メンバー</0><1>最後に動いた</1><2>進行中のタスク</2>", undefined, [<span role="columnheader" />, <span role="columnheader" title={tr("GitHub で最後に動いた時刻（プッシュ、Issue、コメント、プルリクなど）")} />, <span role="columnheader" />])}
         </div>
         {rows.map((r) => (
           <div key={r.user.login} className="mn-row" role="row">
             <span className="mn-who" role="cell">
               {onSelectMember ? (
-                <button type="button" className="mn-who-btn" title={`${r.user.login} の担当のタスクを一覧で見る`} onClick={() => onSelectMember(r.user.login)}>
+                <button type="button" className="mn-who-btn" title={tr("{login} の担当のタスクを一覧で見る", { login: r.user.login })} onClick={() => onSelectMember(r.user.login)}>
                   <Avatar login={r.user.login} url={r.user.avatar_url} className="mn-avatar" alt="" />
                   <b>{r.user.login}</b>
                 </button>
@@ -80,13 +79,13 @@ export function MemberNow({ members, issues, events, me, onSelectIssue, onSelect
             <span
               className="mn-when"
               role="cell"
-              title={r.lastAt ? new Date(r.lastAt).toLocaleString() : events ? "最近の動きが見つかりません" : "読んでいます"}
+              title={r.lastAt ? new Date(r.lastAt).toLocaleString() : events ? tr("最近の動きが見つかりません") : tr("読んでいます")}
             >
               {r.lastAt ? ago(r.lastAt) : events ? "—" : "…"}
             </span>
             <span className="mn-doing" role="cell">
               {r.doing.length === 0 ? (
-                <span className="mn-none">なし</span>
+                <span className="mn-none">{tr("なし")}</span>
               ) : (
                 <>
                   {r.doing.slice(0, SHOWN).map((i) => (
@@ -94,7 +93,7 @@ export function MemberNow({ members, issues, events, me, onSelectIssue, onSelect
                       <span className="mn-task-n">#{i.number}</span> {i.title}
                     </button>
                   ))}
-                  {r.doing.length > SHOWN && <span className="mn-more">ほか {r.doing.length - SHOWN}</span>}
+                  {r.doing.length > SHOWN && <span className="mn-more">{tr("ほか")}{" "} {r.doing.length - SHOWN}</span>}
                 </>
               )}
             </span>

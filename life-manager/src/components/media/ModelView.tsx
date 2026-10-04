@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { extOf } from "../../lib/media";
 import { isIdle } from "../../lib/idle";
+import { tr } from "../../lib/i18n";
 
 interface ModelViewProps {
   bytes: ArrayBuffer;
@@ -191,7 +192,7 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
           setSpeed: (v) => { if (mixer) mixer.timeScale = v; need(); },
         };
         apiRef.current.setBg("dark");
-        const names = clips.map((c, i) => c.name || `アニメーション ${i + 1}`);
+        const names = clips.map((c, i) => c.name || tr("アニメーション {v}", { v: i + 1 }));
         clips.forEach((c, i) => { c.name = names[i]; });
         if (names.length) {
           apiRef.current.play(names[0]);
@@ -206,7 +207,7 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
           animations: names,
         };
         setStats(s);
-        onInfo?.(`${vertices.toLocaleString()} 頂点 ・ ${Math.round(triangles).toLocaleString()} 三角形`);
+        onInfo?.(tr("{toLocaleString} 頂点 ・ {toLocaleString2} 三角形", { toLocaleString: vertices.toLocaleString(), toLocaleString2: Math.round(triangles).toLocaleString() }));
         setLoading(false);
 
         cleanup = () => {
@@ -232,8 +233,8 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
           const msg = String(e);
           setError(
             extOf(path) === "gltf" && /buffer|uri|fetch/i.test(msg)
-              ? "この .gltf は別のファイル（.bin・画像）を使っています。1 つにまとめた .glb なら、ここで見られます"
-              : `読めませんでした: ${msg}`,
+              ? tr("この .gltf は別のファイル（.bin・画像）を使っています。1 つにまとめた .glb なら、ここで見られます")
+              : tr("読めませんでした: {msg}", { msg }),
           );
         }
       }
@@ -258,20 +259,20 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
       <div className="mv-stage mv-3d">
         <div ref={hostRef} className="mv-3d-host" />
         <div className="mv-toolbar">
-          <button type="button" className={`btn-sm${!wire ? " on" : ""}`} onClick={() => setWire(false)}>そのまま</button>
-          <button type="button" className={`btn-sm${wire ? " on" : ""}`} onClick={() => setWire(true)}>ワイヤー</button>
-          <button type="button" className={`btn-sm${grid ? " on" : ""}`} aria-pressed={grid} onClick={() => setGrid(!grid)}>床の格子</button>
-          <button type="button" className={`btn-sm${spin ? " on" : ""}`} aria-pressed={spin} onClick={() => setSpin(!spin)}>自動で回す</button>
-          <button type="button" className="btn-sm" onClick={() => apiRef.current?.reset()}>↺ はじめの向き</button>
+          <button type="button" className={`btn-sm${!wire ? " on" : ""}`} onClick={() => setWire(false)}>{tr("そのまま")}</button>
+          <button type="button" className={`btn-sm${wire ? " on" : ""}`} onClick={() => setWire(true)}>{tr("ワイヤー")}</button>
+          <button type="button" className={`btn-sm${grid ? " on" : ""}`} aria-pressed={grid} onClick={() => setGrid(!grid)}>{tr("床の格子")}</button>
+          <button type="button" className={`btn-sm${spin ? " on" : ""}`} aria-pressed={spin} onClick={() => setSpin(!spin)}>{tr("自動で回す")}</button>
+          <button type="button" className="btn-sm" onClick={() => apiRef.current?.reset()}>{tr("↺ はじめの向き")}</button>
         </div>
-        {loading && <p className="mv-note center"><i className="spinner" aria-hidden="true" /> 読み込んでいます…</p>}
+        {loading && <p className="mv-note center"><i className="spinner" aria-hidden="true" /> {" "}{tr("読み込んでいます…")}</p>}
         {error && <p className="mv-note center error">{error}</p>}
-        <div className="mv-hint">ドラッグで回す ・ ホイールで寄る ・ 右ドラッグで動かす</div>
+        <div className="mv-hint">{tr("ドラッグで回す ・ ホイールで寄る ・ 右ドラッグで動かす")}</div>
       </div>
       <div className="mv-panel">
         {stats && stats.animations.length > 0 && (
           <>
-            <h4>アニメーション</h4>
+            <h4>{tr("アニメーション")}</h4>
             <div className="mv-row wrap">
               {stats.animations.map((name) => (
                 <button key={name} type="button" className={`btn-sm${anim === name ? " on" : ""}`}
@@ -281,33 +282,33 @@ export function ModelView({ bytes, path, onInfo }: ModelViewProps) {
               ))}
             </div>
             <label className="mv-row">
-              <span className="mv-label">速さ</span>
+              <span className="mv-label">{tr("速さ")}</span>
               <input type="range" min={0.1} max={3} step={0.1} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="grow" />
               <span className="mv-num-out">{speed.toFixed(1)}×</span>
             </label>
           </>
         )}
-        <h4>明るさ</h4>
+        <h4>{tr("明るさ")}</h4>
         <label className="mv-row">
-          <span className="mv-label">光</span>
+          <span className="mv-label">{tr("光")}</span>
           <input type="range" min={0.2} max={2.5} step={0.1} value={light} onChange={(e) => setLight(Number(e.target.value))} className="grow" />
         </label>
         <div className="mv-row">
-          <span className="mv-label">背景</span>
-          <button type="button" className={`btn-sm${bg === "dark" ? " on" : ""}`} onClick={() => setBg("dark")}>暗い</button>
-          <button type="button" className={`btn-sm${bg === "light" ? " on" : ""}`} onClick={() => setBg("light")}>明るい</button>
+          <span className="mv-label">{tr("背景")}</span>
+          <button type="button" className={`btn-sm${bg === "dark" ? " on" : ""}`} onClick={() => setBg("dark")}>{tr("暗い")}</button>
+          <button type="button" className={`btn-sm${bg === "light" ? " on" : ""}`} onClick={() => setBg("light")}>{tr("明るい")}</button>
         </div>
         {stats && (
           <>
-            <h4>情報</h4>
+            <h4>{tr("情報")}</h4>
             <dl className="mv-info">
-              <dt>形式</dt><dd>{extOf(path).toUpperCase()}</dd>
-              <dt>頂点</dt><dd>{stats.vertices.toLocaleString()}</dd>
-              <dt>三角形</dt><dd>{stats.triangles.toLocaleString()}</dd>
-              <dt>マテリアル</dt><dd>{stats.materials}</dd>
-              <dt>テクスチャ</dt><dd>{stats.textures}</dd>
-              <dt>大きさ</dt><dd>{stats.size}</dd>
-              <dt>アニメーション</dt><dd>{stats.animations.length}</dd>
+              <dt>{tr("形式")}</dt><dd>{extOf(path).toUpperCase()}</dd>
+              <dt>{tr("頂点")}</dt><dd>{stats.vertices.toLocaleString()}</dd>
+              <dt>{tr("三角形")}</dt><dd>{stats.triangles.toLocaleString()}</dd>
+              <dt>{tr("マテリアル")}</dt><dd>{stats.materials}</dd>
+              <dt>{tr("テクスチャ")}</dt><dd>{stats.textures}</dd>
+              <dt>{tr("大きさ")}</dt><dd>{stats.size}</dd>
+              <dt>{tr("アニメーション")}</dt><dd>{stats.animations.length}</dd>
             </dl>
           </>
         )}

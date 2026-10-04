@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
+import { tr } from "./i18n";
 
 // --- GitHub でログイン（デバイスフロー） ---
 
@@ -56,9 +57,9 @@ export const takeLoginNotice = () => invoke<boolean>("take_login_notice");
 
 /** この PC で使う期限の選び方 */
 export const LOGIN_PERIODS = [
-  { days: 30, label: "30 日" },
-  { days: 90, label: "90 日" },
-  { days: 180, label: "半年" },
+  { days: 30, label: tr("30 日") },
+  { days: 90, label: tr("90 日") },
+  { days: 180, label: tr("半年") },
 ] as const;
 const LOGIN_DAYS_STORE = "login-days";
 
@@ -218,16 +219,16 @@ export function keyNoteOf(status: LoginStatus | null): { tone: "ok" | "warn"; te
     const detail = last.message ?? undefined;
     // 手で試して新しくできなかったときは、今の鍵はそのまま使える
     if (last.why === "manual" && status.login && status.expires_at) {
-      return { tone: "warn", text: `鍵を新しくできませんでした（${when}・${last.message ?? last.result}）。今の鍵は ${clock(status.expires_at)} まで使えます`, detail };
+      return { tone: "warn", text: tr("鍵を新しくできませんでした（{when}・{v}）。今の鍵は {clock} まで使えます", { when, v: last.message ?? last.result, clock: clock(status.expires_at) }), detail };
     }
-    if (last.result === "network") return { tone: "warn", text: `鍵を新しくできませんでした（${when}・GitHub に届きませんでした）。つながったら、自動でもう一度試します`, detail };
-    if (last.result === "rejected") return { tone: "warn", text: `鍵を新しくできませんでした（${when}・期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください`, detail };
-    return { tone: "warn", text: `鍵を新しくするための記録がありません（${when}）。もう一度ログインしてください`, detail };
+    if (last.result === "network") return { tone: "warn", text: tr("鍵を新しくできませんでした（{when}・GitHub に届きませんでした）。つながったら、自動でもう一度試します", { when }), detail };
+    if (last.result === "rejected") return { tone: "warn", text: tr("鍵を新しくできませんでした（{when}・期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください", { when }), detail };
+    return { tone: "warn", text: tr("鍵を新しくするための記録がありません（{when}）。もう一度ログインしてください", { when }), detail };
   }
   if (!status.login || !status.expires_at) return null;
   return {
     tone: "ok",
-    text: `今の鍵は ${clock(status.expires_at)} まで（その前に自動で新しくなります${last ? `・前に新しくした ${clock(last.at)}${last.why === "rejected" ? "（GitHub に断られたため）" : last.why === "manual" ? "（手で）" : ""}` : ""}）`,
+    text: tr("今の鍵は {clock} まで（その前に自動で新しくなります{v}）", { clock: clock(status.expires_at), v: last ? tr("・前に新しくした {clock}{v}", { clock: clock(last.at), v: last.why === "rejected" ? tr("（GitHub に断られたため）") : last.why === "manual" ? tr("（手で）") : "" }) : "" }),
   };
 }
 export const setDefaultToken = (token: string) => invoke<string>("set_token", { token });
@@ -249,11 +250,11 @@ export const listUserRepos = async () => JSON.parse(await invoke<string>("list_u
 // --- 表示 ---
 
 export const KIND_LABELS: Record<TokenReport["kind"], string> = {
-  oauth: "GitHub でログイン（すべてのリポジトリ）",
-  "fine-grained": "Fine-grained トークン",
-  classic: "Classic トークン",
-  app: "GitHub でログイン（選んだリポジトリだけ）",
-  unknown: "トークン",
+  oauth: tr("GitHub でログイン（すべてのリポジトリ）"),
+  "fine-grained": tr("Fine-grained トークン"),
+  classic: tr("Classic トークン"),
+  app: tr("GitHub でログイン（選んだリポジトリだけ）"),
+  unknown: tr("トークン"),
 };
 
 /** 期限まで何日か（期限のないトークンは null） */
@@ -279,7 +280,7 @@ export function tokenCreateUrl(owner?: string): string {
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
   const params = new URLSearchParams({
     name: `Life Manager ${stamp}`,
-    description: "Life Manager で Issue・プルリク・Actions とファイル（設定・日誌）を読み書きする",
+    description: tr("Life Manager で Issue・プルリク・Actions とファイル（設定・日誌）を読み書きする"),
     expires_in: "90",
     issues: "write",
     pull_requests: "write",

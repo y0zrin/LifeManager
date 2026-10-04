@@ -1,4 +1,5 @@
 import type { GitNotice } from "../../hooks/useGit";
+import { tr } from "../../lib/i18n";
 
 interface GitNoticesProps {
   notices: GitNotice[];
@@ -26,7 +27,7 @@ export function GitNotices({ notices, onDismiss }: GitNoticesProps) {
               {n.action.label}
             </button>
           )}
-          <button type="button" className="git-notice-close" aria-label="閉じる" onClick={() => onDismiss(n.id)}>
+          <button type="button" className="git-notice-close" aria-label={tr("閉じる")} onClick={() => onDismiss(n.id)}>
             ×
           </button>
         </div>

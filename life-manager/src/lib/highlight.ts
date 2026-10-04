@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 // コードの色分け（ライブラリを使わない、小さな字句の分け方）。行ごとに [種類, 文字] の並びにする。
 // C 系（C/C++/C#/Java/JS/TS/Go/Rust/シェーダー など）・Python・Lua・シェル・JSON・YAML/INI/TOML・XML/HTML・CSS
 
@@ -65,7 +66,7 @@ const EXT_LANG: Record<string, string> = {
 export const LANG_NAMES: Record<string, string> = {
   c: "C", h: "C/C++", cpp: "C++", cc: "C++", cxx: "C++", hpp: "C++", cs: "C#", java: "Java", js: "JavaScript", mjs: "JavaScript", ts: "TypeScript", tsx: "TSX", jsx: "JSX",
   go: "Go", rs: "Rust", kt: "Kotlin", swift: "Swift", php: "PHP", py: "Python", rb: "Ruby", lua: "Lua", glsl: "GLSL", hlsl: "HLSL", shader: "ShaderLab", cginc: "HLSL",
-  sh: "シェル", bat: "バッチ", ps1: "PowerShell", cmake: "CMake", sql: "SQL", json: "JSON", yaml: "YAML", yml: "YAML", toml: "TOML", ini: "INI",
+  sh: tr("シェル"), bat: tr("バッチ"), ps1: "PowerShell", cmake: "CMake", sql: "SQL", json: "JSON", yaml: "YAML", yml: "YAML", toml: "TOML", ini: "INI",
   xml: "XML", xaml: "XAML", uxml: "UXML", html: "HTML", htm: "HTML", svg: "SVG", css: "CSS", scss: "SCSS", less: "Less", uss: "USS", vue: "Vue", svelte: "Svelte",
 };
 

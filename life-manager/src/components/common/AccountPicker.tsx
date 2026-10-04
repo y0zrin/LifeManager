@@ -5,6 +5,7 @@ import { isEnter, isEscape } from "../../lib/keys";
 import { countOf } from "../../lib/count";
 import { usePortalHost } from "../../hooks/usePortalHost";
 import { THIS_DEVICE, isMobile } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface AccountPickerProps {
   /** 今のアカウント */
@@ -73,7 +74,7 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
       login: report?.login ?? login,
       avatar: report?.avatar_url ?? null,
       projects: currentProjects,
-      expiry: expiry ? `期限 ${expiry.date.split("/").slice(1).join("/")}${expiry.days < 0 ? "（切れています）" : ""}` : null,
+      expiry: expiry ? tr("期限 {join}{v}", { join: expiry.date.split("/").slice(1).join("/"), v: expiry.days < 0 ? tr("（切れています）") : "" }) : null,
     };
     const saved: Person[] = (accounts ?? []).map((a) => ({ kind: "saved", login: a.login, avatar: a.avatar_url, projects: a.projects.length }));
     return [current, ...saved, { kind: "add" }];
@@ -93,7 +94,7 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
         setError(switchBlocked);
         return;
       }
-      setBusy(p.kind === "add" ? "ログインの画面を開いています…" : `${p.login} に切り替えています…`);
+      setBusy(p.kind === "add" ? tr("ログインの画面を開いています…") : tr("{login} に切り替えています…", { login: p.login }));
       try {
         if (p.kind === "add") await onAdd(report?.avatar_url);
         else await onSwitch(p.login, report?.avatar_url);
@@ -135,7 +136,7 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
   }, [people.length, focused, activate, busy, onClose, forgetting]);
 
   async function forget(target: string) {
-    setBusy(`${target} を外しています…`);
+    setBusy(tr("{target} を外しています…", { target }));
     try {
       await onForget(target);
       setForgetting(null);
@@ -150,18 +151,18 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
 
   if (!host) return null;
   return createPortal(
-    <div className="picker" role="dialog" aria-label="アカウントを選ぶ">
+    <div className="picker" role="dialog" aria-label={tr("アカウントを選ぶ")}>
       <div className="picker-top">
         <span className="picker-logo" aria-hidden="true">L</span>
         <span>Life Manager</span>
         <span className="picker-grow" />
         <span className="picker-clock">{clock}</span>
         {!startup && (
-          <button type="button" className="picker-close" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
+          <button type="button" className="picker-close" onClick={onClose} aria-label={tr("閉じる")} title={tr("閉じる（Esc）")}>×</button>
         )}
       </div>
-      <h2 className="picker-title">{quest ? "だれが冒険しますか？" : "だれが使いますか？"}</h2>
-      <div className="picker-people" role="listbox" aria-label="アカウント">
+      <h2 className="picker-title">{quest ? tr("だれが冒険しますか？") : tr("だれが使いますか？")}</h2>
+      <div className="picker-people" role="listbox" aria-label={tr("アカウント")}>
         {people.map((p, i) => {
           const on = i === index;
           const key = p.kind === "add" ? "+add" : p.login;
@@ -176,15 +177,15 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
               ) : (
                 <span className="picker-face" style={{ background: faceColor(p.login) }} aria-hidden="true">{p.login.slice(0, 1).toUpperCase()}</span>
               )}
-              <span className="picker-name">{p.kind === "add" ? "アカウントを追加" : p.login}</span>
+              <span className="picker-name">{p.kind === "add" ? tr("アカウントを追加") : p.login}</span>
               {on && p.kind !== "add" && (
                 <span className="picker-sub">
-                  {p.kind === "current" && <>今のアカウント<br /></>}
-                  {p.projects > 0 ? `使うリポジトリ ${countOf(p.projects, "件")}` : "リポジトリなし"}
+                  {p.kind === "current" && <>{trx("今のアカウント{br}", { br: <br /> })}</>}
+                  {p.projects > 0 ? tr("使うリポジトリ {countOf}", { countOf: countOf(p.projects, tr("件")) }) : tr("リポジトリなし")}
                   {p.kind === "current" && p.expiry && <><br />{p.expiry}</>}
                 </span>
               )}
-              {on && p.kind === "add" && <span className="picker-sub">GitHub でログイン<br />（アカウントを作ることも）</span>}
+              {on && p.kind === "add" && <span className="picker-sub">{trx("GitHub でログイン{br}（アカウントを作ることも）", { br: <br /> })}</span>}
             </button>
           );
         })}
@@ -195,20 +196,20 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
         </p>
       )}
       {!isMobile && (<div className="picker-hint" aria-hidden="true">
-        <span><b>← →</b>選ぶ</span>
-        <span><b>Enter</b>{focused.kind === "current" ? "はじめる" : focused.kind === "add" ? "追加する" : "切り替える"}</span>
-        {!startup && <span><b>Esc</b>閉じる</span>}
+        <span>{trx("<0>← →</0>選ぶ", undefined, [<b />])}</span>
+        <span><b>Enter</b>{focused.kind === "current" ? tr("はじめる") : focused.kind === "add" ? tr("追加する") : tr("切り替える")}</span>
+        {!startup && <span>{trx("<0>Esc</0>閉じる", undefined, [<b />])}</span>}
       </div>)}
       {focused.kind === "saved" && (
         forgetting === focused.login ? (
           <div className="picker-forget-confirm">
-            {focused.login} を、{THIS_DEVICE}から外します（ログアウト）。もう一度ログインすれば、続きから使えます。
-            <button type="button" className="btn-danger" onClick={() => forget(focused.login)} disabled={!!busy}>外す</button>
-            <button type="button" className="btn-sm" onClick={() => setForgetting(null)}>やめる</button>
+            {trx("{login} を、{THIS_DEVICE}から外します（ログアウト）。もう一度ログインすれば、続きから使えます。", { login: focused.login, THIS_DEVICE })}
+            <button type="button" className="btn-danger" onClick={() => forget(focused.login)} disabled={!!busy}>{tr("外す")}</button>
+            <button type="button" className="btn-sm" onClick={() => setForgetting(null)}>{tr("やめる")}</button>
           </div>
         ) : (
           <button type="button" className="picker-forget" onClick={() => setForgetting(focused.login)} disabled={!!busy}>
-            {focused.login} を{THIS_DEVICE}から外す…
+            {trx("{login} を{THIS_DEVICE}から外す…", { login: focused.login, THIS_DEVICE })}
           </button>
         )
       )}

@@ -1,4 +1,5 @@
 import type { BoardColumn, BoardConfig, BoardGenre } from "./types";
+import { tr } from "./i18n";
 
 /** ボードの列（設定がないとき）。タスク一覧を「状態」でまとめるときの順番にも使う */
 export const DEFAULT_COLUMNS: BoardColumn[] = [
@@ -37,7 +38,7 @@ export function boardColumns(config: BoardConfig | null): BoardColumn[] {
 
 /** ボードのジャンル（タブ）。区画をどれに置くかの選び方にも使う */
 export const BOARD_GENRES: { key: BoardGenre; label: string; icon: string; about: string }[] = [
-  { key: "triage", label: "未整理", icon: "📥", about: "整理して、やることを決める" },
-  { key: "doing", label: "着手済み", icon: "🔥", about: "やっていることを追う" },
-  { key: "review", label: "確認待ち", icon: "🔍", about: "確かめて終わらせる" },
+  { key: "triage", label: tr("未整理"), icon: "📥", about: tr("整理して、やることを決める") },
+  { key: "doing", label: tr("着手済み"), icon: "🔥", about: tr("やっていることを追う") },
+  { key: "review", label: tr("確認待ち"), icon: "🔍", about: tr("確かめて終わらせる") },
 ];

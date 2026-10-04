@@ -3,6 +3,7 @@ import { checkToken, type TokenReport } from "../../lib/auth";
 import { setupStatus } from "../../lib/git";
 import type { GitSetupStatus } from "../../lib/types";
 import { isMobile } from "../../lib/platform";
+import { tr } from "../../lib/i18n";
 
 interface SetupChecklistProps {
   owner: string;
@@ -68,31 +69,31 @@ export function SetupChecklist({ owner, repo, login, folder, setupVersion, onOpe
   const items: Item[] = [
     {
       key: "login",
-      label: "GitHub にログイン",
+      label: tr("GitHub にログイン"),
       status: "ok",
-      detail: report ? `${report.login}（${report.kind === "app" ? "GitHub でログイン" : "トークン"}）` : login,
+      detail: report ? `${report.login}（${report.kind === "app" ? tr("GitHub でログイン") : tr("トークン")}）` : login,
     },
-    { key: "repo", label: "リポジトリ", status: owner && repo ? "ok" : "todo", detail: owner && repo ? `${owner}/${repo}` : undefined },
+    { key: "repo", label: tr("リポジトリ"), status: owner && repo ? "ok" : "todo", detail: owner && repo ? `${owner}/${repo}` : undefined },
   ];
 
   // Life Manager の許可は「GitHub でログイン」のときだけ（トークンで使うときは要らない）
   const access = report?.repos[0];
   if (reportError) {
-    items.push({ key: "access", label: "Life Manager の許可", status: "warn", detail: "確かめられませんでした", fix: { label: "もう一度", run: recheck } });
+    items.push({ key: "access", label: tr("Life Manager の許可"), status: "warn", detail: tr("確かめられませんでした"), fix: { label: tr("もう一度"), run: recheck } });
   } else if (!report) {
-    items.push({ key: "access", label: "Life Manager の許可", status: "checking" });
+    items.push({ key: "access", label: tr("Life Manager の許可"), status: "checking" });
   } else if (report.kind === "app" && access) {
     if (access.ok && access.can_push) {
-      items.push({ key: "access", label: "Life Manager の許可", status: "ok" });
+      items.push({ key: "access", label: tr("Life Manager の許可"), status: "ok" });
     } else if (access.ok) {
-      items.push({ key: "access", label: "Life Manager の許可", status: "warn", detail: access.message ?? "見るだけ（書き込めません）" });
+      items.push({ key: "access", label: tr("Life Manager の許可"), status: "warn", detail: access.message ?? tr("見るだけ（書き込めません）") });
     } else {
       items.push({
         key: "access",
-        label: "Life Manager の許可",
+        label: tr("Life Manager の許可"),
         status: "todo",
         detail: access.message ?? undefined,
-        fix: { label: access.problem === "not_installed" ? "許可する…" : "直し方…", run: onOpenAccess },
+        fix: { label: access.problem === "not_installed" ? tr("許可する…") : tr("直し方…"), run: onOpenAccess },
       });
     }
   }
@@ -100,28 +101,28 @@ export function SetupChecklist({ owner, repo, login, folder, setupVersion, onOpe
   if (!isMobile) {
     items.push({
       key: "folder",
-      label: "作業フォルダ",
+      label: tr("作業フォルダ"),
       status: folder ? "ok" : "todo",
       detail: folder,
-      fix: folder ? undefined : { label: "決める…", run: onOpenFolder },
+      fix: folder ? undefined : { label: tr("決める…"), run: onOpenFolder },
     });
     if (!git) {
-      items.push({ key: "git", label: "Git", status: "checking" }, { key: "identity", label: "名前とメールアドレス", status: "checking" });
+      items.push({ key: "git", label: "Git", status: "checking" }, { key: "identity", label: tr("名前とメールアドレス"), status: "checking" });
     } else {
       items.push({
         key: "git",
         label: "Git",
         status: git.git ? "ok" : "todo",
         detail: git.git ?? undefined,
-        fix: git.git ? undefined : { label: "インストールする…", run: onOpenGitSetup },
+        fix: git.git ? undefined : { label: tr("インストールする…"), run: onOpenGitSetup },
       });
       const named = !!git.user_name && !!git.user_email;
       items.push({
         key: "identity",
-        label: "名前とメールアドレス",
+        label: tr("名前とメールアドレス"),
         status: named ? "ok" : "todo",
         detail: named ? `${git.user_name} <${git.user_email}>` : undefined,
-        fix: named ? undefined : { label: "決める…", run: onOpenGitSetup },
+        fix: named ? undefined : { label: tr("決める…"), run: onOpenGitSetup },
       });
     }
   }
@@ -130,12 +131,12 @@ export function SetupChecklist({ owner, repo, login, folder, setupVersion, onOpe
   const checking = items.some((i) => i.status === "checking");
 
   return (
-    <section className={`setup-check${left ? " has-left" : ""}`} aria-label="準備のチェックリスト">
+    <section className={`setup-check${left ? " has-left" : ""}`} aria-label={tr("準備のチェックリスト")}>
       <div className="setup-check-head">
-        <b>📋 準備のチェックリスト</b>
-        <span className={`setup-check-sum${left ? " left" : ""}`}>{checking ? "確かめています…" : left ? `あと ${left}` : "✓ そろっています"}</span>
+        <b>{tr("📋 準備のチェックリスト")}</b>
+        <span className={`setup-check-sum${left ? " left" : ""}`}>{checking ? tr("確かめています…") : left ? tr("あと {left}", { left }) : tr("✓ そろっています")}</span>
         <span className="grow" />
-        <button type="button" className="btn-sm" onClick={recheck} disabled={checking} title="確かめ直す">
+        <button type="button" className="btn-sm" onClick={recheck} disabled={checking} title={tr("確かめ直す")}>
           ↻
         </button>
       </div>

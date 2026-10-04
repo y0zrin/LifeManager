@@ -1,11 +1,11 @@
 // ヒストリー: リポジトリで起きたこと（チームの動き）と、「あなたがすること」（GitHub の通知の代わり）。
 // GitHub の通知（ベル）そのものは、GitHub の決まりで App の鍵では読めないので、Issue・プルリク・Actions から集める
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
 import type { GitHubIssue, GitHubMilestone } from "./types";
 import type { Verdicts } from "./pulls";
 import type { CheckSummary, Stack } from "./actions";
 import { daysUntil, dueOf } from "./due";
-import { countOf } from "./count";
+import { joinNames, tr, weekdayShort } from "./i18n";
 
 export interface ActivityEvent {
   id: string;
@@ -56,18 +56,38 @@ export interface ActivityFeed {
 
 export const activityFeed = (owner: string, repo: string) => invoke<ActivityFeed>("activity_feed", { owner, repo });
 
-/** 文の一部: 文字か、押せる Issue・プルリクの番号 */
-export type Part = string | { kind: "issue" | "pull"; number: number; title?: string | null };
+/** 押せる Issue・プルリクの番号 */
+export type RefPart = { kind: "issue" | "pull"; number: number; title?: string | null };
+/** 文の一部: 文字か、押せる番号か、した人の名前（太字） */
+export type Part = string | RefPart | { kind: "actor"; name: string };
+
+/**
+ * 文の形（日本語の鍵）を今の言語にして、{ref}・{actor} などの場所に Part を入れる（#256。語順が言語で変わっても崩れない）。
+ * 文字と数の値は、そのまま文に入れる
+ */
+export function sentence(ja: string, vars: Record<string, string | number | Part> = {}): Part[] {
+  const text: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(vars)) if (typeof v !== "object") text[k] = v;
+  const s = tr(ja, text);
+  const out: Part[] = [];
+  for (const piece of s.split(/(\{\w+\})/)) {
+    const m = /^\{(\w+)\}$/.exec(piece);
+    const v = m ? vars[m[1]] : undefined;
+    if (v && typeof v === "object") out.push(v);
+    else if (piece) out.push(piece);
+  }
+  return out;
+}
 
 export type ActivityKind = "issue" | "pull" | "push" | "release" | "milestone" | "other";
 
 export const KIND_LABELS: Record<ActivityKind, string> = {
   issue: "Issue",
-  pull: "プルリク",
-  push: "プッシュ",
-  release: "リリース・タグ",
-  milestone: "マイルストーンの達成",
-  other: "そのほか",
+  pull: tr("プルリク"),
+  push: tr("プッシュ"),
+  release: tr("リリース・タグ"),
+  milestone: tr("マイルストーンの達成"),
+  other: tr("そのほか"),
 };
 
 /** マイルストーンの達成。GitHub の出来事にはないので、アプリがマイルストーンとタスクから作る（milestoneEvents） */
@@ -97,74 +117,81 @@ export interface Described {
 /** 🆘 の流れの中での役: 助けを求めた・それに答えた（あとから同じ Issue に、ほかの人が書いた）・解決した */
 export type HelpRole = { role: "ask" } | { role: "answer"; asker: string } | { role: "resolved" };
 
-const ref = (e: ActivityEvent, pull = !!e.pull): Part => ({ kind: pull ? "pull" : "issue", number: e.number ?? 0, title: e.title });
+const ref = (e: ActivityEvent, pull = !!e.pull): RefPart => ({ kind: pull ? "pull" : "issue", number: e.number ?? 0, title: e.title });
 
-/** 起きたこと 1 つを、日本語の文にする（出さないものは null）。help は 🆘 の流れの中での役（helpRoles） */
+/** 起きたこと 1 つを、今の言語の文にする（出さないものは null）。help は 🆘 の流れの中での役（helpRoles）。した人は {actor}（太字） */
 export function describe(e: ActivityEvent, help?: HelpRole): Described | null {
+  const actor: Part = { kind: "actor", name: e.actor };
+  // した人と番号の入る文
+  const say = (ja: string, r: Part | string = "", more: Record<string, string | number> = {}) => sentence(ja, { actor, ref: r, ...more });
   switch (e.type) {
     case MILESTONE_EVENT: {
       const left = e.due_on ? daysUntil(e.due_on.slice(0, 10), new Date(e.at)) : null;
-      const when = left === null ? [] : [left > 0 ? ` ・ 期限の ${left} 日前` : left === 0 ? " ・ 期限の日" : ` ・ 期限から ${-left} 日`];
-      const last: Part[] = e.last_task ? [" ・ 最後は ", { kind: "issue", number: e.last_task.number, title: e.last_task.title }] : [];
-      return { icon: "🏆", tone: "milestone", parts: [e.title ?? ""], sub: [`終えたタスク ${e.size ?? 0} 件`, ...last, ...when] };
+      const when = left === null ? [] : left > 0 ? sentence(" ・ 期限の {n} 日前", { n: left }) : left === 0 ? sentence(" ・ 期限の日") : sentence(" ・ 期限から {n} 日", { n: -left });
+      const last: Part[] = e.last_task ? sentence(" ・ 最後は {ref}", { ref: { kind: "issue", number: e.last_task.number, title: e.last_task.title } }) : [];
+      return { icon: "🏆", tone: "milestone", parts: [e.title ?? ""], sub: [...sentence("終えたタスク {n} 件", { n: e.size ?? 0 }), ...last, ...when] };
     }
     case "PushEvent": {
       // 今の GitHub はコミットの数を入れないので、比べて足せなかったときは数を出さない
       const count = e.size ?? (e.commits?.length || null);
-      return { icon: "⬆", parts: [count ? `が ${e.ref} に ${count} コミットをプッシュ` : `が ${e.ref} にプッシュしました`], commits: e.commits ?? [] };
+      return {
+        icon: "⬆",
+        parts: count ? say("{actor} が {ref} に {n} コミットをプッシュ", e.ref ?? "", { n: count }) : say("{actor} が {ref} にプッシュしました", e.ref ?? ""),
+        commits: e.commits ?? [],
+      };
     }
     case "PullRequestEvent": {
       const r = ref(e, true);
-      if (e.action === "opened") return { icon: "🔃", parts: ["がプルリク ", r, " を作りました"] };
+      if (e.action === "opened") return { icon: "🔃", parts: say("{actor} がプルリク {ref} を作りました", r) };
       // マージは、前は closed と merged、今の GitHub は merged で来る
-      if (e.action === "merged" || (e.action === "closed" && e.merged)) return { icon: "🟣", parts: ["が ", r, " をマージしました"] };
-      if (e.action === "closed") return { icon: "🔴", parts: ["がプルリク ", r, " を閉じました"] };
-      if (e.action === "reopened") return { icon: "🟢", parts: ["がプルリク ", r, " を開き直しました"] };
-      if (e.action === "ready_for_review") return { icon: "📣", parts: ["が ", r, " をレビューをお願いできる状態にしました"] };
+      if (e.action === "merged" || (e.action === "closed" && e.merged)) return { icon: "🟣", parts: say("{actor} が {ref} をマージしました", r) };
+      if (e.action === "closed") return { icon: "🔴", parts: say("{actor} がプルリク {ref} を閉じました", r) };
+      if (e.action === "reopened") return { icon: "🟢", parts: say("{actor} がプルリク {ref} を開き直しました", r) };
+      if (e.action === "ready_for_review") return { icon: "📣", parts: say("{actor} が {ref} をレビューをお願いできる状態にしました", r) };
       return null;
     }
     case "PullRequestReviewEvent": {
       const r = ref(e, true);
-      if (e.review_state === "approved") return { icon: "✔", parts: ["が ", r, " を承認しました"] };
-      if (e.review_state === "changes_requested") return { icon: "✏️", parts: ["が ", r, " に修正を依頼しました"] };
-      return { icon: "💬", parts: ["が ", r, " をレビューしました"] };
+      if (e.review_state === "approved") return { icon: "✔", parts: say("{actor} が {ref} を承認しました", r) };
+      if (e.review_state === "changes_requested") return { icon: "✏️", parts: say("{actor} が {ref} に修正を依頼しました", r) };
+      return { icon: "💬", parts: say("{actor} が {ref} をレビューしました", r) };
     }
     case "PullRequestReviewCommentEvent":
-      return { icon: "💬", parts: ["が ", ref(e, true), " の行にコメントしました"], detail: e.body ?? undefined };
+      return { icon: "💬", parts: say("{actor} が {ref} の行にコメントしました", ref(e, true)), detail: e.body ?? undefined };
     case "IssuesEvent": {
       const r = ref(e);
-      if (e.action === "opened") return { icon: "📝", parts: ["が ", r, " を作りました"] };
+      if (e.action === "opened") return { icon: "📝", parts: say("{actor} が {ref} を作りました", r) };
       if (e.action === "closed") {
-        if (e.state_reason === "not_planned") return { icon: "⊘", parts: ["が ", r, " を閉じました（予定なし）"] };
-        if (e.state_reason === "duplicate") return { icon: "⊘", parts: ["が ", r, " を閉じました（重複）"] };
-        return { icon: "✅", tone: "done", parts: ["が ", r, " を完了にしました"] };
+        if (e.state_reason === "not_planned") return { icon: "⊘", parts: say("{actor} が {ref} を閉じました（予定なし）", r) };
+        if (e.state_reason === "duplicate") return { icon: "⊘", parts: say("{actor} が {ref} を閉じました（重複）", r) };
+        return { icon: "✅", tone: "done", parts: say("{actor} が {ref} を完了にしました", r) };
       }
-      if (e.action === "reopened") return { icon: "↺", parts: ["が ", r, " を開き直しました"] };
-      if (e.action === "assigned" && e.assignee) return { icon: "👤", parts: ["が ", r, ` の担当を ${e.assignee} にしました`] };
+      if (e.action === "reopened") return { icon: "↺", parts: say("{actor} が {ref} を開き直しました", r) };
+      if (e.action === "assigned" && e.assignee) return { icon: "👤", parts: say("{actor} が {ref} の担当を {assignee} にしました", r, { assignee: e.assignee }) };
       return null;
     }
     case "IssueCommentEvent":
       if (e.action !== "created") return null;
-      if (help?.role === "ask") return { icon: "🆘", tone: "help", parts: ["が ", ref(e), " で助けを求めました"], detail: e.body ?? undefined };
-      if (help?.role === "answer") return { icon: "🤝", tone: "answer", parts: ["が ", ref(e), ` で ${help.asker} の 🆘 に答えました`], detail: e.body ?? undefined };
-      if (help?.role === "resolved") return { icon: "🎉", tone: "resolved", parts: ["が ", ref(e), " の 🆘 を解決しました"] };
-      return { icon: "💬", parts: ["が ", ref(e), " にコメントしました"], detail: e.body ?? undefined };
+      if (help?.role === "ask") return { icon: "🆘", tone: "help", parts: say("{actor} が {ref} で助けを求めました", ref(e)), detail: e.body ?? undefined };
+      if (help?.role === "answer") return { icon: "🤝", tone: "answer", parts: say("{actor} が {ref} で {asker} の 🆘 に答えました", ref(e), { asker: help.asker }), detail: e.body ?? undefined };
+      if (help?.role === "resolved") return { icon: "🎉", tone: "resolved", parts: say("{actor} が {ref} の 🆘 を解決しました", ref(e)) };
+      return { icon: "💬", parts: say("{actor} が {ref} にコメントしました", ref(e)), detail: e.body ?? undefined };
     case "CreateEvent":
-      if (e.ref_type === "branch") return { icon: "🌿", parts: [`がブランチ ${e.ref} を作りました`] };
-      if (e.ref_type === "tag") return { icon: "🏷️", parts: [`がタグ ${e.ref} を付けました`] };
-      if (e.ref_type === "repository") return { icon: "📦", parts: ["がリポジトリを作りました"] };
+      if (e.ref_type === "branch") return { icon: "🌿", parts: say("{actor} がブランチ {ref} を作りました", e.ref ?? "") };
+      if (e.ref_type === "tag") return { icon: "🏷️", parts: say("{actor} がタグ {ref} を付けました", e.ref ?? "") };
+      if (e.ref_type === "repository") return { icon: "📦", parts: say("{actor} がリポジトリを作りました") };
       return null;
     case "DeleteEvent":
-      return { icon: "🗑", parts: [`が${e.ref_type === "tag" ? "タグ" : "ブランチ"} ${e.ref} を消しました`] };
+      return { icon: "🗑", parts: e.ref_type === "tag" ? say("{actor} がタグ {ref} を消しました", e.ref ?? "") : say("{actor} がブランチ {ref} を消しました", e.ref ?? "") };
     case "ReleaseEvent":
       if (e.action !== "published") return null;
-      return { icon: "🏷️", parts: [`が${e.prerelease ? "試用版" : "リリース"} ${e.title ?? e.ref} を出しました`] };
+      return { icon: "🏷️", parts: e.prerelease ? say("{actor} が試用版 {ref} を出しました", e.title ?? e.ref ?? "") : say("{actor} がリリース {ref} を出しました", e.title ?? e.ref ?? "") };
     case "MemberEvent":
-      return e.action === "added" ? { icon: "👥", parts: [`が ${e.member} をメンバーに入れました`] } : null;
+      return e.action === "added" ? { icon: "👥", parts: say("{actor} が {member} をメンバーに入れました", "", { member: e.member ?? "" }) } : null;
     case "ForkEvent":
-      return { icon: "🍴", parts: ["がフォークしました"] };
+      return { icon: "🍴", parts: say("{actor} がフォークしました") };
     case "WatchEvent":
-      return { icon: "⭐", parts: ["がスターを付けました"] };
+      return { icon: "⭐", parts: say("{actor} がスターを付けました") };
     default:
       return null;
   }
@@ -235,15 +262,13 @@ export function milestoneEvents(milestones: GitHubMilestone[], closedIssues: Git
   return out;
 }
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
 /** 「今日」「きのう」「9/27（土）」 */
 export function dayLabel(iso: string, today = new Date()): string {
   const d = new Date(iso);
   const days = daysUntil(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, today);
-  if (days === 0) return "今日";
-  if (days === -1) return "きのう";
-  return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
+  if (days === 0) return tr("今日");
+  if (days === -1) return tr("きのう");
+  return tr("{m}/{d}（{w}）", { m: d.getMonth() + 1, d: d.getDate(), w: weekdayShort(d) });
 }
 
 /** 「14:02」 */
@@ -297,18 +322,18 @@ export function buildTodos(o: {
 
   for (const p of o.pulls ?? []) {
     if (!same(p.user, me) && p.requested_reviewers.some((r) => same(r, me))) {
-      out.push({ key: `review:${p.number}:${p.updated_at}`, icon: "👀", tone: "", parts: [pr(p), " のレビューを頼まれています"], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 2 });
+      out.push({ key: `review:${p.number}:${p.updated_at}`, icon: "👀", tone: "", parts: sentence("{ref} のレビューを頼まれています", { ref: pr(p) }), at: p.updated_at, target: { kind: "pull", number: p.number }, order: 2 });
     }
     if (!same(p.user, me)) continue;
     const ck = o.checks[p.head_sha];
     if (ck && ck.failure > 0) {
-      out.push({ key: `checks:${p.number}:${p.head_sha}`, icon: "✖", tone: "ng", parts: ["あなたのプルリク ", pr(p), ` のチェックが ${countOf(ck.failure, "件")}失敗しています`], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 0 });
+      out.push({ key: `checks:${p.number}:${p.head_sha}`, icon: "✖", tone: "ng", parts: sentence("あなたのプルリク {ref} のチェックが {n} 件失敗しています", { ref: pr(p), n: ck.failure }), at: p.updated_at, target: { kind: "pull", number: p.number }, order: 0 });
     }
     const v = o.verdicts[String(p.number)];
     if (v && v.changes_requested.length > 0) {
-      out.push({ key: `changes:${p.number}:${p.updated_at}`, icon: "✏️", tone: "warn", parts: [pr(p), ` で修正を頼まれています（${v.changes_requested.join("、")}）`], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 1 });
+      out.push({ key: `changes:${p.number}:${p.updated_at}`, icon: "✏️", tone: "warn", parts: sentence("{ref} で修正を頼まれています（{who}）", { ref: pr(p), who: joinNames(v.changes_requested) }), at: p.updated_at, target: { kind: "pull", number: p.number }, order: 1 });
     } else if (v && v.approved.length > 0 && !p.draft && !(ck && ck.failure > 0)) {
-      out.push({ key: `approved:${p.number}:${p.updated_at}`, icon: "✔", tone: "ok", parts: [pr(p), ` が承認されました（${v.approved.join("、")}）。マージできます`], at: p.updated_at, target: { kind: "pull", number: p.number }, order: 4 });
+      out.push({ key: `approved:${p.number}:${p.updated_at}`, icon: "✔", tone: "ok", parts: sentence("{ref} が承認されました（{who}）。マージできます", { ref: pr(p), who: joinNames(v.approved) }), at: p.updated_at, target: { kind: "pull", number: p.number }, order: 4 });
     }
   }
 
@@ -319,16 +344,23 @@ export function buildTodos(o: {
     const days = daysUntil(due.date, new Date(now));
     if (days > 3) continue;
     const ref: Part = { kind: "issue", number: i.number, title: i.title };
-    const when = days < 0 ? ` の期限が ${-days} 日過ぎています` : days === 0 ? " の期限が今日です" : days === 1 ? " の期限が明日です" : ` の期限まであと ${days} 日です`;
+    const parts =
+      days < 0
+        ? sentence("担当の {ref} の期限が {n} 日過ぎています", { ref, n: -days })
+        : days === 0
+          ? sentence("担当の {ref} の期限が今日です", { ref })
+          : days === 1
+            ? sentence("担当の {ref} の期限が明日です", { ref })
+            : sentence("担当の {ref} の期限まであと {n} 日です", { ref, n: days });
     // もうすぐ・今日・過ぎた、の段階ごとに鍵を変える（段階が変わると、また出る・また知らせる）
     const stage = days < 0 ? "over" : days === 0 ? "today" : "soon";
-    out.push({ key: `due:${i.number}:${due.date}:${stage}`, icon: "📅", tone: days < 0 ? "ng" : days <= 1 ? "warn" : "", parts: ["担当の ", ref, when], at: null, target: { kind: "issue", number: i.number }, order: days < 0 ? 1 : 3 });
+    out.push({ key: `due:${i.number}:${due.date}:${stage}`, icon: "📅", tone: days < 0 ? "ng" : days <= 1 ? "warn" : "", parts, at: null, target: { kind: "issue", number: i.number }, order: days < 0 ? 1 : 3 });
   }
 
   for (const c of o.stack?.cards ?? []) {
     if (c.kind !== "run" || !c.run || c.level > 3 || c.pull) continue;
     if (!same(c.run.actor?.login, me)) continue;
-    out.push({ key: `run:${c.key}:${c.run.id}`, icon: "✖", tone: "ng", parts: [`${c.run.branch} の ${c.run.name} が失敗しています（あなたのプッシュ）`], at: c.run.created_at, target: { kind: "run", runId: c.run.id }, order: 5 });
+    out.push({ key: `run:${c.key}:${c.run.id}`, icon: "✖", tone: "ng", parts: sentence("{branch} の {name} が失敗しています（あなたのプッシュ）", { branch: c.run.branch, name: c.run.name }), at: c.run.created_at, target: { kind: "run", runId: c.run.id }, order: 5 });
   }
 
   // 名前を呼ばれたか: GitHub から読んだものは、本文まるごとから数えた mentions で。ないときは本文から
@@ -351,15 +383,15 @@ export function buildTodos(o: {
       // 助けを求める（🆘）と、その解決（✅）は、名前を呼ばれたとは別に、目立つように。あとで解決になった 🆘 は出さない
       if (e.body.includes(HELP_MARK)) {
         if ((doneAt.get(e.number) ?? "") > e.at) continue;
-        out.push({ key: `help:${e.id}`, icon: "🆘", tone: "ng", parts: [`${e.actor} が助けを求めています ・ `, ref], detail: e.body, at: e.at, target, order: -1 });
+        out.push({ key: `help:${e.id}`, icon: "🆘", tone: "ng", parts: sentence("{actor} が助けを求めています ・ {ref}", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: -1 });
       } else if (e.body.includes(HELP_DONE_MARK)) {
-        out.push({ key: `helped:${e.id}`, icon: "✅", tone: "ok", parts: [`${e.actor} が 🆘 を解決にしました ・ `, ref], detail: e.body, at: e.at, target, order: 6 });
+        out.push({ key: `helped:${e.id}`, icon: "✅", tone: "ok", parts: sentence("{actor} が 🆘 を解決にしました ・ {ref}", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: 6 });
       } else {
-        out.push({ key: `mention:${e.id}`, icon: "💬", tone: "", parts: [`${e.actor} が `, ref, " であなたの名前を出しました"], detail: e.body, at: e.at, target, order: 6 });
+        out.push({ key: `mention:${e.id}`, icon: "💬", tone: "", parts: sentence("{actor} が {ref} であなたの名前を出しました", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: 6 });
       }
     }
     if (e.type === "IssuesEvent" && e.action === "assigned" && same(e.assignee, me)) {
-      out.push({ key: `assigned:${e.id}`, icon: "👤", tone: "", parts: [`${e.actor} が `, ref, " の担当をあなたにしました"], at: e.at, target, order: 7 });
+      out.push({ key: `assigned:${e.id}`, icon: "👤", tone: "", parts: sentence("{actor} が {ref} の担当をあなたにしました", { actor: e.actor, ref }), at: e.at, target, order: 7 });
     }
   }
 

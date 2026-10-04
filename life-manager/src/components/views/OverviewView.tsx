@@ -13,6 +13,7 @@ import {
 import { easeScrollTo } from "../../lib/motion";
 import type { BranchStyle } from "../../hooks/useDisplaySettings";
 import { BranchPicker } from "../git/BranchPicker";
+import { tr, trx } from "../../lib/i18n";
 
 interface OverviewViewProps {
   history: GitHistory;
@@ -191,20 +192,20 @@ export function OverviewView(props: OverviewViewProps) {
   return (
     <div className="oview">
       <div className="o-bar">
-        <div className="mini-seg" role="radiogroup" aria-label="ブランチの見せ方">
-          <span className="mini-seg-label">ブランチの見せ方</span>
+        <div className="mini-seg" role="radiogroup" aria-label={tr("ブランチの見せ方")}>
+          <span className="mini-seg-label">{tr("ブランチの見せ方")}</span>
           <button type="button" className={props.branchStyle === "label" ? "on" : ""} onClick={() => props.onBranchStyleChange("label")}>
-            ラベル
+            {tr("ラベル")}
           </button>
           <button type="button" className={props.branchStyle === "line" ? "on" : ""} onClick={() => props.onBranchStyleChange("line")}>
-            線
+            {tr("線")}
           </button>
         </div>
         <span className="o-legend">
-          <i className="lg-dot" /> コミット <i className="lg-merge" /> マージ <i className="lg-app" /> 自動コミット（まとめ）
+          <i className="lg-dot" /> {" "}{tr("コミット")}{" "} <i className="lg-merge" /> {" "}{tr("マージ")}{" "} <i className="lg-app" /> {" "}{tr("自動コミット（まとめ）")}
           {wip && (
             <>
-              <i className="lg-wip" /> 作業中
+              <i className="lg-wip" /> {" "}{tr("作業中")}
             </>
           )}
         </span>
@@ -266,7 +267,7 @@ export function OverviewView(props: OverviewViewProps) {
           <div className="o-dates" style={{ top: HEAD_H }}>
             {wip && (
               <span className="o-date now" style={{ top: 0 }}>
-                いま
+                {tr("いま")}
               </span>
             )}
             {dayStarts.map((d) => (
@@ -329,7 +330,7 @@ export function OverviewView(props: OverviewViewProps) {
             {wip && (
               <div className="lbl-row" style={{ top: 0 }}>
                 <button type="button" className="rchip wip-chip" onClick={props.onOpenWork}>
-                  ✎ 作業中の変更 {props.changes}
+                  {trx("✎ 作業中の変更 {changes}", { changes: props.changes })}
                 </button>
               </div>
             )}
@@ -375,9 +376,9 @@ function OverviewTip({
     return (
       <div className="o-tip popover" style={style} role="tooltip">
         <div className="t-title">🌿 {tip.life.name}</div>
-        {c && <div className="t-sub">先頭のコミット: {c.subject}</div>}
+        {c && <div className="t-sub">{trx("先頭のコミット: {subject}", { subject: c.subject })}</div>}
         {c && <div className="t-when">{shortWhen(c.date)} · {c.hash.slice(0, 7)}</div>}
-        <div className="t-hint">クリックで {tip.life.name} を表示</div>
+        <div className="t-hint">{trx("クリックで {name} を表示", { name: tip.life.name })}</div>
       </div>
     );
   }
@@ -395,7 +396,7 @@ function OverviewTip({
       )}
       {r.kind === "group" ? (
         <>
-          <div className="t-title">🤖 アプリの自動コミット {r.commits.length} 件</div>
+          <div className="t-title">{trx("🤖 アプリの自動コミット {length} 件", { length: r.commits.length })}</div>
           <div className="t-sub">{appCommitBreakdown(r.commits)}</div>
           <div className="t-when">
             {shortWhen(r.commits[r.commits.length - 1].date)} 〜 {shortWhen(c.date)}
@@ -404,13 +405,13 @@ function OverviewTip({
       ) : (
         <>
           <div className="t-title">{c.subject}</div>
-          {r.kind === "merge" && <div className="t-sub">マージ（2 つの流れを 1 つにまとめたコミット）</div>}
+          {r.kind === "merge" && <div className="t-sub">{tr("マージ（2 つの流れを 1 つにまとめたコミット）")}</div>}
           <div className="t-when">
             {shortWhen(c.date)} · {c.hash.slice(0, 7)} · {c.author}
           </div>
         </>
       )}
-      {where && <div className="t-hint">クリックで {where} のこのコミットへ</div>}
+      {where && <div className="t-hint">{trx("クリックで {where} のこのコミットへ", { where })}</div>}
     </div>
   );
 }

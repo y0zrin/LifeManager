@@ -188,3 +188,24 @@ pub fn focus_main(app: AppHandle) {
 pub fn set_close_to_tray(on: bool) {
     CLOSE_TO_TRAY.store(on, Ordering::SeqCst);
 }
+
+/// インジケーターのメニューの字を、画面の言語にする（#256）。字は画面の側が訳して渡す。スマホでは何もしない
+#[cfg(desktop)]
+#[tauri::command]
+pub fn set_tray_labels(app: AppHandle, open: String, quit: String) -> Result<(), String> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    let Some(tray) = app.tray_by_id("main") else {
+        return Ok(());
+    };
+    let open = MenuItem::with_id(&app, "open", &open, true, None::<&str>).map_err(|e| e.to_string())?;
+    let separator = PredefinedMenuItem::separator(&app).map_err(|e| e.to_string())?;
+    let quit = MenuItem::with_id(&app, "quit", &quit, true, None::<&str>).map_err(|e| e.to_string())?;
+    let menu = Menu::with_items(&app, &[&open, &separator, &quit]).map_err(|e| e.to_string())?;
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())
+}
+
+#[cfg(not(desktop))]
+#[tauri::command]
+pub fn set_tray_labels(_app: AppHandle, _open: String, _quit: String) -> Result<(), String> {
+    Ok(())
+}

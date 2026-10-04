@@ -1,6 +1,7 @@
 import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
 import { arrowKey, type ArrowPlan } from "./ganttArrows";
 import { DEFAULT_BAR_COLORS } from "./ganttTypes";
+import { tr } from "./i18n";
 
 interface ThemeColors {
   bgPrimary: string;
@@ -453,7 +454,7 @@ export class GanttRenderer {
     ctx.fillStyle = this.colors.accentRed;
     ctx.font = "10px sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(`期限 ${formatDate(config.deadline)}`, x + 4, config.headerHeight + 12);
+    ctx.fillText(tr("期限 {formatDate}", { formatDate: formatDate(config.deadline) }), x + 4, config.headerHeight + 12);
     ctx.restore();
   }
 
@@ -484,7 +485,7 @@ export class GanttRenderer {
       ctx.fillStyle = this.colors.textMuted;
       ctx.font = "10px sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`仮 ${task.estimate}`, x1 + 4, y + barHeight - 4);
+      ctx.fillText(tr("仮 {estimate}", { estimate: task.estimate }), x1 + 4, y + barHeight - 4);
     }
     ctx.restore();
   }
@@ -604,7 +605,7 @@ export class GanttRenderer {
           ctx.fillStyle = barColors.closed + "50";
           ctx.font = "bold 9px sans-serif";
           ctx.textAlign = "right";
-          ctx.fillText(`${diff}日前倒し`, x2 - 4, y - 2);
+          ctx.fillText(tr("{diff}日前倒し", { diff }), x2 - 4, y - 2);
         }
       } else if (todayDays > endDays) {
         // 未完了で期限超過 → 赤い延長バー（透過なし）

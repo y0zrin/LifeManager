@@ -3,6 +3,7 @@ import { NOTICE_COLORS, NOTICE_GROUPS, NOTICE_LABELS, dayHead, hhmm, type Notice
 import { parseHelp } from "../../lib/help";
 import { isEscape } from "../../lib/keys";
 import { HelpContextBox } from "./HelpParts";
+import { tr } from "../../lib/i18n";
 
 interface NoticesDrawerProps {
   /** りれき（新しい順） */
@@ -70,12 +71,12 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
   const days = useMemo(() => byDay(shown), [shown]);
 
   return (
-    <aside ref={ref} className="nt-drawer" style={box} role="dialog" aria-label="おしらせ">
+    <aside ref={ref} className="nt-drawer" style={box} role="dialog" aria-label={tr("おしらせ")}>
       <div className="nt-drawer-head">
-        <h2>🔔 おしらせ</h2>
-        <button type="button" className="nt-drawer-x" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
+        <h2>{tr("🔔 おしらせ")}</h2>
+        <button type="button" className="nt-drawer-x" onClick={onClose} aria-label={tr("閉じる")} title={tr("閉じる（Esc）")}>×</button>
       </div>
-      <div className="nt-chips" role="group" aria-label="表示するおしらせ">
+      <div className="nt-chips" role="group" aria-label={tr("表示するおしらせ")}>
         {NOTICE_GROUPS.map((g) => (
           <button key={g.key} type="button" className={`nt-chip${group === g.key ? " on" : ""}`} aria-pressed={group === g.key} onClick={() => setGroup(g.key)}>
             {g.label}
@@ -86,8 +87,8 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
         {days.length === 0 && (
           <p className="nt-empty">
             {notices.length === 0
-              ? "まだ知らせはありません"
-              : "この種類の知らせはまだありません"}
+              ? tr("まだ知らせはありません")
+              : tr("この種類の知らせはまだありません")}
           </p>
         )}
         {days.map(({ day, items }) => {
@@ -120,7 +121,7 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
                           {help ? (
                             <>
                               {help.message && <div className="nt-item-msg">{help.message}</div>}
-                              <HelpContextBox items={help.items} log={help.log} title="いっしょに送られたもの" />
+                              <HelpContextBox items={help.items} log={help.log} title={tr("いっしょに送られたもの")} />
                             </>
                           ) : n.detail ? (
                             <div className="nt-item-msg">{n.detail}</div>
@@ -129,7 +130,7 @@ export function NoticesDrawer({ notices, onOpen, onClose }: NoticesDrawerProps) 
                           )}
                           {n.target && (
                             <button type="button" className="btn-primary nt-item-open" onClick={() => onOpen(n)}>
-                              開く ›
+                              {tr("開く ›")}
                             </button>
                           )}
                         </div>

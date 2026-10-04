@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as git from "../lib/git";
 import type { GitBranch, GitRun, GitStash, GitStatus } from "../lib/types";
+import { tr } from "../lib/i18n";
 
 /** 画面の右下に出すお知らせ */
 export interface GitNotice {
@@ -143,7 +144,7 @@ export function useGit(folder: string | undefined, active: boolean) {
       options: GitExecOptions = {},
     ): Promise<GitResult> => {
       const task = async (): Promise<GitResult> => {
-        if (!folder) return { ok: false, message: "作業フォルダが設定されていません" };
+        if (!folder) return { ok: false, message: tr("作業フォルダが設定されていません") };
         if (!options.quiet) setBusy(label);
         try {
           const run = await action(folder);
@@ -155,7 +156,7 @@ export function useGit(folder: string | undefined, active: boolean) {
           const conflicted = git.conflictFilesIn(message);
           const extra = conflicted.length > 0 ? undefined : options.failNotice?.(message);
           const shown = conflicted.length > 0
-            ? `競合（コンフリクト）で止まりました（${conflicted.join("、")}）。どちらを残すかを「作業をする」で選びます`
+            ? tr("競合（コンフリクト）で止まりました（{join}）。どちらを残すかを「作業をする」で選びます", { join: conflicted.join("、") })
             : extra?.text ?? message;
           if (!options.inlineError) notify("error", shown, command, conflicted.length > 0, { output: extra?.output, action: extra?.action });
           return { ok: false, message, command };

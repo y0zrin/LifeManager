@@ -1,6 +1,7 @@
 // チーム: 自分宛ての招待を受ける（最初のセットアップ・設定 → 接続）、管理者が名前で招待する（設定 → 接続）
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
 import type { UserRepo } from "./auth";
+import { tr } from "./i18n";
 
 /** GitHub のアカウントを作るページ */
 export const SIGNUP_URL = "https://github.com/signup";
@@ -87,22 +88,22 @@ export const removeMember = (owner: string, repo: string, username: string) => i
 
 /** 権限の名前（GitHub の名前 → 画面の名前） */
 export const ROLE_LABELS: Record<string, string> = {
-  admin: "管理",
-  maintain: "運営",
-  write: "書き込み",
-  push: "書き込み",
-  triage: "整理",
-  read: "読むだけ",
-  pull: "読むだけ",
+  admin: tr("管理"),
+  maintain: tr("運営"),
+  write: tr("書き込み"),
+  push: tr("書き込み"),
+  triage: tr("整理"),
+  read: tr("読むだけ"),
+  pull: tr("読むだけ"),
 };
 
 /** 組織のリポジトリで選べる権限（招待のとき。GitHub に送る名前） */
 export const INVITE_PERMISSIONS: { value: string; label: string }[] = [
-  { value: "push", label: "書き込み（はじめはこれ）" },
-  { value: "maintain", label: "運営（設定の一部も変えられる）" },
-  { value: "triage", label: "整理（Issue の整理だけ）" },
-  { value: "pull", label: "読むだけ" },
-  { value: "admin", label: "管理（招待もできる）" },
+  { value: "push", label: tr("書き込み（はじめはこれ）") },
+  { value: "maintain", label: tr("運営（設定の一部も変えられる）") },
+  { value: "triage", label: tr("整理（Issue の整理だけ）") },
+  { value: "pull", label: tr("読むだけ") },
+  { value: "admin", label: tr("管理（招待もできる）") },
 ];
 
 /**

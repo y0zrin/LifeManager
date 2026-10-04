@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 export type ProgressMode = "checkbox" | "manual" | "binary";
 export type TimeScale = "day" | "week" | "month";
 
@@ -62,16 +63,16 @@ export const DEFAULT_BAR_COLORS: GanttBarColors = {
 };
 
 export const BAR_COLOR_LABELS: Record<keyof GanttBarColors, string> = {
-  default: "デフォルト",
-  inProgress: "進行中",
-  blocked: "ブロック",
-  closed: "完了",
-  critical: "クリティカルパス",
+  default: tr("デフォルト"),
+  inProgress: tr("進行中"),
+  blocked: tr("ブロック"),
+  closed: tr("完了"),
+  critical: tr("クリティカルパス"),
   highPriority: "優先:高",
 };
 
 export const TIME_SCALE_CONFIG: Record<TimeScale, { pixelsPerDay: number; label: string }> = {
-  day: { pixelsPerDay: 40, label: "日" },
-  week: { pixelsPerDay: 12, label: "週" },
-  month: { pixelsPerDay: 4, label: "月" },
+  day: { pixelsPerDay: 40, label: tr("日") },
+  week: { pixelsPerDay: 12, label: tr("週") },
+  month: { pixelsPerDay: 4, label: tr("月") },
 };

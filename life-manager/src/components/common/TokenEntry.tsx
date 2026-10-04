@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkToken, tokenCreateUrl, type RepoRef, type TokenReport } from "../../lib/auth";
 import { TokenReportView } from "./TokenReportView";
+import { tr, trx } from "../../lib/i18n";
 
 interface TokenEntryProps {
   /** 確かめるリポジトリ（あれば、見えるか・Issue を読めるかも確かめる） */
@@ -17,7 +18,7 @@ interface TokenEntryProps {
  * トークンを入れる。「GitHub で作る」で、名前・期限・権限を入れた作成ページを開き、貼るとすぐ確かめる
  * （だれのトークンか・期限・リポジトリが見えるか）
  */
-export function TokenEntry({ repos, owner, onSave, saveLabel = "このトークンにする", onCancel }: TokenEntryProps) {
+export function TokenEntry({ repos, owner, onSave, saveLabel = tr("このトークンにする"), onCancel }: TokenEntryProps) {
   const [token, setToken] = useState("");
   const [show, setShow] = useState(false);
   const [report, setReport] = useState<TokenReport | null>(null);
@@ -61,22 +62,18 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
   return (
     <div className="token-entry">
       <div className="token-step">
-        <span className="token-step-n">1</span>
-        <b>GitHub でトークンを作る</b>
+        {trx("<0>1</0><1>GitHub でトークンを作る</1>", undefined, [<span className="token-step-n" />, <b />])}
         <div className="token-step-body">
           <button type="button" className="btn-sm" onClick={() => openUrl(tokenCreateUrl(owner))}>
-            GitHub で作る（ブラウザが開きます）
+            {tr("GitHub で作る（ブラウザが開きます）")}
           </button>
           <p className="token-step-note">
-            名前・期限（90 日）・権限（<code>Issues</code>・<code>Pull requests</code>・<code>Contents</code>・<code>Actions</code> の読み書きなど）は入った状態で開きます。自分で選ぶのは
-            <b>「Repository access → Only select repositories」</b>で、使うリポジトリを選ぶことだけ。最後に「Generate token」を押し、出てきたトークン（
-            <code>github_pat_…</code>）をコピーします。
+            {trx("名前・期限（90 日）・権限（<0>Issues</0>・<1>Pull requests</1>・<2>Contents</2>・<3>Actions</3> の読み書きなど）は入った状態で開きます。自分で選ぶのは<4>「Repository access → Only select repositories」</4>で、使うリポジトリを選ぶことだけ。最後に「Generate token」を押し、出てきたトークン（<5>github_pat_…</5>）をコピーします。", undefined, [<code />, <code />, <code />, <code />, <b />, <code />])}
           </p>
         </div>
       </div>
       <div className="token-step">
-        <span className="token-step-n">2</span>
-        <b>ここに貼る</b>
+        {trx("<0>2</0><1>ここに貼る</1>", undefined, [<span className="token-step-n" />, <b />])}
         <div className="token-step-body">
           <span className="token-input">
             <input
@@ -86,16 +83,16 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
               autoComplete="off"
               spellCheck={false}
               placeholder="github_pat_…"
-              title="トークンはアプリが自分の代わりに GitHub を使うための「合鍵」です。アプリは PC の鍵の保管場所（キーチェーン）にしまいます。"
+              title={tr("トークンはアプリが自分の代わりに GitHub を使うための「合鍵」です。アプリは PC の鍵の保管場所（キーチェーン）にしまいます。")}
               onChange={(e) => setToken(e.target.value)}
             />
             <button type="button" className="btn-sm" onClick={() => setShow((v) => !v)}>
-              {show ? "隠す" : "見る"}
+              {show ? tr("隠す") : tr("見る")}
             </button>
           </span>
           {checking && (
             <p className="token-step-note">
-              <i className="spinner" aria-hidden="true" /> 確かめています…
+              <i className="spinner" aria-hidden="true" /> {" "}{tr("確かめています…")}
             </p>
           )}
           {report && <TokenReportView report={report} />}
@@ -103,16 +100,16 @@ export function TokenEntry({ repos, owner, onSave, saveLabel = "このトーク�
         </div>
       </div>
       <p className="hint">
-        <b>トークン</b>は人に見せたり、コードに書いたりしないでください。ほかの人のトークンは使わず、自分のアカウントで作ります。
+        {trx("<0>トークン</0>は人に見せたり、コードに書いたりしないでください。ほかの人のトークンは使わず、自分のアカウントで作ります。", undefined, [<b />])}
       </p>
       <div className="token-entry-actions">
         {onCancel && (
           <button type="button" className="btn-sm" disabled={saving} onClick={onCancel}>
-            やめる
+            {tr("やめる")}
           </button>
         )}
         <button type="button" className="btn-primary" disabled={!report || saving} onClick={save}>
-          {saving ? "しまっています…" : saveLabel}
+          {saving ? tr("しまっています…") : saveLabel}
         </button>
       </div>
     </div>

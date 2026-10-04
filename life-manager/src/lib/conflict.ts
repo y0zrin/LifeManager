@@ -1,6 +1,7 @@
 // 競合（コンフリクト）したファイルの中身を、印 <<<<<<< ・（|||||||）・======= ・>>>>>>> で読み分け、
 // か所ごとに選んだ内容で書き直す（マージツール）
 import type { GitOperation } from "./types";
+import { tr } from "./i18n";
 
 /** 競合した 1 か所 */
 export interface ConflictHunk {
@@ -154,19 +155,19 @@ export function sideNames(
   hunk: Pick<ConflictHunk, "oursLabel" | "theirsLabel"> | null,
 ): { ours: string; theirs: string } {
   const theirs = hunk?.theirsLabel ?? "";
-  const here = branch || "今のブランチ";
+  const here = branch || tr("今のブランチ");
   // 退避した変更を戻したとき（git stash pop）
   if (hunk?.oursLabel === "Updated upstream" || theirs === "Stashed changes") {
-    return { ours: "今のファイル", theirs: "退避していた変更" };
+    return { ours: tr("今のファイル"), theirs: tr("退避していた変更") };
   }
   switch (operation) {
     case "rebase":
-      return { ours: "付け替え先（取り込み済みの内容）", theirs: theirs ? `自分のコミット（${theirs}）` : "自分のコミット" };
+      return { ours: tr("付け替え先（取り込み済みの内容）"), theirs: theirs ? tr("自分のコミット（{theirs}）", { theirs }) : tr("自分のコミット") };
     case "cherry-pick":
-      return { ours: `今のブランチ（${here}）`, theirs: theirs ? `取り込むコミット（${theirs}）` : "取り込むコミット" };
+      return { ours: tr("今のブランチ（{here}）", { here }), theirs: theirs ? tr("取り込むコミット（{theirs}）", { theirs }) : tr("取り込むコミット") };
     case "revert":
-      return { ours: `今のブランチ（${here}）`, theirs: theirs ? `打ち消した内容（${theirs}）` : "打ち消した内容" };
+      return { ours: tr("今のブランチ（{here}）", { here }), theirs: theirs ? tr("打ち消した内容（{theirs}）", { theirs }) : tr("打ち消した内容") };
     default:
-      return { ours: `今のブランチ（${here}）`, theirs: theirs ? `取り込む側（${theirs}）` : "取り込む側" };
+      return { ours: tr("今のブランチ（{here}）", { here }), theirs: theirs ? tr("取り込む側（{theirs}）", { theirs }) : tr("取り込む側") };
   }
 }

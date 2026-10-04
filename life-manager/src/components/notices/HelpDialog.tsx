@@ -5,6 +5,7 @@ import { isEnter, isEscape } from "../../lib/keys";
 import { issueRef } from "../../lib/issueRef";
 import { Avatar } from "../common/Avatar";
 import { keyHint } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface HelpDialogProps {
   issue: { number: number; title: string };
@@ -67,7 +68,7 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
       await onSend(helpBody(to, message, chosen), to);
       onClose();
     } catch (e) {
-      setError(`送れませんでした（${String(e)}）`);
+      setError(tr("送れませんでした（{String}）", { String: String(e) }));
       setBusy(false);
     }
   }
@@ -77,17 +78,17 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
 
   return (
     <div className="palette-overlay git-dialog-back help-back" onClick={() => !busy && onClose()}>
-      <div className="git-dialog help-dialog" role="dialog" aria-modal="true" aria-label="助けを求める" onClick={(e) => e.stopPropagation()}>
-        <h3>🆘 助けを求める</h3>
+      <div className="git-dialog help-dialog" role="dialog" aria-modal="true" aria-label={tr("助けを求める")} onClick={(e) => e.stopPropagation()}>
+        <h3>{tr("🆘 助けを求める")}</h3>
         <p className="git-dialog-note">
-          {issueRef(issue.number)} {issue.title} に、呼んだ人あてのコメントとして残します（GitHub にも残ります）。呼ばれた人のアプリには赤い 🆘 の知らせが出ます
+          {trx("{issueRef} {title} に、呼んだ人あてのコメントとして残します（GitHub にも残ります）。呼ばれた人のアプリには赤い 🆘 の知らせが出ます", { issueRef: issueRef(issue.number), title: issue.title })}
         </p>
 
-        <div className="help-label">だれに</div>
+        <div className="help-label">{tr("だれに")}</div>
         {people.length === 0 ? (
-          <p className="git-dialog-note">このリポジトリにはほかのメンバーがいません（設定 → 接続 で招待できます）</p>
+          <p className="git-dialog-note">{tr("このリポジトリにはほかのメンバーがいません（設定 → 接続 で招待できます）")}</p>
         ) : (
-          <div className="help-who" role="group" aria-label="だれに">
+          <div className="help-who" role="group" aria-label={tr("だれに")}>
             {people.map((p) => (
               <button key={p.login} type="button" className={`help-person${to.includes(p.login) ? " on" : ""}`} aria-pressed={to.includes(p.login)} onClick={() => toggle(p.login)} disabled={busy}>
                 <Avatar login={p.login} url={p.avatar_url} className="avatar-sm" />
@@ -97,31 +98,31 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
           </div>
         )}
 
-        <label className="help-label" htmlFor="help-message">困っていること</label>
+        <label className="help-label" htmlFor="help-message">{tr("困っていること")}</label>
         <textarea
           id="help-message"
           ref={textRef}
           className="textarea-full help-message"
           value={message}
           readOnly={busy}
-          placeholder={`例: プッシュしようとしたら rejected と出て進めません${keyHint("（Ctrl+Enter で送る）")}`}
+          placeholder={tr("例: プッシュしようとしたら rejected と出て進めません{keyHint}", { keyHint: keyHint(tr("（Ctrl+Enter で送る）")) })}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
             if (isEnter(e) && (e.ctrlKey || e.metaKey)) send();
           }}
         />
 
-        <div className="help-label">いっしょに送るもの</div>
+        <div className="help-label">{tr("いっしょに送るもの")}</div>
         <div className="help-ctx-opts">
           <label className={`chk${context.branch ? "" : " off"}`}>
             <input type="checkbox" checked={use.branch} disabled={!context.branch || busy} onChange={(e) => setUse({ ...use, branch: e.target.checked })} />
             {context.branch ? (
               <span>
-                今のブランチ <code>{context.branch.name}</code>・作業中の変更 {context.branch.changes}
+                {trx("今のブランチ <0>{name}</0>・作業中の変更 {changes}", { name: context.branch.name, changes: context.branch.changes }, [<code />])}
               </span>
             ) : (
               <span>
-                今のブランチ <small>（この PC の作業フォルダがありません）</small>
+                {trx("今のブランチ <0>（この PC の作業フォルダがありません）</0>", undefined, [<small />])}
               </span>
             )}
           </label>
@@ -129,12 +130,12 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
             <input type="checkbox" checked={use.failure} disabled={!context.failure || busy} onChange={(e) => setUse({ ...use, failure: e.target.checked })} />
             {context.failure ? (
               <span>
-                最後に失敗した git: <code>{context.failure.command}</code>
+                {trx("最後に失敗した git: <0>{command}</0>", { command: context.failure.command }, [<code />])}
                 {failureHead && <small> → {failureHead}</small>}
               </span>
             ) : (
               <span>
-                最後に失敗した git <small>（この 30 分はありません）</small>
+                {trx("最後に失敗した git <0>（この 30 分はありません）</0>", undefined, [<small />])}
               </span>
             )}
           </label>
@@ -142,32 +143,32 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
             <input type="checkbox" checked={use.conflicts} disabled={!context.conflicts?.length || busy} onChange={(e) => setUse({ ...use, conflicts: e.target.checked })} />
             {context.conflicts?.length ? (
               <span>
-                競合しているファイル{" "}
+                {tr("競合しているファイル")}{" "}
                 {context.conflicts.map((f) => (
                   <code key={f}>{f}</code>
                 ))}
               </span>
             ) : (
               <span>
-                競合しているファイル <small>（今はありません）</small>
+                {trx("競合しているファイル <0>（今はありません）</0>", undefined, [<small />])}
               </span>
             )}
           </label>
         </div>
 
         <div className="help-preview">
-          送るコメント: <b>🆘 助けてください</b> {to.length > 0 ? to.map((l) => `@${l}`).join(" ") : <em>（だれかを選んでください）</em>}
+          {trx("送るコメント: <0>🆘 助けてください</0>", undefined, [<b />])}{" "} {to.length > 0 ? to.map((l) => `@${l}`).join(" ") : <em>{tr("（だれかを選んでください）")}</em>}
           {firstLine && <> ／ {firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : firstLine}</>}
-          {anyContext && <> ／ ▸ いっしょに送るもの</>}
+          {anyContext && <> {" "}{tr("／ ▸ いっしょに送るもの")}</>}
         </div>
 
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm" onClick={onClose} disabled={busy}>
-            やめる
+            {tr("やめる")}
           </button>
           <button type="button" className="btn-help" onClick={send} disabled={!canSend}>
-            {busy ? "送っています…" : "🆘 送る"}
+            {busy ? tr("送っています…") : tr("🆘 送る")}
           </button>
         </div>
       </div>

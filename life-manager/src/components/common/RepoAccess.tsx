@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listUserRepos, repoAccessUrl, type Installation } from "../../lib/auth";
+import { tr, trx } from "../../lib/i18n";
 
 /** GitHub の画面で選んでいるあいだ、確かめに行く間隔と、あきらめるまで */
 const WATCH_MS = 3000;
@@ -39,7 +40,7 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
 
   const first = installations !== null && installations.length === 0;
   const mine = installations?.find((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
-  const label = first || !mine ? "使用するリポジトリを選ぶ" : "リポジトリを追加する";
+  const label = first || !mine ? tr("使用するリポジトリを選ぶ") : tr("リポジトリを追加する");
 
   async function open() {
     setDone(null);
@@ -81,7 +82,7 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
     <div className="repo-access">
       {mine && (
         <p className="repo-access-state">
-          ✔ Life Manager が入っています（{mine.repository_selection === "all" ? "すべてのリポジトリ" : "選んだリポジトリ"}）
+          {tr("✔ Life Manager が入っています（")}{mine.repository_selection === "all" ? tr("すべてのリポジトリ") : tr("選んだリポジトリ")}）
         </p>
       )}
       {!(mine && mine.repository_selection === "all") && (
@@ -91,21 +92,21 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
       )}
       {watching && (
         <p className="repo-access-wait">
-          <i className="spinner" aria-hidden="true" /> GitHub の画面で、使うリポジトリを選んで {mine ? "Save" : "Install"} を押してください。押すと、ここに出ます…
-          <button type="button" className="link-button" onClick={stop}>やめる</button>
+          <i className="spinner" aria-hidden="true" /> {" "}{tr("GitHub の画面で、使うリポジトリを選んで")}{" "} {mine ? "Save" : "Install"} {" "}{tr("を押してください。押すと、ここに出ます…")}
+          <button type="button" className="link-button" onClick={stop}>{tr("やめる")}</button>
         </p>
       )}
-      {done && <p className="repo-access-done">✔ 使えるようになりました: {done.join("、")}</p>}
+      {done && <p className="repo-access-done">{trx("✔ 使えるようになりました: {join}", { join: done.join("、") })}</p>}
       {!watching && !done && !(mine && mine.repository_selection === "all") && (
         <p className="repo-access-note">
           {mine
-            ? "GitHub の画面で、Life Manager に使わせるリポジトリを足します（Save）。"
-            : "GitHub の画面が、あなたのアカウントを選んだ状態で開きます。「すべて」か、使うリポジトリを選んで Install を押します。"}
+            ? tr("GitHub の画面で、Life Manager に使わせるリポジトリを足します（Save）。")
+            : tr("GitHub の画面が、あなたのアカウントを選んだ状態で開きます。「すべて」か、使うリポジトリを選んで Install を押します。")}
           {!mine && (
             <>
-              {" "}組織（Organization）に入れるときは{" "}
-              <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})}>こちら</button>
-              （組織の持ち主が入れます）。
+              {" "}{tr("組織（Organization）に入れるときは")}{" "}
+              <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})}>{tr("こちら")}</button>
+              {tr("（組織の持ち主が入れます）。")}
             </>
           )}
         </p>

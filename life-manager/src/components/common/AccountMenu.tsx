@@ -3,6 +3,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkToken, expiryOf, EXPIRY_WARN_DAYS, KIND_LABELS, listAccounts, SIGNED_OUT_STORE, type SavedAccount, type TokenReport } from "../../lib/auth";
 import { isEscape } from "../../lib/keys";
 import { THIS_DEVICE } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface AccountMenuProps {
   /** ログインしている人の名前（トークンを読めない・つながっていないときは、これだけを出す） */
@@ -141,7 +142,7 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
           <span className="account-name">{name}</span>
           {expiry && (
             <span className={`account-sub${warn ? " warn" : ""}`}>
-              期限 {shortDate}（{expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）
+              {trx("期限 {shortDate}（", { shortDate })}{expiry.days < 0 ? tr("切れています") : tr("あと {days} 日", { days: expiry.days })}）
             </span>
           )}
         </span>
@@ -157,44 +158,44 @@ export function AccountMenu({ login, onOpenTokens, onSignOut, onOpenAccounts }: 
               {report && (
                 <div className={`account-menu-sub${warn ? " warn" : ""}`}>
                   {expiry
-                    ? `${report.kind === "app" ? `${THIS_DEVICE}の期限` : "トークンの期限"} ${expiry.date}（${expiry.days < 0 ? "切れています" : `あと ${expiry.days} 日`}）`
-                    : "期限なし"}
+                    ? `${report.kind === "app" ? tr("{THIS_DEVICE}の期限", { THIS_DEVICE }) : tr("トークンの期限")} ${expiry.date}（${expiry.days < 0 ? tr("切れています") : tr("あと {days} 日", { days: expiry.days })}）`
+                    : tr("期限なし")}
                 </div>
               )}
             </div>
           </div>
           {/* 期限のすぐ下: アカウントを切り替える（押すと、アカウントを選ぶ画面） */}
           <button type="button" role="menuitem" className="account-item account-switch" onClick={() => { setOpen(false); onOpenAccounts(); }}>
-            <span>⇄ アカウントを切り替える</span>
-            <span className="account-switch-count">{others.length > 0 ? `ほかに ${others.length}` : ""} ›</span>
+            <span>{tr("⇄ アカウントを切り替える")}</span>
+            <span className="account-switch-count">{others.length > 0 ? tr("ほかに {length}", { length: others.length }) : ""} ›</span>
           </button>
           <div className="account-sep" />
-          <button type="button" role="menuitem" className="account-item" onClick={copyName} title="チームのリーダーに伝えるときなどに">
-            📋 {copied ? "✔ コピーしました" : "名前をコピー"}
+          <button type="button" role="menuitem" className="account-item" onClick={copyName} title={tr("チームのリーダーに伝えるときなどに")}>
+            📋 {copied ? tr("✔ コピーしました") : tr("名前をコピー")}
           </button>
           <button type="button" role="menuitem" className="account-item"
             onClick={() => { openUrl(`https://github.com/${encodeURIComponent(name)}`).catch(() => {}); setOpen(false); }}>
-            ↗ GitHub のページを開く
+            {tr("↗ GitHub のページを開く")}
           </button>
           <button type="button" role="menuitem" className="account-item" onClick={() => { setOpen(false); onOpenTokens(); }}>
-            🔑 ログインとトークン…
+            {tr("🔑 ログインとトークン…")}
           </button>
           <div className="account-sep" />
           {!confirmOut ? (
             <button type="button" role="menuitem" className="account-item account-out" onClick={() => setConfirmOut(true)}>
-              ⎋ {name} からログアウト
+              {trx("⎋ {name} からログアウト", { name })}
             </button>
           ) : (
             <div className="account-confirm">
               <span>
-                {THIS_DEVICE}から、{name} のログインの鍵を消します。
-                {others.length > 0 && `${others[0].login} に切り替わります。`}
+                {trx("{THIS_DEVICE}から、{name} のログインの鍵を消します。", { THIS_DEVICE, name })}
+                {others.length > 0 && tr("{login} に切り替わります。", { login: others[0].login })}
               </span>
               <span className="account-confirm-actions">
                 <button type="button" className="btn-danger" disabled={busy} onClick={signOutNow}>
-                  {busy ? "ログアウトしています…" : "ログアウトする"}
+                  {busy ? tr("ログアウトしています…") : tr("ログアウトする")}
                 </button>
-                <button type="button" className="btn-sm" disabled={busy} onClick={() => setConfirmOut(false)}>やめる</button>
+                <button type="button" className="btn-sm" disabled={busy} onClick={() => setConfirmOut(false)}>{tr("やめる")}</button>
               </span>
             </div>
           )}

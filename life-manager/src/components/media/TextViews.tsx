@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { highlightLines } from "../../lib/highlight";
 import { decodeText, extOf, looksLikeText, parseCsv } from "../../lib/media";
 import { DiffRows, parseDiff } from "../git/DiffView";
+import { tr } from "../../lib/i18n";
 
 /** 長すぎるファイルは、はじめのほうだけ（画面が重くならないように） */
 const MAX_LINES = 20000;
@@ -29,7 +30,7 @@ export function CodeView({ bytes, path, loadPatch, onInfo }: CodeViewProps) {
   const long = cut || lines.length > MAX_LINES;
 
   useEffect(() => {
-    if (text !== null) onInfo?.(long ? `${MAX_LINES.toLocaleString()} 行より長い` : `${lines.length.toLocaleString()} 行`);
+    if (text !== null) onInfo?.(long ? tr("{toLocaleString} 行より長い", { toLocaleString: MAX_LINES.toLocaleString() }) : tr("{toLocaleString} 行", { toLocaleString: lines.length.toLocaleString() }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, lines.length]);
 
@@ -39,7 +40,7 @@ export function CodeView({ bytes, path, loadPatch, onInfo }: CodeViewProps) {
   }, [mode, patch, loadPatch]);
 
   if (text === null) {
-    return <div className="mv-main full"><p className="mv-note center">中身が文字ではないので、ここでは見られません</p></div>;
+    return <div className="mv-main full"><p className="mv-note center">{tr("中身が文字ではないので、ここでは見られません")}</p></div>;
   }
   const shown = lines.slice(0, MAX_LINES);
   const rows = patch ? parseDiff(patch) : [];
@@ -50,15 +51,15 @@ export function CodeView({ bytes, path, loadPatch, onInfo }: CodeViewProps) {
         <div className="mv-toolbar right">
           {loadPatch && (
             <>
-              <button type="button" className={`btn-sm${mode === "file" ? " on" : ""}`} onClick={() => setMode("file")}>ファイル全体</button>
-              <button type="button" className={`btn-sm${mode === "patch" ? " on" : ""}`} onClick={() => setMode("patch")}>このコミットの変更</button>
+              <button type="button" className={`btn-sm${mode === "file" ? " on" : ""}`} onClick={() => setMode("file")}>{tr("ファイル全体")}</button>
+              <button type="button" className={`btn-sm${mode === "patch" ? " on" : ""}`} onClick={() => setMode("patch")}>{tr("このコミットの変更")}</button>
             </>
           )}
-          <button type="button" className={`btn-sm${wrap ? " on" : ""}`} aria-pressed={wrap} onClick={() => setWrap(!wrap)}>折り返す</button>
+          <button type="button" className={`btn-sm${wrap ? " on" : ""}`} aria-pressed={wrap} onClick={() => setWrap(!wrap)}>{tr("折り返す")}</button>
         </div>
         {mode === "patch" ? (
           <div className="mv-patch dr-diff">
-            {patch === undefined ? <p className="mv-note">読み込んでいます…</p> : rows.length === 0 ? <p className="mv-note">このコミットでの差分はありません（名前だけの変更・バイナリなど）</p> : <DiffRows rows={rows} />}
+            {patch === undefined ? <p className="mv-note">{tr("読み込んでいます…")}</p> : rows.length === 0 ? <p className="mv-note">{tr("このコミットでの差分はありません（名前だけの変更・バイナリなど）")}</p> : <DiffRows rows={rows} />}
           </div>
         ) : (
           <pre className={`mv-code${wrap ? " wrap" : ""}`}>
@@ -70,7 +71,7 @@ export function CodeView({ bytes, path, loadPatch, onInfo }: CodeViewProps) {
                 </span>
               </div>
             ))}
-            {long && <div className="mv-note">…（長いので、はじめのほうだけ出しています。全部は「外部のアプリで開く」かエディターで）</div>}
+            {long && <div className="mv-note">{tr("…（長いので、はじめのほうだけ出しています。全部は「外部のアプリで開く」かエディターで）")}</div>}
           </pre>
         )}
       </div>
@@ -160,8 +161,8 @@ export function MarkdownView({ bytes }: { bytes: ArrayBuffer }) {
     <div className="mv-main full">
       <div className="mv-stage mv-doc-stage">
         <div className="mv-toolbar right">
-          <button type="button" className={`btn-sm${!raw ? " on" : ""}`} onClick={() => setRaw(false)}>整えて</button>
-          <button type="button" className={`btn-sm${raw ? " on" : ""}`} onClick={() => setRaw(true)}>そのまま</button>
+          <button type="button" className={`btn-sm${!raw ? " on" : ""}`} onClick={() => setRaw(false)}>{tr("整えて")}</button>
+          <button type="button" className={`btn-sm${raw ? " on" : ""}`} onClick={() => setRaw(true)}>{tr("そのまま")}</button>
         </div>
         {raw ? <pre className="mv-code wrap">{text}</pre> : <div className="mv-md">{blocks}</div>}
       </div>
@@ -175,7 +176,7 @@ export function CsvView({ bytes, path, onInfo }: { bytes: ArrayBuffer; path: str
   const rows = useMemo(() => parseCsv(text, extOf(path) === "tsv" ? "\t" : ","), [text, path]);
   const [raw, setRaw] = useState(false);
   useEffect(() => {
-    onInfo?.(`${Math.max(0, rows.length - 1).toLocaleString()} 行 ・ ${rows[0]?.length ?? 0} 列`);
+    onInfo?.(tr("{toLocaleString} 行 ・ {v} 列", { toLocaleString: Math.max(0, rows.length - 1).toLocaleString(), v: rows[0]?.length ?? 0 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
   const [head, ...body] = rows;
@@ -183,8 +184,8 @@ export function CsvView({ bytes, path, onInfo }: { bytes: ArrayBuffer; path: str
     <div className="mv-main full">
       <div className="mv-stage mv-doc-stage">
         <div className="mv-toolbar right">
-          <button type="button" className={`btn-sm${!raw ? " on" : ""}`} onClick={() => setRaw(false)}>表</button>
-          <button type="button" className={`btn-sm${raw ? " on" : ""}`} onClick={() => setRaw(true)}>そのまま</button>
+          <button type="button" className={`btn-sm${!raw ? " on" : ""}`} onClick={() => setRaw(false)}>{tr("表")}</button>
+          <button type="button" className={`btn-sm${raw ? " on" : ""}`} onClick={() => setRaw(true)}>{tr("そのまま")}</button>
         </div>
         {raw ? (
           <pre className="mv-code wrap">{text}</pre>
@@ -202,7 +203,7 @@ export function CsvView({ bytes, path, onInfo }: { bytes: ArrayBuffer; path: str
                 ))}
               </tbody>
             </table>
-            {body.length > 2000 && <p className="mv-note">…（はじめの 2,000 行だけ出しています）</p>}
+            {body.length > 2000 && <p className="mv-note">{tr("…（はじめの 2,000 行だけ出しています）")}</p>}
           </div>
         )}
       </div>
@@ -233,7 +234,7 @@ export function HtmlView({ bytes, onOpenOutside }: { bytes: ArrayBuffer; onOpenO
       <div className="mv-stage mv-html-stage">
         {onOpenOutside && (
           <div className="mv-html-note">
-            <button type="button" className="btn-sm" onClick={onOpenOutside}>ブラウザで開く</button>
+            <button type="button" className="btn-sm" onClick={onOpenOutside}>{tr("ブラウザで開く")}</button>
           </div>
         )}
         <iframe className="mv-html" title="HTML" sandbox="allow-scripts" srcDoc={text} />

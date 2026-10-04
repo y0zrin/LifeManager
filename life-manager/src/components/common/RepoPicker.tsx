@@ -8,6 +8,7 @@ import { repoCard, type RepoCard } from "../../lib/repoCard";
 import type { Project } from "../../lib/types";
 import { repoKey, useRepoFolderActions } from "../../hooks/useRepoFolderActions";
 import { usePortalHost } from "../../hooks/usePortalHost";
+import { tr, trx } from "../../lib/i18n";
 
 interface RepoPickerProps {
   projects: Project[];
@@ -35,9 +36,9 @@ type CardState = RepoCard | { error: string };
 
 /** カードを読めなかったわけ（GitHub の答えの文をそのまま出さない） */
 function cardErrorText(e: string): string {
-  if (/\b404\b/.test(e)) return "GitHub で見つかりません（名前が変わった・消えた、または Life Manager にこのリポジトリを読む許可を出していない）";
-  if (/\b40[13]\b/.test(e)) return "読む許可がありません（ログインし直すか、リポジトリの持ち主に招待してもらいます）";
-  if (/network|dns|connect|timed? ?out|offline/i.test(e)) return "GitHub につながりません（つながったら、また読みます）";
+  if (/\b404\b/.test(e)) return tr("GitHub で見つかりません（名前が変わった・消えた、または Life Manager にこのリポジトリを読む許可を出していない）");
+  if (/\b40[13]\b/.test(e)) return tr("読む許可がありません（ログインし直すか、リポジトリの持ち主に招待してもらいます）");
+  if (/network|dns|connect|timed? ?out|offline/i.test(e)) return tr("GitHub につながりません（つながったら、また読みます）");
   return e.length > 120 ? `${e.slice(0, 120)}…` : e;
 }
 
@@ -205,26 +206,26 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
     if (!card) {
       return (
         <div className="picker-facts loading" aria-busy="true">
-          <div><b>…</b>開いている Issue</div><div><b>…</b>レビュー待ち</div><div><b>…</b>最後の更新</div>
+          <div>{trx("<0>…</0>開いている Issue", undefined, [<b />])}</div><div>{trx("<0>…</0>レビュー待ち", undefined, [<b />])}</div><div>{trx("<0>…</0>最後の更新", undefined, [<b />])}</div>
         </div>
       );
     }
-    if ("error" in card) return <p className="picker-card-error" title={card.error}>読めませんでした: {cardErrorText(card.error)}</p>;
+    if ("error" in card) return <p className="picker-card-error" title={card.error}>{trx("読めませんでした: {cardErrorText}", { cardErrorText: cardErrorText(card.error) })}</p>;
     return (
       <div className="picker-facts">
-        <div><b>{card.open_issues ?? "―"}</b>開いている Issue</div>
-        <div><b>{card.review_waiting ?? "―"}</b>レビュー待ち</div>
-        <div><b>{ago(card.pushed_at) || "―"}</b>最後の更新</div>
+        <div><b>{card.open_issues ?? "―"}</b>{tr("開いている Issue")}</div>
+        <div><b>{card.review_waiting ?? "―"}</b>{tr("レビュー待ち")}</div>
+        <div><b>{ago(card.pushed_at) || "―"}</b>{tr("最後の更新")}</div>
       </div>
     );
   }
 
   function badges(card: CardState | undefined) {
     if (!card || "error" in card) return null;
-    const team = card.members === null ? (card.owner_type === "Organization" ? "組織" : null) : card.members > 1 ? `チーム ${card.members} 人` : "個人";
+    const team = card.members === null ? (card.owner_type === "Organization" ? tr("組織") : null) : card.members > 1 ? tr("チーム {members} 人", { members: card.members }) : tr("個人");
     return (
       <div className="picker-badges">
-        <span className="picker-badge">{card.private ? "非公開" : "公開"}</span>
+        <span className="picker-badge">{card.private ? tr("非公開") : tr("公開")}</span>
         {team && <span className="picker-badge">{team}</span>}
       </div>
     );
@@ -241,24 +242,24 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
       <div className="picker-menu" role="menu">
         {folder ? (
           <>
-            <button type="button" role="menuitem" onClick={async () => closeIf(await pickFolder(p))}>📁 この PC のフォルダを変える…</button>
+            <button type="button" role="menuitem" onClick={async () => closeIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを変える…")}</button>
             <button type="button" role="menuitem" onClick={() => revealItemInDir(folder).catch((e) => setNote({ key: k, kind: "error", text: String(e) }))}>
-              🗂 エクスプローラーで表示
+              {tr("🗂 エクスプローラーで表示")}
             </button>
-            <button type="button" role="menuitem" onClick={async () => closeIf(await clearFolder(p))}>フォルダの設定を外す（フォルダは消えません）</button>
+            <button type="button" role="menuitem" onClick={async () => closeIf(await clearFolder(p))}>{tr("フォルダの設定を外す（フォルダは消えません）")}</button>
           </>
         ) : (
           <>
-            <button type="button" role="menuitem" onClick={async () => closeIf(await clone(p))}>⬇ この PC にクローンする…</button>
-            <button type="button" role="menuitem" onClick={async () => closeIf(await pickFolder(p))}>📁 この PC のフォルダを選ぶ…</button>
+            <button type="button" role="menuitem" onClick={async () => closeIf(await clone(p))}>{tr("⬇ この PC にクローンする…")}</button>
+            <button type="button" role="menuitem" onClick={async () => closeIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを選ぶ…")}</button>
           </>
         )}
-        <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>↗ GitHub で開く</button>
+        <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>{tr("↗ GitHub で開く")}</button>
         {isCurrent ? (
-          <span className="picker-menu-note">今のリポジトリは一覧から外せません（ほかに切り替えてから）</span>
+          <span className="picker-menu-note">{tr("今のリポジトリは一覧から外せません（ほかに切り替えてから）")}</span>
         ) : confirmRemove ? (
           <span className="picker-menu-confirm">
-            一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）
+            {tr("一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）")}
             <span className="picker-menu-actions">
               <button type="button" className="btn-danger" disabled={busy !== null}
                 onClick={async () => {
@@ -267,13 +268,13 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
                     setConfirmRemove(false);
                   }
                 }}>
-                外す
+                {tr("外す")}
               </button>
-              <button type="button" className="btn-sm" onClick={() => setConfirmRemove(false)}>やめる</button>
+              <button type="button" className="btn-sm" onClick={() => setConfirmRemove(false)}>{tr("やめる")}</button>
             </span>
           </span>
         ) : (
-          <button type="button" role="menuitem" className="picker-menu-red" onClick={() => setConfirmRemove(true)}>一覧から外す</button>
+          <button type="button" role="menuitem" className="picker-menu-red" onClick={() => setConfirmRemove(true)}>{tr("一覧から外す")}</button>
         )}
       </div>
     );
@@ -281,27 +282,26 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
 
   if (!host) return null;
   return createPortal(
-    <div className="picker" role="dialog" aria-label="リポジトリを選ぶ">
+    <div className="picker" role="dialog" aria-label={tr("リポジトリを選ぶ")}>
       <div className="picker-top">
         <span className="picker-logo" aria-hidden="true">L</span>
         <span>Life Manager</span>
         <span className="picker-grow" />
-        <button type="button" className="picker-me" onClick={onOpenAccounts} title="アカウントを選ぶ画面を開く">
+        <button type="button" className="picker-me" onClick={onOpenAccounts} title={tr("アカウントを選ぶ画面を開く")}>
           {avatar ? <img className="picker-me-face" src={avatar} alt="" /> : <span className="picker-me-face" aria-hidden="true">{login.slice(0, 1).toUpperCase()}</span>}
           <span className="picker-me-who">
-            {login}
-            <small>アカウントを切り替える</small>
+            {trx("{login}<0>アカウントを切り替える</0>", { login }, [<small />])}
           </span>
         </button>
-        <button type="button" className="picker-close" onClick={onClose} aria-label="閉じる" title="閉じる（Esc）">×</button>
+        <button type="button" className="picker-close" onClick={onClose} aria-label={tr("閉じる")} title={tr("閉じる（Esc）")}>×</button>
       </div>
-      <h2 className="picker-title small">{quest ? "どのリポジトリで冒険しますか？" : "どのリポジトリを開きますか？"}</h2>
+      <h2 className="picker-title small">{quest ? tr("どのリポジトリで冒険しますか？") : tr("どのリポジトリを開きますか？")}</h2>
 
       <div className="picker-deck">
         {n === 0 && (
           <div className="picker-card on empty">
-            <p>まだリポジトリがありません。</p>
-            <button type="button" className="picker-open" onClick={add}>＋ リポジトリを追加…</button>
+            <p>{tr("まだリポジトリがありません。")}</p>
+            <button type="button" className="picker-open" onClick={add}>{tr("＋ リポジトリを追加…")}</button>
           </div>
         )}
         {projects.map((p, i) => {
@@ -314,7 +314,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
             // まん中と同じ要素のまま（位置が変わると、すべるように動く）
             return (
               <div key={k} className={`picker-card ${placeOf(d)}`} role="button" tabIndex={-1} aria-hidden={Math.abs(d) > 1 || undefined}
-                onClick={() => move(d)} title={`${k} を選ぶ`}>
+                onClick={() => move(d)} title={tr("{k} を選ぶ", { k })}>
                 <span className="picker-card-owner">{p.owner}</span>
                 <span className="picker-card-name">{p.repo}</span>
               </div>
@@ -324,20 +324,19 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
           return (
             <div key={k} className="picker-card on" aria-current={k === currentKey ? "true" : undefined}>
               {faces.length > 0 && (
-                <span className="picker-team" aria-label={`チーム ${(card as RepoCard).members} 人`}>
+                <span className="picker-team" aria-label={tr("チーム {members} 人", { members: (card as RepoCard).members })}>
                   {faces.map((f) => (f.avatar_url ? <img key={f.login} src={f.avatar_url} alt="" title={f.login} /> : <i key={f.login} title={f.login}>{f.login.slice(0, 1).toUpperCase()}</i>))}
                 </span>
               )}
               <span className="picker-card-owner">
                 {p.owner}
-                {k === currentKey && <span className="picker-now">いま開いている</span>}
+                {k === currentKey && <span className="picker-now">{tr("いま開いている")}</span>}
               </span>
               <span className="picker-card-name" title={card && !("error" in card) ? card.description ?? undefined : undefined}>{p.repo}</span>
               {badges(card)}
               {askClone ? (
                 <div className="picker-ask">
-                  <b>この PC にまだありません。クローンして開きますか？</b>
-                  <span>クローンしておくと、この PC でコミット、プッシュ、プルができます。タスクだけなら、クローンしなくても使えます</span>
+                  {trx("<0>この PC にまだありません。クローンして開きますか？</0><1>クローンしておくと、この PC でコミット、プッシュ、プルができます。タスクだけなら、クローンしなくても使えます</1>", undefined, [<b />, <span />])}
                 </div>
               ) : (
                 renderFacts(card)
@@ -346,28 +345,28 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
                 <div className="picker-card-foot ask">
                   <span className="picker-card-actions">
                     <button type="button" className="picker-clone" disabled={busy !== null} onClick={() => openWithoutClone(p)}
-                      title="クローンせずに開きます（次からは聞きません。あとで ⋯ からクローンできます）">
-                      クローンせずに開く
+                      title={tr("クローンせずに開きます（次からは聞きません。あとで ⋯ からクローンできます）")}>
+                      {tr("クローンせずに開く")}
                     </button>
                     <button type="button" className="picker-open" disabled={busy !== null} onClick={() => cloneAndOpen(p)} autoFocus
-                      title="置き場所を選んで、この PC にクローンしてから開きます">
-                      ⬇ クローンして開く…
+                      title={tr("置き場所を選んで、この PC にクローンしてから開きます")}>
+                      {tr("⬇ クローンして開く…")}
                     </button>
                   </span>
                 </div>
               ) : (
                 <div className="picker-card-foot">
                   <span className="picker-here" title={folder}>
-                    この PC: <b>{folder ?? "まだありません"}</b>
-                    {!folder && !noClone.includes(k) && k !== currentKey && <small>（開くときにクローン）</small>}
+                    {tr("この PC:")}{" "} <b>{folder ?? tr("まだありません")}</b>
+                    {!folder && !noClone.includes(k) && k !== currentKey && <small>{tr("（開くときにクローン）")}</small>}
                   </span>
                   <span className="picker-card-actions">
-                    <button type="button" className={`picker-more${menuOpen ? " on" : ""}`} aria-label={`${k} の操作`} aria-expanded={menuOpen}
+                    <button type="button" className={`picker-more${menuOpen ? " on" : ""}`} aria-label={tr("{k} の操作", { k })} aria-expanded={menuOpen}
                       disabled={busy !== null} onClick={() => { setMenuOpen(!menuOpen); setConfirmRemove(false); }}>
                       ⋯
                     </button>
                     <button type="button" className="picker-open" disabled={busy !== null} onClick={() => open(p)} autoFocus>
-                      {k === currentKey ? "戻る" : "開く"}
+                      {k === currentKey ? tr("戻る") : tr("開く")}
                     </button>
                   </span>
                 </div>
@@ -375,7 +374,7 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
               {menuOpen && renderMenu(p)}
               {busy === k && (
                 <p className="picker-card-note">
-                  <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは大きなリポジトリだと時間がかかります）
+                  <i className="spinner" aria-hidden="true" /> {" "}{tr("実行しています…（クローンは大きなリポジトリだと時間がかかります）")}
                 </p>
               )}
               {note?.key === k && busy !== k && (
@@ -389,8 +388,8 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
         })}
         {n > 1 && (
           <>
-            <button type="button" className="picker-arrow left" onClick={() => move(-1)} aria-label="前のリポジトリ" tabIndex={-1}>‹</button>
-            <button type="button" className="picker-arrow right" onClick={() => move(1)} aria-label="次のリポジトリ" tabIndex={-1}>›</button>
+            <button type="button" className="picker-arrow left" onClick={() => move(-1)} aria-label={tr("前のリポジトリ")} tabIndex={-1}>‹</button>
+            <button type="button" className="picker-arrow right" onClick={() => move(1)} aria-label={tr("次のリポジトリ")} tabIndex={-1}>›</button>
           </>
         )}
       </div>
@@ -398,16 +397,16 @@ export function RepoPicker({ projects, owner, repo, login, folders, onSwitch, on
       <div className="picker-strip" ref={stripRef}>
         {projects.map((p, i) => (
           <button key={repoKey(p)} type="button" className={i === at ? "on" : ""} onClick={() => move(offsetOf(i, at, n))}
-            onDoubleClick={() => open(p)} title={`${repoKey(p)}（ダブルクリックで開く）`}>
+            onDoubleClick={() => open(p)} title={tr("{repoKey}（ダブルクリックで開く）", { repoKey: repoKey(p) })}>
             {p.repo}
           </button>
         ))}
-        <button type="button" className="picker-strip-add" onClick={add}>＋ リポジトリを追加…</button>
+        <button type="button" className="picker-strip-add" onClick={add}>{tr("＋ リポジトリを追加…")}</button>
       </div>
       <div className="picker-hint" aria-hidden="true">
-        <span><b>← →</b>選ぶ</span>
-        <span><b>Enter</b>開く</span>
-        <span><b>Esc</b>閉じる</span>
+        <span>{trx("<0>← →</0>選ぶ", undefined, [<b />])}</span>
+        <span>{trx("<0>Enter</0>開く", undefined, [<b />])}</span>
+        <span>{trx("<0>Esc</0>閉じる", undefined, [<b />])}</span>
       </div>
     </div>,
     host,

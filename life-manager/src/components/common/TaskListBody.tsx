@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { commentOnlyLines } from "../../lib/bodyMarks";
+import { tr } from "../../lib/i18n";
 
 // タスクリストの本文を表示し、チェックボックスのトグルを可能にするコンポーネント
 
@@ -54,7 +55,7 @@ export function TaskListBody({ body, issueNumber, onToggle }: TaskListBodyProps)
   return (
     <div className="task-list-body">
       {saving && (
-        <div className="task-list-overlay">保存中...</div>
+        <div className="task-list-overlay">{tr("保存中...")}</div>
       )}
 
       {lines.map((line, lineIndex) => {

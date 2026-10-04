@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./lib/invoke";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { check } from "@tauri-apps/plugin-updater";
@@ -87,6 +87,7 @@ import { isEscape } from "./lib/keys";
 import { manualSection, openManual } from "./lib/manual";
 import { TodayCard } from "./components/common/TodayCard";
 import { motionOn, setMotionEnabled, stepDirection, withTransition } from "./lib/motion";
+import { tr, trx } from "./lib/i18n";
 
 /** phone: スマホの下の帯での名前（長いものは \n で 2 行に。となりとくっつかないように） */
 type NavItem = { key: ViewType; icon: string; label: string; phone?: string };
@@ -94,37 +95,37 @@ type NavItem = { key: ViewType; icon: string; label: string; phone?: string };
 // サイドバーの並び: ホーム（オーバービュー・ヒストリー）→ タスク系（作業から）→ リポジトリ系。設定はいちばん下。
 // タスク系は、マイルストーンを作る → ボードでタスクを足す（マイルストーンに入れる）→ 日時・見積もりを入れてガントへ、の順。
 // ルーチンは使う回数が少なく、タスク一覧は補助なので下に
-const HOME_GROUP = "ホーム";
-const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: "オーバービュー", phone: "オーバー\nビュー" };
-const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: "ヒストリー" }];
-const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: "作業をする" };
+const HOME_GROUP = tr("ホーム");
+const INSIGHTS_ITEM: NavItem = { key: "insights", icon: "📈", label: tr("オーバービュー"), phone: tr("オーバー\nビュー") };
+const HOME_ITEMS: NavItem[] = [INSIGHTS_ITEM, { key: "activity", icon: "📰", label: tr("ヒストリー") }];
+const WORK_ITEM: NavItem = { key: "work", icon: "✏️", label: tr("作業をする") };
 const TASK_ITEMS: NavItem[] = [
   WORK_ITEM,
-  { key: "milestones", icon: "🎯", label: "マイルストーン", phone: "マイル\nストーン" },
-  { key: "kanban", icon: "📊", label: "ボード" },
-  { key: "gantt", icon: "📐", label: "ガント" },
-  { key: "timeline", icon: "📅", label: "日誌" },
-  { key: "routines", icon: "🔄", label: "ルーチン" },
-  { key: "dashboard", icon: "📋", label: "タスク一覧", phone: "タスク\n一覧" },
+  { key: "milestones", icon: "🎯", label: tr("マイルストーン"), phone: tr("マイル\nストーン") },
+  { key: "kanban", icon: "📊", label: tr("ボード") },
+  { key: "gantt", icon: "📐", label: tr("ガント") },
+  { key: "timeline", icon: "📅", label: tr("日誌") },
+  { key: "routines", icon: "🔄", label: tr("ルーチン") },
+  { key: "dashboard", icon: "📋", label: tr("タスク一覧"), phone: tr("タスク\n一覧") },
 ];
 const REPO_ITEMS: NavItem[] = [
-  { key: "branches", icon: "🌿", label: "ブランチ" },
-  { key: "overview", icon: "🗺️", label: "全体図" },
-  { key: "pulls", icon: "🔃", label: "プルリク" },
+  { key: "branches", icon: "🌿", label: tr("ブランチ") },
+  { key: "overview", icon: "🗺️", label: tr("全体図") },
+  { key: "pulls", icon: "🔃", label: tr("プルリク") },
   { key: "actions", icon: "▶️", label: "Actions" },
-  { key: "releases", icon: "🏷️", label: "リリース" },
+  { key: "releases", icon: "🏷️", label: tr("リリース") },
 ];
-const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: "設定" };
+const SETTINGS_ITEM: NavItem = { key: "settings", icon: "⚙️", label: tr("設定") };
 const ALL_NAV_ITEMS: NavItem[] = [...HOME_ITEMS, ...TASK_ITEMS, ...REPO_ITEMS, SETTINGS_ITEM];
 // スマホの下のドック（#203・#214）: メニュー・ボード・マイルストーン・日誌・設定。ほかの画面はメニューから開く。
 // ヒストリーの「あなたがすること」の数は、メニューに出す（ドックのメニューにも数を付ける）
-const MENU_ITEM: NavItem = { key: "menu", icon: "🏠", label: "メニュー" };
+const MENU_ITEM: NavItem = { key: "menu", icon: "🏠", label: tr("メニュー") };
 const MOBILE_NAV_ITEMS: NavItem[] = [
   MENU_ITEM,
-  { key: "kanban", icon: "📊", label: "ボード" },
-  { key: "milestones", icon: "🎯", label: "マイルストーン", phone: "マイル\nストーン" },
-  { key: "timeline", icon: "📅", label: "日誌" },
-  { key: "settings", icon: "⚙️", label: "設定" },
+  { key: "kanban", icon: "📊", label: tr("ボード") },
+  { key: "milestones", icon: "🎯", label: tr("マイルストーン"), phone: tr("マイル\nストーン") },
+  { key: "timeline", icon: "📅", label: tr("日誌") },
+  { key: "settings", icon: "⚙️", label: tr("設定") },
 ];
 // スマホのメニューに並べる画面（オーバービューはメニューにまとめたので入れない。作業・リポジトリ系はスマホにない）
 const MENU_TASK_KEYS: ViewType[] = ["kanban", "dashboard", "milestones", "gantt", "timeline", "routines"];
@@ -243,11 +244,11 @@ function App() {
   const openCommitMenu = (pos: { x: number; y: number }, c: GitCommit) =>
     setMenu({
       ...pos,
-      title: `コミット ${c.hash.slice(0, 7)}`,
+      title: tr("コミット {slice}", { slice: c.hash.slice(0, 7) }),
       items: gitActions.commitMenu(c, { local: historyIsLocal, inCurrent: headAncestors.has(c.hash) }),
     });
   const openBranchMenu = (pos: { x: number; y: number }, e: BranchEntry) =>
-    setMenu({ ...pos, title: `ブランチ ${e.name}`, items: gitActions.branchMenu(e, historyIsLocal) });
+    setMenu({ ...pos, title: tr("ブランチ {name}", { name: e.name }), items: gitActions.branchMenu(e, historyIsLocal) });
   const openFileMenu = (pos: { x: number; y: number }, f: GitFileChange, conflict: boolean) =>
     setMenu({ ...pos, title: f.path, items: gitActions.fileMenu(f, conflict) });
 
@@ -424,7 +425,7 @@ function App() {
         await relaunch();
       }
     } catch (e) {
-      gh.setStatus("アップデートエラー: " + e);
+      gh.setStatus(tr("アップデートエラー: ") + e);
       setUpdating(false);
     }
   }, []);
@@ -571,16 +572,16 @@ function App() {
 
   // 送っていない変更があるあいだは切り替えない（前のアカウントの変更を、次のアカウントで送ってしまわないように）
   const accountSwitchBlocked = offline.status.pending.length > 0
-    ? `まだ GitHub に送っていない変更が ${offline.status.pending.length} 件あります。送ってから切り替えてください`
+    ? tr("まだ GitHub に送っていない変更が {length} 件あります。送ってから切り替えてください", { length: offline.status.pending.length })
     : undefined;
 
   async function handleSwitchAccount(target: string, currentAvatar?: string | null) {
     const from = gh.currentUser;
     try {
       await switchAccount(from, currentAvatar, target);
-      await afterAccountChange(`${target} に切り替えました（${from} は左下のメニューから戻れます）`);
+      await afterAccountChange(tr("{target} に切り替えました（{from} は左下のメニューから戻れます）", { target, from }));
     } catch (e) {
-      gh.setStatus(`切り替えられませんでした: ${e}`);
+      gh.setStatus(tr("切り替えられませんでした: {e}", { e }));
     }
   }
 
@@ -592,7 +593,7 @@ function App() {
       setSelectedIssue(null);
       setAddingAccount(from);
     } catch (e) {
-      gh.setStatus(`アカウントを足せませんでした: ${e}`);
+      gh.setStatus(tr("アカウントを足せませんでした: {e}", { e }));
     }
   }
 
@@ -604,7 +605,7 @@ function App() {
     } catch {
       // 知らせの印が残っても、使うのに困らない
     }
-    await afterAccountChange(`${login} に戻りました`);
+    await afterAccountChange(tr("{login} に戻りました", { login }));
   }
 
   // ログインできた: 前にこの PC で使っていたアカウントなら、そのリポジトリの一覧に戻して、セットアップを飛ばす
@@ -614,15 +615,15 @@ function App() {
     const same = addingAccount && addingAccount.toLowerCase() === report.login.toLowerCase();
     await afterAccountChange(
       same
-        ? `${report.login} のままでした。別のアカウントを足すときは、ブラウザの GitHub を切り替えてからログインしてください`
-        : `${report.login} でログインしました`,
+        ? tr("{login} のままでした。別のアカウントを足すときは、ブラウザの GitHub を切り替えてからログインしてください", { login: report.login })
+        : tr("{login} でログインしました", { login: report.login }),
     );
     return true;
   }
 
   async function handleForgetAccount(login: string) {
     await forgetAccount(login);
-    gh.setStatus(`${login} を${THIS_DEVICE}から外しました`);
+    gh.setStatus(tr("{login} を{THIS_DEVICE}から外しました", { login, THIS_DEVICE }));
   }
 
   // ログアウト: 今のアカウントだけ。ほかにしまってあるアカウントがあれば、そちらに切り替える
@@ -632,7 +633,7 @@ function App() {
     await gh.signOut();
     if (others.length > 0) {
       await handleRestoreAccount(others[0].login);
-      gh.setStatus(`${from} からログアウトしました。${others[0].login} に切り替えました`);
+      gh.setStatus(tr("{from} からログアウトしました。{login} に切り替えました", { from, login: others[0].login }));
     }
   }
 
@@ -773,18 +774,18 @@ function App() {
     const st = git.status;
     if (!st) return;
     if (st.files.length > 0 || st.operation) {
-      git.notify("error", "作業中の変更（または途中の操作）があります。先にコミットするか、退避してから、もう一度「この PC で直す」を押します");
+      git.notify("error", tr("作業中の変更（または途中の操作）があります。先にコミットするか、退避してから、もう一度「この PC で直す」を押します"));
       setView("work");
       return;
     }
-    const fetched = await git.exec("フェッチしています", gitApi.fetch, "GitHub の最新を取ってきました");
+    const fetched = await git.exec(tr("フェッチしています"), gitApi.fetch, tr("GitHub の最新を取ってきました"));
     if (!fetched.ok) return;
     if (st.branch !== p.head) {
-      const switched = await git.exec("切り替えています", (path) => gitApi.switchBranch(path, p.head, false), `${p.head} に切り替えました`);
+      const switched = await git.exec(tr("切り替えています"), (path) => gitApi.switchBranch(path, p.head, false), tr("{head} に切り替えました", { head: p.head }));
       if (!switched.ok) return;
     }
-    await git.exec("取り込んでいます", (path) => gitApi.pull(path), `${p.head} を GitHub の最新にしました`, { quiet: true });
-    await git.exec("取り込んでいます", (path) => gitApi.merge(path, `origin/${p.base}`), `origin/${p.base} を ${p.head} に取り込みました（競合はありませんでした）`);
+    await git.exec(tr("取り込んでいます"), (path) => gitApi.pull(path), tr("{head} を GitHub の最新にしました", { head: p.head }), { quiet: true });
+    await git.exec(tr("取り込んでいます"), (path) => gitApi.merge(path, `origin/${p.base}`), tr("origin/{base} を {head} に取り込みました（競合はありませんでした）", { base: p.base, head: p.head }));
     setView("work");
   }, [git, setView]);
 
@@ -919,13 +920,13 @@ function App() {
         }}
         title={
           conflicted
-            ? `${item.label}（競合しています）`
+            ? tr("{label}（競合しています）", { label: item.label })
             : count > 0
-              ? `${item.label}（作業中の変更 ${count}）`
+              ? tr("{label}（作業中の変更 {count}）", { label: item.label, count })
               : urgent > 0
-                ? `${item.label}（すぐ・早めに直すもの ${urgent}）`
+                ? tr("{label}（すぐ・早めに直すもの {urgent}）", { label: item.label, urgent })
                 : todo > 0
-                  ? `${item.label}（あなたがすること ${todo}）`
+                  ? tr("{label}（あなたがすること {todo}）", { label: item.label, todo })
                   : item.label
         }
       >
@@ -933,7 +934,7 @@ function App() {
         {view === item.key && <span className="sidebar-active-bg" aria-hidden="true" />}
         <span className="sidebar-icon">{item.icon}</span>
         <span className="sidebar-label">{item.label}</span>
-        {conflicted ? <span className="sidebar-conflict">⚠ 競合</span> : count > 0 && <span className="sidebar-count">{count}</span>}
+        {conflicted ? <span className="sidebar-conflict">{tr("⚠ 競合")}</span> : count > 0 && <span className="sidebar-count">{count}</span>}
         {urgent > 0 && <span className="sidebar-alert">{urgent}</span>}
         {todo > 0 && <span className="sidebar-todo">{todo}</span>}
       </button>
@@ -967,7 +968,7 @@ function App() {
   if (initializing) {
     return (
       <main className="app" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-        <p style={{ color: "var(--text-muted)" }}>読み込み中...</p>
+        <p style={{ color: "var(--text-muted)" }}>{tr("読み込み中...")}</p>
       </main>
     );
   }
@@ -1069,9 +1070,9 @@ function App() {
         <nav className="sidebar-nav">
           <div className="sidebar-group">{HOME_GROUP}</div>
           {HOME_ITEMS.map(renderNavItem)}
-          <div className="sidebar-group">タスク</div>
+          <div className="sidebar-group">{tr("タスク")}</div>
           {TASK_ITEMS.map(renderNavItem)}
-          <div className="sidebar-group">リポジトリ</div>
+          <div className="sidebar-group">{tr("リポジトリ")}</div>
           {REPO_ITEMS.map(renderNavItem)}
         </nav>
         <div className="sidebar-bottom">
@@ -1079,10 +1080,10 @@ function App() {
           <button
             className="sidebar-item sidebar-toggle"
             onClick={toggleSidebar}
-            title={sidebarCollapsed ? "サイドバーを固定する（Ctrl+B）" : "サイドバーをたたむ（Ctrl+B）"}
+            title={sidebarCollapsed ? tr("サイドバーを固定する（Ctrl+B）") : tr("サイドバーをたたむ（Ctrl+B）")}
           >
             <span className="sidebar-icon">{sidebarCollapsed ? "📌" : HIDE_ARROW[display.settings.sidebarPosition]}</span>
-            <span className="sidebar-label">{sidebarCollapsed ? "固定する" : "たたむ"}</span>
+            <span className="sidebar-label">{sidebarCollapsed ? tr("固定する") : tr("たたむ")}</span>
           </button>
         </div>
         {/* 一番下: ログインしているアカウント（押すとメニュー） */}
@@ -1111,15 +1112,15 @@ function App() {
             {/* git の操作の結果は右下に出すので、リポジトリの画面では場所をツールバーにゆずる */}
             {!(repoView && git.status) && <span className="status-text">{gh.status}</span>}
             {view === "work" && workIssue && (
-              <button type="button" className="btn-help" onClick={() => void askHelp(workIssue)} title={`チームの人を @ で呼んで、${workIssue.title} にコメントを残します`}>
-                🆘<span className="btn-help-lb"> 助けを求める</span>
+              <button type="button" className="btn-help" onClick={() => void askHelp(workIssue)} title={tr("チームの人を @ で呼んで、{title} にコメントを残します", { title: workIssue.title })}>
+                {trx("🆘<0> 助けを求める</0>", undefined, [<span className="btn-help-lb" />])}
               </button>
             )}
             {sendingCount > 0 && (
-              <span className="sending-top" role="status" title="GitHub に送っています（返事が来るまで）">
+              <span className="sending-top" role="status" title={tr("GitHub に送っています（返事が来るまで）")}>
                 <i className="sending-spin" aria-hidden="true" />
                 <SendingBird />
-                送っています {sendingCount}
+                {trx("送っています {sendingCount}", { sendingCount })}
               </span>
             )}
             {syncIndicator}
@@ -1128,9 +1129,9 @@ function App() {
                 type="button"
                 className={`nt-bell${noticesOpen ? " on" : ""}`}
                 onClick={() => setNoticesOpen((v) => !v)}
-                aria-label="おしらせ"
+                aria-label={tr("おしらせ")}
                 aria-expanded={noticesOpen}
-                title={notices.dot ? "おしらせ（新しい知らせがあります）" : "おしらせ（届いた知らせのりれき）"}
+                title={notices.dot ? tr("おしらせ（新しい知らせがあります）") : tr("おしらせ（届いた知らせのりれき）")}
               >
                 🔔{notices.dot && <i className="nt-bell-dot" aria-hidden="true" />}
               </button>
@@ -1140,8 +1141,8 @@ function App() {
                 type="button"
                 className="topbar-help"
                 onClick={() => void openManual(manualSection(view))}
-                aria-label="この画面の説明（マニュアル）"
-                title={`この画面（${currentLabel}）の説明を、マニュアルで開きます（F1）`}
+                aria-label={tr("この画面の説明（マニュアル）")}
+                title={tr("この画面（{currentLabel}）の説明を、マニュアルで開きます（F1）", { currentLabel })}
               >
                 ？
               </button>
@@ -1162,12 +1163,12 @@ function App() {
         {/* アップデート通知バナー */}
         {updateAvailable && !updateBannerHidden && (
           <div className="update-banner">
-            <span>新しいバージョン {updateAvailable.version} が利用可能です</span>
+            <span>{trx("新しいバージョン {version} が利用可能です", { version: updateAvailable.version })}</span>
             <button className="btn-primary" onClick={performUpdate} disabled={updating} style={{ fontSize: "var(--font-sm)", padding: "4px 12px" }}>
-              {updating ? "更新中..." : "今すぐ更新"}
+              {updating ? tr("更新中...") : tr("今すぐ更新")}
             </button>
             <button className="btn-sm" onClick={() => setUpdateBannerHidden(true)} style={{ padding: "4px 8px" }}>
-              後で
+              {tr("後で")}
             </button>
           </div>
         )}
@@ -1218,9 +1219,9 @@ function App() {
             <div className="repo-screen">
               {hist.history?.source === "github" && !isMobile && (
                 <div className="repo-source">
-                  GitHub にある状態を表示しています。
+                  {tr("GitHub にある状態を表示しています。")}
                   <button type="button" className="btn-sm" onClick={() => setView("work")}>
-                    作業フォルダを決める
+                    {tr("作業フォルダを決める")}
                   </button>
                 </div>
               )}
@@ -1228,14 +1229,14 @@ function App() {
                 <div className="content">
                   {hist.error ? (
                     <div className="work-setup">
-                      <h2>履歴を読めませんでした</h2>
+                      <h2>{tr("履歴を読めませんでした")}</h2>
                       <p className="local-folder-message local-folder-message--error">{hist.error}</p>
                       <button type="button" className="btn-sm" onClick={hist.reload}>
-                        もう一度読み込む
+                        {tr("もう一度読み込む")}
                       </button>
                     </div>
                   ) : (
-                    <p className="work-loading">履歴を読み込んでいます…</p>
+                    <p className="work-loading">{tr("履歴を読み込んでいます…")}</p>
                   )}
                 </div>
               ) : view === "branches" ? (
@@ -1308,7 +1309,7 @@ function App() {
               currentUser={gh.currentUser}
               folder={folder ?? null}
               onPlacedWorkflow={(file) => {
-                git.notify("ok", `${file} を作業フォルダに置きました。チェックを入れてコミットし、プッシュすると Actions が動き始めます`);
+                git.notify("ok", tr("{file} を作業フォルダに置きました。チェックを入れてコミットし、プッシュすると Actions が動き始めます", { file }));
                 git.refresh();
                 setView("work");
               }}
@@ -1356,7 +1357,7 @@ function App() {
                   const note = key === "milestones" ? nearestMilestone?.title : undefined;
                   return { key, icon: item.icon, label: item.label, note };
                 }),
-                { key: "activity", icon: "📰", label: "ヒストリー", badge: activity.todos.length || undefined },
+                { key: "activity", icon: "📰", label: tr("ヒストリー"), badge: activity.todos.length || undefined },
                 { key: "settings", icon: SETTINGS_ITEM.icon, label: SETTINGS_ITEM.label },
               ]}
               overview={
@@ -1674,7 +1675,7 @@ function App() {
       )}
 
       {/* 戻るボタンをメニューで押したとき（スマホ） */}
-      {exitHint && <div className="back-toast" role="status">もう一度押すと終わります</div>}
+      {exitHint && <div className="back-toast" role="status">{tr("もう一度押すと終わります")}</div>}
 
       {/* ボトムナビゲーション（スマホ）。下の帯にない画面（メニューから開いた画面）では「メニュー」を光らせる */}
       <nav className="bottom-nav">
@@ -1726,8 +1727,8 @@ function App() {
             const who = to.map((l) => `@${l}`).join(" ");
             // つながらないときは送信待ち（まだ呼べていない）。つながったら送る
             gh.setStatus(sent?._pending
-              ? `🆘 ${issueRef(helpFor.number)} で ${who} に助けを求めるコメントは、まだ送れていません（つながったら送ります）`
-              : `🆘 ${issueRef(helpFor.number)} で ${who} に助けを求めました`);
+              ? tr("🆘 {issueRef} で {who} に助けを求めるコメントは、まだ送れていません（つながったら送ります）", { issueRef: issueRef(helpFor.number), who })
+              : tr("🆘 {issueRef} で {who} に助けを求めました", { issueRef: issueRef(helpFor.number), who }));
           }}
           onClose={() => setHelpFor(null)}
         />

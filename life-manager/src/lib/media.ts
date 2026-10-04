@@ -1,5 +1,6 @@
 // メディアビューワー: ファイルの種類・中身の読み方（この PC の作業フォルダ・この PC の git・GitHub）・スプライトシートの分け方の推測
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
+import { tr, jaOf } from "./i18n";
 
 export type MediaKind = "image" | "audio" | "video" | "model" | "code" | "text" | "csv" | "markdown" | "html" | "pdf" | "other";
 
@@ -35,17 +36,17 @@ export function kindOf(path: string): MediaKind {
 }
 
 export const KIND_LABELS: Record<MediaKind, string> = {
-  image: "画像",
-  audio: "音",
-  video: "動画",
+  image: tr("画像"),
+  audio: tr("音"),
+  video: tr("動画"),
   model: "3D",
-  code: "コード",
-  text: "テキスト",
-  csv: "表",
-  markdown: "テキスト",
+  code: tr("コード"),
+  text: tr("テキスト"),
+  csv: tr("表"),
+  markdown: tr("テキスト"),
   html: "HTML",
   pdf: "PDF",
-  other: "そのほか",
+  other: tr("そのほか"),
 };
 
 export const KIND_ICONS: Record<MediaKind, string> = {
@@ -64,12 +65,12 @@ export const KIND_ICONS: Record<MediaKind, string> = {
 
 /** 一覧でまとめる順（画像 → 音 → 動画 → 3D → コード・テキスト → そのほか） */
 export const KIND_GROUPS: { label: string; kinds: MediaKind[] }[] = [
-  { label: "画像", kinds: ["image"] },
-  { label: "音", kinds: ["audio"] },
-  { label: "動画", kinds: ["video"] },
+  { label: tr("画像"), kinds: ["image"] },
+  { label: tr("音"), kinds: ["audio"] },
+  { label: tr("動画"), kinds: ["video"] },
   { label: "3D", kinds: ["model"] },
-  { label: "コード・テキスト", kinds: ["code", "text", "markdown", "csv", "html", "pdf"] },
-  { label: "そのほか", kinds: ["other"] },
+  { label: tr("コード・テキスト"), kinds: ["code", "text", "markdown", "csv", "html", "pdf"] },
+  { label: tr("そのほか"), kinds: ["other"] },
 ];
 
 /** 画像・音・動画の MIME（Blob に付ける） */
@@ -145,10 +146,10 @@ async function readCommitBytes(file: MediaFile, s: Extract<MediaSource, { kind: 
     } catch (e) {
       // この PC の git にそのコミットがない（まだ取ってきていない）ときは GitHub から。LFS・大きすぎるとき・GitHub を知らないときは、そのまま知らせる
       const msg = String(e);
-      if (msg.includes("LFS") || msg.includes("大きすぎる") || !s.owner || !s.repo) throw e;
+      if (msg.includes("LFS") || jaOf(msg).includes("大きすぎる") || !s.owner || !s.repo) throw e;
     }
   }
-  if (!s.owner || !s.repo) throw new Error("ファイルを読む場所がありません");
+  if (!s.owner || !s.repo) throw new Error(tr("ファイルを読む場所がありません"));
   return invoke<ArrayBuffer>("media_read_github", { owner: s.owner, repo: s.repo, sha: s.sha, file: file.path });
 }
 

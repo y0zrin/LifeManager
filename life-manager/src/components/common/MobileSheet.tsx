@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { isEscape } from "../../lib/keys";
+import { tr } from "../../lib/i18n";
 
 interface MobileSheetProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function MobileSheet({ open, title, onClose, children, footer }: MobileSh
         <div className="m-sheet-grip" aria-hidden="true" />
         <div className="m-sheet-head">
           <h3>{title}</h3>
-          <button type="button" className="btn-sm" onClick={onClose}>閉じる</button>
+          <button type="button" className="btn-sm" onClick={onClose}>{tr("閉じる")}</button>
         </div>
         <div className="m-sheet-body">{children}</div>
         {footer && <div className="m-sheet-foot">{footer}</div>}

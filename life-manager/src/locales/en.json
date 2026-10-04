@@ -3473,6 +3473,7 @@
   "one": " ({skipped} task left as is: it already has dates or has no estimate)",
   "other": " ({skipped} tasks left as is: they already have dates or have no estimate)"
  },
+ "（{v}）": " ({v})",
  "（あと {daysUntil} 日）": {
   "one": " ({daysUntil} day left)",
   "other": " ({daysUntil} days left)"

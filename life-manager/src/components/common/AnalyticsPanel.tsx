@@ -130,7 +130,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
         {folded && (
           <span className="analytics-line">
             {trx("開いている <0>{length}</0>", { length: a.open.length }, [<b />])}
-            {a.openEstimate.counted > 0 && <>（{estimateOf(a.openEstimate)}）</>}
+            {a.openEstimate.counted > 0 && trx("（{v}）", { v: estimateOf(a.openEstimate) })}
             {trx("・期限切れ <0>{length}</0>・{SOON_DAYS} 日以内 <1>{length2}</1>・担当なし <2>{length3}</2>", { length: a.overdue.length, SOON_DAYS, length2: a.soon.length, length3: a.unassigned.length }, [<b className={a.overdue.length ? "analytics-over" : ""} />, <b className={a.soon.length ? "analytics-soon" : ""} />, <b />])}
           </span>
         )}

@@ -59,7 +59,7 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
               <tr>
                 <th>{tr("ライブラリ")}</th>
                 <td>
-                  <code>{a.package}</code> <span className="muted">（{a.ecosystem}）</span>
+                  <code>{a.package}</code> <span className="muted">{tr("（{v}）", { v: a.ecosystem })}</span>
                 </td>
               </tr>
               <tr>

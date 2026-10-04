@@ -377,7 +377,11 @@ export function GanttMobileChart({
           </div>
           <div className="mg-info-meta">
             {[
-              links.self.startDate && links.self.endDate ? `${links.self.tentative ? tr("仮に ") : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}` : tr("日程なし"),
+              links.self.startDate && links.self.endDate
+                ? links.self.tentative
+                  ? tr("仮に {start}〜{end}", { start: md(links.self.startDate), end: md(links.self.endDate) })
+                  : `${md(links.self.startDate)}〜${md(links.self.endDate)}`
+                : tr("日程なし"),
               links.self.estimate ? tr("見積 {estimate}", { estimate: links.self.estimate }) : null,
               tr("進み {v}%", { v: links.self.progressValue }),
               links.self.assignees.length > 0 ? tr("担当 {join}", { join: links.self.assignees.map((a) => a.login).join(", ") }) : tr("担当なし"),

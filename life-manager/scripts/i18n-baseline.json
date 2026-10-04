@@ -11,6 +11,9 @@
  "src/components/common/LanguageSelect.tsx": [
   "言語 / Language / 语言 / 語言"
  ],
+ "src/components/pulls/CreatePullDialog.tsx": [
+  "${}## 何を変えたか\n- \n\n## どう確かめたか\n- \n"
+ ],
  "src/components/views/TimelineView.tsx": [
   "## ノート\n"
  ],

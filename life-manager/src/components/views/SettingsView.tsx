@@ -371,7 +371,9 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       />
       <div className="settings-repo-note">
         <span>
-          {tr("リポジトリの追加・切り替え・この PC のフォルダは、左上の")}{" "} <b>{owner && repo ? `${owner}/${repo}` : tr("リポジトリ")}</b> {" "}{tr("から行います。")}
+          {owner && repo
+            ? trx("リポジトリの追加・切り替え・この PC のフォルダは、左上の <0>{owner}/{repo}</0> から行います。", { owner, repo }, [<b />])
+            : trx("リポジトリの追加・切り替え・この PC のフォルダは、左上の <0>リポジトリ</0> から行います。", undefined, [<b />])}
         </span>
         <button type="button" className="btn-sm" onClick={onOpenAddRepo}>{tr("＋ リポジトリを追加…")}</button>
       </div>

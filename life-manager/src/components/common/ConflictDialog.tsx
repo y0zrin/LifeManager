@@ -195,7 +195,9 @@ function ConflictView({
           <p className="git-dialog-message conflict-message">{conflict.message}</p>
         ) : (
           <p className="git-dialog-note">
-            {tr("オフラインのあいだに、この")}{conflict.number !== 0 ? tr(" Issue の") : ""}{trx("「{FIELD_NAMES}」が GitHub 側でも変えられていました。", { FIELD_NAMES: FIELD_NAMES[conflict.field] })}
+            {conflict.number !== 0
+              ? tr("オフラインのあいだに、この Issue の「{field}」が GitHub 側でも変えられていました。", { field: FIELD_NAMES[conflict.field] })
+              : tr("オフラインのあいだに、この「{field}」が GitHub 側でも変えられていました。", { field: FIELD_NAMES[conflict.field] })}
             {isText && hunks && conflictIndexes.length > 0
               ? tr("別々のところの変更はまとめてあります。ぶつかった {length} か所だけ、どちらを残すか選んでください。", { length: conflictIndexes.length })
               : tr("どちらを残すか選んでください。")}
@@ -359,7 +361,7 @@ function SameLines({ lines }: { lines: string[] }) {
     <pre className="merge-same">
       {lines.slice(0, 2).join("\n")}
       {"\n"}
-      <span className="merge-fold">{tr("…（変わっていない")}{" "} {lines.length - 4} {" "}{tr("行）…")}</span>
+      <span className="merge-fold">{tr("…（変わっていない {n} 行）…", { n: lines.length - 4 })}</span>
       {"\n"}
       {lines.slice(-2).join("\n")}
     </pre>

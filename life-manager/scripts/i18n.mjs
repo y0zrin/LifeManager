@@ -21,6 +21,7 @@ const ts = require("typescript");
 const args = process.argv.slice(2);
 const TODO = args.includes("--todo");
 const UPDATE_BASELINE = args.includes("--update-baseline");
+const PRUNE = args.includes("--prune");
 const LANGS = ["en", "zh-Hans", "zh-Hant"];
 const BASELINE = path.join(ROOT, "scripts", "i18n-baseline.json");
 const TODO_FILE = path.join(ROOT, "i18n-todo.json");
@@ -239,7 +240,18 @@ if (UPDATE_BASELINE) {
   process.exit(0);
 }
 const forgotten = unwrapped.filter((u) => !(baseline[u.file] ?? []).includes(u.text));
-const unused = LANGS.length ? Object.keys(dicts.en).filter((k) => !allKeys.has(k)).length : 0;
+const unusedKeys = Object.keys(dicts.en ?? {}).filter((k) => !allKeys.has(k));
+const unused = unusedKeys.length;
+if (PRUNE) {
+  // 使っていない鍵を辞書から消す（並びはそのまま）
+  for (const l of LANGS) {
+    for (const k of unusedKeys) delete dicts[l][k];
+    fs.writeFileSync(path.join(ROOT, "src", "locales", `${l}.json`), JSON.stringify(dicts[l], null, 1) + "\n");
+  }
+  for (const k of unusedKeys) console.log(`  消した: ${JSON.stringify(k).slice(0, 100)}`);
+  console.log(`使っていない鍵 ${unused} 件を辞書から消しました`);
+  process.exit(0);
+}
 
 if (TODO) {
   fs.writeFileSync(TODO_FILE, JSON.stringify(missing, null, 1) + "\n");

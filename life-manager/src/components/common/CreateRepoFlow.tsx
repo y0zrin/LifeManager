@@ -189,7 +189,9 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
       {step === 2 && created && (
         <>
           <p className="local-folder-message local-folder-message--ok">
-            {trx("✔ {owner}/{repo} を作りました", { owner: created.owner, repo: created.repo })}{byLogin ? tr("。Life Manager で使えます") : ""}
+            {byLogin
+              ? tr("✔ {owner}/{repo} を作りました。Life Manager で使えます", { owner: created.owner, repo: created.repo })
+              : tr("✔ {owner}/{repo} を作りました", { owner: created.owner, repo: created.repo })}
           </p>
           {!isMobile && (
             <>

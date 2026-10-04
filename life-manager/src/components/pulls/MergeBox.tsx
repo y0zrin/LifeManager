@@ -126,7 +126,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
             <b>{tr("マージしました")}</b>
             <div className="muted">
               {trx("{ago}、{who} が <0>{head}</0> を <1>{base}</1> に入れました", { ago: ago(pull.merged_at), who: pull.merged_by?.login ?? tr("だれか"), head: pull.head, base: pull.base }, [<code />, <code />])}
-              {pull.merge_commit_sha && <>（<code>{pull.merge_commit_sha.slice(0, 7)}</code>）</>}
+              {pull.merge_commit_sha && trx("（<0>{sha}</0>）", { sha: pull.merge_commit_sha.slice(0, 7) }, [<code />])}
             </div>
           </div>
         </div>
@@ -324,7 +324,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
                 {trx("マージしたら GitHub のブランチ <0>{head}</0> を消す（あとで戻せます）", { head: pull.head }, [<code />])}
               </label>
             ))}
-          {closes.length > 0 && <p className="mb-closes">{tr("🔗 マージすると")}{" "} {closes.map((n) => `#${n}`).join(tr("・"))} {" "}{tr("も閉じます（本文の Closes）")}</p>}
+          {closes.length > 0 && <p className="mb-closes">{tr("🔗 マージすると {issues} も閉じます（本文の Closes）", { issues: closes.map((n) => `#${n}`).join(tr("・")) })}</p>}
           <div className="mb-actions">
             {confirming === "merge" ? (
               <>

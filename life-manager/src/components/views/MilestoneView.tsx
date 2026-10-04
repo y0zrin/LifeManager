@@ -429,7 +429,11 @@ function MainPanel({ stage, dir, quest, hp, repoKey, unit, paceText, over }: Mai
           ) : (
             <>
               <b>{percent}%</b>
-              <span>{stage.done.length} / {stage.done.length + stage.open.length} {" "}{tr("件")}{stage.measure === "estimate" ? tr(" ・ {fmt} / {fmt2}", { fmt: fmt(done), fmt2: fmt(stage.total) }) : ""}</span>
+              <span>
+                {stage.measure === "estimate"
+                  ? tr("{done} / {n} 件 ・ {fmt} / {fmt2}", { done: stage.done.length, n: stage.done.length + stage.open.length, fmt: fmt(done), fmt2: fmt(stage.total) })
+                  : tr("{done} / {n} 件", { done: stage.done.length, n: stage.done.length + stage.open.length })}
+              </span>
             </>
           )}
           <span className="grow" />

@@ -582,7 +582,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 />
               ) : (
                 <div onClick={() => setEditingBody(true)} className="idm-body" title={isMobile ? tr("押して編集") : tr("クリックして編集")}>
-                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>{tr("本文なし（")}{isMobile ? tr("押して") : tr("クリックで")}{tr("追加）")}</span>}
+                  {visibleBody(issue.body) || <span style={{ color: "var(--text-faint)" }}>{isMobile ? tr("本文なし（押して追加）") : tr("本文なし（クリックで追加）")}</span>}
                 </div>
               )}
               {/* 編集ボタン（右上に小さく配置） */}

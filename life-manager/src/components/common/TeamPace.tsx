@@ -130,7 +130,7 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
     <section className="pace" aria-label={tr("チームのペース")}>
       <div className="pace-head">
         <b>{tr("🏃 チームのペース")}</b>
-        <span className="pace-scope">{tr("終わったマイルストーンから")}{entries.length > 0 ? tr("（最近 {countOf}）", { countOf: countOf(entries.length, tr("個")) }) : ""}</span>
+        <span className="pace-scope">{entries.length > 0 ? tr("終わったマイルストーンから（最近 {n}）", { n: countOf(entries.length, tr("個")) }) : tr("終わったマイルストーンから")}</span>
         <span className="pace-mode" role="group" aria-label={tr("数え方")}>
           {(["estimate", "count"] as PaceMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => onModeChange(m)}>
@@ -144,7 +144,7 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
         <p className="pace-note">
           {mode === "estimate" && finishedCount > 0 ? (
             <>
-              {tr("終わったマイルストーン（")}{countOf(finishedCount, tr("個"))}{tr("）の Issue には、見積もりが付いていません。")}
+              {tr("終わったマイルストーン（{n}）の Issue には、見積もりが付いていません。", { n: countOf(finishedCount, tr("個")) })}
               <button type="button" className="link-button" onClick={() => onModeChange("count")}>{tr("件数で数える")}</button>
             </>
           ) : (
@@ -166,7 +166,13 @@ export function TeamPace({ owner, repo, entries, finishedCount, closedIssues, mo
             </div>
             {avg !== null && (
               <p className="pace-note">
-                {trx("次のスプリントに入れる量の目安: <0>{fmt}</0>（最近", { fmt: fmt(avg) }, [<b className="pace-em" />])}{" "} {countOf(values.length, tr("個"))}{tr("の平均。直近")}{" "} {countOf(recent.length, tr("個"))}{trx("は {fmt}〜{fmt2}）", { fmt: fmt(Math.min(...recent)), fmt2: fmt(Math.max(...recent)) })}
+                {trx("次のスプリントに入れる量の目安: <0>{fmt}</0>（最近 {n}の平均。直近 {recent}は {min}〜{max}）", {
+                  fmt: fmt(avg),
+                  n: countOf(values.length, tr("個")),
+                  recent: countOf(recent.length, tr("個")),
+                  min: fmt(Math.min(...recent)),
+                  max: fmt(Math.max(...recent)),
+                }, [<b className="pace-em" />])}
               </p>
             )}
           </div>

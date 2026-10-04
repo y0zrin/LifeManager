@@ -6,7 +6,7 @@ import { githubMessage, isSameRepo, repoOf } from "../../lib/subIssues";
 import { IssueIndexContext, useParentOf } from "./SubIssueMarks";
 import { findIssues } from "../../lib/issueSearch";
 import { isEnter } from "../../lib/keys";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, labelValueText } from "../../lib/i18n";
 
 /** サブイシューの読み書き（useGitHub のもの） */
 export interface SubIssueApi {
@@ -165,7 +165,8 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
         <ul className="sub-issues-list">
           {rows.map((c) => {
             const same = inThisRepo(c);
-            const status = c.labels?.find((l) => l.name.startsWith("状態:"))?.name.split(":")[1];
+            const statusLabel = c.labels?.find((l) => l.name.startsWith("状態:"))?.name;
+            const status = statusLabel ? labelValueText(statusLabel) : undefined;
             return (
               <li key={c.id ?? c.number} className={`sub-issue${c.state === "closed" ? " sub-issue--closed" : ""}`}>
                 <button

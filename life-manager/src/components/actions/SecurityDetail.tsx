@@ -91,20 +91,15 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
             <ol>
               {card.fixPull ? (
                 <li>
-                  {tr("Dependabot が、直すプルリク")}{" "}
-                  <button type="button" className="pr-ref" onClick={() => onOpenPull(card.fixPull!.number)}>
-                    #{card.fixPull.number}
-                  </button>{" "}{tr("を出しています。変更されたファイルとチェックを見て、よければマージします。")}
+                  {trx("Dependabot が、直すプルリク <0>#{number}</0> を出しています。変更されたファイルとチェックを見て、よければマージします。", { number: card.fixPull.number }, [
+                    <button type="button" className="pr-ref" onClick={() => onOpenPull(card.fixPull!.number)} />,
+                  ])}
                 </li>
               ) : a.fixed ? (
                 <li>
-                  {trx("<0>{manifest}</0> の {package} を <1>{fixed}</1> 以上に上げます", { manifest: a.manifest, package: a.package, fixed: a.fixed }, [<code />, <b />])}
-                  {upgradeCommand(a.ecosystem, a.package, a.fixed) && (
-                    <>
-                      {trx("（この PC で <0>{upgradeCommand}</0>）", { upgradeCommand: upgradeCommand(a.ecosystem, a.package, a.fixed) }, [<code />])}
-                    </>
-                  )}
-                  。
+                  {upgradeCommand(a.ecosystem, a.package, a.fixed)
+                    ? trx("<0>{manifest}</0> の {package} を <1>{fixed}</1> 以上に上げます（この PC で <2>{command}</2>）。", { manifest: a.manifest, package: a.package, fixed: a.fixed, command: upgradeCommand(a.ecosystem, a.package, a.fixed) }, [<code />, <b />, <code />])
+                    : trx("<0>{manifest}</0> の {package} を <1>{fixed}</1> 以上に上げます。", { manifest: a.manifest, package: a.package, fixed: a.fixed }, [<code />, <b />])}
                 </li>
               ) : (
                 <li>{tr("直った版はまだありません。GitHub の説明を読み、危ない使い方をしていないかを確かめるか、ほかのライブラリに替えます。")}</li>

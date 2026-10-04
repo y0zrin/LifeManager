@@ -6,10 +6,18 @@ import { DueChip } from "./DueChip";
 import { EstimateChip } from "./EstimateChip";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import { Avatar } from "./Avatar";
+import { labelValueText } from "../../lib/i18n";
 
 interface TicketCardProps {
   issue: GitHubIssue;
   onSelect: (n: number) => void;
+}
+
+/** カードに出すラベルの値（分類を外す。「種別:メモ」なら「メモ」を訳したもの） */
+function labelShown(name: string): string {
+  const v = labelValueText(name);
+  if (v !== name) return v;
+  return name.includes(":") ? name.split(":")[1] : name;
 }
 
 export function TicketCard({ issue, onSelect }: TicketCardProps) {
@@ -54,7 +62,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
               color: `#${l.color}`,
               border: `1px solid #${l.color}44`
             }}>
-              {l.name.includes(":") ? l.name.split(":")[1] : l.name}
+              {labelShown(l.name)}
             </span>
           ))}
         </div>

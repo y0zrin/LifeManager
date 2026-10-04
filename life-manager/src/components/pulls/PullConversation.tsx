@@ -10,7 +10,7 @@ import {
   type ReviewEvent,
 } from "../../lib/pulls";
 import { countOf } from "../../lib/count";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, labelText } from "../../lib/i18n";
 
 interface PullConversationProps {
   owner: string;
@@ -124,7 +124,7 @@ export function PullConversation(props: PullConversationProps) {
     if (item.kind === "commits") {
       return (
         <div key={i} className="pr-commits">
-          {line("●", <>{countOf(item.commits.length, tr("件"))}{tr("のコミットを足しました")}</>, item.at)}
+          {line("●", <>{tr("{count}のコミットを足しました", { count: countOf(item.commits.length, tr("件")) })}</>, item.at)}
           <ul>
             {item.commits.map((c) => (
               <li key={c.sha}>
@@ -190,9 +190,9 @@ export function PullConversation(props: PullConversationProps) {
       case "head_ref_force_pushed":
         return <Fragment key={i}>{line("⚠", <>{trx("{who} が <0>{head}</0> に強制プッシュしました（コミットを書き換えました）", { who: who(e), head: pull.head }, [<code />])}</>, e.at, "warn")}</Fragment>;
       case "review_requested":
-        return <Fragment key={i}>{line("👀", <>{trx("{who} が", { who: who(e) })}{" "} <b>{e.reviewer?.login ?? tr("（チーム）")}</b> {" "}{tr("にレビューをお願いしました")}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("👀", <>{trx("{who} が <0>{reviewer}</0> にレビューをお願いしました", { who: who(e), reviewer: e.reviewer?.login ?? tr("（チーム）") }, [<b />])}</>, e.at)}</Fragment>;
       case "review_request_removed":
-        return <Fragment key={i}>{line("·", <>{trx("{who} が", { who: who(e) })}{" "} <b>{e.reviewer?.login ?? tr("（チーム）")}</b> {" "}{tr("へのお願いを取り消しました")}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("·", <>{trx("{who} が <0>{reviewer}</0> へのお願いを取り消しました", { who: who(e), reviewer: e.reviewer?.login ?? tr("（チーム）") }, [<b />])}</>, e.at)}</Fragment>;
       case "review_dismissed":
         return <Fragment key={i}>{line("·", <>{trx("{who} がレビューを取り下げました", { who: who(e) })}{e.body ? `: ${e.body}` : ""}</>, e.at)}</Fragment>;
       case "ready_for_review":
@@ -212,14 +212,18 @@ export function PullConversation(props: PullConversationProps) {
             {line(
               "🔗",
               <>
-                {trx("{who} が", { who: who(e) })}{" "}
-                {here && !s.pull ? (
-                  <button type="button" className="pr-ref" onClick={() => onOpenIssue(s.number)}>
-                    #{s.number}
-                  </button>
-                ) : (
-                  <b>{here ? "" : s.repo}#{s.number}</b>
-                )}{" "}{trx("{title} で触れました", { title: s.title })}
+                {trx("{who} が {ref} {title} で触れました", {
+                  who: who(e),
+                  ref:
+                    here && !s.pull ? (
+                      <button type="button" className="pr-ref" onClick={() => onOpenIssue(s.number)}>
+                        #{s.number}
+                      </button>
+                    ) : (
+                      <b>{here ? "" : s.repo}#{s.number}</b>
+                    ),
+                  title: s.title,
+                })}
               </>,
               e.at,
             )}
@@ -228,10 +232,10 @@ export function PullConversation(props: PullConversationProps) {
       }
       case "labeled":
       case "unlabeled":
-        return <Fragment key={i}>{line("🏷", <>{trx("{who} がラベル <0>{name}</0> を", { who: who(e), name: e.label?.name }, [<b />])}{e.event === "labeled" ? tr("付けました") : tr("外しました")}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("🏷", <>{e.event === "labeled" ? trx("{who} がラベル <0>{name}</0> を付けました", { who: who(e), name: labelText(e.label?.name ?? "") }, [<b />]) : trx("{who} がラベル <0>{name}</0> を外しました", { who: who(e), name: labelText(e.label?.name ?? "") }, [<b />])}</>, e.at)}</Fragment>;
       case "assigned":
       case "unassigned":
-        return <Fragment key={i}>{line("👤", <>{trx("{who} が <0>{login}</0> を", { who: who(e), login: e.assignee?.login }, [<b />])}{e.event === "assigned" ? tr("担当にしました") : tr("担当から外しました")}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("👤", <>{e.event === "assigned" ? trx("{who} が <0>{login}</0> を担当にしました", { who: who(e), login: e.assignee?.login }, [<b />]) : trx("{who} が <0>{login}</0> を担当から外しました", { who: who(e), login: e.assignee?.login }, [<b />])}</>, e.at)}</Fragment>;
       default:
         return null;
     }
@@ -246,7 +250,7 @@ export function PullConversation(props: PullConversationProps) {
         <Avatar login={author} />
         <div className="pr-bubble">
           <div className="pr-bubble-head">
-            <b>{author || tr("だれか")}</b> <span className="muted">{trx("が作りました・{ago}", { ago: ago(pull.created_at) })}</span>
+            {trx("<0>{who}</0> <1>が作りました・{ago}</1>", { who: author || tr("だれか"), ago: ago(pull.created_at) }, [<b />, <span className="muted" />])}
           </div>
           <div className="pr-text">{pull.body.trim() ? rich(pull.body) : <span className="muted">{tr("説明はありません。")}</span>}</div>
         </div>
@@ -277,7 +281,7 @@ export function PullConversation(props: PullConversationProps) {
                 </button>
               </li>
             ))}
-            {files.length > 8 && <li className="muted">{tr("ほか")}{" "} {files.length - 8} {" "}{tr("ファイル")}</li>}
+            {files.length > 8 && <li className="muted">{tr("ほか {n} ファイル", { n: files.length - 8 })}</li>}
           </ul>
         )}
       </div>

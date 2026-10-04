@@ -16340,11 +16340,10 @@ button.lh:hover {
 .ms-today b {
   position: absolute;
   top: -16px;
-  left: -20px;
-  width: 40px;
+  right: 2px;
   color: var(--accent-blue);
   font-size: 10px;
-  text-align: center;
+  white-space: nowrap;
 }
 
 /* 下: そのマイルストーンのタスク */

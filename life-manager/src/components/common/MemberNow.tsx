@@ -93,7 +93,7 @@ export function MemberNow({ members, issues, events, me, onSelectIssue, onSelect
                       <span className="mn-task-n">#{i.number}</span> {i.title}
                     </button>
                   ))}
-                  {r.doing.length > SHOWN && <span className="mn-more">{tr("ほか")}{" "} {r.doing.length - SHOWN}</span>}
+                  {r.doing.length > SHOWN && <span className="mn-more">{tr("ほか {n}", { n: r.doing.length - SHOWN })}</span>}
                 </>
               )}
             </span>

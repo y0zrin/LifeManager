@@ -182,7 +182,9 @@ export function RunDetail(props: RunDetailProps) {
           </li>
         ) : (
           <li>
-            {tr("この PC の作業フォルダで")}{command ? <> {" "}{trx("<0>{command}</0> を動かして", { command }, [<code />])}</> : tr("同じことをして")}{tr("、同じ失敗が出るかを確かめます。")}
+            {command
+              ? trx("この PC の作業フォルダで <0>{command}</0> を動かして、同じ失敗が出るかを確かめます。", { command }, [<code />])
+              : tr("この PC の作業フォルダで同じことをして、同じ失敗が出るかを確かめます。")}
           </li>
         )}
         <li>
@@ -230,7 +232,9 @@ export function RunDetail(props: RunDetailProps) {
       </div>
       {confirmRerun && (
         <div className="ac-cost-confirm ac-rerun-confirm">
-          {tr("非公開のリポジトリなので、")}{ownerLabel ?? owner} {" "}{tr("の Actions の無料の時間を使います。")}{confirmRerun === "failed" ? tr("失敗したジョブを") : tr("すべてのジョブを")}{tr("もう一度動かしますか？")}
+          {confirmRerun === "failed"
+            ? tr("非公開のリポジトリなので、{owner} の Actions の無料の時間を使います。失敗したジョブをもう一度動かしますか？", { owner: ownerLabel ?? owner })
+            : tr("非公開のリポジトリなので、{owner} の Actions の無料の時間を使います。すべてのジョブをもう一度動かしますか？", { owner: ownerLabel ?? owner })}
           <button type="button" className="btn-sm" onClick={() => setConfirmRerun(null)}>
             {tr("やめる")}
           </button>
@@ -241,7 +245,7 @@ export function RunDetail(props: RunDetailProps) {
       )}
       {!canRun && runNote && (failed || run.status === "completed") && <p className="muted">↻ {runNote}</p>}
       <div className="ac-meta">
-        {trx("<0>{branch}</0> への{eventLabel}（<1>{slice}</1>", { branch: run.branch, eventLabel: eventLabel(run.event), slice: run.sha.slice(0, 7) }, [<code className="pr-branch" />, <code />])}{" "} {run.commit_message || run.title}{tr("）で動きました。")}
+        {trx("<0>{branch}</0> への{event}（<1>{sha}</1> {message}）で動きました。", { branch: run.branch, event: eventLabel(run.event), sha: run.sha.slice(0, 7), message: run.commit_message || run.title }, [<code className="pr-branch" />, <code />])}
         {run.actor?.login ?? ""}
         {run.started_at && tr("・{duration}", { duration: duration(run.started_at, run.status === "completed" ? run.updated_at : null) })}
         {tr("・{ago}", { ago: ago(run.created_at) })}
@@ -262,8 +266,13 @@ export function RunDetail(props: RunDetailProps) {
       </div>
       {failures.length > 1 && (
         <div className="ac-streak">
-          {failures.map((f) => `#${f.run_number}`).join(tr("・"))} {" "}{trx("が<0>続けて失敗</0>しています（最初は {ago}、<1>{slice}</1> {commit_message}・", { ago: ago(failures[failures.length - 1].created_at), slice: failures[failures.length - 1].sha.slice(0, 7), commit_message: failures[failures.length - 1].commit_message }, [<b />, <code />])}
-          {failures[failures.length - 1].actor?.login ?? ""} {" "}{tr("から）")}
+          {trx("{runs} が<0>続けて失敗</0>しています（最初は {ago}、<1>{sha}</1> {message}・{login} から）", {
+            runs: failures.map((f) => `#${f.run_number}`).join(tr("・")),
+            ago: ago(failures[failures.length - 1].created_at),
+            sha: failures[failures.length - 1].sha.slice(0, 7),
+            message: failures[failures.length - 1].commit_message,
+            login: failures[failures.length - 1].actor?.login ?? "",
+          }, [<b />, <code />])}
         </div>
       )}
       {card?.rerunning && <div className="ac-rerunning">{trx("● 今もう一度動いています（#{run_number}）", { run_number: card.rerunning.run_number })}</div>}

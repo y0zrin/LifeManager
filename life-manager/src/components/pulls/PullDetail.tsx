@@ -239,6 +239,22 @@ export function PullDetail(props: PullDetailProps) {
     if (target) onOpenRun(target.runId, target.jobId);
     else if (url || fallback) openUrl((url || fallback)!).catch(() => {});
   };
+  // 見出しの下の 1 行（だれが、どのブランチのいくつのコミットを、どこに）
+  const flow = { who: author || tr("だれか"), head: detail.head, n: detail.commits, base: detail.base };
+  const flowTags = [<b />, <code className="pr-branch" />, <code className="pr-branch" />];
+  // 本文の Closes でつながる Issue（押すと開く）
+  const closeLinks = (
+    <>
+      {closes.map((n, i) => (
+        <span key={n}>
+          {i > 0 && tr("・")}
+          <button type="button" className="pr-ref" onClick={() => onOpenIssue(n)}>
+            #{n} {issueTitle(n) ?? ""}
+          </button>
+        </span>
+      ))}
+    </>
+  );
 
   return (
     <div className="pr-detail">
@@ -280,21 +296,22 @@ export function PullDetail(props: PullDetailProps) {
       )}
 
       <div className="pr-flow">
-        <b>{author || tr("だれか")}</b> {" "}{trx("が <0>{head}</0> の {commits} コミットを <1>{base}</1> に", { head: detail.head, commits: detail.commits, base: detail.base }, [<code className="pr-branch" />, <code className="pr-branch" />])}{detail.merged ? tr("入れました") : status === "closed" ? tr("入れようとしました") : tr("入れたいと言っています")}
-        {!detail.same_repo && <span className="muted">{tr("（フォーク")}{" "} {detail.head_repo ?? tr("（消されました）")} {" "}{tr("から）")}</span>}
+        {detail.merged
+          ? trx("<0>{who}</0> が <1>{head}</1> の {n} コミットを <2>{base}</2> に入れました", flow, flowTags)
+          : status === "closed"
+            ? trx("<0>{who}</0> が <1>{head}</1> の {n} コミットを <2>{base}</2> に入れようとしました", flow, flowTags)
+            : trx("<0>{who}</0> が <1>{head}</1> の {n} コミットを <2>{base}</2> に入れたいと言っています", flow, flowTags)}
+        {!detail.same_repo && <span className="muted">{tr("（フォーク {repo} から）", { repo: detail.head_repo ?? tr("（消されました）") })}</span>}
       </div>
       {closes.length > 0 && (
         <div className="pr-link">
-          🔗 {detail.merged ? tr("マージで") : tr("マージすると")}{" "}
-          {closes.map((n, i) => (
-            <span key={n}>
-              {i > 0 && tr("・")}
-              <button type="button" className="pr-ref" onClick={() => onOpenIssue(n)}>
-                #{n} {issueTitle(n) ?? ""}
-              </button>
-            </span>
-          ))}{" "}
-          {toDefault ? (detail.merged ? tr("が閉じました") : tr("が閉じます")) : <span className="muted">{trx("（{base} は既定のブランチではないので、自動では閉じません）", { base: detail.base })}</span>}
+          🔗 {toDefault
+            ? detail.merged
+              ? trx("マージで {issues} が閉じました", { issues: closeLinks })
+              : trx("マージすると {issues} が閉じます", { issues: closeLinks })
+            : detail.merged
+              ? trx("マージで {issues} <0>（{base} は既定のブランチではないので、自動では閉じません）</0>", { issues: closeLinks, base: detail.base }, [<span className="muted" />])
+              : trx("マージすると {issues} <0>（{base} は既定のブランチではないので、自動では閉じません）</0>", { issues: closeLinks, base: detail.base }, [<span className="muted" />])}
           <span className="muted">{tr("（本文の Closes）")}</span>
         </div>
       )}

@@ -349,7 +349,7 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
       <section className="form-card jv-day" aria-label={tr("{v}月{getDate}日", { v: sel.getMonth() + 1, getDate: sel.getDate() })}>
         <div className="jv-day-head">
           <h2>
-            {sel.getMonth() + 1} {" "}{trx("月 {getDate} 日（{weekday}）", { getDate: sel.getDate(), weekday })}
+            {tr("{m} 月 {d} 日（{w}）", { m: sel.getMonth() + 1, d: sel.getDate(), w: weekday })}
           </h2>
           {isToday && <span className="jv-today">{tr("今日")}</span>}
           <span className="grow" />

@@ -7,7 +7,7 @@ import { DatePickerButton } from "../common/DatePickerButton";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEscape } from "../../lib/keys";
 import { dayKey } from "../../lib/today";
-import { tr, trx, weekdayShort } from "../../lib/i18n";
+import { tr, trx, weekdayShort, labelText } from "../../lib/i18n";
 
 interface SamplePlanDialogProps {
   /** 今あるマイルストーン（同じ名前は作れない） */
@@ -76,7 +76,7 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
           tasksMade++;
         }
       }
-      celebrateDone(tr("見本の計画"), origin, tr("マイルストーン {made} つ{v}を作りました", { made, v: withTasks ? tr("とタスク {tasksMade} 件", { tasksMade }) : "" }));
+      celebrateDone(tr("見本の計画"), origin, withTasks ? tr("マイルストーン {made} つとタスク {tasksMade} 件を作りました", { made, tasksMade }) : tr("マイルストーン {made} つを作りました", { made }));
       onClose();
     } catch (e) {
       // 途中で止まったら、作ったものも含めて今あるものと比べ直す
@@ -121,7 +121,7 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
               {withTasks && (
                 <ul className="sp-tasks">
                   {stage.tasks.map((t) => (
-                    <li key={t.title} title={`セクション:${t.section}`}>
+                    <li key={t.title} title={labelText(`セクション:${t.section}`)}>
                       {t.title}
                     </li>
                   ))}

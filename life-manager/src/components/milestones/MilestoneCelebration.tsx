@@ -157,8 +157,10 @@ function Stamp({ theme, title }: { theme: string; title: string }) {
         <g className="h-petals">{petals}</g>
         <circle className="h-ring" cx="100" cy="100" r="70" />
         <circle className="h-ring thin" cx="100" cy="100" r="60" />
-        <text className="h-text" x="100" y="94" textAnchor="middle">{tr("よく")}</text>
-        <text className="h-text" x="100" y="124" textAnchor="middle">{tr("できました")}</text>
+        {trx("<0>よく</0><1>できました</1>", undefined, [
+          <text className="h-text" x="100" y="94" textAnchor="middle" />,
+          <text className="h-text" x="100" y="124" textAnchor="middle" />,
+        ])}
       </svg>
     );
   }
@@ -274,7 +276,7 @@ export function MilestoneCelebration({ motion, onCloseMilestone, sound }: Milest
       <>
         <Trophy />
         <div className="ms-cel-kick">{quest ? "BOSS DEFEATED" : "MILESTONE COMPLETE"}</div>
-        <div className="ms-cel-title">{d.title} {quest ? tr("撃破！") : tr("達成！")}</div>
+        <div className="ms-cel-title">{quest ? tr("{title} 撃破！", { title: d.title }) : tr("{title} 達成！", { title: d.title })}</div>
         <div className="ms-cel-sub">{trx("{doneCount} 件のタスクをぜんぶ終えました", { doneCount: d.doneCount })}</div>
         {stats}
         {team}

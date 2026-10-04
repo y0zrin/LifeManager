@@ -97,7 +97,7 @@ export function AnalyticsPanel({ scope, scopeText, stateOrder, onSelectIssue, ti
             </Fragment>
           );
         })}
-        {list.length > MAX_REFS && <span className="analytics-muted"> {" "}{tr("ほか")}{" "} {list.length - MAX_REFS} {" "}{tr("件")}</span>}
+        {list.length > MAX_REFS && <span className="analytics-muted"> {tr("ほか {n} 件", { n: list.length - MAX_REFS })}</span>}
       </>
     );
 

@@ -51,26 +51,27 @@ export function ConflictNotice({ folder, status, onFix, onAbort, onClose }: Conf
   const names = sideNames(status.operation, status.branch, hunk);
   const op = status.operation;
   const branch = status.branch ?? tr("今のブランチ");
-  const what =
+  // 何をしていて競合したか（操作ごとに丸ごとの文。<0> は太字）
+  const cause =
     op === "merge"
-      ? tr("{v} を {branch} に取り込もうとしましたが、", { v: hunk?.theirsLabel || tr("ほかのブランチ"), branch })
+      ? trx("{v} を {branch} に取り込もうとしましたが、<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", { v: hunk?.theirsLabel || tr("ほかのブランチ"), branch }, [<b />])
       : op === "rebase"
-        ? tr("コミットを付け替えている途中で、")
+        ? trx("コミットを付け替えている途中で、<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", undefined, [<b />])
         : op === "cherry-pick"
-          ? tr("コミット（{v}）を {branch} に取り込もうとしましたが、", { v: hunk?.theirsLabel || "…", branch })
+          ? trx("コミット（{v}）を {branch} に取り込もうとしましたが、<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", { v: hunk?.theirsLabel || "…", branch }, [<b />])
           : op === "revert"
-            ? tr("コミットを打ち消そうとしましたが、")
+            ? trx("コミットを打ち消そうとしましたが、<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", undefined, [<b />])
             : names.theirs === tr("退避していた変更")
-              ? tr("退避していた変更を戻そうとしましたが、")
-              : "";
+              ? trx("退避していた変更を戻そうとしましたが、<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", undefined, [<b />])
+              : trx("<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", undefined, [<b />]);
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={onClose}>
       <div className="conflict-notice" role="alertdialog" aria-label={tr("競合（コンフリクト）が起きました")} onClick={(e) => e.stopPropagation()}>
         <h3>{trx("<0>⚠</0> 競合（コンフリクト）が起きました", undefined, [<span className="conflict-notice-mark" />])}</h3>
         <p>
-          {trx("{what}<0>同じところが両方で変わっていた</0>ので、git が自動でまとめられませんでした。", { what }, [<b />])}
-          {op && <b>{trx("{OPERATION_NAMES}の途中", { OPERATION_NAMES: OPERATION_NAMES[op] })}</b>}{op && tr("で止まっています。")}
+          {cause}
+          {op && trx("<0>{name}の途中</0>で止まっています。", { name: OPERATION_NAMES[op] }, [<b />])}
         </p>
         <div className="conflict-notice-files">
           {conflicted.map((f) => (
@@ -85,8 +86,9 @@ export function ConflictNotice({ folder, status, onFix, onAbort, onClose }: Conf
           <li>{tr("「作業をする」の ③ で競合のファイルを選ぶと、右に「競合を直す」が出ます")}</li>
           <li>{trx("か所ごとに、<0>どちらを使うか</0>を選びます（両方を残す・自分で書く もできます）", undefined, [<b />])}</li>
           <li>
-            {tr("「直したのでステージする」を押し、")}
-            {op === "merge" || !op ? tr("コミットすると終わります") : tr("「続ける」を押すと{OPERATION_NAMES}の続きが進みます", { OPERATION_NAMES: OPERATION_NAMES[op] })}
+            {op === "merge" || !op
+              ? tr("「直したのでステージする」を押し、コミットすると終わります")
+              : tr("「直したのでステージする」を押し、「続ける」を押すと{name}の続きが進みます", { name: OPERATION_NAMES[op] })}
           </li>
         </ol>
         {hunk && (

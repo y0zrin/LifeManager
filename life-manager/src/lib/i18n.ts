@@ -96,9 +96,15 @@ export function setLang(next: Lang) {
 /** 数で形を選ぶときの数: vars.n・vars.count、なければ vars のはじめの数 */
 function countOf(vars?: Record<string, unknown>): number {
   if (!vars) return NaN;
+  // 数の形の文字列（formatNumber の「1,234」など）も数として見る
+  const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" && /^-?\d[\d,]*(\.\d+)?$/.test(v) ? Number(v.replace(/,/g, "")) : NaN);
   const direct = vars.n ?? vars.count;
-  if (direct !== undefined) return Number(direct);
+  if (direct !== undefined) return num(direct);
   for (const v of Object.values(vars)) if (typeof v === "number") return v;
+  for (const v of Object.values(vars)) {
+    const n = num(v);
+    if (!Number.isNaN(n)) return n;
+  }
   return NaN;
 }
 

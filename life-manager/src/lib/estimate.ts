@@ -83,13 +83,18 @@ export function formatNumber(v: number): string {
   return String(Math.round(v * 100) / 100);
 }
 
-/** 「3pt」「2時間」「0.5日」「1.25人月」 */
+/** 画面に出す形「3pt」「2時間」「0.5日」「1.25人月」（英語・中国語では単位を訳す） */
 export function formatEstimate(value: number, unit: EstimateUnit): string {
-  return `${formatNumber(value)}${UNITS[unit].suffix}`;
+  const n = formatNumber(value);
+  if (unit === "hour") return tr("{n}時間", { n });
+  if (unit === "day") return tr("{n}日", { n });
+  if (unit === "person_month") return tr("{n}人月", { n });
+  return `${n}${UNITS[unit].suffix}`;
 }
 
+/** ラベルの名前「見積:2時間」（GitHub に書くので訳さない） */
 export function estimateLabel(value: number, unit: EstimateUnit): string {
-  return `${ESTIMATE_PREFIX}${formatEstimate(value, unit)}`;
+  return `${ESTIMATE_PREFIX}${formatNumber(value)}${UNITS[unit].suffix}`;
 }
 
 // ラベルの後ろの単位（書き方の揺れも受ける。単位のないものはポイント）

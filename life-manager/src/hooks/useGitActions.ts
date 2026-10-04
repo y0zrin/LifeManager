@@ -533,7 +533,6 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
 
   // 作業フォルダがない（GitHub から読んだ履歴の）ときは、git の操作は押せない。理由は最初の項目にだけ書く
   const NO_FOLDER_HINT = tr("この PC の作業フォルダを決めると使えます");
-  const toCurrent = branch ? tr("{branch} に", { branch }) : tr("今のブランチに");
 
   function commitMenu(c: GitCommit, ctx: CommitMenuContext): MenuItem[] {
     const h = short(c.hash);
@@ -553,7 +552,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       { label: tr("⎇ このコミットを取り出す（切り離された HEAD）"), code: `git switch --detach ${h}`, disabled: !can, run: () => detach(c.hash) },
       "sep",
       {
-        label: tr("🍒 {toCurrent}取り込む（チェリーピック）", { toCurrent }),
+        label: branch ? tr("🍒 {branch} に取り込む（チェリーピック）", { branch }) : tr("🍒 今のブランチに取り込む（チェリーピック）"),
         code: `git cherry-pick ${h}`,
         disabled: !onBranch || ctx.inCurrent,
         hint: why(tr("今のブランチにもう入っています"), ctx.inCurrent),
@@ -595,7 +594,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
           run: () => requestSwitch(e.name),
         },
         {
-          label: tr("⤵ {toCurrent}取り込む（マージ）", { toCurrent }),
+          label: branch ? tr("⤵ {branch} に取り込む（マージ）", { branch }) : tr("⤵ 今のブランチに取り込む（マージ）"),
           code: `git merge --no-edit ${refOf(e)}`,
           disabled: !can || !branch,
           run: () => merge(e),

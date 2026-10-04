@@ -69,12 +69,13 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
 
   const people = useMemo<Person[]>(() => {
     const expiry = report ? expiryOf(report) : null;
+    const date = expiry ? expiry.date.split("/").slice(1).join("/") : "";
     const current: Person = {
       kind: "current",
       login: report?.login ?? login,
       avatar: report?.avatar_url ?? null,
       projects: currentProjects,
-      expiry: expiry ? tr("期限 {join}{v}", { join: expiry.date.split("/").slice(1).join("/"), v: expiry.days < 0 ? tr("（切れています）") : "" }) : null,
+      expiry: expiry ? (expiry.days < 0 ? tr("期限 {date}（切れています）", { date }) : tr("期限 {date}", { date })) : null,
     };
     const saved: Person[] = (accounts ?? []).map((a) => ({ kind: "saved", login: a.login, avatar: a.avatar_url, projects: a.projects.length }));
     return [current, ...saved, { kind: "add" }];
@@ -181,7 +182,7 @@ export function AccountPicker({ login, currentProjects, startup, onSwitch, onAdd
               {on && p.kind !== "add" && (
                 <span className="picker-sub">
                   {p.kind === "current" && <>{trx("今のアカウント{br}", { br: <br /> })}</>}
-                  {p.projects > 0 ? tr("使うリポジトリ {countOf}", { countOf: countOf(p.projects, tr("件")) }) : tr("リポジトリなし")}
+                  {p.projects > 0 ? tr("使うリポジトリ {n}", { n: countOf(p.projects, tr("件")) }) : tr("リポジトリなし")}
                   {p.kind === "current" && p.expiry && <><br />{p.expiry}</>}
                 </span>
               )}

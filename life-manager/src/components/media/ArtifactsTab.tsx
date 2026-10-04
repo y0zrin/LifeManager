@@ -199,7 +199,7 @@ export function ArtifactsTab({ owner, repo, number, folder, onCount }: Artifacts
             {c.pull !== null && <span className="af-pull">🔃 #{c.pull}</span>}
           </span>
         ))}
-        {data.commits.length > 6 && <span className="muted">{tr("ほか")}{" "} {data.commits.length - 6}</span>}
+        {data.commits.length > 6 && <span className="muted">{tr("ほか {n}", { n: data.commits.length - 6 })}</span>}
       </div>
       {files.length === 0 ? (
         <p className="af-note">{tr("つながるコミットで変わったファイルはありません。")}</p>

@@ -37,9 +37,9 @@ interface CreatePullDialogProps {
   onClose: () => void;
 }
 
-/** 本文のひな形（何を変えたか・どう確かめたかを書くと、レビューする人が見やすい） */
+/** 本文のひな形（何を変えたか・どう確かめたかを書くと、レビューする人が見やすい）。GitHub に書く文なので訳さない */
 function template(issue: number | null) {
-  return tr("{v}## 何を変えたか\n- \n\n## どう確かめたか\n- \n", { v: issue !== null ? `Closes #${issue}\n\n` : "" });
+  return `${issue !== null ? `Closes #${issue}\n\n` : ""}## 何を変えたか\n- \n\n## どう確かめたか\n- \n`;
 }
 
 /** 行の数がないファイル（画像・音・3D・フォント・圧縮など） */
@@ -224,7 +224,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
                   <span>
                     {trx("<0>{ahead_by}</0> コミット・<1>{length}</1> ファイル", { ahead_by: cmp.ahead_by, length: cmp.files.length }, [<b />, <b />])}{" "} <span className="add">+{added}{uncounted > 0 && tr(" 以上")}</span> <span className="del">−{deleted}{uncounted > 0 && tr(" 以上")}</span>
                   </span>
-                  {cmp.behind_by > 0 && <span className="muted">{trx("（{base} にはこのブランチに無いコミットが", { base })}{" "} {countOf(cmp.behind_by, tr("件"))}{tr("あります）")}</span>}
+                  {cmp.behind_by > 0 && <span className="muted">{tr("（{base} にはこのブランチに無いコミットが {count}あります）", { base, count: countOf(cmp.behind_by, tr("件")) })}</span>}
                   {uncounted > 0 && <span className="muted">{trx("（差分が大きいので、{uncounted} ファイルは行の数を数えていません）", { uncounted })}</span>}
                   <span className="grow" />
                   <button type="button" className="btn-sm" onClick={() => setShowDiff((v) => !v)} aria-expanded={showDiff}>
@@ -237,7 +237,7 @@ export function CreatePullDialog(props: CreatePullDialogProps) {
                       <code>{c.sha.slice(0, 7)}</code> {firstLine(c.message)}
                     </li>
                   ))}
-                  {cmp.commits.length > 5 && <li className="muted">{tr("ほか")}{" "} {cmp.commits.length - 5} {" "}{tr("コミット")}</li>}
+                  {cmp.commits.length > 5 && <li className="muted">{tr("ほか {n} コミット", { n: cmp.commits.length - 5 })}</li>}
                 </ul>
                 {showDiff && (
                   <div className="pr-dialog-diff">

@@ -101,7 +101,7 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
             if (alive.current) setFinishing(false);
           }
         } else if (r.status === "expired") {
-          setMessage(tr("コードの期限（15 分）が切れました。もう一度「") + label + tr("」を押してください"));
+          setMessage(tr("コードの期限（15 分）が切れました。もう一度「{label}」を押してください", { label }));
         } else if (r.status === "denied") {
           setMessage(tr("GitHub の画面でログインをやめました。もう一度押すとやり直せます"));
         } else {
@@ -111,7 +111,7 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
       }
       if (alive.current && mine === attempt.current) {
         setCode(null);
-        setMessage(tr("コードの期限（15 分）が切れました。もう一度「") + label + tr("」を押してください"));
+        setMessage(tr("コードの期限（15 分）が切れました。もう一度「{label}」を押してください", { label }));
       }
     } catch (e) {
       if (alive.current && mine === attempt.current) {
@@ -153,7 +153,7 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
     return (
       <div className="gh-login">
         <p className="gh-login-wait">
-          <i className="spinner" aria-hidden="true" /> {" "}{tr("ログインできました。準備しています…")}
+          <i className="spinner" aria-hidden="true" /> {tr("ログインできました。準備しています…")}
         </p>
       </div>
     );
@@ -164,7 +164,11 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
       <div className="gh-login">
         <p className="gh-login-lead">
           {tr("ブラウザで GitHub が開きました。")}
-          {copied ? (isMobile ? tr("コードはコピーしてあるので、欄を長押しして貼り付け、") : tr("コードはコピーしてあるので、貼って（Ctrl+V）")) : tr("次のコードを入れて")}{tr("「Continue」→「Authorize」を押してください。")}
+          {copied
+            ? isMobile
+              ? tr("コードはコピーしてあるので、欄を長押しして貼り付け、「Continue」→「Authorize」を押してください。")
+              : tr("コードはコピーしてあるので、貼って（Ctrl+V）「Continue」→「Authorize」を押してください。")
+            : tr("次のコードを入れて「Continue」→「Authorize」を押してください。")}
           {isMobile && tr("許可したら、このアプリに戻ってください。")}
         </p>
         <div className="gh-login-code">
@@ -174,11 +178,10 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
           </button>
         </div>
         <p className="gh-login-wait">
-          <i className="spinner" aria-hidden="true" /> {offline ? tr("GitHub につながるのを待っています…") : tr("GitHub で許可されるのを待っています…")}{tr("（ブラウザが開かないとき：")}
-          <button type="button" className="link-button" onClick={() => openUrl(code.verification_uri)}>
-            {code.verification_uri.replace(/^https:\/\//, "")}
-          </button>
-          ）
+          <i className="spinner" aria-hidden="true" /> {offline ? tr("GitHub につながるのを待っています…") : tr("GitHub で許可されるのを待っています…")}
+          {trx("（ブラウザが開かないとき：<0>{url}</0>）", { url: code.verification_uri.replace(/^https:\/\//, "") }, [
+            <button type="button" className="link-button" onClick={() => openUrl(code.verification_uri)} />,
+          ])}
         </p>
         <button type="button" className="link-button" onClick={cancel}>
           {tr("やめる")}

@@ -34,7 +34,7 @@ function SideBox({ side, label, lines, state, order, onUse }: {
     <div className={`mt-side mt-side--${side}${state ? ` mt-side--${state}` : ""}`}>
       <div className="mt-side-head">
         <span className="mt-side-label">{label}</span>
-        {state === "use" && <span className="mt-badge mt-badge--use">✔ {order ? tr("{order} 番目に", { order }) : ""}{tr("使う")}</span>}
+        {state === "use" && <span className="mt-badge mt-badge--use">✔ {order ? tr("{order} 番目に使う", { order }) : tr("使う")}</span>}
         {state === "drop" && <span className="mt-badge mt-badge--drop">{tr("✖ 捨てる")}</span>}
       </div>
       <pre className="mt-lines">{lines.length > 0 ? lines.join("\n") : <span className="mt-empty">{tr("（この側では、ここは消されています）")}</span>}</pre>

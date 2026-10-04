@@ -92,7 +92,7 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
       )}
       {watching && (
         <p className="repo-access-wait">
-          <i className="spinner" aria-hidden="true" /> {" "}{tr("GitHub の画面で、使うリポジトリを選んで")}{" "} {mine ? "Save" : "Install"} {" "}{tr("を押してください。押すと、ここに出ます…")}
+          <i className="spinner" aria-hidden="true" /> {tr("GitHub の画面で、使うリポジトリを選んで {button} を押してください。押すと、ここに出ます…", { button: mine ? "Save" : "Install" })}
           <button type="button" className="link-button" onClick={stop}>{tr("やめる")}</button>
         </p>
       )}
@@ -104,9 +104,10 @@ export function RepoAccess({ me, installUrl, installations, onChanged, primary =
             : tr("GitHub の画面が、あなたのアカウントを選んだ状態で開きます。「すべて」か、使うリポジトリを選んで Install を押します。")}
           {!mine && (
             <>
-              {" "}{tr("組織（Organization）に入れるときは")}{" "}
-              <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})}>{tr("こちら")}</button>
-              {tr("（組織の持ち主が入れます）。")}
+              {" "}
+              {trx("組織（Organization）に入れるときは <0>こちら</0>（組織の持ち主が入れます）。", undefined, [
+                <button type="button" className="link-button" onClick={() => openUrl(installUrl).catch(() => {})} />,
+              ])}
             </>
           )}
         </p>

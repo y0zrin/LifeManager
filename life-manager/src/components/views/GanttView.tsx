@@ -973,7 +973,10 @@ export function GanttView({
                     title={tr("押すと、その行まで送ります")}
                     onClick={() => jumpTo(ex.partner)}
                   >
-                    {arrow} {ex.kind === "pred" ? tr("先行") : tr("後続")} {issueRef(ex.partner)} {partner ? shortTitle(partner.title) : ""} {" "}{tr("へ")}
+                    {arrow}{" "}
+                    {ex.kind === "pred"
+                      ? tr("先行 {issueRef} {title} へ", { issueRef: issueRef(ex.partner), title: partner ? shortTitle(partner.title) : "" })
+                      : tr("後続 {issueRef} {title} へ", { issueRef: issueRef(ex.partner), title: partner ? shortTitle(partner.title) : "" })}
                   </button>
                 );
               })}
@@ -1007,7 +1010,9 @@ export function GanttView({
                 <span className="gantt-info-meta">
                   {[
                     links.self.startDate && links.self.endDate
-                      ? `${links.self.tentative ? tr("仮に ") : ""}${md(links.self.startDate)}〜${md(links.self.endDate)}`
+                      ? links.self.tentative
+                        ? tr("仮に {start}〜{end}", { start: md(links.self.startDate), end: md(links.self.endDate) })
+                        : `${md(links.self.startDate)}〜${md(links.self.endDate)}`
                       : tr("日程なし"),
                     links.self.estimate ? tr("見積 {estimate}", { estimate: links.self.estimate }) : null,
                     tr("進み {v}%", { v: links.self.progressValue }),
@@ -1049,7 +1054,7 @@ export function GanttView({
                       </span>
                     ))}
                     {list.length > LINKS_PER_LINE && (
-                      <span title={list.slice(LINKS_PER_LINE).map((l) => `${issueRef(l.n)} ${l.title}`).join("\n")}>{tr("ほか")}{" "} {list.length - LINKS_PER_LINE} {" "}{tr("つ")}</span>
+                      <span title={list.slice(LINKS_PER_LINE).map((l) => `${issueRef(l.n)} ${l.title}`).join("\n")}>{tr("ほか {n} つ", { n: list.length - LINKS_PER_LINE })}</span>
                     )}
                   </div>
                 );

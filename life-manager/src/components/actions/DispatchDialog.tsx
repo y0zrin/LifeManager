@@ -100,7 +100,7 @@ export function DispatchDialog({ owner, repo, workflow, branches, defaultBranch,
           <label className="ac-dispatch-check ac-dispatch-agree">
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>
-              {tr("非公開のリポジトリなので、")}{ownerLabel ?? owner} {" "}{tr("の Actions の無料の時間（月 2,000 分）を使うことを確かめました")}
+              {tr("非公開のリポジトリなので、{owner} の Actions の無料の時間（月 2,000 分）を使うことを確かめました", { owner: ownerLabel ?? owner })}
             </span>
           </label>
         )}

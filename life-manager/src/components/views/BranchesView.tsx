@@ -15,7 +15,7 @@ import {
 import { easeScrollTo } from "../../lib/motion";
 import type { GitActions } from "../../hooks/useGitActions";
 import { BranchPicker } from "../git/BranchPicker";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface BranchesViewProps {
   history: GitHistory;
@@ -474,7 +474,7 @@ const BranchPage = memo(function BranchPage({
             <span>
               {trx("{name} より", { name: defaultEntry.name })}
               {vsDefault.ahead > 0 && tr(" {ahead} 先行", { ahead: vsDefault.ahead })}
-              {vsDefault.ahead > 0 && vsDefault.behind > 0 && "、"}
+              {vsDefault.ahead > 0 && vsDefault.behind > 0 && listSep()}
               {vsDefault.behind > 0 && tr(" {behind} 遅れ", { behind: vsDefault.behind })}
             </span>
           )}

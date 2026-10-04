@@ -191,13 +191,13 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
       case "referenced":
         return e.commit_id ? { icon: "🔨", text: <>{trx("コミット {commitLink} から触れられました", { commitLink: commitLink(e) })}</> } : null;
       case "sub_issue_added":
-        return { icon: "🧩", text: <>{trx("{who} が子", { who })}{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} {" "}{tr("を足しました")}</> };
+        return { icon: "🧩", text: <>{trx("{who} が子 {issue} を足しました", { who, issue: e.sub_issue ? issueLink(e.sub_issue) : "" })}</> };
       case "sub_issue_removed":
-        return { icon: "🧩", text: <>{trx("{who} が子", { who })}{e.sub_issue ? <> {issueLink(e.sub_issue)}</> : ""} {" "}{tr("を外しました")}</> };
+        return { icon: "🧩", text: <>{trx("{who} が子 {issue} を外しました", { who, issue: e.sub_issue ? issueLink(e.sub_issue) : "" })}</> };
       case "parent_issue_added":
-        return { icon: "🧩", text: <>{trx("{who} が親", { who })}{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} {" "}{tr("の子にしました")}</> };
+        return { icon: "🧩", text: <>{trx("{who} が親 {issue} の子にしました", { who, issue: e.parent_issue ? issueLink(e.parent_issue) : "" })}</> };
       case "parent_issue_removed":
-        return { icon: "🧩", text: <>{trx("{who} が親", { who })}{e.parent_issue ? <> {issueLink(e.parent_issue)}</> : ""} {" "}{tr("から外しました")}</> };
+        return { icon: "🧩", text: <>{trx("{who} が親 {issue} から外しました", { who, issue: e.parent_issue ? issueLink(e.parent_issue) : "" })}</> };
       case "locked":
         return { icon: "🔒", text: <>{trx("{who} がコメントできないようにしました", { who })}</> };
       case "unlocked":
@@ -302,25 +302,21 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
             if (item.kind === "created") {
               return (
                 <li key="created" className="timeline-event">
-                  📝 {item.actor ? <b>{item.actor}</b> : tr("だれか")} {" "}{trx("が作りました<0>{when}</0>", { when: when(item.at) }, [<span className="timeline-when" />])}
+                  📝 {trx("{who} が作りました<0>{when}</0>", { who: item.actor ? <b>{item.actor}</b> : tr("だれか"), when: when(item.at) }, [<span className="timeline-when" />])}
                 </li>
               );
             }
             if (item.kind === "labels") {
+              const who = item.actor || tr("だれか");
+              const removed = <>{item.removed.map((e) => <LabelBadge key={`r${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)}</>;
+              const added = <>{item.added.map((e) => <LabelBadge key={`a${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)}</>;
               return (
                 <li key={`l${i}`} className="timeline-event">
-                  🏷 <b>{item.actor || tr("だれか")}</b> {" "}{tr("が")}
-                  {item.removed.length > 0 && (
-                    <>
-                      {" "}{item.removed.map((e) => <LabelBadge key={`r${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} {" "}{tr("を外し")}
-                      {item.added.length > 0 ? "、" : tr("ました")}
-                    </>
-                  )}
-                  {item.added.length > 0 && (
-                    <>
-                      {" "}{item.added.map((e) => <LabelBadge key={`a${e.label?.name}`} name={e.label?.name ?? ""} color={e.label?.color ?? "cccccc"} />)} {" "}{tr("を付けました")}
-                    </>
-                  )}
+                  🏷 {item.removed.length > 0 && item.added.length > 0
+                    ? trx("<0>{who}</0> が {removed} を外し、 {added} を付けました", { who, removed, added }, [<b />])
+                    : item.removed.length > 0
+                      ? trx("<0>{who}</0> が {removed} を外しました", { who, removed }, [<b />])
+                      : trx("<0>{who}</0> が {added} を付けました", { who, added }, [<b />])}
                   <span className="timeline-when">{when(item.at)}</span>
                 </li>
               );

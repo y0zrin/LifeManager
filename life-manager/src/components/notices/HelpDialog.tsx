@@ -157,9 +157,9 @@ export function HelpDialog({ issue, me, collaborators, context, onSend, onClose 
         </div>
 
         <div className="help-preview">
-          {trx("送るコメント: <0>🆘 助けてください</0>", undefined, [<b />])}{" "} {to.length > 0 ? to.map((l) => `@${l}`).join(" ") : <em>{tr("（だれかを選んでください）")}</em>}
+          {trx("送るコメント: <0>🆘 助けてください</0>", undefined, [<b />])} {to.length > 0 ? to.map((l) => `@${l}`).join(" ") : <em>{tr("（だれかを選んでください）")}</em>}
           {firstLine && <> ／ {firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : firstLine}</>}
-          {anyContext && <> {" "}{tr("／ ▸ いっしょに送るもの")}</>}
+          {anyContext && <> {tr("／ ▸ いっしょに送るもの")}</>}
         </div>
 
         {error && <p className="git-dialog-error">{error}</p>}

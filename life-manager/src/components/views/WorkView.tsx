@@ -582,7 +582,7 @@ function Workspace({
               {trx("プルリク <0>#{number}</0> を出しています（{reviewLabel}）。", { number: pr.number, reviewLabel: reviewLabel(pr) }, [<b />])}
               {pr.checks && pr.checks.failure > 0 && (
                 <span className="w-flow-warn">
-                  {tr("✖ チェック（Actions のテストなど）が")}{" "} {countOf(pr.checks.failure, tr("件"))}{tr("失敗しています。")}
+                  {tr("✖ チェック（Actions のテストなど）が {n}失敗しています。", { n: countOf(pr.checks.failure, tr("件")) })}
                 </span>
               )}
               {unsentNote}
@@ -1038,7 +1038,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                           </button>
                         )}
                         <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", own)}>
-                          {tr("今のブランチ（")}{branch || tr("切り離し")}{tr("）で始める")}
+                          {branch ? tr("今のブランチ（{branch}）で始める", { branch }) : tr("今のブランチ（切り離し）で始める")}
                         </button>
                       </>
                     )}
@@ -1212,7 +1212,7 @@ function ReportStep({ issue, onOpenIssue, onListComments, onComment, onReported,
             </div>
           ))
         )}
-        {comments && comments.length > past.length && <p className="muted">{tr("ほか")}{" "} {comments.length - past.length} {" "}{tr("件は、Issue を開くと見られます")}</p>}
+        {comments && comments.length > past.length && <p className="muted">{tr("ほか {n} 件は、Issue を開くと見られます", { n: comments.length - past.length })}</p>}
       </div>
     </div>
   );
@@ -1506,7 +1506,7 @@ function CommitWatch({ found, isStaged, actions, busy }: { found: WatchFinding[]
                 }
               >
                 <code>{f.kind === "large" ? f.path : `${f.path}/`}</code>
-                <span>{f.kind === "large" ? tr("{megabytes}（GitHub は 100 MB まで）", { megabytes: megabytes(f.size ?? 0) }) : tr("{tool} が作るフォルダ（ファイル {countOf}）", { tool: f.tool, countOf: countOf(f.files, tr("個")) })}</span>
+                <span>{f.kind === "large" ? tr("{megabytes}（GitHub は 100 MB まで）", { megabytes: megabytes(f.size ?? 0) }) : tr("{tool} が作るフォルダ（ファイル {n}）", { tool: f.tool, n: countOf(f.files, tr("個")) })}</span>
               </div>
               <button
                 type="button"

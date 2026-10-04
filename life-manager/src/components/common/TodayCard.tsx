@@ -66,7 +66,7 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
   const finished = finishedDay === day;
 
   function finishDay(button: HTMLElement) {
-    const parts = [tr("タスク {countOf}", { countOf: countOf(done.length, tr("件")) }), ...(commits !== null ? [tr("コミット {commits} 回", { commits })] : [])];
+    const parts = [tr("タスク {n}", { n: countOf(done.length, tr("件")) }), ...(commits !== null ? [tr("コミット {n} 回", { n: commits })] : [])];
     const text = done.length > 0 || (commits ?? 0) > 0 ? tr("今日は{join}", { join: parts.join(listSep()) }) : tr("今日はここまで");
     celebrateDone(tr("今日"), button, text);
     try {
@@ -99,7 +99,7 @@ export function TodayCard({ closedIssues, events, me, folder, gitOps, onOpenIssu
               ✓ <span className="today-task-n">#{i.number}</span> {i.title}
             </button>
           ))}
-          {done.length > SHOWN && <span className="today-more">{tr("ほか")}{" "} {done.length - SHOWN}</span>}
+          {done.length > SHOWN && <span className="today-more">{tr("ほか {n}", { n: done.length - SHOWN })}</span>}
         </div>
       )}
       <div className="today-actions">

@@ -183,7 +183,7 @@ export function MediaViewer({ files, start, title, onClose, loadPatch }: MediaVi
       : (
         <div className="mv-main full">
           <div className="mv-note center">
-            {tr("この形式（.")}{ext || "?"}{tr("）はここでは見られません。")}
+            {tr("この形式（.{ext}）はここでは見られません。", { ext: ext || "?" })}
             {folder && <div className="mv-row center"><button type="button" className="btn-sm" onClick={() => openOutside(p)}>{tr("外部のアプリで開く")}</button></div>}
           </div>
         </div>

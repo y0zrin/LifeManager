@@ -321,7 +321,7 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
         ))}
         {composing && composer && onComment && (
           <LineComposer
-            label={tr("{v} {line} 行目にコメント", { v: composer.side === "LEFT" ? tr("変える前の") : "", line: composer.line })}
+            label={composer.side === "LEFT" ? tr("変える前の {line} 行目にコメント", { line: composer.line }) : tr("{line} 行目にコメント", { line: composer.line })}
             onCancel={() => setComposer(null)}
             onSubmit={async (body) => {
               await onComment({ path: file.filename, line: composer.line, side: composer.side, body });

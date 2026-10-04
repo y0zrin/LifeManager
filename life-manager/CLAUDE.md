@@ -110,12 +110,15 @@ src-tauri/src/
 - 画面に出す文は `tr("日本語")`（`src/lib/i18n.ts`）で包む。鍵は日本語の文そのもの。訳は `src/locales/en.json`・`zh-Hans.json`・`zh-Hant.json`（辞書にない文は日本語のまま出る）
   - 数や名前は `tr("{n} 件のタスク", { n })`（英語の 1 task / 2 tasks は、辞書の値を `{ "one": …, "other": … }` に）
   - 太字やコードの入る文は、文を分けずに `trx("<0>{name}</0> を招待しました", { name }, [<b />])`
+  - 1 つの文を、名前や数の前後で `tr("…が")` `tr("を…")` のように切らない（英語・中国語は語順が違うので、切れ端を訳すと崩れる）。条件で変わるところは、それぞれ丸ごとの文にする
+  - 見積もりの数は `formatEstimate()`（画面用。単位を訳す）。ラベルの名前は `estimateLabel()`（日本語のまま）
   - 曜日・月・日付・ならびの区切りは `weekdayName`・`monthShort`・`monthLong`・`localeTag`・`listSep`・`joinNames` を使う（「日月火水木金土」の一字や「、」を書かない）
   - ラベルの名前（`種別:メモ` など）はデータなので日本語のまま。画面に出すときは `labelText()`・`labelValueText()`・`sectionOf()`
 - **訳さないもの**（日本語のまま。ユーザー決定 2026-10-04）: アプリが GitHub やチームに書く文（日誌の見出し・作業報告や 🆘 の決まった文・ラベルの名前と説明・Actions のひな形・Issue テンプレート・リリースノート・Discord への知らせ）。言語のまざったチームでも同じ形で読み取れるように。マニュアル（manual.html）も日本語のまま
 - Rust が返す文（エラー・「保存しました」などの結果）は `lib/invoke.ts` が訳す（鍵は format! の `{}` を `{0}` `{1}` … にした形）。文で見分けるときは `jaOf(message).includes("…")` で元の日本語に戻して見る
 - 文を足したら `npm run i18n:check`（訳のない文・包み忘れ・訳の形の食い違いを出す）。訳すときは `npm run i18n:todo` で `i18n-todo.json` に一覧を出し、3 つの辞書に足す。
-  わざと日本語のまま残す文（GitHub に書く文など）を足したときは `node scripts/i18n.mjs --update-baseline`。変数で訳す文（`tr(ラベルの名前)` など）は `scripts/i18n-extra-keys.json` に足す
+  わざと日本語のまま残す文（GitHub に書く文など）を足したときは `node scripts/i18n.mjs --update-baseline`。変数で訳す文（`tr(ラベルの名前)` など）は `scripts/i18n-extra-keys.json` に足す。
+  文を直して使わなくなった鍵は `node scripts/i18n.mjs --prune` で辞書から消す
 - 言語を変えると画面を読み直す（`setLang`）。読み込むときに決まる文（モジュールの定数）もその言語になるよう、辞書は `main.tsx` で読んでから `start.tsx` を読む
 
 ## ラベル体系

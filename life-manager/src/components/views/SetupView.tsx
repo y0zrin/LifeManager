@@ -454,11 +454,9 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                 {trx("ログアウトしました（{THIS_DEVICE}から鍵を消しました）。", { THIS_DEVICE })}
                 {notice.login && (
                   <>
-                    {tr("GitHub での Life Manager の許可も取り消すときは")}{" "}
-                    <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})}>
-                      {tr("GitHub の画面を開く")}
-                    </button>
-                    {tr("（Life Manager App の Revoke を押します）。")}
+                    {trx("GitHub での Life Manager の許可も取り消すときは <0>GitHub の画面を開く</0>（Life Manager App の Revoke を押します）。", undefined, [
+                      <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})} />,
+                    ])}
                   </>
                 )}
               </>

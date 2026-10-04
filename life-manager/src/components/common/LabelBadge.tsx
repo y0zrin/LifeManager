@@ -1,4 +1,4 @@
-import { tr, labelText } from "../../lib/i18n";
+import { tr, labelText, labelValueText } from "../../lib/i18n";
 /**
  * ラベルの短い名前（スマホのカード。#208）: 分類の名前を外して値だけにする。
  * 優先は値だけだと分からない（「高」）ので「優先 高」。分類のない名前はそのまま
@@ -7,7 +7,7 @@ export function shortLabelName(name: string): string {
   const i = name.indexOf(":");
   if (i < 0) return name;
   const cat = name.slice(0, i);
-  const value = tr(name.slice(i + 1));
+  const value = labelValueText(name);
   return cat === "優先" ? tr("優先 {value}", { value }) : value;
 }
 

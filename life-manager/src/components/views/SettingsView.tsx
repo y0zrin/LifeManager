@@ -21,7 +21,7 @@ import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions
 import { stepDirection, withTransition } from "../../lib/motion";
 import type { MilestoneBar } from "../../lib/milestoneStage";
 import type { NoticeCorner } from "../../lib/notices";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, weekdayName, joinWeekdays } from "../../lib/i18n";
 import { LanguageSelect } from "../common/LanguageSelect";
 
 interface SettingsViewProps {
@@ -80,7 +80,7 @@ export type UpdateCheck = "latest" | "available" | "error";
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const weekdayLabels: Record<string, string> = {
-  mon: tr("月"), tue: tr("火"), wed: tr("水"), thu: tr("木"), fri: tr("金"), sat: tr("土"), sun: tr("日"),
+  mon: weekdayName(1), tue: weekdayName(2), wed: weekdayName(3), thu: weekdayName(4), fri: weekdayName(5), sat: weekdayName(6), sun: weekdayName(0),
 };
 const notifyTypes: Record<string, string> = {
   today_tasks: tr("今日のタスク一覧"),
@@ -767,7 +767,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
         {notificationSchedules.map((notif, index) => {
           const scheduleStr = notif.schedule.frequency === "daily"
-            ? tr("毎日{v}", { v: notif.schedule.days ? ` (${notif.schedule.days.map((d) => weekdayLabels[d] || d).join("")})` : "" })
+            ? tr("毎日{v}", { v: notif.schedule.days ? ` (${joinWeekdays(notif.schedule.days.map((d) => weekdayLabels[d] || d))})` : "" })
             : notif.schedule.frequency === "weekly"
             ? tr("毎週{v}曜日", { v: weekdayLabels[String(notif.schedule.day)] || notif.schedule.day })
             : tr("毎月{day}日", { day: notif.schedule.day });

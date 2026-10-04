@@ -1,6 +1,6 @@
 // ヒストリーの「チームの仕事」: これまでの合計（減らない数）と、前に見た数・届いた節目（この PC に覚える）
 import { invoke } from "./invoke";
-import { tr } from "./i18n";
+import { tr, localeTag } from "./i18n";
 
 export interface TeamTotals {
   /** 既定のブランチのコミット */
@@ -81,4 +81,4 @@ export function saveTeamSeen(repo: string, seen: TeamSeen) {
 }
 
 /** 1,284 */
-export const fmt = (n: number) => n.toLocaleString("ja-JP");
+export const fmt = (n: number) => n.toLocaleString(localeTag());

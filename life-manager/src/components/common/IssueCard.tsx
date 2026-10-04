@@ -12,7 +12,7 @@ import { issueRef } from "../../lib/issueRef";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import { Avatar } from "./Avatar";
 import { isMobile } from "../../lib/platform";
-import { tr } from "../../lib/i18n";
+import { tr, localeTag } from "../../lib/i18n";
 
 export function IssueCard({
   issue,
@@ -87,7 +87,7 @@ export function IssueCard({
 
   const isMemo = issue.labels.some((l) => l.name === "種別:メモ");
   const currentStatus = issue.labels.find((l) => l.name.startsWith("状態:"))?.name || "";
-  const dateStr = new Date(issue.created_at).toLocaleDateString("ja-JP");
+  const dateStr = new Date(issue.created_at).toLocaleDateString(localeTag());
 
   const todoMatch = issue.body?.match(/- \[[ x]\]/g);
   const todoTotal = todoMatch?.length || 0;

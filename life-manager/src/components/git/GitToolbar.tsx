@@ -191,8 +191,8 @@ function MoreMenu({ git: g, actions, disabled, onOpenCommit }: MoreMenuProps) {
             code: "git stash pop stash@{0}",
             off: g.stashes.length === 0,
           })}
-          {item(tr("🌿 ブランチを作成…"), () => actions.createBranch(), { code: tr("git switch -c {名前}") })}
-          {item(tr("🏷️ 今のコミットにタグを付ける…"), actions.tag, { code: tr("git tag {名前}"), off: !st.head })}
+          {item(tr("🌿 ブランチを作成…"), () => actions.createBranch(), { code: tr("git switch -c {名前}", { 名前: tr("名前") }) })}
+          {item(tr("🏷️ 今のコミットにタグを付ける…"), actions.tag, { code: tr("git tag {名前}", { 名前: tr("名前") }), off: !st.head })}
           {item(tr("📝 .gitignore を編集…"), actions.editGitignore)}
           <hr />
           {item(tr("🗑 作業中の変更をすべて破棄…"), actions.discardAll, {

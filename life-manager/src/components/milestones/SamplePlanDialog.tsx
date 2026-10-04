@@ -143,7 +143,9 @@ export function SamplePlanDialog({ milestones, onCreateMilestone, onCreateIssue,
             {tr("やめる")}
           </button>
           <button type="button" className="btn-primary" disabled={!canCreate} onClick={(e) => void create(e.currentTarget)}>
-            {trx("作る（マイルストーン {length} つ", { length: GAME_PLAN.length })}{withTasks ? tr("・タスク {taskCount} 件", { taskCount }) : ""}）
+            {withTasks
+              ? tr("作る（マイルストーン {n} つ・タスク {taskCount} 件）", { n: GAME_PLAN.length, taskCount })
+              : tr("作る（マイルストーン {n} つ）", { n: GAME_PLAN.length })}
           </button>
         </div>
       </div>

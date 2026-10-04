@@ -9,7 +9,7 @@ import { dateToDays, barColorOf, relatedOf } from "../../lib/ganttRenderer";
 import { arrowKey } from "../../lib/ganttArrows";
 import { issueRef } from "../../lib/issueRef";
 import { Avatar } from "../common/Avatar";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, monthShort } from "../../lib/i18n";
 
 export type MobileScale = "all" | "week" | "day";
 
@@ -149,7 +149,7 @@ export function GanttMobileChart({
       lastMonth = m;
       out.push({
         x: PAD_L + (i + 0.5) * dayW,
-        label: step === 30 ? tr("{m}月", { m }) : newMonth ? `${m}/${d}` : `${d}`,
+        label: step === 30 ? monthShort(m) : newMonth ? `${m}/${d}` : `${d}`,
         strong: newMonth,
         weekend: step <= 2 && (dow === 0 || dow === 6),
       });

@@ -56,7 +56,8 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
   const today = ymd(new Date());
 
   function extractNotes(md: string): string {
-    const marker = tr("## ノート\n");
+    // 日誌の見出し（GitHub に日本語で書いてある。訳さない）
+    const marker = "## ノート\n";
     const idx = md.indexOf(marker);
     if (idx < 0) return "";
     const rest = md.substring(idx + marker.length);
@@ -157,7 +158,8 @@ export function TimelineView({ issues, closedIssues, milestones, me, onGenerateJ
 
   // ノートセクションを除いたMarkdownを返す
   function stripNotesSection(md: string): string {
-    const marker = tr("## ノート\n");
+    // 日誌の見出し（GitHub に日本語で書いてある。訳さない）
+    const marker = "## ノート\n";
     const idx = md.indexOf(marker);
     if (idx < 0) return md;
     const before = md.substring(0, idx);

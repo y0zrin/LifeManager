@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { authPoll, authStart, loadLoginDays, LOGIN_PERIODS, storeLoginDays, type DeviceCode, type Poll } from "../../lib/auth";
 import { isMobile, THIS_DEVICE } from "../../lib/platform";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, jaOf } from "../../lib/i18n";
 
 interface GitHubLoginProps {
   /** ログインできた（トークンはアプリの中にしまってある）。Promise を返すと、終わるまで「準備しています」を出す */
@@ -29,8 +29,8 @@ function wait(ms: number): Promise<void> {
   });
 }
 
-/** 通信できなかったときの知らせ（Rust の NETWORK_ERROR と同じ書き出し） */
-const NETWORK_ERROR = tr("通信できませんでした");
+/** 通信できなかったときの知らせ（Rust の NETWORK_ERROR と同じ書き出し。訳したあとも元の日本語で見分ける） */
+const NETWORK_ERROR = "通信できませんでした";
 
 /**
  * 「GitHub でログイン」（デバイスフロー）。コードをコピーしてからブラウザで GitHub を開くので、
@@ -82,7 +82,7 @@ export function GitHubLogin({ onDone, label = tr("GitHub でログイン"), auto
         try {
           r = await authPoll(dc.device_code, days);
         } catch (e) {
-          if (!String(e).startsWith(NETWORK_ERROR)) throw e;
+          if (!jaOf(String(e)).startsWith(NETWORK_ERROR)) throw e;
           if (alive.current && mine === attempt.current) setOffline(true);
           continue;
         }

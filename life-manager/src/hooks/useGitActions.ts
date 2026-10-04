@@ -544,12 +544,12 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     return [
       {
         label: tr("🌿 このコミットからブランチを作成…"),
-        code: tr("git switch -c {名前} {h}", { h }),
+        code: tr("git switch -c {名前} {h}", { 名前: tr("名前"), h }),
         disabled: !can,
         hint: can ? undefined : NO_FOLDER_HINT,
         run: () => createBranch(undefined, c.hash),
       },
-      { label: tr("🏷️ タグを付ける…"), code: tr("git tag {名前} {h}", { h }), disabled: !can, run: () => tag(c.hash) },
+      { label: tr("🏷️ タグを付ける…"), code: tr("git tag {名前} {h}", { 名前: tr("名前"), h }), disabled: !can, run: () => tag(c.hash) },
       { label: tr("⎇ このコミットを取り出す（切り離された HEAD）"), code: `git switch --detach ${h}`, disabled: !can, run: () => detach(c.hash) },
       "sep",
       {
@@ -635,7 +635,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         hint: can && e.info?.upstream ? tr("上流は {upstream} に設定済みです", { upstream: e.info.upstream }) : undefined,
         run: () => setUpstream(e),
       },
-      { label: tr("✎ 名前を変更…"), code: tr("git branch -m {name} {新しい名前}", { name: e.name }), disabled: !can || !e.onPc, run: () => renameBranch(e) },
+      { label: tr("✎ 名前を変更…"), code: tr("git branch -m {name} {新しい名前}", { name: e.name, 新しい名前: tr("新しい名前") }), disabled: !can || !e.onPc, run: () => renameBranch(e) },
       "sep",
       {
         label: tr("🗑 削除…"),

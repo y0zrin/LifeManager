@@ -1,7 +1,7 @@
 import type { GitHubIssue, GitHubMilestone } from "../../lib/types";
 import { parseGanttDates } from "../../lib/ganttParser";
 import { isSending } from "../../lib/issueRef";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, weekdayName, monthLong } from "../../lib/i18n";
 
 /** カレンダーの帯（ガントの日付があるタスク）。kind は帯の色（状態） */
 export interface CalTask {
@@ -67,7 +67,7 @@ export function calendarMilestones(milestones: GitHubMilestone[]): CalMilestone[
 
 /** 1 日に重ねて書く帯の数（それより多いと「+2」） */
 const LANES = 3;
-const WEEKDAYS = [tr("日"), tr("月"), tr("火"), tr("水"), tr("木"), tr("金"), tr("土")];
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6].map(weekdayName);
 
 interface JournalCalendarProps {
   /** 見ている月（その月の 1 日） */
@@ -110,7 +110,7 @@ export function JournalCalendar({ month, selected, today, journals, tasks, miles
       <button type="button" className="jc-nav" onClick={() => onMonth(-1)} aria-label={tr("前の月")}>◀</button>
       <span className="jc-month">
         <small>{trx("{getFullYear} 年", { getFullYear: month.getFullYear() })}</small>
-        {month.getMonth() + 1} {" "}{tr("月")}
+        {monthLong(month.getMonth() + 1)}
       </span>
       <button type="button" className="jc-nav" onClick={() => onMonth(1)} aria-label={tr("次の月")}>▶</button>
       <button type="button" className="btn-sm jc-today" onClick={onToday}>{tr("今日")}</button>

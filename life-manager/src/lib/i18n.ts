@@ -186,10 +186,10 @@ export function translateMessage(msg: string): string {
   return msg;
 }
 
-/** {name} を値に（vars にない名前は、そのまま残す） */
+/** {name} を値に（vars にない名前は、そのまま残す）。名前は日本語でもよい（{名前}） */
 function fill(s: string, vars?: Record<string, unknown>): string {
   if (!vars) return s;
-  return s.replace(/\{(\w+)\}/g, (m, k: string) => (Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m));
+  return s.replace(/\{([^{}\s]+)\}/g, (m, k: string) => (Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m));
 }
 
 /**
@@ -248,7 +248,7 @@ export function trx(ja: string, vars?: Record<string, ReactNode>, tags?: ReactEl
         i = j + close.length;
         continue;
       }
-      const ph = /^\{(\w+)\}/.exec(src.slice(i));
+      const ph = /^\{([^{}\s]+)\}/.exec(src.slice(i));
       if (ph && vars && Object.prototype.hasOwnProperty.call(vars, ph[1])) {
         flush();
         const v = vars[ph[1]];
@@ -268,9 +268,25 @@ export function trx(ja: string, vars?: Record<string, ReactNode>, tags?: ReactEl
 
 /** 曜日の短い名前（日本語は「日」、英語は「Sun」、中国語は「日」） */
 export function weekdayShort(d: Date): string {
-  if (lang === "ja") return "日月火水木金土"[d.getDay()];
-  if (lang === "en") return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-  return "日一二三四五六"[d.getDay()];
+  return weekdayName(d.getDay());
+}
+
+/** 曜日の短い名前を、曜日の番号（0 = 日曜）から */
+export function weekdayName(day: number): string {
+  if (lang === "ja") return "日月火水木金土"[day] ?? "";
+  if (lang === "en") return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day] ?? "";
+  return "日一二三四五六"[day] ?? "";
+}
+
+/** 曜日の名前のならび（日本語・中国語はつなげる「月水金」、英語は「Mon, Wed, Fri」） */
+export function joinWeekdays(names: string[]): string {
+  return names.join(lang === "en" ? ", " : "");
+}
+
+/** 月の名前（カレンダーの見出し。日本語・中国語は「10 月」、英語は「October」） */
+export function monthLong(m: number): string {
+  if (lang === "en") return ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][m - 1] ?? String(m);
+  return `${m} 月`;
 }
 
 /** ラベルの分類（「種別:」「状態:」など）。この形のラベルは、分類と値を訳して出す */
@@ -284,12 +300,36 @@ export function labelText(name: string): string {
   if (lang === "ja") return name;
   const m = LABEL_CATEGORY.exec(name);
   if (!m) return name;
+  // 丸ごとの訳があればそれを（「種別:メモ」→「Type: Memo」）。なければ分類と値をそれぞれ
+  const whole = `${m[1]}:${m[2]}`;
+  if (dict[whole] !== undefined) return tr(whole);
   return `${tr(m[1])}: ${tr(m[2])}`;
+}
+
+/** ラベルの値だけを、画面に出す形に（「種別:メモ」→「Memo」。分類のないラベルはそのまま） */
+export function labelValueText(name: string): string {
+  const m = LABEL_CATEGORY.exec(name);
+  if (!m) return name;
+  if (lang === "ja") return m[2];
+  const shown = labelText(name);
+  const i = shown.indexOf(": ");
+  return i >= 0 ? shown.slice(i + 2) : tr(m[2]);
+}
+
+/** 月の短い名前（日本語・中国語は「10月」、英語は「Oct」） */
+export function monthShort(m: number): string {
+  if (lang === "en") return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] ?? String(m);
+  return `${m}月`;
 }
 
 /** 名前のならび（日本語・中国語は「、」、英語は ", "） */
 export function joinNames(names: string[]): string {
   return names.join(lang === "en" ? ", " : "、");
+}
+
+/** 日付や数の書き方に使う、言語の名前（ja-JP・en-US・zh-CN・zh-TW） */
+export function localeTag(): string {
+  return lang === "ja" ? "ja-JP" : lang === "en" ? "en-US" : htmlLang(lang);
 }
 
 /** 言語ごとの、数の区切り（1,284） */

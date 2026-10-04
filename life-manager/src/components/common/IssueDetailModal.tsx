@@ -23,7 +23,7 @@ import { IssueIndexContext } from "./SubIssueMarks";
 import { dropLocalComment, pruneLocalComments, putLocalComment, useLocalComments } from "../../lib/sending";
 import { isMobile, keyHint } from "../../lib/platform";
 import { inCategory } from "../../lib/section";
-import { tr, trx } from "../../lib/i18n";
+import { tr, trx, localeTag } from "../../lib/i18n";
 
 /** 詳細のタブ: 履歴（コメントと変更。はじめはこれ）・設定（ラベル・担当・ガントなど）・つながり（サブイシュー・関連）。内容（本文）はタブの上にいつも出す */
 type DetailTab = "history" | "settings" | "links" | "artifacts";
@@ -35,7 +35,8 @@ const CONTENT_CLAMP_PX = 88;
 type EditRow = "labels" | "assignees" | "dates" | "deps" | "progress" | "reminder";
 
 /** ラベルを選ぶ欄の並び（カテゴリごとに 1 行） */
-const LABEL_GROUPS = [tr("種別"), tr("状態"), tr("優先"), tr("セクション")];
+// ラベルの分類（ラベルの名前の頭。データなので日本語のまま。画面には tr() で訳して出す）
+const LABEL_GROUPS = ["種別", "状態", "優先", "セクション"];
 
 /** YYYY-MM-DD → M/D */
 function md(date: string): string {
@@ -418,7 +419,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
           ? todoDone / todoTotal
           : 0;
   const labelGroups = [
-    ...LABEL_GROUPS.map((g) => ({ name: g, labels: availableLabels.filter((l) => inCategory(l.name, `${g}:`)) })),
+    ...LABEL_GROUPS.map((g) => ({ name: tr(g), labels: availableLabels.filter((l) => inCategory(l.name, `${g}:`)) })),
     {
       name: tr("そのほか"),
       labels: availableLabels.filter((l) => !l.name.startsWith(ESTIMATE_PREFIX) && !LABEL_GROUPS.some((g) => inCategory(l.name, `${g}:`))),
@@ -853,7 +854,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                 issueReminders.length > 0
                   ? issueReminders.map((r) => (
                       <span key={r.datetime} className="idm-dep">
-                        {new Date(r.datetime).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}（{r.channels.map((c) => (c === "os" ? "OS" : "Discord")).join(tr("・"))}）
+                        {new Date(r.datetime).toLocaleString(localeTag(), { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}（{r.channels.map((c) => (c === "os" ? "OS" : "Discord")).join(tr("・"))}）
                         <span style={{ cursor: "pointer", color: "var(--accent-red)", marginLeft: "2px" }} title={tr("取り消す")}
                           onClick={() => onRemoveReminder(issue.number, r.datetime)}>×</span>
                       </span>
@@ -994,7 +995,7 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
                           </span>
                         ) : (
                           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                            {new Date(c.created_at).toLocaleString("ja-JP")}
+                            {new Date(c.created_at).toLocaleString(localeTag())}
                           </span>
                         )}
                       </div>

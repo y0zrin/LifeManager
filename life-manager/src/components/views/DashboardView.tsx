@@ -203,13 +203,16 @@ export function DashboardView({
   const [sortKey, setSortKey] = useState<SortKey>(loadSort);
   const [group, setGroup] = useState<GroupKey>(loadGroup);
   const [mode, setMode] = useState<ListMode>(loadMode);
-  // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える
+  // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える。PC はチェックをいつも出し、1 つ選ぶと帯が出る。スマホは「☑ 選ぶ」で出す
   const [picking, setPicking] = useState(false);
+  const pickable = !isMobile;
   // スマホの、下から出る絞り込みの板
   const [sheetOpen, setSheetOpen] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [bulkDone, setBulkDone] = useState<string | null>(null);
+  // 下の帯を出している（スマホは「☑ 選ぶ」のあいだ。PC は 1 つ以上選んだときと、まとめて変えた結果を出しているあいだ）
+  const selecting = picking || (pickable && (picked.size > 0 || bulkBusy !== null || bulkDone !== null));
   // Issue テンプレート（作るフォームを開いたときに読む。プロジェクトを切り替えたら読み直す）
   const [templates, setTemplates] = useState<IssueTemplate[] | null>(null);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -258,13 +261,13 @@ export function DashboardView({
 
   // 選んでいるあいだは、Esc で選ぶのをやめる
   useEffect(() => {
-    if (!picking) return;
+    if (!selecting) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isEscape(e) && !bulkBusy) quitPicking();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [picking, bulkBusy]);
+  }, [selecting, bulkBusy]);
 
   function quitPicking() {
     setPicking(false);
@@ -610,7 +613,7 @@ export function DashboardView({
   const list = (
     <>
       {mode === "table" && rows.length > 0 ? (
-        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} fresh={freshIssues} />
+        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} pickable={pickable} picked={picked} onTogglePick={togglePick} fresh={freshIssues} />
       ) : (
         groups.map((g) => (
           <Fragment key={g.title || "all"}>
@@ -628,7 +631,7 @@ export function DashboardView({
                 depth={depth}
                 index={i}
                 fresh={freshIssues.has(issue.number)}
-                picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick}
+                picking={picking} pickable={pickable} picked={picked.has(issue.number)} onTogglePick={togglePick}
                 selected={splitActive && selectedIssue === issue.number} />
             ))}
           </Fragment>
@@ -688,10 +691,6 @@ export function DashboardView({
             <option key={k} value={k}>{trx("並び: {SORT_LABELS}", { SORT_LABELS: SORT_LABELS[k] })}</option>
           ))}
         </select>
-        <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
-          onClick={() => (picking ? quitPicking() : setPicking(true))}>
-          {tr("☑ 選ぶ")}
-        </button>
         <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
         <span className="issue-count task-list-count">
           {trx("{length} 件", { length: filteredIssues.length })}
@@ -926,7 +925,7 @@ export function DashboardView({
         list
       )}
 
-      {picking && (
+      {selecting && (
         <BulkBar
           count={pickedIssues.length}
           hasOpen={pickedIssues.length === 0 || pickedIssues.some((i) => i.state === "open")}

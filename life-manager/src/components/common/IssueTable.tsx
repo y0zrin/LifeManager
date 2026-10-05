@@ -13,8 +13,10 @@ import { tr, trx, labelText, listSep } from "../../lib/i18n";
 interface IssueTableProps {
   groups: TaskGroup[];
   onSelect: (n: number) => void;
-  /** 「☑ 選ぶ」のあいだ（行を押すと選ぶ・外す） */
+  /** 「☑ 選ぶ」のあいだ（行を押すと選ぶ・外す。スマホ） */
   picking: boolean;
+  /** 選ぶチェックをいつも出す（PC。行を押すと、いつもどおり詳細を開く） */
+  pickable?: boolean;
   picked: Set<number>;
   onTogglePick: (n: number) => void;
   /** 新しく入った行（メモを投入したときなど）。上から入って、緑に光り、「NEW」を付ける */
@@ -33,15 +35,16 @@ function LabelPill({ issue, prefix }: { issue: GitHubIssue; prefix: string }) {
 }
 
 /** タスク一覧の「表」。1 行に 1 件。まとめたときは、まとまりごとに見出しの行を入れる */
-export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fresh }: IssueTableProps) {
-  const columns = picking ? 9 : 8;
+export function IssueTable({ groups, onSelect, picking, pickable = false, picked, onTogglePick, fresh }: IssueTableProps) {
+  const showPick = picking || pickable;
+  const columns = showPick ? 9 : 8;
   const unit = useEstimateUnit();
   return (
     <div className="task-table-wrap">
       <table className="task-table">
         <thead>
           <tr>
-            {picking && <th aria-label={tr("選ぶ")} />}
+            {showPick && <th aria-label={tr("選ぶ")} />}
             <th>#</th>
             <th>{tr("題")}</th>
             <th>{tr("状態")}</th>
@@ -79,7 +82,7 @@ export function IssueTable({ groups, onSelect, picking, picked, onTogglePick, fr
                     else onSelect(issue.number);
                   }}
                 >
-                  {picking && (
+                  {showPick && (
                     <td className="tt-pick">
                       <input type="checkbox" checked={isPicked} disabled={isUnsent(issue)} onChange={() => onTogglePick(issue.number)}
                         onClick={(e) => e.stopPropagation()} aria-label={tr("{issueRef} を選ぶ", { issueRef: issueRef(issue.number) })} />

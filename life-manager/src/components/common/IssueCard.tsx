@@ -23,6 +23,7 @@ export function IssueCard({
   onSelect,
   depth = 0,
   picking = false,
+  pickable = false,
   picked = false,
   onTogglePick,
   selected = false,
@@ -37,8 +38,10 @@ export function IssueCard({
   onSelect?: (n: number) => void;
   /** 親子でまとめたときの深さ（子は親の下に字下げし、「↑ 親」の印は出さない） */
   depth?: number;
-  /** 「☑ 選ぶ」のあいだ（押すと選ぶ・外す。操作のボタンは隠す） */
+  /** 「☑ 選ぶ」のあいだ（押すと選ぶ・外す。操作のボタンは隠す。スマホ） */
   picking?: boolean;
+  /** 選ぶチェックをいつも出す（PC。カードを押すと、いつもどおり詳細を開く） */
+  pickable?: boolean;
   picked?: boolean;
   onTogglePick?: (n: number) => void;
   /** 右の欄に詳細を出している（PC のタスク） */
@@ -125,7 +128,7 @@ export function IssueCard({
       {depth === 0 && <ParentMark issue={issue} />}
       <div className="issue-card-header">
         <div style={{ flex: 1 }}>
-          {picking && (
+          {(picking || pickable) && (
             <input type="checkbox" className="issue-card-pick" checked={picked} disabled={unsent}
               onChange={() => onTogglePick?.(issue.number)} aria-label={tr("{issueRef} を選ぶ", { issueRef: issueRef(issue.number) })} />
           )}

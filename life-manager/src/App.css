@@ -10932,8 +10932,11 @@ html.stage-still .desk-buncho::after {
 }
 
 .issue-card-pick {
+  width: 16px;
+  height: 16px;
   margin: 0 var(--space-sm) 0 0;
   vertical-align: middle;
+  accent-color: var(--accent-blue);
   cursor: pointer;
 }
 

@@ -193,7 +193,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     });
   }
 
-  /** ブランチを作って切り替える。start があれば、そのコミットから作る */
+  /** ブランチを作って切り替える。start があれば、そのコミット（または origin/main などのブランチ）から作る */
   function createBranch(suggested?: string, start?: string) {
     setDialog({
       kind: "input",
@@ -205,7 +205,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         ? tr("名前に空白は使えません。")
         : tr("作業中の変更はそのまま持っていきます。名前に空白は使えません。"),
       okLabel: tr("作成して切り替える"),
-      commandFor: (name) => git.displayCommand(["switch", "-c", name, ...(start ? [short(start)] : [])]),
+      commandFor: (name) => git.displayCommand(["switch", "-c", name, ...(start ? [/^[0-9a-f]{7,40}$/i.test(start) ? short(start) : start] : [])]),
       submit: (name) =>
         g.exec(
           tr("ブランチを作っています"),

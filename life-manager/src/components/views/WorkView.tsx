@@ -9,7 +9,7 @@ import { MergeTool } from "../git/MergeTool";
 import { withTransition } from "../../lib/motion";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEnter } from "../../lib/keys";
-import { branchPull, type PullSummary } from "../../lib/pulls";
+import { branchPull, deletePullBranch, type PullSummary } from "../../lib/pulls";
 import { countOf } from "../../lib/count";
 import { commentPreview } from "../../lib/help";
 import { branchNameFor, rememberWorkBranch, workBranchOf } from "../../lib/branchName";
@@ -500,6 +500,32 @@ function Workspace({
     clearReports(n);
     setChoice(null);
   };
+  // 既定のブランチに戻って最新にする
+  const backToDefault = async () => {
+    const switched = await g.exec(tr("切り替えています"), (p) => gitApi.switchBranch(p, defaultBranch, false), tr("{defaultBranch} に切り替えました", { defaultBranch }));
+    if (switched.ok) await g.exec(tr("プルしています"), gitApi.pull, tr("{defaultBranch} を最新にしました", { defaultBranch }));
+    return switched.ok;
+  };
+  // 終えたブランチを、この PC と GitHub から消す（先に既定のブランチに戻る）
+  const [dropAsk, setDropAsk] = useState(false);
+  useEffect(() => setDropAsk(false), [st.branch]);
+  const dropBranch = async () => {
+    const name = st.branch;
+    const onGitHub = published;
+    setDropAsk(false);
+    if (!(await backToDefault())) return;
+    const removed = await g.exec(tr("削除しています"), (p) => gitApi.deleteBranch(p, name, true), tr("{name} を削除しました", { name }));
+    if (!removed.ok || !onGitHub) return;
+    try {
+      await deletePullBranch(owner, repo, name);
+      g.notify("ok", tr("GitHub のブランチ {name} も消しました", { name }));
+    } catch (e) {
+      // マージのときに GitHub で消してあれば、もうない
+      if (!/Reference does not exist|Not Found|404|422/i.test(String(e))) g.notify("error", String(e));
+    }
+  };
+  const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
+  const askDrop: StepButton = { label: tr("ブランチ {branch} を消す…", { branch: st.branch }), run: () => setDropAsk(true) };
   // マージしたあと: このブランチで続ける（既定のブランチの最新を取り込む）か、既定のブランチに戻って最新にする
   const branchAfter: StepButton[] =
     onBranch && pr?.merged
@@ -511,15 +537,33 @@ function Workspace({
               if (fetched.ok) await g.exec(tr("取り込んでいます"), (p) => gitApi.merge(p, `origin/${defaultBranch}`), tr("{defaultBranch} の最新を {branch} に取り込みました", { defaultBranch, branch: st.branch }));
             },
           },
-          {
-            label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }),
-            run: async () => {
-              const switched = await g.exec(tr("切り替えています"), (p) => gitApi.switchBranch(p, defaultBranch, false), tr("{defaultBranch} に切り替えました", { defaultBranch }));
-              if (switched.ok) await g.exec(tr("プルしています"), gitApi.pull, tr("{defaultBranch} を最新にしました", { defaultBranch }));
-            },
-          },
+          toDefault,
         ]
       : [];
+  // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す
+  const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, askDrop] : pr?.state === "open" ? [toDefault] : [toDefault, askDrop];
+  const dropLosesWork = hasOwnCommits && !pr?.merged;
+  const leftoverNote: ReactNode = dropAsk ? (
+    <>
+      {published
+        ? dropLosesWork
+          ? trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
+          : trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。", { branch: st.branch }, [<b />])
+        : dropLosesWork
+          ? trx("ブランチ <0>{branch}</0> を、この PC から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
+          : trx("ブランチ <0>{branch}</0> を、この PC から消します。", { branch: st.branch }, [<b />])}{" "}
+      <button type="button" className="btn-danger" disabled={g.busy !== null} onClick={() => void dropBranch()}>{tr("消す")}</button>{" "}
+      <button type="button" className="btn-sm" onClick={() => setDropAsk(false)}>{tr("やめる")}</button>
+    </>
+  ) : pr?.merged ? (
+    trx("このブランチ（<0>{branch}</0>）のプルリク <1>#{number}</1> はマージ済みです。", { branch: st.branch, number: pr.number }, [<b />, <b />])
+  ) : pr?.state === "open" ? (
+    trx("このブランチ（<0>{branch}</0>）のプルリク <1>#{number}</1> は、まだマージしていません。", { branch: st.branch, number: pr.number }, [<b />, <b />])
+  ) : hasOwnCommits ? (
+    trx("ブランチ <0>{branch}</0> にいます。マージしていないコミットがあります。", { branch: st.branch }, [<b />])
+  ) : (
+    trx("ブランチ <0>{branch}</0> にいます。", { branch: st.branch }, [<b />])
+  );
   const reloadPr = () =>
     branchPull(owner, repo, st.branch)
       .then((pull) => setBranchPr({ branch: st.branch, pull, error: null }))
@@ -721,20 +765,19 @@ function Workspace({
             // 自分を担当にして「進行中」に（ボードの自分のタスク・進行中に出る）
             void onStartIssue(n);
             // ブランチの名前は Issue の題名から（#251）
-            if (how === "create") actions.createBranch(own);
+            // 別の作業のブランチにいるときは、既定のブランチの最新から作る（前の作業のコミットが混ざらないように）
+            if (how === "create" && onBranch) {
+              void g
+                .exec(tr("GitHub から読んでいます"), gitApi.fetch, tr("GitHub から読みました"), { quiet: true })
+                .then((r) => actions.createBranch(own, r.ok ? `origin/${defaultBranch}` : defaultBranch));
+            } else if (how === "create") actions.createBranch(own);
             else if (how === "switch") actions.requestSwitch(own);
           }}
           onOpenIssue={onOpenIssue}
           onOpenMilestones={onOpenMilestones}
           onAddOnBoard={onAddOnBoard}
-          note={
-            flow.step === 1 && onBranch && pr?.merged ? (
-              <>
-                {trx("このブランチ（<0>{branch}</0>）のプルリク <1>#{number}</1> はマージ済みです。", { branch: st.branch, number: pr.number }, [<b />, <b />])}
-              </>
-            ) : null
-          }
-          extras={flow.step === 1 ? branchAfter : []}
+          note={flow.step === 1 && onBranch ? leftoverNote : null}
+          extras={flow.step === 1 && onBranch && !dropAsk ? leftoverButtons : []}
           busy={g.busy !== null}
         />
       ) : shown === 2 ? (

@@ -1,9 +1,9 @@
 {
  "\n→ GitHub へのログインが必要です。一度ターミナルで同じ git の操作をして、ログインを済ませてください": "\n→ You need to sign in to GitHub. Run the same git operation once in a terminal and finish signing in",
  "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでからプッシュしてください": "\n→ There are new commits on GitHub. Pull them in first, then push",
- "\n→ この PC の git が、このリポジトリを使えない GitHub アカウントで行っているかもしれません（非公開のリポジトリは「見つからない」と出ます）": "\n→ git on this PC may be using a GitHub account that can't access this repository (private repositories show up as \"not found\")",
  "\n→ インターネットにつながっているか確認してください": "\n→ Check that you're connected to the internet",
  "\n→ コミットに使う名前とメールアドレスが決まっていません。設定（接続）の「作業フォルダ」にある「使う準備を確かめる」から決められます": "\n→ The name and email address for commits aren't set. You can set them with \"Check setup\" under \"Working folder\" in Settings (Connection)",
+ "\n→ 招待をまだ受けていないか、この PC の git がこのリポジトリを使えない GitHub アカウントで行っているかもしれません（非公開のリポジトリは「見つからない」と出ます）": "\n→ You may not have accepted the invitation yet, or git on this PC may be using a GitHub account that can't access this repository (private repositories show up as \"not found\")",
  "\n（長いので、ここまでにしています）\n": "\n(Cut off here because it's too long)\n",
  "      ← ここまでが{ours}": "      ← {ours} ends here",
  "      ← ここまでが{theirs}": "      ← {theirs} ends here",

@@ -113,7 +113,7 @@ fn hint_for(message: &str) -> &'static str {
     } else if message.contains("Could not resolve host") {
         "\n→ インターネットにつながっているか確認してください"
     } else if message.contains("Repository not found") || (message.contains("Permission to") && message.contains("denied to")) {
-        "\n→ この PC の git が、このリポジトリを使えない GitHub アカウントで行っているかもしれません（非公開のリポジトリは「見つからない」と出ます）"
+        "\n→ 招待をまだ受けていないか、この PC の git がこのリポジトリを使えない GitHub アカウントで行っているかもしれません（非公開のリポジトリは「見つからない」と出ます）"
     } else if message.contains("[rejected]") || message.contains("non-fast-forward") {
         "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでからプッシュしてください"
     } else if message.contains("Author identity unknown") || message.contains("Please tell me who you are") {

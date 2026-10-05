@@ -172,6 +172,30 @@ function messagePatterns() {
  */
 export function translateMessage(msg: string): string {
   if (lang === "ja" || !msg) return msg;
+  const whole = translateOne(msg);
+  if (whole !== null) return whole;
+  // 行ごとに訳す（git の失敗は「コマンド・git の出力・→ 次にすること」の行。→ の行の鍵は前の改行も含む）
+  if (msg.includes("\n")) {
+    let changed = false;
+    const lines = msg.split("\n").map((line, i) => {
+      if (!/[぀-ヿ㐀-鿿]/.test(line)) return line;
+      const nl = i > 0 ? translateOne("\n" + line) : null;
+      const out = nl !== null ? nl.replace(/^\n/, "") : translateOne(line);
+      if (out === null) return line;
+      changed = true;
+      return out;
+    });
+    if (changed) {
+      const out = lines.join("\n");
+      remember(out, msg);
+      return out;
+    }
+  }
+  return msg;
+}
+
+/** 1 つの文を訳す（辞書にそのまま、または {0} の形に当てはまるとき）。当てはまらなければ null */
+function translateOne(msg: string): string | null {
   if (dict[msg] !== undefined) {
     const out = lookup(msg);
     remember(out, msg);
@@ -189,7 +213,7 @@ export function translateMessage(msg: string): string {
     remember(out, msg);
     return out;
   }
-  return msg;
+  return null;
 }
 
 /** {name} を値に（vars にない名前は、そのまま残す）。名前は日本語でもよい（{名前}） */

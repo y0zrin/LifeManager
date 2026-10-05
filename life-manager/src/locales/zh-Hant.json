@@ -430,7 +430,7 @@
  "{0} を読めませんでした: {1}": "無法讀取 {0}：{1}",
  "{0} を開けませんでした: {1}": "無法開啟 {0}：{1}",
  "{0}。GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです": "{0}。也可以先在 GitHub 的 github.com/new 頁面建立，再從清單中選擇",
- "{0}ができません。GitHub の Life Manager に「{1}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認するか、このリポジトリを選ぶと使えます": "無法{0}。GitHub 上的 Life Manager 還沒有「{1}」權限，或者此儲存庫沒有安裝 Life Manager。擁有者（組長）在 GitHub 上核准 Life Manager 的權限更新，或選擇此儲存庫後即可使用",
+ "{0}ができません。GitHub の Life Manager に「{1}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認するか、このリポジトリを選ぶと使えます。承認は、持ち主のアカウントで https://github.com/settings/installations を開き、Life Manager App の「Configure」から行います（組織のリポジトリは、組織の Settings → GitHub Apps）": "無法{0}。GitHub 上的 Life Manager 還沒有「{1}」權限，或者此儲存庫沒有安裝 Life Manager。擁有者（組長）在 GitHub 上核准 Life Manager 的權限更新，或選擇此儲存庫後即可使用。核准方法：擁有者用自己的帳號開啟 https://github.com/settings/installations，在 Life Manager App 的「Configure」中操作（組織的儲存庫：組織的 Settings → GitHub Apps）",
  "{0}ができません。このリポジトリに Life Manager が入っていないか、入れたときに選んでいません。持ち主（リーダー）が GitHub で Life Manager を入れて、このリポジトリを選ぶと使えます": "無法{0}。此儲存庫沒有安裝 Life Manager，或者安裝時沒有選擇此儲存庫。擁有者（組長）在 GitHub 上安裝 Life Manager 並選擇此儲存庫後即可使用",
  "{0}ができません。消されたか、見る権限がないため見つかりません": "無法{0}。可能已被刪除，或者你沒有檢視權限，所以找不到",
  "{0}ができませんでした: {1}": "未能{0}：{1}",

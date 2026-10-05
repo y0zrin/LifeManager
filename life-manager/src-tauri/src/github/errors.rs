@@ -52,7 +52,7 @@ pub fn explain(err: &str, what: &str, permission: &Permission, known: &[(&str, &
     }
     if has("not accessible by integration") {
         return format!(
-            "{}ができません。GitHub の Life Manager に「{}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認するか、このリポジトリを選ぶと使えます",
+            "{}ができません。GitHub の Life Manager に「{}」の権限がまだないか、このリポジトリに Life Manager が入っていません。持ち主（リーダー）が GitHub で Life Manager の権限の更新を承認するか、このリポジトリを選ぶと使えます。承認は、持ち主のアカウントで https://github.com/settings/installations を開き、Life Manager App の「Configure」から行います（組織のリポジトリは、組織の Settings → GitHub Apps）",
             what, permission.name
         );
     }

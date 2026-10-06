@@ -181,27 +181,14 @@ function runParticles(canvas: HTMLCanvasElement): () => void {
 
 /**
  * マイルストーンの達成の「ドン」（#231）: 光が集まる → 白い閃光・衝撃の輪・斜めの光の帯 → 火花と、左右から打ち上がる紙吹雪。
- * スマホは「ドン」で少しふるえる（ふるえられるとき）
+ * スマホでもふるわせない（ユーザー決定 2026-10-06）
  */
 export function CelebrationFx() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const stop = runParticles(canvas);
-    const buzz = isMobile
-      ? window.setTimeout(() => {
-          try {
-            navigator.vibrate?.([40, 30, 90]);
-          } catch {
-            // ふるえられなくても、見た目はそのまま
-          }
-        }, IMPACT * 1000)
-      : 0;
-    return () => {
-      stop();
-      window.clearTimeout(buzz);
-    };
+    return runParticles(canvas);
   }, []);
   return (
     <>

@@ -76,6 +76,12 @@ interface WorkViewProps {
   /** Issue のコメントを読む・書く（② 作業報告） */
   onListComments: (n: number) => Promise<GitHubComment[]>;
   onComment: (n: number, body: string) => Promise<GitHubComment | null>;
+  /** チームのメンバー（引き継ぐ相手を選ぶ） */
+  members: { login: string }[];
+  /** 作業を止める: 状態を「未着手」に戻す（担当はそのまま） */
+  onStopIssue: (n: number) => Promise<void>;
+  /** 引き継ぐ: 担当を相手にする */
+  onHandOverIssue: (n: number, to: string) => Promise<void>;
 }
 
 type Side = "staged" | "unstaged";
@@ -316,6 +322,9 @@ function Workspace({
   milestones,
   onListComments,
   onComment,
+  members,
+  onStopIssue,
+  onHandOverIssue,
   status: st,
 }: WorkViewProps & { status: GitStatus; folder: string }) {
   const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo));
@@ -540,6 +549,88 @@ function Workspace({
           toDefault,
         ]
       : [];
+  // 作業を止める・引き継ぐ（① の「今の作業」）: 送っていないコミットを送り、Issue を変えてコメントを残し、既定のブランチに戻る
+  const [leaveMode, setLeaveMode] = useState<"stop" | "hand" | null>(null);
+  const others = members.filter((m) => m.login !== currentUser);
+  const [handTo, setHandTo] = useState("");
+  useEffect(() => setLeaveMode(null), [issue?.number]);
+  const leaveWork = async (mode: "stop" | "hand") => {
+    if (!issue || changeCount > 0) return;
+    const n = issue.number;
+    const branchName = onBranch ? st.branch : "";
+    const to = mode === "hand" ? handTo || others[0]?.login || "" : "";
+    if (mode === "hand" && !to) return;
+    if (onBranch && needsPush) {
+      const pushed = await g.exec(tr("プッシュしています"), gitApi.push, tr("プッシュしました"));
+      if (!pushed.ok) return;
+    }
+    // Issue に書く文は日本語のまま（チームの中で同じ形で読めるように）
+    if (mode === "stop") {
+      await onStopIssue(n);
+      await onComment(n, branchName ? `作業を止めました。続きはブランチ「${branchName}」にあります。` : "作業を止めました。");
+    } else {
+      await onHandOverIssue(n, to);
+      await onComment(n, branchName ? `@${to} さんに引き継ぎます。続きはブランチ「${branchName}」にあります。` : `@${to} さんに引き継ぎます。`);
+    }
+    setLeaveMode(null);
+    setChoice(null);
+    if (onBranch) await backToDefault();
+  };
+  const nowActions: StepButton[] = issue
+    ? [
+        { label: tr("作業を止める…"), run: () => setLeaveMode("stop") },
+        { label: tr("引き継ぐ…"), run: () => setLeaveMode("hand") },
+      ]
+    : [];
+  const leavePanel: ReactNode =
+    !issue || !leaveMode ? null : changeCount > 0 ? (
+      <div className="w-step-note">
+        <span className="w-step-note-text">{tr("コミットしていない変更があります。③ でコミットしてプッシュしてから、もう一度押します。")}</span>
+        <span className="w-step-note-actions">
+          <button type="button" className="btn-sm" onClick={() => { setLeaveMode(null); setViewStep(3); }}>{tr("③ コミット・プッシュへ")}</button>
+          <button type="button" className="btn-sm" onClick={() => setLeaveMode(null)}>{tr("やめる")}</button>
+        </span>
+      </div>
+    ) : leaveMode === "stop" ? (
+      <div className="w-step-note">
+        <span className="w-step-note-text">{tr("#{number} の作業を止めて、状態を「未着手」に戻します。", { number: issue.number })}</span>
+        <span className="w-step-note-actions">
+          <button type="button" className="btn-primary" disabled={g.busy !== null} onClick={() => void leaveWork("stop")}>{tr("止める")}</button>
+          <button type="button" className="btn-sm" onClick={() => setLeaveMode(null)}>{tr("やめる")}</button>
+        </span>
+      </div>
+    ) : others.length === 0 ? (
+      <div className="w-step-note">
+        <span className="w-step-note-text">{tr("引き継げるメンバーがいません。")}</span>
+        <span className="w-step-note-actions">
+          <button type="button" className="btn-sm" onClick={() => setLeaveMode(null)}>{tr("やめる")}</button>
+        </span>
+      </div>
+    ) : (
+      <div className="w-step-note">
+        <span className="w-step-note-text">
+          <label className="w-hand-to">
+            {tr("引き継ぐ相手")}{" "}
+            <select className="select-sm" value={handTo || others[0].login} onChange={(e) => setHandTo(e.target.value)}>
+              {others.map((m) => (
+                <option key={m.login} value={m.login}>{m.login}</option>
+              ))}
+            </select>
+          </label>
+        </span>
+        <span className="w-step-note-actions">
+          <button type="button" className="btn-primary" disabled={g.busy !== null} onClick={() => void leaveWork("hand")}>{tr("引き継ぐ")}</button>
+          <button type="button" className="btn-sm" onClick={() => setLeaveMode(null)}>{tr("やめる")}</button>
+        </span>
+      </div>
+    );
+  // GitHub にこのブランチがあるか（引き継いだ作業を、受け取る人がそのブランチで続けられるように）。g は描くたびに変わるので ref で持つ
+  const gRef = useRef(g);
+  gRef.current = g;
+  const checkRemote = useCallback(
+    async (name: string) => (await gRef.current.exec(tr("GitHub を調べています"), (p) => gitApi.fetchBranch(p, name), "", { quiet: true, inlineError: true })).ok,
+    [],
+  );
   // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す。作業を選ぶ前か、今の作業が閉じたあとに出す
   const showLeftover = onBranch && (flow.step === 1 || !!closedIssue);
   const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, askDrop] : pr?.state === "open" ? [toDefault] : [toDefault, askDrop];
@@ -784,6 +875,9 @@ function Workspace({
           onAddOnBoard={onAddOnBoard}
           note={showLeftover ? leftoverNote : null}
           extras={showLeftover && !dropAsk ? leftoverButtons : []}
+          nowActions={nowActions}
+          nowPanel={leavePanel}
+          checkRemote={checkRemote}
           busy={g.busy !== null}
         />
       ) : shown === 2 ? (
@@ -954,17 +1048,34 @@ interface IssueStepProps {
   onOpenIssue: (n: number) => void;
   onOpenMilestones: () => void;
   onAddOnBoard: (milestone: number | null) => void;
+  /** 今の作業の行のボタン（作業を止める・引き継ぐ）と、押したときに行の下に出すもの */
+  nowActions: StepButton[];
+  nowPanel: ReactNode;
+  /** GitHub にそのブランチがあるか（引き継いだ作業を、そのブランチで続ける） */
+  checkRemote: (name: string) => Promise<boolean>;
   /** マージ済みのブランチにいるときの知らせと、そのボタン（このブランチで続ける・既定のブランチに戻る） */
   note: ReactNode;
   extras: StepButton[];
   busy: boolean;
 }
 
-function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, note, extras, busy }: IssueStepProps) {
+function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, nowActions, nowPanel, checkRemote, note, extras, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
   const [ms, setMs] = useState<string>(() => loadMilestone(owner, repo) ?? nearestMilestone(milestones));
   // ブランチを決めているところの Issue（行の下に、始め方を出す）
   const [picking, setPicking] = useState<number | null>(null);
+  // 選んだ Issue のブランチが、この PC になく GitHub にあるか（name → あるか。調べている途中は undefined）
+  const [onRemote, setOnRemote] = useState<Record<string, boolean>>({});
+  // 1 つの名前は 1 回だけ調べる（localBranches は描くたびに新しい配列なので、効果は何度も走る）
+  const askedRemote = useRef(new Set<string>());
+  const pickedIssue = picking !== null ? issues.find((i) => i.number === picking) ?? null : null;
+  const pickedOwn = pickedIssue ? workBranchOf(owner, repo, pickedIssue, localBranches) : null;
+  const pickedLocal = pickedOwn !== null && localBranches.includes(pickedOwn);
+  useEffect(() => {
+    if (!pickedOwn || pickedLocal || askedRemote.current.has(pickedOwn)) return;
+    askedRemote.current.add(pickedOwn);
+    void checkRemote(pickedOwn).then((ok) => setOnRemote((m) => ({ ...m, [pickedOwn]: ok })));
+  }, [pickedOwn, pickedLocal, checkRemote]);
   const q = query.trim().toLowerCase().replace(/^#/, "");
   const inProgress = (i: GitHubIssue) => i.labels.some((l) => l.name === IN_PROGRESS);
   const mine = (i: GitHubIssue) => !!currentUser && !!i.assignees?.some((a) => a.login === currentUser);
@@ -1015,10 +1126,16 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
               <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
                 {tr("Issue を開く")}
               </button>
+              {nowActions.map((b) => (
+                <button key={b.label} type="button" className="btn-sm" disabled={busy} onClick={b.run}>
+                  {b.label}
+                </button>
+              ))}
             </span>
           )}
         </div>
       )}
+      {nowPanel}
       <div className="w-pick-bar">
         <select className="select-sm w-ms-select" value={ms} onChange={(e) => changeMs(e.target.value)} aria-label={tr("マイルストーン")}>
           <option value="all">{tr("マイルストーン: すべて")}</option>
@@ -1085,8 +1202,13 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                           <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
                             {trx("「{own}」に切り替えて始める", { own })}
                           </button>
+                        ) : onRemote[own] ? (
+                          // 引き継いだ作業など: GitHub にあるブランチを持ってきて続ける（git switch が追いかけるブランチを作る）
+                          <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
+                            {trx("GitHub のブランチ「{own}」で続ける", { own })}
+                          </button>
                         ) : (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "create", own)}>
+                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy || !(own in onRemote)} onClick={() => onStart(i.number, "create", own)}>
                             {trx("ブランチ「{own}」を作って始める", { own })}
                           </button>
                         )}

@@ -17,6 +17,12 @@
  "src/components/views/TimelineView.tsx": [
   "## ノート\n"
  ],
+ "src/components/views/WorkView.tsx": [
+  "作業を止めました。続きはブランチ「${}」にあります。",
+  "作業を止めました。",
+  "@${} さんに引き継ぎます。続きはブランチ「${}」にあります。",
+  "@${} さんに引き継ぎます。"
+ ],
  "src/hooks/github/useIssues.ts": [
   "を予定なしとして閉じました",
   "を ${} の重複として閉じました",

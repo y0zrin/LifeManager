@@ -1211,6 +1211,13 @@ function App() {
               milestones={gh.milestones}
               onListComments={gh.listComments}
               onComment={gh.createComment}
+              members={gh.collaborators}
+              onStopIssue={async (n) => {
+                await gh.changeIssueStatus(n, "状態:未着手");
+              }}
+              onHandOverIssue={async (n, to) => {
+                await gh.updateIssue(n, { assignees: [to] });
+              }}
             />
           )}
 

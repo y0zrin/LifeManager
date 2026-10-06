@@ -23,6 +23,10 @@ fn check_name(name: &str) -> Result<(), String> {
     if name.starts_with('-') {
         return Err(format!("「{}」は使えない名前です（- で始まる名前は使えません）", name));
     }
+    // : は git の「取り込み元:取り込み先」の区切り（git fetch origin x:main で main が書き換わる）。ブランチやタグの名前には使えない
+    if name.contains(':') {
+        return Err(format!("「{}」は使えない名前です（: は使えません）", name));
+    }
     Ok(())
 }
 

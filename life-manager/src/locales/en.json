@@ -1194,6 +1194,7 @@
  "「{0}」はこのリポジトリのファイルではありません": "\"{0}\" isn't a file in this repository",
  "「{0}」は中止や続行ができる操作ではありません": "\"{0}\" isn't an operation that can be aborted or continued",
  "「{0}」は使えない名前です（- で始まる名前は使えません）": "\"{0}\" can't be used as a name (names can't start with -)",
+ "「{0}」は使えない名前です（: は使えません）": "\"{0}\" can't be used as a name (\":\" is not allowed)",
  "「{0}」は選べません": "\"{0}\" can't be chosen",
  "「{IN_PROGRESS_LABEL}」を付けてから閉じた Issue が、まだありません。": "No Issues have been closed after being labeled \"{IN_PROGRESS_LABEL}\" yet.",
  "「{name}」の名前を変える": "Rename \"{name}\"",

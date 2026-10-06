@@ -99,6 +99,15 @@ const IN_PROGRESS = "状態:進行中";
 /** 作業を止めた・引き継いだときに Issue に書くコメントの、続きのブランチのところ（受け取る人は、このブランチで続ける） */
 const CONTINUE_ON = /続きはブランチ「([^」]+)」にあります。/;
 
+/** コメントから読んだ名前が、git のブランチの名前として正しいか（git check-ref-format のきまり）。
+ *  - で始まる名前は git のオプションに、: を含む名前はフェッチの「取り込み先」に読まれてしまうので使わない */
+function isBranchName(s: string): boolean {
+  return s.length > 0 && s.length <= 250 && s !== "@" && !/^[-.]|[\x00-\x20\x7f:~^?*[\\]|\.\.|@\{|\/\/|\/\.|\.lock$|[/.]$/.test(s);
+}
+
+/** チームの人（持ち主・メンバー・コラボレーター）が書いたコメントか */
+const TEAM_ROLES = ["OWNER", "MEMBER", "COLLABORATOR"];
+
 // --- 取り組み中の Issue は、リポジトリとアカウントごとにこの PC に覚えておく
 //     （同じ PC でアカウントを切り替えたとき、前のアカウントの作業が今の作業にならないように） ---
 
@@ -673,14 +682,19 @@ function Workspace({
     async (name: string) => (await gRef.current.exec(tr("GitHub を調べています"), (p) => gitApi.fetchBranch(p, name), "", { quiet: true, inlineError: true })).ok,
     [],
   );
-  // 止めた・引き継いだときのコメント（「続きはブランチ「…」にあります。」）から、続きのブランチを読む（いちばん新しいもの）
+  // 止めた・引き継いだときのコメント（「続きはブランチ「…」にあります。」）から、続きのブランチを読む（いちばん新しいもの）。
+  // チームの人が書いたものだけ（公開のリポジトリには、だれでもコメントを書けるので）
   const listRef = useRef(onListComments);
   listRef.current = onListComments;
+  const membersRef = useRef(members);
+  membersRef.current = members;
   const handedBranch = useCallback(async (n: number) => {
     const comments = await listRef.current(n);
+    const team = new Set(membersRef.current.map((m) => m.login.toLowerCase()));
+    const byTeam = (c: GitHubComment) => !!c._pending || team.has(c.user.login.toLowerCase()) || TEAM_ROLES.includes(c.author_association ?? "");
     for (let k = comments.length - 1; k >= 0; k--) {
       const m = CONTINUE_ON.exec(comments[k].body);
-      if (m) return m[1];
+      if (m && isBranchName(m[1]) && byTeam(comments[k])) return m[1];
     }
     return null;
   }, []);

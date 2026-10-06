@@ -91,6 +91,8 @@ export interface GitHubComment {
   user: { login: string; avatar_url: string };
   created_at: string;
   updated_at: string;
+  /** 書いた人とリポジトリの関わり（OWNER・MEMBER・COLLABORATOR・NONE など。GitHub が付ける） */
+  author_association?: string;
   /** まだ GitHub に送っていないコメント */
   _pending?: boolean;
   /** 送っているあいだ（すぐ画面に出すための仮のもの） */

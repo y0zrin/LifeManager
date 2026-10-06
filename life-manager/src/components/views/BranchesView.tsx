@@ -431,7 +431,7 @@ const BranchPage = memo(function BranchPage({
           {info && info.ahead > 0 && <span className="chip warn" title={tr("まだ GitHub に送っていないコミット")}>{trx("↑{ahead} 未プッシュ", { ahead: info.ahead })}</span>}
           {info && info.behind > 0 && <span className="chip warn" title={tr("GitHub にあって、まだ取り込んでいないコミット")}>{trx("↓{behind} 未プル", { behind: info.behind })}</span>}
           {info?.gone && <span className="chip ng">{tr("GitHub で削除済み")}</span>}
-          {local && entry.onPc && !entry.onGitHub && <span className="chip muted">{tr("未公開")}</span>}
+          {local && entry.onPc && !entry.onGitHub && !info?.gone && <span className="chip muted">{tr("未公開")}</span>}
           {local && !entry.onPc && <span className="chip muted">{tr("GitHub にだけある")}</span>}
           {entry.isCurrent && changes > 0 && (
             <button type="button" className="chip wip-link" onClick={onOpenWork}>
@@ -439,6 +439,12 @@ const BranchPage = memo(function BranchPage({
             </button>
           )}
           <span className="p-actions">
+            {/* GitHub で消されたブランチ: この PC にあるものから、GitHub にもう一度作る */}
+            {local && actions && info?.gone && entry.onPc && (
+              <button type="button" className="btn-sm" onClick={() => actions.pushBranch(entry)} title={`git push -u origin ${entry.name}`}>
+                {tr("⬆ GitHub にもう一度送る")}
+              </button>
+            )}
             {/* 見ているブランチを、切り替えずにフェッチ・プル（作業フォルダは今のブランチのまま） */}
             {local && actions && entry.onGitHub && (
               <>

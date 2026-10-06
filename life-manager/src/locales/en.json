@@ -1172,6 +1172,7 @@
  "⤳ {v}を {name} の先に付け替える（リベース）…": "⤳ Move {v} onto {name} (rebase)…",
  "⤵ {branch} に取り込む（マージ）": "⤵ Bring changes into {branch} (merge)",
  "⤵ 今のブランチに取り込む（マージ）": "⤵ Bring changes into the current branch (merge)",
+ "⬆ GitHub にもう一度送る": "⬆ Send to GitHub again",
  "⬆ プッシュ": "⬆ Push",
  "⬆<0> プッシュ</0>": "⬆<0> Push</0>",
  "⬇ この PC にクローンする…": "⬇ Clone to this PC…",

@@ -515,9 +515,9 @@ function Workspace({
     if (switched.ok) await g.exec(tr("プルしています"), gitApi.pull, tr("{defaultBranch} を最新にしました", { defaultBranch }));
     return switched.ok;
   };
-  // 終えたブランチを、この PC と GitHub から消す（先に既定のブランチに戻る）
-  const [dropAsk, setDropAsk] = useState(false);
-  useEffect(() => setDropAsk(false), [st.branch]);
+  // 終えたブランチを消す（先に既定のブランチに戻る）。pc = この PC から（GitHub には残す）、both = この PC と GitHub から
+  const [dropAsk, setDropAsk] = useState<"pc" | "both" | null>(null);
+  useEffect(() => setDropAsk(null), [st.branch]);
   // GitHub のブランチを消せるのはリーダー（リポジトリの管理者）だけ。メンバーは送ってから、この PC から消す（作業は GitHub に残る）
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -530,11 +530,12 @@ function Workspace({
       alive = false;
     };
   }, [owner, repo]);
-  const dropBranch = async () => {
+  const dropBranch = async (mode: "pc" | "both") => {
     const name = st.branch;
-    const onGitHub = published && isAdmin;
-    setDropAsk(false);
-    if (!isAdmin && (!published || needsPush)) {
+    const onGitHub = mode === "both" && published && isAdmin;
+    setDropAsk(null);
+    // PC からだけ消すときは、作業が GitHub に残るよう、送っていないコミットを先に送る
+    if (mode === "pc" && (!published || needsPush)) {
       const pushed = await g.exec(tr("プッシュしています"), gitApi.push, tr("{name} を GitHub に送りました", { name }));
       if (!pushed.ok) return;
     }
@@ -552,7 +553,11 @@ function Workspace({
     await g.exec(tr("GitHub から読んでいます"), gitApi.fetch, "", { quiet: true, inlineError: true });
   };
   const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
-  const askDrop: StepButton = { label: isAdmin ? tr("このブランチを PC と GitHub から消す…") : tr("このブランチを PC から消す…"), run: () => setDropAsk(true) };
+  // GitHub からも消せるのはリーダー（リポジトリの管理者）だけ。リーダーは 2 つから選ぶ
+  const askDrops: StepButton[] = [
+    { label: tr("このブランチを PC から消す…"), run: () => setDropAsk("pc") },
+    ...(isAdmin ? [{ label: tr("このブランチを PC と GitHub から消す…"), run: () => setDropAsk("both") }] : []),
+  ];
   // マージしたあと: このブランチで続ける（既定のブランチの最新を取り込む）か、既定のブランチに戻って最新にする
   const branchAfter: StepButton[] =
     onBranch && pr?.merged
@@ -652,11 +657,11 @@ function Workspace({
   );
   // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す。作業を選ぶ前か、今の作業が閉じたあとに出す
   const showLeftover = onBranch && (flow.step === 1 || !!closedIssue);
-  const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, askDrop] : pr?.state === "open" ? [toDefault] : [toDefault, askDrop];
+  const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, ...askDrops] : pr?.state === "open" ? [toDefault] : [toDefault, ...askDrops];
   const dropLosesWork = hasOwnCommits && !pr?.merged;
   const dropConfirm: ReactNode = (
     <>
-      {!isAdmin
+      {dropAsk !== "both"
         ? trx("ブランチ <0>{branch}</0> を、この PC から消します。GitHub のブランチは残ります。", { branch: st.branch }, [<b />])
         : published
           ? dropLosesWork
@@ -665,8 +670,8 @@ function Workspace({
           : dropLosesWork
             ? trx("ブランチ <0>{branch}</0> を、この PC から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
             : trx("ブランチ <0>{branch}</0> を、この PC から消します。", { branch: st.branch }, [<b />])}{" "}
-      <button type="button" className="btn-danger" disabled={g.busy !== null} onClick={() => void dropBranch()}>{tr("消す")}</button>{" "}
-      <button type="button" className="btn-sm" onClick={() => setDropAsk(false)}>{tr("やめる")}</button>
+      <button type="button" className="btn-danger" disabled={g.busy !== null} onClick={() => void dropBranch(dropAsk ?? "pc")}>{tr("消す")}</button>{" "}
+      <button type="button" className="btn-sm" onClick={() => setDropAsk(null)}>{tr("やめる")}</button>
     </>
   );
   const leftoverNote: ReactNode = dropAsk ? (
@@ -710,7 +715,7 @@ function Workspace({
             primary: true,
           },
           ...branchAfter,
-          ...(onBranch && pr?.state !== "open" ? [askDrop] : []),
+          ...(onBranch && pr?.state !== "open" ? askDrops : []),
         ],
       };
     }

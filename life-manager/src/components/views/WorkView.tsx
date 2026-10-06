@@ -835,6 +835,11 @@ function Workspace({
     };
   })();
 
+  // ④ のボタンの最後に「Issue を開く」（消す前の確かめを出しているときは出さない）
+  const completeIssue = issue ?? closedIssue;
+  const completeButtons: StepButton[] =
+    completeIssue && complete.buttons.length > 0 ? [...complete.buttons, { label: tr("Issue を開く"), run: () => onOpenIssue(completeIssue.number) }] : complete.buttons;
+
   // 進んだら（今の段が変わったら）、その段の画面に切り替える
   useEffect(() => {
     setViewStep(null);
@@ -983,7 +988,7 @@ function Workspace({
           onPickIssue={() => setViewStep(1)}
         />
       ) : shown === 4 ? (
-        <StepPanel n={4} current={flow.step === 4} hint={complete.hint} status={null} buttons={complete.buttons} busy={g.busy !== null} />
+        <StepPanel n={4} current={flow.step === 4} hint={complete.hint} status={null} buttons={completeButtons} busy={g.busy !== null} />
       ) : (
       <>
       {/* ③ コミット・プッシュ: 今のブランチと、変更がないときのプッシュ（またはプル） */}
@@ -995,6 +1000,11 @@ function Workspace({
         {onDefault && issue && (
           <button type="button" className="btn-sm" disabled={g.busy !== null} onClick={() => actions.createBranch(branchNameFor(issue))}>
             {tr("ブランチを分ける…")}
+          </button>
+        )}
+        {issue && (
+          <button type="button" className="btn-sm" onClick={() => onOpenIssue(issue.number)}>
+            {tr("Issue を開く")}
           </button>
         )}
         <span className="w-cp-right">
@@ -1336,6 +1346,9 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                         </button>
                       </>
                     )}
+                    <button type="button" className="btn-sm" onClick={() => onOpenIssue(i.number)}>
+                      {tr("Issue を開く")}
+                    </button>
                     <button type="button" className="btn-sm" onClick={() => setPicking(null)}>
                       {tr("やめる")}
                     </button>

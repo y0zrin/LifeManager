@@ -130,6 +130,8 @@ export interface PullRepoInfo {
   delete_branch_on_merge: boolean;
   /** 自分が書き込めるか（マージ・レビューのお願いができるか） */
   can_push: boolean;
+  /** 自分がリポジトリの管理者（リーダー）か */
+  is_admin?: boolean;
 }
 
 export interface Comparison {

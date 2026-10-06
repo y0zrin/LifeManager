@@ -376,6 +376,8 @@ pub async fn pull_repo_info(state: ClientState<'_>, owner: String, repo: String)
         "allow_rebase_merge": allowed("allow_rebase_merge"),
         "delete_branch_on_merge": info["delete_branch_on_merge"].as_bool().unwrap_or(false),
         "can_push": info["permissions"]["push"].as_bool().unwrap_or(false),
+        // リポジトリの管理者（リーダー）か（作業をする で、GitHub のブランチを消せるのはリーダーだけ）
+        "is_admin": info["permissions"]["admin"].as_bool().unwrap_or(false),
     }))
 }
 

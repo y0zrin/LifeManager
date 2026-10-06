@@ -9,7 +9,7 @@ import { MergeTool } from "../git/MergeTool";
 import { withTransition } from "../../lib/motion";
 import { celebrateDone } from "../../lib/celebrate";
 import { isEnter } from "../../lib/keys";
-import { branchPull, deletePullBranch, type PullSummary } from "../../lib/pulls";
+import { branchPull, deletePullBranch, pullRepoInfo, type PullSummary } from "../../lib/pulls";
 import { countOf } from "../../lib/count";
 import { commentPreview } from "../../lib/help";
 import { branchNameFor, rememberWorkBranch, workBranchOf } from "../../lib/branchName";
@@ -518,10 +518,26 @@ function Workspace({
   // 終えたブランチを、この PC と GitHub から消す（先に既定のブランチに戻る）
   const [dropAsk, setDropAsk] = useState(false);
   useEffect(() => setDropAsk(false), [st.branch]);
+  // GitHub のブランチを消せるのはリーダー（リポジトリの管理者）だけ。メンバーは送ってから、この PC から消す（作業は GitHub に残る）
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setIsAdmin(false);
+    pullRepoInfo(owner, repo)
+      .then((info) => alive && setIsAdmin(!!info.is_admin))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [owner, repo]);
   const dropBranch = async () => {
     const name = st.branch;
-    const onGitHub = published;
+    const onGitHub = published && isAdmin;
     setDropAsk(false);
+    if (!isAdmin && (!published || needsPush)) {
+      const pushed = await g.exec(tr("プッシュしています"), gitApi.push, tr("{name} を GitHub に送りました", { name }));
+      if (!pushed.ok) return;
+    }
     if (!(await backToDefault())) return;
     const removed = await g.exec(tr("削除しています"), (p) => gitApi.deleteBranch(p, name, true), tr("{name} を削除しました", { name }));
     if (!removed.ok || !onGitHub) return;
@@ -534,7 +550,7 @@ function Workspace({
     }
   };
   const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
-  const askDrop: StepButton = { label: tr("このブランチを PC と GitHub から消す…"), run: () => setDropAsk(true) };
+  const askDrop: StepButton = { label: isAdmin ? tr("このブランチを PC と GitHub から消す…") : tr("このブランチを PC から消す…"), run: () => setDropAsk(true) };
   // マージしたあと: このブランチで続ける（既定のブランチの最新を取り込む）か、既定のブランチに戻って最新にする
   const branchAfter: StepButton[] =
     onBranch && pr?.merged
@@ -638,13 +654,15 @@ function Workspace({
   const dropLosesWork = hasOwnCommits && !pr?.merged;
   const dropConfirm: ReactNode = (
     <>
-      {published
-        ? dropLosesWork
-          ? trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
-          : trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。", { branch: st.branch }, [<b />])
-        : dropLosesWork
-          ? trx("ブランチ <0>{branch}</0> を、この PC から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
-          : trx("ブランチ <0>{branch}</0> を、この PC から消します。", { branch: st.branch }, [<b />])}{" "}
+      {!isAdmin
+        ? trx("ブランチ <0>{branch}</0> を、この PC から消します。GitHub のブランチは残ります。", { branch: st.branch }, [<b />])
+        : published
+          ? dropLosesWork
+            ? trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
+            : trx("ブランチ <0>{branch}</0> を、この PC と GitHub から消します。", { branch: st.branch }, [<b />])
+          : dropLosesWork
+            ? trx("ブランチ <0>{branch}</0> を、この PC から消します。マージしていないコミットは消え、戻せません。", { branch: st.branch }, [<b />])
+            : trx("ブランチ <0>{branch}</0> を、この PC から消します。", { branch: st.branch }, [<b />])}{" "}
       <button type="button" className="btn-danger" disabled={g.busy !== null} onClick={() => void dropBranch()}>{tr("消す")}</button>{" "}
       <button type="button" className="btn-sm" onClick={() => setDropAsk(false)}>{tr("やめる")}</button>
     </>

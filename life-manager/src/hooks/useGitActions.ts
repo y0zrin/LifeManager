@@ -643,7 +643,7 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
       { label: tr("✎ 名前を変更…"), code: tr("git branch -m {name} {新しい名前}", { name: e.name, 新しい名前: tr("新しい名前") }), disabled: !can || !e.onPc, run: () => renameBranch(e) },
       "sep",
       {
-        label: tr("🗑 削除…"),
+        label: tr("🗑 この PC から削除…"),
         code: `git branch -d ${e.name}`,
         danger: true,
         disabled: !can || !e.onPc || e.isCurrent,

@@ -534,7 +534,7 @@ function Workspace({
     }
   };
   const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
-  const askDrop: StepButton = { label: tr("このブランチを消す…"), run: () => setDropAsk(true) };
+  const askDrop: StepButton = { label: tr("このブランチを PC と GitHub から消す…"), run: () => setDropAsk(true) };
   // マージしたあと: このブランチで続ける（既定のブランチの最新を取り込む）か、既定のブランチに戻って最新にする
   const branchAfter: StepButton[] =
     onBranch && pr?.merged

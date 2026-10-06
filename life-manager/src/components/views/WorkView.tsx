@@ -560,7 +560,8 @@ function Workspace({
     const branchName = onBranch ? st.branch : "";
     const to = mode === "hand" ? handTo || others[0]?.login || "" : "";
     if (mode === "hand" && !to) return;
-    if (onBranch && needsPush) {
+    // まだ GitHub にないブランチも送る（コミットがなくても、受け取る人がそのブランチで続けられるように）
+    if (onBranch && (!published || needsPush)) {
       const pushed = await g.exec(tr("プッシュしています"), gitApi.push, tr("プッシュしました"));
       if (!pushed.ok) return;
     }
@@ -862,12 +863,21 @@ function Workspace({
             // 自分を担当にして「進行中」に（ボードの自分のタスク・進行中に出る）
             void onStartIssue(n);
             // ブランチの名前は Issue の題名から（#251）
+            // 作ったブランチは、作業の始まりのコミット（「〇〇 が作業開始しました」）を付けてすぐ GitHub に送る。
+            // 途中で引き継いでも、受け取る人がそのブランチで続けられるように
+            const announce = async (name: string) => {
+              if (staged.length === 0) {
+                const who = currentUser || tr("だれか");
+                await g.exec(tr("作業の始まりを記録しています"), (p) => gitApi.commit(p, [`${who} が作業開始しました (#${n})`], false, true), tr("作業の始まりを記録しました"));
+              }
+              await g.exec(tr("プッシュしています"), gitApi.push, tr("{name} を GitHub に送りました", { name }));
+            };
             // 別の作業のブランチにいるときは、既定のブランチの最新から作る（前の作業のコミットが混ざらないように）
             if (how === "create" && onBranch) {
               void g
                 .exec(tr("GitHub から読んでいます"), gitApi.fetch, tr("GitHub から読みました"), { quiet: true })
-                .then((r) => actions.createBranch(own, r.ok ? `origin/${defaultBranch}` : defaultBranch));
-            } else if (how === "create") actions.createBranch(own);
+                .then((r) => actions.createBranch(own, r.ok ? `origin/${defaultBranch}` : defaultBranch, announce));
+            } else if (how === "create") actions.createBranch(own, undefined, announce);
             else if (how === "switch") actions.requestSwitch(own);
           }}
           onOpenIssue={onOpenIssue}

@@ -193,8 +193,11 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
     });
   }
 
-  /** ブランチを作って切り替える。start があれば、そのコミット（または origin/main などのブランチ）から作る */
-  function createBranch(suggested?: string, start?: string) {
+  /**
+   * ブランチを作って切り替える。start があれば、そのコミット（または origin/main などのブランチ）から作る。
+   * after は、作れたあとに続けてすること（作業をする: 作業の始まりのコミットとプッシュ）
+   */
+  function createBranch(suggested?: string, start?: string, after?: (name: string) => Promise<void>) {
     setDialog({
       kind: "input",
       title: tr("ブランチを作成"),
@@ -206,13 +209,16 @@ export function useGitActions(g: GitState, repoOnGitHub: { owner: string; repo: 
         : tr("作業中の変更はそのまま持っていきます。名前に空白は使えません。"),
       okLabel: tr("作成して切り替える"),
       commandFor: (name) => git.displayCommand(["switch", "-c", name, ...(start ? [/^[0-9a-f]{7,40}$/i.test(start) ? short(start) : start] : [])]),
-      submit: (name) =>
-        g.exec(
+      submit: async (name) => {
+        const made = await g.exec(
           tr("ブランチを作っています"),
           (p) => git.switchBranch(p, name, true, start ?? null),
           tr("{name} を作って切り替えました", { name }),
           { inlineError: true },
-        ),
+        );
+        if (made.ok && after) await after(name);
+        return made;
+      },
     });
   }
 

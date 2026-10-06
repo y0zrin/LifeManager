@@ -97,15 +97,26 @@ const STEP_NAMES = [tr("作業を選ぶ"), tr("作業報告"), tr("コミット�
 const STEP_SHORT = [tr("選ぶ"), tr("作業報告"), tr("コミット・プッシュ"), tr("完了")];
 const IN_PROGRESS = "状態:進行中";
 
-// --- 取り組み中の Issue は、リポジトリごとにこの PC に覚えておく ---
+// --- 取り組み中の Issue は、リポジトリとアカウントごとにこの PC に覚えておく
+//     （同じ PC でアカウントを切り替えたとき、前のアカウントの作業が今の作業にならないように） ---
 
-function issueKey(owner: string, repo: string) {
-  return `work-issue:${owner}/${repo}`;
+function issueKey(owner: string, repo: string, login: string) {
+  return `work-issue:${owner}/${repo}:${login.toLowerCase()}`;
 }
 
-function loadIssueChoice(owner: string, repo: string): IssueChoice {
+/** 0.9 まではリポジトリごとに覚えていた。その覚えは、先に開いたアカウントのものにする */
+function adoptOld(oldKey: string, key: string) {
+  const old = localStorage.getItem(oldKey);
+  if (old === null) return;
+  if (localStorage.getItem(key) === null) localStorage.setItem(key, old);
+  localStorage.removeItem(oldKey);
+}
+
+function loadIssueChoice(owner: string, repo: string, login: string): IssueChoice {
+  if (!login) return null;
   try {
-    const v = localStorage.getItem(issueKey(owner, repo));
+    adoptOld(`work-issue:${owner}/${repo}`, issueKey(owner, repo, login));
+    const v = localStorage.getItem(issueKey(owner, repo, login));
     const n = Number(v);
     return v && Number.isInteger(n) ? n : null;
   } catch {
@@ -113,38 +124,42 @@ function loadIssueChoice(owner: string, repo: string): IssueChoice {
   }
 }
 
-/** 作業タブで取り組んでいる Issue（ボードの「✏️ 作業中」の印に使う） */
-export function loadWorkIssue(owner: string, repo: string): number | null {
-  return loadIssueChoice(owner, repo);
+/** 作業タブで取り組んでいる Issue（ボードの「✏️ 作業中」の印・上のバーの 🆘 に使う） */
+export function loadWorkIssue(owner: string, repo: string, login: string): number | null {
+  return loadIssueChoice(owner, repo, login);
 }
 
-function saveIssueChoice(owner: string, repo: string, choice: IssueChoice) {
+function saveIssueChoice(owner: string, repo: string, login: string, choice: IssueChoice) {
+  if (!login) return;
   try {
-    if (choice === null) localStorage.removeItem(issueKey(owner, repo));
-    else localStorage.setItem(issueKey(owner, repo), String(choice));
+    if (choice === null) localStorage.removeItem(issueKey(owner, repo, login));
+    else localStorage.setItem(issueKey(owner, repo, login), String(choice));
   } catch {
     // 覚えられなくても、今は選んだ Issue で作業できる
   }
 }
 
-// --- 作業報告を書いた回数: Issue ごとに、この PC に覚えておく（段の「作業報告 2 回」に出す。完了にしたら消す） ---
+// --- 作業報告を書いた回数: Issue ごとに、この PC にアカウントごとに覚えておく（段の「作業報告 2 回」に出す。完了にしたら消す） ---
 
-function reportsKey(owner: string, repo: string) {
-  return `work-reports:${owner}/${repo}`;
+function reportsKey(owner: string, repo: string, login: string) {
+  return `work-reports:${owner}/${repo}:${login.toLowerCase()}`;
 }
 
-function loadReports(owner: string, repo: string): Record<string, number> {
+function loadReports(owner: string, repo: string, login: string): Record<string, number> {
+  if (!login) return {};
   try {
-    const v = JSON.parse(localStorage.getItem(reportsKey(owner, repo)) ?? "{}");
+    adoptOld(`work-reports:${owner}/${repo}`, reportsKey(owner, repo, login));
+    const v = JSON.parse(localStorage.getItem(reportsKey(owner, repo, login)) ?? "{}");
     return v && typeof v === "object" ? v : {};
   } catch {
     return {};
   }
 }
 
-function saveReports(owner: string, repo: string, map: Record<string, number>) {
+function saveReports(owner: string, repo: string, login: string, map: Record<string, number>) {
+  if (!login) return;
   try {
-    localStorage.setItem(reportsKey(owner, repo), JSON.stringify(map));
+    localStorage.setItem(reportsKey(owner, repo, login), JSON.stringify(map));
   } catch {
     // 覚えられなくても、作業報告は書き込める
   }
@@ -327,7 +342,7 @@ function Workspace({
   onHandOverIssue,
   status: st,
 }: WorkViewProps & { status: GitStatus; folder: string }) {
-  const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo));
+  const [choice, setChoiceState] = useState<IssueChoice>(() => loadIssueChoice(owner, repo, currentUser));
   const [tab, setTab] = useState<"changes" | "stash">("changes");
   // 横に並んだタブなので、右（退避中）へは右から・左（変更）へは左から入れ替わる
   function changeTab(next: "changes" | "stash") {
@@ -340,18 +355,18 @@ function Workspace({
   // 見ている段（null なら今の段）。上の段を押すと、その段の画面を見られる
   const [viewStep, setViewStep] = useState<number | null>(null);
   // 作業報告を書いた回数（Issue ごと）
-  const [reportCounts, setReportCounts] = useState<Record<string, number>>(() => loadReports(owner, repo));
+  const [reportCounts, setReportCounts] = useState<Record<string, number>>(() => loadReports(owner, repo, currentUser));
 
   useEffect(() => {
-    setChoiceState(loadIssueChoice(owner, repo));
+    setChoiceState(loadIssueChoice(owner, repo, currentUser));
     setViewStep(null);
-    setReportCounts(loadReports(owner, repo));
-  }, [owner, repo]);
+    setReportCounts(loadReports(owner, repo, currentUser));
+  }, [owner, repo, currentUser]);
 
   function bumpReports(n: number) {
     setReportCounts((cur) => {
       const next = { ...cur, [String(n)]: (cur[String(n)] ?? 0) + 1 };
-      saveReports(owner, repo, next);
+      saveReports(owner, repo, currentUser, next);
       return next;
     });
   }
@@ -360,14 +375,14 @@ function Workspace({
     setReportCounts((cur) => {
       const next = { ...cur };
       delete next[String(n)];
-      saveReports(owner, repo, next);
+      saveReports(owner, repo, currentUser, next);
       return next;
     });
   }
 
   function setChoice(c: IssueChoice) {
     setChoiceState(c);
-    saveIssueChoice(owner, repo, c);
+    saveIssueChoice(owner, repo, currentUser, c);
   }
 
   const issue = typeof choice === "number" ? issues.find((i) => i.number === choice) ?? null : null;
@@ -892,7 +907,7 @@ function Workspace({
             // 途中で引き継いでも、受け取る人がそのブランチで続けられるように
             const announce = async (name: string) => {
               if (staged.length === 0) {
-                const who = currentUser || tr("だれか");
+                const who = currentUser || "だれか";
                 await g.exec(tr("作業の始まりを記録しています"), (p) => gitApi.commit(p, [`${who} が作業開始しました (#${n})`], false, true), tr("作業の始まりを記録しました"));
               }
               await g.exec(tr("プッシュしています"), gitApi.push, tr("{name} を GitHub に送りました", { name }));

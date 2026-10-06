@@ -945,7 +945,7 @@ function App() {
   // GitHub に書いている数（上のバーの「送っています N」）
   const sendingCount = useSendingCount();
   // 作業タブで取り組んでいる Issue（上のバーの 🆘 助けを求める）
-  const workIssueNumber = view === "work" ? loadWorkIssue(gh.owner, gh.repo) : null;
+  const workIssueNumber = view === "work" ? loadWorkIssue(gh.owner, gh.repo, gh.currentUser) : null;
   const workIssue = workIssueNumber !== null ? gh.issues.find((i) => i.number === workIssueNumber) ?? null : null;
 
   // 左上のリポジトリ（押すと一覧。切り替え・この PC のフォルダ・一覧から外す・リポジトリを追加）
@@ -1448,7 +1448,7 @@ function App() {
             <KanbanView
               owner={gh.owner}
               repo={gh.repo}
-              workingIssue={loadWorkIssue(gh.owner, gh.repo)}
+              workingIssue={loadWorkIssue(gh.owner, gh.repo, gh.currentUser)}
               onOpenPull={openPull}
               issues={gh.issues}
               labels={gh.customLabels}

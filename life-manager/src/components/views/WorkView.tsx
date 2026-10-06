@@ -543,7 +543,7 @@ function Workspace({
   // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す
   const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, askDrop] : pr?.state === "open" ? [toDefault] : [toDefault, askDrop];
   const dropLosesWork = hasOwnCommits && !pr?.merged;
-  const leftoverNote: ReactNode = dropAsk ? (
+  const dropConfirm: ReactNode = (
     <>
       {published
         ? dropLosesWork
@@ -555,6 +555,9 @@ function Workspace({
       <button type="button" className="btn-danger" disabled={g.busy !== null} onClick={() => void dropBranch()}>{tr("消す")}</button>{" "}
       <button type="button" className="btn-sm" onClick={() => setDropAsk(false)}>{tr("やめる")}</button>
     </>
+  );
+  const leftoverNote: ReactNode = dropAsk ? (
+    dropConfirm
   ) : pr?.merged ? (
     trx("このブランチ（<0>{branch}</0>）のプルリク <1>#{number}</1> はマージ済みです。", { branch: st.branch, number: pr.number }, [<b />, <b />])
   ) : pr?.state === "open" ? (
@@ -574,6 +577,7 @@ function Workspace({
     changeCount > 0 || needsPush ? <span className="w-flow-warn">{tr("まだコミット・プッシュしていない変更があります（③ コミット・プッシュ）。")}</span> : null;
   const complete: { hint: ReactNode; buttons: StepButton[] } = (() => {
     if (closedIssue) {
+      if (dropAsk && onBranch) return { hint: dropConfirm, buttons: [] };
       return {
         hint: (
           <>
@@ -593,6 +597,7 @@ function Workspace({
             primary: true,
           },
           ...branchAfter,
+          ...(onBranch && pr?.state !== "open" ? [askDrop] : []),
         ],
       };
     }

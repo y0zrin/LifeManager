@@ -227,21 +227,30 @@ export function helpRoles(events: ActivityEvent[]): Map<string, HelpRole> {
 /**
  * マイルストーンの達成を、出来事として作る（ヒストリーに出す）。タスクがすべて終わったマイルストーンで、
  * 時刻は最後のタスクを閉じたとき（わからなければ、マイルストーンを閉じたとき）。since より前のものは作らない。
+ * 開いたタスクが残っているかは、開いたタスクの一覧で見る（マイルストーンに書かれた数は読み込んだときのままで、
+ * 完了にした直後は「あと 1 件」のまま。達成の演出〔useMilestoneClear〕と同じ見方）。
  * 読んでいるマイルストーンは開いているものだけなので、閉じたマイルストーンは、閉じたタスクに入っているもので見る
  */
-export function milestoneEvents(milestones: GitHubMilestone[], closedIssues: GitHubIssue[], since: number): ActivityEvent[] {
+export function milestoneEvents(milestones: GitHubMilestone[], openIssues: GitHubIssue[], closedIssues: GitHubIssue[], since: number): ActivityEvent[] {
+  const stillOpen = new Set<number>();
+  for (const i of openIssues) if (i.milestone) stillOpen.add(i.milestone.number);
   const all = new Map<number, GitHubMilestone>();
   for (const i of closedIssues) if (i.milestone && !all.has(i.milestone.number)) all.set(i.milestone.number, i.milestone);
-  // 開いているマイルストーンは、一覧のもの（新しい数）を使う
   for (const m of milestones) all.set(m.number, m);
   const out: ActivityEvent[] = [];
   for (const m of all.values()) {
-    if (m.open_issues > 0 || m.closed_issues === 0) continue;
+    if (stillOpen.has(m.number)) continue;
     let last: GitHubIssue | null = null;
+    let closedHere = 0;
     for (const i of closedIssues) {
-      if (i.milestone?.number !== m.number || !i.closed_at) continue;
+      if (i.milestone?.number !== m.number) continue;
+      closedHere++;
+      if (!i.closed_at) continue;
       if (!last || i.closed_at > (last.closed_at ?? "")) last = i;
     }
+    // 終えたタスクの数（閉じた一覧には、いま閉じたものも入っている）
+    const size = Math.max(m.closed_issues, closedHere);
+    if (size === 0) continue;
     const at = last?.closed_at ?? m.closed_at ?? null;
     if (!at || Date.parse(at) < since) continue;
     out.push({
@@ -252,7 +261,7 @@ export function milestoneEvents(milestones: GitHubMilestone[], closedIssues: Git
       action: null,
       number: m.number,
       title: m.title,
-      size: m.closed_issues,
+      size,
       due_on: m.due_on,
       last_task: last ? { number: last.number, title: last.title } : null,
     });

@@ -20,8 +20,9 @@ interface ActivityViewProps {
   team: GitHubUser[];
   /** 画面の動きが「ふつう」か */
   motion: boolean;
-  /** マイルストーンの達成をヒストリーに出すため（#229） */
+  /** マイルストーンの達成をヒストリーに出すため（#229）。開いたタスクで、まだ残っているかを見る */
   milestones: GitHubMilestone[];
+  issues: GitHubIssue[];
   closedIssues: GitHubIssue[];
   /** 今日のあなた（チームの仕事の下。#238） */
   today?: ReactNode;
@@ -65,7 +66,7 @@ function MilestoneBanner({ id, children }: { id: string; children: ReactNode }) 
 }
 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
-export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, closedIssues, today }: ActivityViewProps) {
+export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, issues, closedIssues, today }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<"" | ActivityKind>("");
@@ -91,11 +92,11 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
     const list = feed?.events ?? [];
     const roles = helpRoles(list);
     const since = list.length > 0 ? Math.min(...list.map((e) => Date.parse(e.at))) : Date.now() - 90 * 86400000;
-    return [...list, ...milestoneEvents(milestones, closedIssues, since)]
+    return [...list, ...milestoneEvents(milestones, issues, closedIssues, since)]
       .sort((a, b) => b.at.localeCompare(a.at))
       .map((e) => ({ e, d: describe(e, roles.get(e.id)) }))
       .filter((x) => x.d !== null);
-  }, [feed, milestones, closedIssues]);
+  }, [feed, milestones, issues, closedIssues]);
   const actors = useMemo(() => [...new Set(events.map((x) => x.e.actor).filter(Boolean))].sort(), [events]);
   const matchWho = (x: (typeof events)[number]) => !who || x.e.actor === who;
   const matchKind = (x: (typeof events)[number]) => !kind || kindOf(x.e) === kind;

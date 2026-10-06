@@ -974,6 +974,7 @@ function Workspace({
           nowPanel={leavePanel}
           checkRemote={checkRemote}
           handedBranch={handedBranch}
+          closedIssues={closedIssues}
           busy={g.busy !== null}
         />
       ) : shown === 2 ? (
@@ -1157,13 +1158,15 @@ interface IssueStepProps {
   checkRemote: (name: string) => Promise<boolean>;
   /** 止めた・引き継いだときのコメントにある、続きのブランチ（なければ null） */
   handedBranch: (n: number) => Promise<string | null>;
+  /** 閉じたタスク（続きのブランチが、ほかのタスクの題名のブランチかを見る） */
+  closedIssues: GitHubIssue[];
   /** マージ済みのブランチにいるときの知らせと、そのボタン（このブランチで続ける・既定のブランチに戻る） */
   note: ReactNode;
   extras: StepButton[];
   busy: boolean;
 }
 
-function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, nowActions, nowPanel, checkRemote, handedBranch, note, extras, busy }: IssueStepProps) {
+function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, nowActions, nowPanel, checkRemote, handedBranch, closedIssues, note, extras, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
   const [ms, setMs] = useState<string>(() => loadMilestone(owner, repo) ?? nearestMilestone(milestones));
   // ブランチを決めているところの Issue（行の下に、始め方を出す）
@@ -1193,7 +1196,8 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
   // ただし続きのブランチが、ほかのタスクの題名のブランチなら（ほかの作業のブランチでまちがえて始めて、止めた・引き継いだ）、
   // この作業の題名のブランチを作って始めるのを先に出す（続きのブランチにも切り替えられる）
   const freshOwn = pickedIssue ? branchNameFor(pickedIssue) : "";
-  const handedOther = !!continueOn && !!pickedIssue && issues.some((o) => o.number !== pickedIssue.number && branchNameFor(o) === continueOn);
+  const handedOther =
+    !!continueOn && !!pickedIssue && [...issues, ...closedIssues].some((o) => o.number !== pickedIssue.number && branchNameFor(o) === continueOn);
   // 今の作業を選び直すとき（違うブランチで始めてしまった）は、名前を題名から作る（覚えているのは、まちがえて始めたブランチ）
   const pickedChosen = !!pickedIssue && pickedIssue.number === choice;
   const pickedOwn =

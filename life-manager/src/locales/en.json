@@ -535,6 +535,7 @@
  "{actor} が {ref} の担当を {assignee} にしました": "{actor} assigned {ref} to {assignee}",
  "{actor} が {ref} の担当をあなたにしました": "{actor} assigned {ref} to you",
  "{actor} が {ref} の行にコメントしました": "{actor} commented on a line in {ref}",
+ "{actor} が {ref} をあなたに引き継ぎました": "{actor} handed {ref} over to you",
  "{actor} が {ref} をマージしました": "{actor} merged {ref}",
  "{actor} が {ref} をレビューしました": "{actor} reviewed {ref}",
  "{actor} が {ref} をレビューをお願いできる状態にしました": "{actor} marked {ref} as ready for review",

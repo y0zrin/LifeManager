@@ -475,6 +475,7 @@
  "{actor} が {ref} の担当を {assignee} にしました": "{actor} 将 {ref} 的负责人设为 {assignee}",
  "{actor} が {ref} の担当をあなたにしました": "{actor} 将 {ref} 的负责人设为你",
  "{actor} が {ref} の行にコメントしました": "{actor} 在 {ref} 的代码行上发表了评论",
+ "{actor} が {ref} をあなたに引き継ぎました": "{actor} 将 {ref} 交接给了你",
  "{actor} が {ref} をマージしました": "{actor} 合并了 {ref}",
  "{actor} が {ref} をレビューしました": "{actor} 审查了 {ref}",
  "{actor} が {ref} をレビューをお願いできる状態にしました": "{actor} 将 {ref} 标记为可以审查",

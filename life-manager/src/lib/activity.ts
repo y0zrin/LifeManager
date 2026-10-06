@@ -280,6 +280,8 @@ export const timeOf = (iso: string) => {
 /** 「助けを求める」のコメントの印（GitHub の画面では見えない）と、その解決の印 */
 export const HELP_MARK = "<!-- lm:help -->";
 export const HELP_DONE_MARK = "<!-- lm:help-done -->";
+/** 作業をする の「引き継ぐ」が Issue に書くコメントの書き出し（相手の名前） */
+const HANDOVER = /^@([\w-]+) さんに引き継ぎます。/;
 
 export interface Todo {
   /** 見た印の鍵（中身が変わると鍵も変わり、また出る） */
@@ -371,6 +373,12 @@ export function buildTodos(o: {
   for (const e of o.events) {
     if (e.type === "IssueCommentEvent" && e.number && e.body?.includes(HELP_DONE_MARK) && (doneAt.get(e.number) ?? "") < e.at) doneAt.set(e.number, e.at);
   }
+  // 自分への引き継ぎ（作業をする の「引き継ぐ」が書く「@相手 さんに引き継ぎます。…」）。同じ人の「担当をあなたにしました」は重ねて出さない
+  const handOver = (e: ActivityEvent) => {
+    const m = e.type === "IssueCommentEvent" && e.body ? HANDOVER.exec(e.body.trim()) : null;
+    return m && same(m[1], me) ? m : null;
+  };
+  const handedBy = new Set(o.events.filter((e) => handOver(e) && e.number).map((e) => `${e.number}:${e.actor}`));
   for (const e of o.events) {
     if (same(e.actor, me) || now - Date.parse(e.at) > MENTION_DAYS * 86400000 || !e.number) continue;
     const target = { kind: (e.pull || e.type.startsWith("PullRequest") ? "pull" : "issue") as "pull" | "issue", number: e.number };
@@ -384,11 +392,14 @@ export function buildTodos(o: {
         out.push({ key: `help:${e.id}`, icon: "🆘", tone: "ng", parts: sentence("{actor} が助けを求めています ・ {ref}", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: -1 });
       } else if (e.body.includes(HELP_DONE_MARK)) {
         out.push({ key: `helped:${e.id}`, icon: "✅", tone: "ok", parts: sentence("{actor} が 🆘 を解決にしました ・ {ref}", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: 6 });
+      } else if (handOver(e)) {
+        const rest = e.body.trim().slice(handOver(e)![0].length).trim();
+        out.push({ key: `handover:${e.id}`, icon: "🤝", tone: "", parts: sentence("{actor} が {ref} をあなたに引き継ぎました", { actor: e.actor, ref }), detail: rest || undefined, at: e.at, target, order: 6 });
       } else {
         out.push({ key: `mention:${e.id}`, icon: "💬", tone: "", parts: sentence("{actor} が {ref} であなたの名前を出しました", { actor: e.actor, ref }), detail: e.body, at: e.at, target, order: 6 });
       }
     }
-    if (e.type === "IssuesEvent" && e.action === "assigned" && same(e.assignee, me)) {
+    if (e.type === "IssuesEvent" && e.action === "assigned" && same(e.assignee, me) && !handedBy.has(`${e.number}:${e.actor}`)) {
       out.push({ key: `assigned:${e.id}`, icon: "👤", tone: "", parts: sentence("{actor} が {ref} の担当をあなたにしました", { actor: e.actor, ref }), at: e.at, target, order: 7 });
     }
   }

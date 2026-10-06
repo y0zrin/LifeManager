@@ -21,7 +21,7 @@ fn inside(repo: &Path, file: &str) -> Result<PathBuf, String> {
     let outside = rel.is_absolute()
         || rel.components().any(|c| matches!(c, Component::ParentDir | Component::Prefix(_) | Component::RootDir));
     if file.trim().is_empty() || outside {
-        return Err(format!("「{}」は、このリポジトリのファイルではありません", file));
+        return Err(format!("「{}」はこのリポジトリのファイルではありません", file));
     }
     Ok(repo.join(rel))
 }
@@ -80,7 +80,7 @@ pub fn take_side(repo: &Path, file: &str, side: &str) -> Result<GitRun, String> 
 pub fn open(repo: &Path, file: &str) -> Result<(), String> {
     let path = inside(repo, file)?;
     if !path.exists() {
-        return Err(format!("{} は、作業フォルダにありません", file));
+        return Err(format!("{} は作業フォルダにありません", file));
     }
     open_with_default_app(&path).map_err(|e| format!("{} を開けませんでした: {}", file, e))
 }

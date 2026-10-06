@@ -5,6 +5,7 @@ import * as git from "../../lib/git";
 import { isEscape } from "../../lib/keys";
 import { useLoginInfo } from "../../hooks/useLoginInfo";
 import { AllowRepoStep } from "./AllowRepoStep";
+import { tr, trx } from "../../lib/i18n";
 
 interface PublishDialogProps {
   /** GitHub にログインしている人（リポジトリの持ち主の候補） */
@@ -21,12 +22,12 @@ const TEMPLATES: { value: git.GitignoreTemplate; label: string }[] = [
   { value: "visualstudio", label: "Visual Studio（C++）" },
   { value: "unity", label: "Unity" },
   { value: "unreal", label: "Unreal Engine" },
-  { value: "none", label: "使わない" },
+  { value: "none", label: tr("使わない") },
 ];
 
-const STEPS = ["記録を始める", "GitHub に場所を作る", "つないで送る", "できあがり"];
+const STEPS = [tr("記録を始める"), tr("GitHub に場所を作る"), tr("つないで送る"), tr("できあがり")];
 /** 「GitHub でログイン」のときは、上げたリポジトリを Life Manager に許可する手順を足す（しないと Issue が使えない） */
-const STEPS_WITH_ALLOW = ["記録を始める", "GitHub に場所を作る", "つないで送る", "Life Manager に許可", "できあがり"];
+const STEPS_WITH_ALLOW = [tr("記録を始める"), tr("GitHub に場所を作る"), tr("つないで送る"), tr("Life Manager に許可"), tr("できあがり")];
 
 /** フォルダの名前から、GitHub のリポジトリに使える名前を作る（使えない文字は - に） */
 function repoNameOf(path: string): string {
@@ -42,7 +43,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
   const [folder, setFolder] = useState("");
   const [state, setState] = useState<git.FolderState | null>(null);
   const [template, setTemplate] = useState<git.GitignoreTemplate>("visualstudio");
-  const [message, setMessage] = useState("最初のコミット");
+  const [message, setMessage] = useState(tr("最初のコミット"));
   const [owner, setOwner] = useState(login);
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(true);
@@ -85,7 +86,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
   }
 
   async function pickFolder() {
-    const picked = await open({ directory: true, title: "GitHub に上げるフォルダを選ぶ" });
+    const picked = await open({ directory: true, title: tr("GitHub に上げるフォルダを選ぶ") });
     if (typeof picked === "string") await useFolder(picked);
   }
 
@@ -100,8 +101,8 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
   if (state && !state.inside) {
     if (!state.is_repo) prepareCommands.push("git init -b main");
     if (state.commits === 0) {
-      if (!state.has_gitignore && template !== "none") prepareCommands.push("（.gitignore を作る）");
-      prepareCommands.push("git add .", git.displayCommand(["commit", "-m", message.trim() || "最初のコミット"]));
+      if (!state.has_gitignore && template !== "none") prepareCommands.push(tr("（.gitignore を作る）"));
+      prepareCommands.push("git add .", git.displayCommand(["commit", "-m", message.trim() || tr("最初のコミット")]));
     }
   }
 
@@ -109,22 +110,22 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
     if (step === 0) {
       await run(async () => {
         const r = await git.publishPrepare(folder, template, message);
-        setDone(r.command ? `実行しました：${r.command}` : null);
+        setDone(r.command ? tr("実行しました：{command}", { command: r.command }) : null);
         setState(await git.folderState(folder));
         setStep(1);
       });
     } else if (step === 1) {
       await run(async () => {
         if (!(await git.remoteExists(url))) {
-          throw new Error(`GitHub に ${owner.trim()}/${name.trim()} が見つかりません。作れたか、名前と持ち主が合っているかを確かめてください`);
+          throw new Error(tr("GitHub に {trim}/{trim2} が見つかりません。作れたか、名前と持ち主が合っているかを確かめてください", { trim: owner.trim(), trim2: name.trim() }));
         }
         setDone(null);
         setStep(2);
       });
     } else if (step === 2) {
       await run(async () => {
-        const r = await git.publishPush(folder, url);
-        setDone(`実行しました：${r.command}`);
+        const r = await git.publishPush(folder, url, login);
+        setDone(tr("実行しました：{command}", { command: r.command }));
         setStep(3);
       });
     } else if (step === lastStep) {
@@ -142,18 +143,18 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         : true);
   const nextLabel =
     step === 1
-      ? "作ったので次へ"
+      ? tr("作ったので次へ")
       : step === lastStep
-        ? "プロジェクトに追加して閉じる"
+        ? tr("プロジェクトに追加して閉じる")
         : step === 0 && state && prepareCommands.length === 0
-          ? "次へ"
-          : "実行して次へ";
+          ? tr("次へ")
+          : tr("実行して次へ");
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onBack()}>
-      <div className="git-dialog publish-dialog" role="dialog" aria-modal="true" aria-label="手元のフォルダを GitHub に上げる" onClick={(e) => e.stopPropagation()}>
+      <div className="git-dialog publish-dialog" role="dialog" aria-modal="true" aria-label={tr("手元のフォルダを GitHub に上げる")} onClick={(e) => e.stopPropagation()}>
         <h3>
-          手元のフォルダを GitHub に上げる <span className="publish-count">{step + 1} / {steps.length}</span>
+          {tr("手元のフォルダを GitHub に上げる")}{" "} <span className="publish-count">{step + 1} / {steps.length}</span>
         </h3>
         <ol className="publish-steps">
           {steps.map((s, i) => (
@@ -166,29 +167,29 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         {step === 0 && (
           <>
             <label className="git-dialog-label">
-              上げるフォルダ
+              {tr("上げるフォルダ")}
               <span className="add-project-row">
-                <input className="input-full" value={folder} readOnly placeholder="フォルダを選んでください" />
+                <input className="input-full" value={folder} readOnly placeholder={tr("フォルダを選んでください")} />
                 <button type="button" className="btn-sm" onClick={pickFolder} disabled={busy}>
-                  選ぶ…
+                  {tr("選ぶ…")}
                 </button>
               </span>
             </label>
             {state?.inside && (
               <p className="git-dialog-error">
-                このフォルダは、ほかのリポジトリ（{state.inside}）の中にあります。リポジトリの中に、別のリポジトリは作れません。
+                {trx("このフォルダは、ほかのリポジトリ（{inside}）の中にあります。リポジトリの中に別のリポジトリは作れません。", { inside: state.inside })}
               </p>
             )}
             {state && !state.inside && (
               <p className="local-folder-message local-folder-message--ok">
-                ✔ {state.files.toLocaleString()} 個のファイル
-                {state.is_repo ? `（記録は ${state.commits} 件あります）` : "（まだ Git の記録はありません）"}
-                {state.origin && `。いまは ${state.origin} につながっています（次の手順で付け替えます）`}
+                {trx("✔ {toLocaleString} 個のファイル", { toLocaleString: state.files.toLocaleString() })}
+                {state.is_repo ? tr("（記録は {commits} 件あります）", { commits: state.commits }) : tr("（まだ Git の記録はありません）")}
+                {state.origin && tr("。いまは {origin} につながっています（次の手順で付け替えます）", { origin: state.origin })}
               </p>
             )}
             {state && !state.inside && state.commits === 0 && !state.has_gitignore && (
               <label className="git-dialog-label">
-                記録しないもの（.gitignore のひな形）
+                {tr("記録しないもの（.gitignore のひな形）")}
                 <select className="input-full" value={template} onChange={(e) => setTemplate(e.target.value as git.GitignoreTemplate)} disabled={busy}>
                   {TEMPLATES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -200,41 +201,37 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
             )}
             {state && !state.inside && state.commits === 0 && (
               <label className="git-dialog-label">
-                最初のコミットのメッセージ
+                {tr("最初のコミットのメッセージ")}
                 <input className="input-full" value={message} onChange={(e) => setMessage(e.target.value)} disabled={busy} />
               </label>
             )}
             {prepareCommands.length > 0 ? (
-              <div className="cmd-preview">
-                <span>実行するコマンド</span>
-                <code>{prepareCommands.join("\n")}</code>
+              <div
+                className="cmd-preview"
+                title={tr("このフォルダで記録を始め（git init）、今の中身を最初の記録にします。ビルドで毎回作られるもの（x64 や .vs など）は、.gitignore に書いて記録しないようにします。")}
+              >
+                {trx("<0>実行するコマンド</0><1>{join}</1>", { join: prepareCommands.join("\n") }, [<span />, <code />])}
               </div>
             ) : (
-              state && !state.inside && <p className="git-dialog-note">もう記録があるので、この手順では何もしません。</p>
-            )}
-            {(!state || prepareCommands.length > 0) && (
-              <p className="hint">
-                このフォルダで記録を始め（<code>git init</code>）、今の中身を最初の記録にします。ビルドで毎回作られるもの（x64 や .vs
-                など）は、<code>.gitignore</code> に書いて記録しないようにします。
-              </p>
+              state && !state.inside && <p className="git-dialog-note">{tr("もう記録があるので、この手順では何もしません。")}</p>
             )}
           </>
         )}
 
         {step === 1 && (
           <>
-            <p className="git-dialog-message">GitHub に、空のリポジトリを作ります。</p>
+            <p className="git-dialog-message">{tr("GitHub に空のリポジトリを作ります。")}</p>
             <label className="git-dialog-label">
-              名前
+              {tr("名前")}
               <input className="input-full" value={name} spellCheck={false} onChange={(e) => setName(e.target.value)} disabled={busy} />
             </label>
             <label className="git-dialog-label">
-              持ち主（ふつうは自分。組織に作るときは組織の名前）
+              {tr("持ち主（ふつうは自分。組織に作るときは組織の名前）")}
               <input className="input-full" value={owner} spellCheck={false} onChange={(e) => setOwner(e.target.value)} disabled={busy} />
             </label>
             <label className="chk">
               <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} disabled={busy} />
-              非公開にする（学校の課題やチーム制作は、こちら）
+              {tr("非公開にする（学校の課題やチーム制作はこちら）")}
             </label>
             <div className="publish-open">
               <button
@@ -245,11 +242,11 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
                   openUrl(`https://github.com/new?name=${encodeURIComponent(name.trim())}&visibility=${isPrivate ? "private" : "public"}`)
                 }
               >
-                GitHub で作る（ブラウザが開きます）
+                {tr("GitHub で作る（ブラウザが開きます）")}
               </button>
             </div>
             <p className="git-dialog-note">
-              GitHub の画面では、README や .gitignore は付けずに「Create repository」を押してください（手元にあるため）。押したら、ここに戻ってきて「作ったので次へ」を押します。
+              {tr("GitHub の画面では、README や .gitignore は付けずに「Create repository」を押してください（手元にあるため）。押したら、ここに戻ってきて「作ったので次へ」を押します。")}
             </p>
           </>
         )}
@@ -257,24 +254,18 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         {step === 2 && (
           <>
             <p className="local-folder-message local-folder-message--ok">
-              ✔ GitHub に {owner.trim()}/{name.trim()} がありました。つないで送ります。
+              {trx("✔ GitHub に {trim}/{trim2} がありました。つないで送ります。", { trim: owner.trim(), trim2: name.trim() })}
             </p>
-            <div className="cmd-preview">
-              <span>実行するコマンド</span>
-              <code>
-                {`${state?.origin ? git.displayCommand(["remote", "set-url", "origin", url]) : git.displayCommand(["remote", "add", "origin", url])}\n${git.displayCommand(["push", "-u", "origin", branch])}`}
-              </code>
+            <div className="cmd-preview" title={tr("origin は GitHub の置き場所につける名前です。-u を付けると、次からは「プッシュ」だけで同じ所へ送れます。")}>
+              {trx("<0>実行するコマンド</0><1>{v}</1>", { v: `${state?.origin ? git.displayCommand(["remote", "set-url", "origin", url]) : git.displayCommand(["remote", "add", "origin", url])}\n${git.displayCommand(["push", "-u", "origin", branch])}` }, [<span />, <code />])}
             </div>
-            <p className="hint">
-              <code>origin</code> は、GitHub の置き場所につける名前です。<code>-u</code> を付けると、次からは「プッシュ」だけで同じ所へ送れます。初めてのときは、ブラウザで
-              GitHub へのログインを求められることがあります。
-            </p>
+            <p className="git-dialog-note">{tr("初めてのときはブラウザで GitHub へのログインを求められることがあります。")}</p>
           </>
         )}
 
         {step === allowStep && me && (
           <>
-            <p className="local-folder-message local-folder-message--ok">✔ GitHub に上げました。</p>
+            <p className="local-folder-message local-folder-message--ok">{tr("✔ GitHub に上げました。")}</p>
             <AllowRepoStep me={me} installUrl={installUrl} installations={installations} target={{ owner: owner.trim(), repo: name.trim() }}
               onAllowed={(r) => { setOwner(r.owner); setName(r.repo); setDone(null); setStep(lastStep); }} onInstallationsChanged={reloadInstallations} />
           </>
@@ -282,18 +273,18 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
 
         {step === lastStep && (
           <>
-            <p className="local-folder-message local-folder-message--ok">✔ GitHub に上げました{byLogin ? "。Life Manager で使えます" : ""}。</p>
+            <p className="local-folder-message local-folder-message--ok">{byLogin ? tr("✔ GitHub に上げました。Life Manager で使えます。") : tr("✔ GitHub に上げました。")}</p>
             <p className="git-dialog-message">
-              「プロジェクトに追加して閉じる」で、{owner.trim()}/{name.trim()} をプロジェクトに登録し、このフォルダを作業フォルダにします。
+              {trx("「プロジェクトに追加して閉じる」で、{trim}/{trim2} をプロジェクトに登録し、このフォルダを作業フォルダにします。", { trim: owner.trim(), trim2: name.trim() })}
             </p>
             {!byLogin && (
               <p className="git-dialog-note">
-                Issue やタスクも使うときは、トークンがこのリポジトリを使えるようにしてください（設定 → トークン）。
+                {tr("Issue やタスクも使うときは、トークンがこのリポジトリを使えるようにしてください（設定 → トークン）。")}
               </p>
             )}
             <div className="publish-open">
               <button type="button" className="btn-sm" onClick={() => openUrl(`https://github.com/${owner.trim()}/${name.trim()}`)}>
-                GitHub で開く
+                {tr("GitHub で開く")}
               </button>
             </div>
           </>
@@ -302,7 +293,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         {done && <p className="git-dialog-note publish-done">{done}</p>}
         {busy && (
           <p className="git-dialog-running">
-            <i className="spinner" aria-hidden="true" /> {step === 2 ? "送っています…" : step === 1 ? "GitHub を確かめています…" : "実行しています…"}
+            <i className="spinner" aria-hidden="true" /> {step === 2 ? tr("送っています…") : step === 1 ? tr("GitHub を確かめています…") : tr("実行しています…")}
           </p>
         )}
         {error && <p className="git-dialog-error">{error}</p>}
@@ -310,7 +301,7 @@ export function PublishDialog({ login, initialFolder, onBack, onDone }: PublishD
         <div className="git-dialog-actions add-project-actions">
           {step <= 2 && (
             <button type="button" className="link-button" disabled={busy} onClick={() => (step === 0 ? onBack() : setStep(step - 1))}>
-              {step === 0 ? "← 追加の画面に戻る" : "← 前へ"}
+              {step === 0 ? tr("← 追加の画面に戻る") : tr("← 前へ")}
             </button>
           )}
           {step !== allowStep && (

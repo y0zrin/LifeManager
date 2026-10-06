@@ -4,16 +4,19 @@ import type { CloseReason, GitHubIssue } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { useDismiss } from "../../hooks/useDismiss";
 import { findIssues } from "../../lib/issueSearch";
+import { tr, trx } from "../../lib/i18n";
 
 interface CloseMenuProps {
   issue: GitHubIssue;
   /** 「重複として閉じる」で、元の Issue を探す候補 */
   allIssues: GitHubIssue[];
   onClose: (reason: CloseReason, duplicateOf?: GitHubIssue) => Promise<void>;
+  /** 完了の知らせの「元に戻す」（#232） */
+  onReopen?: () => void;
 }
 
 /** 詳細の「クローズ ▾」。GitHub と同じく、完了として／予定なしとして／重複として（元の Issue を選ぶ）閉じる */
-export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
+export function CloseMenu({ issue, allIssues, onClose, onReopen }: CloseMenuProps) {
   const [open, setOpen] = useState(false);
   const [dup, setDup] = useState(false);
   const [query, setQuery] = useState("");
@@ -35,7 +38,7 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
     setBusy(true);
     try {
       await onClose(reason, original);
-      if (reason === "completed") celebrateDone(`#${issue.number}`, origin);
+      if (reason === "completed") celebrateDone(`#${issue.number}`, origin, undefined, onReopen);
       reset();
     } finally {
       setBusy(false);
@@ -45,31 +48,31 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
   return (
     <span className="close-menu" ref={ref}>
       <button type="button" className="btn-sm" disabled={busy} onClick={() => (open ? reset() : setOpen(true))}>
-        クローズ ▾
+        {tr("クローズ ▾")}
       </button>
       {open && (
         <div className="close-menu-pop" role="menu">
           {!dup ? (
             <>
               <button type="button" role="menuitem" disabled={busy} onClick={(e) => choose("completed", undefined, e.currentTarget)}>
-                ✅ 完了として閉じる<small>やり終えた（いつもの閉じ方）</small>
+                {trx("✅ 完了として閉じる<0>やり終えた（いつもの閉じ方）</0>", undefined, [<small />])}
               </button>
               <button type="button" role="menuitem" disabled={busy} onClick={() => choose("not_planned")}>
-                ⊘ 予定なしとして閉じる<small>やらないことにした</small>
+                {trx("⊘ 予定なしとして閉じる<0>やらないことにした</0>", undefined, [<small />])}
               </button>
               <button type="button" role="menuitem" disabled={busy} onClick={() => setDup(true)}>
-                🔁 重複として閉じる…<small>同じ内容の Issue がある（元を選ぶ）</small>
+                {trx("🔁 重複として閉じる…<0>同じ内容の Issue がある（元を選ぶ）</0>", undefined, [<small />])}
               </button>
             </>
           ) : (
             <div className="close-menu-dup">
-              <div className="close-menu-title">元の Issue を選ぶ（こちらを閉じて、元の Issue に「重複」と印が付きます）</div>
+              <div className="close-menu-title">{tr("元の Issue を選ぶ（こちらを閉じて、元の Issue に「重複」と印が付きます）")}</div>
               <input
                 className="input-full"
                 autoFocus
                 value={query}
                 disabled={busy}
-                placeholder="番号かタイトルで探す（例：#12）"
+                placeholder={tr("番号かタイトルで探す（例：#12）")}
                 onChange={(e) => setQuery(e.target.value)}
               />
               {candidates.map((c) => (
@@ -80,7 +83,7 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
                 </button>
               ))}
               <button type="button" className="link-button" disabled={busy} onClick={() => setDup(false)}>
-                ← 戻る
+                {tr("← 戻る")}
               </button>
             </div>
           )}
@@ -92,7 +95,7 @@ export function CloseMenu({ issue, allIssues, onClose }: CloseMenuProps) {
 
 /** 閉じた理由の言い方 */
 export function closeReasonText(reason: string | null | undefined): string {
-  if (reason === "not_planned") return "予定なし";
-  if (reason === "duplicate") return "重複";
-  return "完了";
+  if (reason === "not_planned") return tr("予定なし");
+  if (reason === "duplicate") return tr("重複");
+  return tr("完了");
 }

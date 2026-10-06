@@ -1,6 +1,7 @@
 // PC の git を呼び出す（スマホ版では使わない）。バックエンドの git::commands と対応する
-import { invoke } from "@tauri-apps/api/core";
-import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus } from "./types";
+import { invoke } from "./invoke";
+import type { GitBranch, GitFolderCheck, GitHistory, GitOperation, GitRun, GitSetupStatus, GitStash, GitStatus, WatchFinding } from "./types";
+import { rememberGitFailure } from "./gitFailure";
 
 // --- 準備 ---
 export const gitVersion = () => invoke<string>("git_version");
@@ -10,8 +11,9 @@ export const installGit = () => invoke<GitRun>("git_install");
 export const setIdentity = (name: string, email: string) => invoke<GitRun>("git_set_identity", { name, email });
 export const checkFolder = (path: string, owner: string, repo: string) =>
   invoke<GitFolderCheck>("git_check_folder", { path, owner, repo });
-export const cloneRepo = (parent: string, owner: string, repo: string) =>
-  invoke<{ run: GitRun; path: string }>("git_clone", { parent, owner, repo });
+/** login（アプリのアカウント）を渡すと URL に入れて、この PC の git がそのアカウントで取りに行く（#245） */
+export const cloneRepo = (parent: string, owner: string, repo: string, login?: string) =>
+  invoke<{ run: GitRun; path: string }>("git_clone", { parent, owner, repo, login: login || null });
 
 // --- 閲覧 ---
 export const readStatus = (path: string) => invoke<GitStatus>("git_status", { path });
@@ -40,12 +42,22 @@ export interface FolderState {
 }
 /** .gitignore のひな形（Rust の git::publish と同じ名前） */
 export type GitignoreTemplate = "visualstudio" | "unity" | "unreal" | "none";
-export const cloneUrl = (parent: string, url: string) => invoke<CloneUrlResult>("git_clone_url", { parent, url });
+export const cloneUrl = (parent: string, url: string, login?: string) =>
+  invoke<CloneUrlResult>("git_clone_url", { parent, url, login: login || null });
 export const folderState = (path: string) => invoke<FolderState>("git_folder_state", { path });
 export const publishPrepare = (path: string, template: GitignoreTemplate, message: string) =>
   invoke<GitRun>("git_publish_prepare", { path, template, message });
 export const remoteExists = (url: string) => invoke<boolean>("git_remote_exists", { url });
-export const publishPush = (path: string, url: string) => invoke<GitRun>("git_publish_push", { path, url });
+export const publishPush = (path: string, url: string, login?: string) =>
+  invoke<GitRun>("git_publish_push", { path, url, login: login || null });
+/** origin を、アプリのアカウントで GitHub に行く URL にする（#245） */
+export const switchAccount = (path: string, login: string) => invoke<GitRun>("git_use_account", { path, login });
+
+/** GitHub に断られたわけが、この PC の git のアカウントらしいとき（非公開で見えない・書く権限がない）、その行を返す */
+export function accountProblemLine(message: string): string | null {
+  const line = message.split(/\r?\n/).find((l) => /Repository not found|Permission to \S+ denied to|The requested URL returned error: 403/i.test(l));
+  return line ? line.trim().replace(/\s+/g, " ") : null;
+}
 
 /** GitHub の URL（https・ssh）や「持ち主/名前」から、持ち主と名前を取り出す（Rust の parse_github と同じ決まり） */
 export function parseGitHub(input: string): { owner: string; repo: string } | null {
@@ -76,6 +88,10 @@ export const commit = (path: string, messages: string[], amend: boolean, allowEm
 export const push = (path: string) => invoke<GitRun>("git_push", { path });
 export const pull = (path: string) => invoke<GitRun>("git_pull", { path });
 export const fetch = (path: string) => invoke<GitRun>("git_fetch", { path });
+/** 見ているブランチだけを GitHub から読む（切り替えない） */
+export const fetchBranch = (path: string, branch: string) => invoke<GitRun>("git_fetch_branch", { path, branch });
+/** 見ているブランチを、切り替えずに GitHub の最新にする（今のブランチなら、ふつうのプル）。output は "created"（この PC に作った）・"local-ahead"（この PC の方が進んでいる） */
+export const pullBranch = (path: string, branch: string) => invoke<GitRun>("git_pull_branch", { path, branch });
 /** create なら作ってから切り替える（start があれば、そのコミットから作る） */
 export const switchBranch = (path: string, branch: string, create: boolean, start: string | null = null) =>
   invoke<GitRun>("git_switch", { path, branch, create, start });
@@ -91,6 +107,10 @@ export const openTerminal = (path: string) => invoke<void>("git_open_terminal", 
 // --- 無視するファイル（.gitignore） ---
 /** パターンに当てはまる、git で管理しているファイル（.gitignore に書いても無視されないもの） */
 export const ignoreTracked = (path: string, pattern: string) => invoke<string[]>("git_ignore_tracked", { path, pattern });
+/** 自分が since から作ったコミットの数（#238 今日のあなた） */
+export const myCommitsSince = (path: string, since: string) => invoke<number>("git_my_commits_since", { path, since });
+/** コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ */
+export const commitWatch = (path: string, paths: string[]) => invoke<WatchFinding[]>("git_commit_watch", { path, paths });
 /** .gitignore にパターンを 1 行書き足す。untrack があれば、先にそのパスのファイルを管理から外す（git rm --cached） */
 export const ignoreAdd = (path: string, pattern: string, untrack: string | null, recursive: boolean) =>
   invoke<GitRun>("git_ignore_add", { path, pattern, untrack, recursive });
@@ -130,10 +150,13 @@ export function ignoreRules(path: string): IgnoreRule[] {
     rules.push({ kind: "ext", label: `.${ext}`, pattern: `*.${escapeIgnore(ext)}`, pathspec: `*.${ext}`, recursive: true });
   }
   const folders = new Set(parts.length > 1 ? [parts.slice(0, -1).join("/"), parts[0]] : []);
-  for (const dir of folders) {
-    rules.push({ kind: "folder", label: `${dir}/`, pattern: `/${escapeIgnore(dir)}/`, pathspec: `${dir}/`, recursive: true });
-  }
+  for (const dir of folders) rules.push(folderIgnoreRule(dir));
   return rules;
+}
+
+/** そのフォルダ（その場所のものだけ）を無視する */
+export function folderIgnoreRule(dir: string): IgnoreRule {
+  return { kind: "folder", label: `${dir}/`, pattern: `/${escapeIgnore(dir)}/`, pathspec: `${dir}/`, recursive: true };
 }
 
 // --- コミットの操作 ---
@@ -175,6 +198,16 @@ export const takeSide = (path: string, file: string, side: "ours" | "theirs" | "
 export const openFile = (path: string, file: string) => invoke<void>("git_open_file", { path, file });
 /** 作業フォルダに新しいファイルを置く（もうあれば書き換えない。ステージはしない） */
 export const addNewFile = (path: string, file: string, text: string) => invoke<void>("git_add_new_file", { path, file, text });
+
+/**
+ * プッシュが、GitHub 側に新しいコミットがあって断られたとき、その行を返す（! [rejected] main -> main (fetch first) など）。
+ * 先にプルで取り込めば送れる。ほかの断られ方（保護されたブランチ など）は null
+ */
+export function pushBehindLine(message: string): string | null {
+  const line = message.split(/\r?\n/).find((l) => /\[rejected\].*\((fetch first|non-fast-forward)\)/.test(l));
+  if (line) return line.trim().replace(/\s+/g, " ");
+  return /non-fast-forward/.test(message) ? "" : null;
+}
 
 /** git のメッセージから、競合したファイルを読み取る（CONFLICT (content): Merge conflict in menu.txt など） */
 export function conflictFilesIn(message: string): string[] {
@@ -222,7 +255,10 @@ export function splitGitError(e: unknown): { command?: string; message: string }
   const text = e instanceof Error ? e.message : String(e);
   const nl = text.indexOf("\n");
   if (text.startsWith("git ") && nl > 0) {
-    return { command: text.slice(0, nl), message: text.slice(nl + 1).trim() };
+    const failure = { command: text.slice(0, nl), message: text.slice(nl + 1).trim() };
+    // 「助けを求める」に添えるため、最後の失敗を覚えておく
+    rememberGitFailure(failure.command, failure.message);
+    return failure;
   }
   return { message: text };
 }

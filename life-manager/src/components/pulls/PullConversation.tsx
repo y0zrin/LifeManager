@@ -9,6 +9,8 @@ import {
   type PullFile,
   type ReviewEvent,
 } from "../../lib/pulls";
+import { countOf } from "../../lib/count";
+import { tr, trx, labelText } from "../../lib/i18n";
 
 interface PullConversationProps {
   owner: string;
@@ -60,10 +62,10 @@ function Avatar({ login }: { login: string | undefined }) {
 }
 
 const REVIEW_TEXT: Record<string, { text: string; tone: string }> = {
-  APPROVED: { text: "✔ 承認しました", tone: "ok" },
-  CHANGES_REQUESTED: { text: "✖ 修正を依頼しました", tone: "ng" },
-  COMMENTED: { text: "💬 レビューしました", tone: "" },
-  DISMISSED: { text: "レビュー（取り下げ）", tone: "muted" },
+  APPROVED: { text: tr("✔ 承認しました"), tone: "ok" },
+  CHANGES_REQUESTED: { text: tr("✖ 修正を依頼しました"), tone: "ng" },
+  COMMENTED: { text: tr("💬 レビューしました"), tone: "" },
+  DISMISSED: { text: tr("レビュー（取り下げ）"), tone: "muted" },
 };
 
 type Item = { kind: "one"; e: PullEvent } | { kind: "commits"; at: string | null; commits: PullEvent[] };
@@ -116,13 +118,13 @@ export function PullConversation(props: PullConversationProps) {
       <span className="muted">{ago(at)}</span>
     </div>
   );
-  const who = (e: PullEvent) => <b>{e.actor?.login ?? "だれか"}</b>;
+  const who = (e: PullEvent) => <b>{e.actor?.login ?? tr("だれか")}</b>;
 
   function render(item: Item, i: number) {
     if (item.kind === "commits") {
       return (
         <div key={i} className="pr-commits">
-          {line("●", <>{item.commits.length} つのコミットを足しました</>, item.at)}
+          {line("●", <>{tr("{count}のコミットを足しました", { count: countOf(item.commits.length, tr("件")) })}</>, item.at)}
           <ul>
             {item.commits.map((c) => (
               <li key={c.sha}>
@@ -157,16 +159,16 @@ export function PullConversation(props: PullConversationProps) {
             <Avatar login={e.actor?.login} />
             <div className="pr-bubble">
               <div className="pr-bubble-head">
-                {who(e)} が <span className={r.tone}>{r.text}</span> <span className="muted">{ago(e.at)}</span>
+                {trx("{who} が <0>{text}</0> <1>{ago}</1>", { who: who(e), text: r.text, ago: ago(e.at) }, [<span className={r.tone} />, <span className="muted" />])}
               </div>
               {e.body && <div className="pr-text">{rich(e.body)}</div>}
               {(e.comments ?? []).map((c) => (
                 <div key={c.id} className="pr-line-comment">
-                  <button type="button" className="link-button" onClick={() => onOpenFiles(c.path)} title="変更されたファイルで見る">
+                  <button type="button" className="link-button" onClick={() => onOpenFiles(c.path)} title={tr("変更されたファイルで見る")}>
                     📄 {c.path}
                     {c.line !== null && `:${c.line}`}
                   </button>
-                  {c.outdated && <span className="muted">（そのあと変わった行）</span>}
+                  {c.outdated && <span className="muted">{tr("（そのあと変わった行）")}</span>}
                   <pre className="pr-hunk">{c.diff_hunk.split("\n").slice(-3).join("\n")}</pre>
                   <div className="pr-text">{c.body}</div>
                 </div>
@@ -176,31 +178,31 @@ export function PullConversation(props: PullConversationProps) {
         );
       }
       case "merged":
-        return <Fragment key={i}>{line("🟣", <>{who(e)} が <code>{(e.commit_id ?? "").slice(0, 7)}</code> で <code>{pull.base}</code> にマージしました</>, e.at, "merged")}</Fragment>;
+        return <Fragment key={i}>{line("🟣", <>{trx("{who} が <0>{slice}</0> で <1>{base}</1> にマージしました", { who: who(e), slice: (e.commit_id ?? "").slice(0, 7), base: pull.base }, [<code />, <code />])}</>, e.at, "merged")}</Fragment>;
       case "closed":
-        return <Fragment key={i}>{line("🔴", <>{who(e)} が閉じました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("🔴", <>{trx("{who} が閉じました", { who: who(e) })}</>, e.at)}</Fragment>;
       case "reopened":
-        return <Fragment key={i}>{line("🟢", <>{who(e)} が開き直しました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("🟢", <>{trx("{who} が開き直しました", { who: who(e) })}</>, e.at)}</Fragment>;
       case "head_ref_deleted":
-        return <Fragment key={i}>{line("🗑", <>{who(e)} がブランチ <code>{pull.head}</code> を消しました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("🗑", <>{trx("{who} がブランチ <0>{head}</0> を消しました", { who: who(e), head: pull.head }, [<code />])}</>, e.at)}</Fragment>;
       case "head_ref_restored":
-        return <Fragment key={i}>{line("↩", <>{who(e)} がブランチ <code>{pull.head}</code> を戻しました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("↩", <>{trx("{who} がブランチ <0>{head}</0> を戻しました", { who: who(e), head: pull.head }, [<code />])}</>, e.at)}</Fragment>;
       case "head_ref_force_pushed":
-        return <Fragment key={i}>{line("⚠", <>{who(e)} が <code>{pull.head}</code> に強制プッシュしました（コミットを書き換えました）</>, e.at, "warn")}</Fragment>;
+        return <Fragment key={i}>{line("⚠", <>{trx("{who} が <0>{head}</0> に強制プッシュしました（コミットを書き換えました）", { who: who(e), head: pull.head }, [<code />])}</>, e.at, "warn")}</Fragment>;
       case "review_requested":
-        return <Fragment key={i}>{line("👀", <>{who(e)} が <b>{e.reviewer?.login ?? "（チーム）"}</b> にレビューをお願いしました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("👀", <>{trx("{who} が <0>{reviewer}</0> にレビューをお願いしました", { who: who(e), reviewer: e.reviewer?.login ?? tr("（チーム）") }, [<b />])}</>, e.at)}</Fragment>;
       case "review_request_removed":
-        return <Fragment key={i}>{line("·", <>{who(e)} が <b>{e.reviewer?.login ?? "（チーム）"}</b> へのお願いを取り消しました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("·", <>{trx("{who} が <0>{reviewer}</0> へのお願いを取り消しました", { who: who(e), reviewer: e.reviewer?.login ?? tr("（チーム）") }, [<b />])}</>, e.at)}</Fragment>;
       case "review_dismissed":
-        return <Fragment key={i}>{line("·", <>{who(e)} がレビューを取り下げました{e.body ? `: ${e.body}` : ""}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("·", <>{trx("{who} がレビューを取り下げました", { who: who(e) })}{e.body ? `: ${e.body}` : ""}</>, e.at)}</Fragment>;
       case "ready_for_review":
-        return <Fragment key={i}>{line("📣", <>{who(e)} がレビューをお願いできる状態にしました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("📣", <>{trx("{who} がレビューをお願いできる状態にしました", { who: who(e) })}</>, e.at)}</Fragment>;
       case "convert_to_draft":
-        return <Fragment key={i}>{line("📝", <>{who(e)} が下書きに戻しました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("📝", <>{trx("{who} が下書きに戻しました", { who: who(e) })}</>, e.at)}</Fragment>;
       case "renamed":
-        return <Fragment key={i}>{line("✏️", <>{who(e)} が題名を「{e.from}」から「{e.to}」に変えました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("✏️", <>{trx("{who} が題名を「{from}」から「{to}」に変えました", { who: who(e), from: e.from, to: e.to })}</>, e.at)}</Fragment>;
       case "base_ref_changed":
-        return <Fragment key={i}>{line("⇄", <>{who(e)} が入れる先のブランチを変えました</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("⇄", <>{trx("{who} が入れる先のブランチを変えました", { who: who(e) })}</>, e.at)}</Fragment>;
       case "cross-referenced": {
         const s = e.source;
         if (!s) return null;
@@ -210,15 +212,18 @@ export function PullConversation(props: PullConversationProps) {
             {line(
               "🔗",
               <>
-                {who(e)} が{" "}
-                {here && !s.pull ? (
-                  <button type="button" className="pr-ref" onClick={() => onOpenIssue(s.number)}>
-                    #{s.number}
-                  </button>
-                ) : (
-                  <b>{here ? "" : s.repo}#{s.number}</b>
-                )}{" "}
-                {s.title} で触れました
+                {trx("{who} が {ref} {title} で触れました", {
+                  who: who(e),
+                  ref:
+                    here && !s.pull ? (
+                      <button type="button" className="pr-ref" onClick={() => onOpenIssue(s.number)}>
+                        #{s.number}
+                      </button>
+                    ) : (
+                      <b>{here ? "" : s.repo}#{s.number}</b>
+                    ),
+                  title: s.title,
+                })}
               </>,
               e.at,
             )}
@@ -227,10 +232,10 @@ export function PullConversation(props: PullConversationProps) {
       }
       case "labeled":
       case "unlabeled":
-        return <Fragment key={i}>{line("🏷", <>{who(e)} がラベル <b>{e.label?.name}</b> を{e.event === "labeled" ? "付けました" : "外しました"}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("🏷", <>{e.event === "labeled" ? trx("{who} がラベル <0>{name}</0> を付けました", { who: who(e), name: labelText(e.label?.name ?? "") }, [<b />]) : trx("{who} がラベル <0>{name}</0> を外しました", { who: who(e), name: labelText(e.label?.name ?? "") }, [<b />])}</>, e.at)}</Fragment>;
       case "assigned":
       case "unassigned":
-        return <Fragment key={i}>{line("👤", <>{who(e)} が <b>{e.assignee?.login}</b> を{e.event === "assigned" ? "担当にしました" : "担当から外しました"}</>, e.at)}</Fragment>;
+        return <Fragment key={i}>{line("👤", <>{e.event === "assigned" ? trx("{who} が <0>{login}</0> を担当にしました", { who: who(e), login: e.assignee?.login }, [<b />]) : trx("{who} が <0>{login}</0> を担当から外しました", { who: who(e), login: e.assignee?.login }, [<b />])}</>, e.at)}</Fragment>;
       default:
         return null;
     }
@@ -245,38 +250,38 @@ export function PullConversation(props: PullConversationProps) {
         <Avatar login={author} />
         <div className="pr-bubble">
           <div className="pr-bubble-head">
-            <b>{author || "だれか"}</b> <span className="muted">が作りました・{ago(pull.created_at)}</span>
+            {trx("<0>{who}</0> <1>が作りました・{ago}</1>", { who: author || tr("だれか"), ago: ago(pull.created_at) }, [<b />, <span className="muted" />])}
           </div>
-          <div className="pr-text">{pull.body.trim() ? rich(pull.body) : <span className="muted">説明はありません。</span>}</div>
+          <div className="pr-text">{pull.body.trim() ? rich(pull.body) : <span className="muted">{tr("説明はありません。")}</span>}</div>
         </div>
       </div>
 
       {/* どのソースをどう変えたか（いちばん大事なので、会話の先頭に） */}
       <div className="pr-files-card">
         <div className="pr-files-card-head">
-          <b>変更されたファイル {files?.length ?? pull.changed_files}</b>
+          <b>{tr("変更されたファイル")}{" "} {files?.length ?? pull.changed_files}</b>
           <span className="add">+{added}</span>
           <span className="del">−{deleted}</span>
           <span className="grow" />
           <button type="button" className="btn-sm" onClick={() => onOpenFiles()}>
-            差分を見る →
+            {tr("差分を見る →")}
           </button>
         </div>
         {files === null ? (
-          <p className="muted">読み込んでいます…</p>
+          <p className="muted">{tr("読み込んでいます…")}</p>
         ) : (
           <ul>
             {files.slice(0, 8).map((f) => (
               <li key={f.filename}>
-                <button type="button" className="pr-files-card-item" onClick={() => onOpenFiles(f.filename)} title="このファイルの差分を見る">
-                  <span className={`pf-status s-${f.status}`}>{f.status === "added" ? "追加" : f.status === "removed" ? "削除" : f.status === "renamed" ? "名前" : "変更"}</span>
+                <button type="button" className="pr-files-card-item" onClick={() => onOpenFiles(f.filename)} title={tr("このファイルの差分を見る")}>
+                  <span className={`pf-status s-${f.status}`}>{f.status === "added" ? tr("追加") : f.status === "removed" ? tr("削除") : f.status === "renamed" ? tr("名前") : tr("変更")}</span>
                   <span className="pr-files-card-path">{f.filename}</span>
                   <span className="add">+{f.additions}</span>
                   <span className="del">−{f.deletions}</span>
                 </button>
               </li>
             ))}
-            {files.length > 8 && <li className="muted">ほか {files.length - 8} ファイル</li>}
+            {files.length > 8 && <li className="muted">{tr("ほか {n} ファイル", { n: files.length - 8 })}</li>}
           </ul>
         )}
       </div>
@@ -287,31 +292,31 @@ export function PullConversation(props: PullConversationProps) {
         <textarea
           rows={3}
           value={body}
-          placeholder={open ? "コメントを書く…（承認・修正の依頼にも、ひとこと添えられます）" : "コメントを書く…"}
+          placeholder={open ? tr("コメントを書く…（承認・修正の依頼にも、ひとこと添えられます）") : tr("コメントを書く…")}
           onChange={(e) => setBody(e.target.value)}
         />
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="pr-composer-actions">
-          {open && mine && <span className="muted">自分のプルリクは、承認・修正の依頼ができません（ほかの人に見てもらいます）</span>}
+          {open && mine && <span className="muted">{tr("自分のプルリクは承認も修正の依頼もできません")}</span>}
           <span className="grow" />
           {open && !mine && (
             <>
-              <button type="button" className="btn-sm ok" disabled={busy !== null} onClick={() => send("APPROVE")} title="変更を見て、よいと判断したことを伝えます">
-                {busy === "APPROVE" ? "送っています…" : "✔ 承認する"}
+              <button type="button" className="btn-sm ok" disabled={busy !== null} onClick={() => send("APPROVE")} title={tr("変更を見て、よいと判断したことを伝えます")}>
+                {busy === "APPROVE" ? tr("送っています…") : tr("✔ 承認する")}
               </button>
               <button
                 type="button"
                 className="btn-sm ng"
                 disabled={busy !== null || body.trim() === ""}
                 onClick={() => send("REQUEST_CHANGES")}
-                title={body.trim() === "" ? "何を直してほしいかを書くと押せます" : "直してほしいことを伝えます（直るまでマージしないでほしい）"}
+                title={body.trim() === "" ? tr("何を直してほしいかを書くと押せます") : tr("直してほしいことを伝えます（直るまでマージしないでほしい）")}
               >
-                {busy === "REQUEST_CHANGES" ? "送っています…" : "✖ 修正を依頼する"}
+                {busy === "REQUEST_CHANGES" ? tr("送っています…") : tr("✖ 修正を依頼する")}
               </button>
             </>
           )}
           <button type="button" className="btn-sm primary" disabled={busy !== null || body.trim() === ""} onClick={() => send("comment")}>
-            {busy === "comment" ? "送っています…" : "💬 コメントする"}
+            {busy === "comment" ? tr("送っています…") : tr("💬 コメントする")}
           </button>
         </div>
       </div>

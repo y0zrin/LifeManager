@@ -477,9 +477,33 @@ pub async fn get_journal(app: &AppHandle, client: &GitHubClient, owner: &str, re
     match (content, store::pending_journal_notes(&store, date)) {
         (Some(md), Some(notes)) => Ok(generator::replace_notes(&md, &notes)),
         (Some(md), None) => Ok(md),
-        (None, _) if store::pending_journal_generation(&store, date) => Err(format!("{}の日誌は、つながったら作ります", date)),
+        (None, _) if store::pending_journal_generation(&store, date) => Err(format!("{}の日誌はつながったら作ります", date)),
         (None, _) => Err(format!("{}のジャーナルが見つかりません", date)),
     }
+}
+
+/// 日誌のファイルの名前（YYYY-MM-DD.md）から日付。ほかの名前なら None
+pub fn journal_date_of(name: &str) -> Option<String> {
+    let date = name.strip_suffix(".md")?;
+    let ok = date.len() == 10 && date.char_indices().all(|(i, c)| if i == 4 || i == 7 { c == '-' } else { c.is_ascii_digit() });
+    ok.then(|| date.to_string())
+}
+
+/// 日誌がある日（journal フォルダのファイルの名前から。日誌のカレンダーの 📓）。
+/// つながらないときは、この端末で読んだ日誌の日。どちらにも、送信待ちの日誌の日を足す
+pub async fn list_journal_dates(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str) -> Result<Vec<String>, String> {
+    let fetched = client.list_directory(owner, repo, "journal").await;
+    note_result(app, &fetched);
+    let store = store::read_store(app, owner, repo);
+    let mut dates: Vec<String> = match fetched {
+        Ok(names) => names.iter().filter_map(|n| journal_date_of(n)).collect(),
+        Err(e) if is_network_error(&e) => store.reads.keys().filter_map(|k| k.strip_prefix("journal:").map(String::from)).collect(),
+        Err(e) => return Err(e),
+    };
+    dates.extend(store::pending_journal_dates(&store));
+    dates.sort();
+    dates.dedup();
+    Ok(dates)
 }
 
 /// 日誌のノートを保存する。つながらないときは送信待ちに並べる（この端末に日誌の写しがあるときだけ）
@@ -684,5 +708,15 @@ mod tests {
         assert_eq!(notice_text(&notice, "o", "r", -1), "✅ 仮1 牛乳 を完了");
         let plain = Notice { message: "📋 ルーチンIssue作成: 日報".into(), channels: vec![] };
         assert_eq!(notice_text(&plain, "o", "r", 66), "📋 ルーチンIssue作成: 日報");
+    }
+
+    #[test]
+    fn journal_dates_come_only_from_dated_markdown_files() {
+        assert_eq!(journal_date_of("2026-10-01.md"), Some("2026-10-01".to_string()));
+        assert_eq!(journal_date_of("2026-1-01.md"), None);
+        assert_eq!(journal_date_of("2026-10-01.txt"), None);
+        assert_eq!(journal_date_of("README.md"), None);
+        assert_eq!(journal_date_of("2026_10_01.md"), None);
+        assert_eq!(journal_date_of("2026-10-0a.md"), None);
     }
 }

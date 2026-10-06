@@ -6,6 +6,7 @@ import { githubMessage, isSameRepo, repoOf } from "../../lib/subIssues";
 import { IssueIndexContext, useParentOf } from "./SubIssueMarks";
 import { findIssues } from "../../lib/issueSearch";
 import { isEnter } from "../../lib/keys";
+import { tr, trx, labelValueText } from "../../lib/i18n";
 
 /** サブイシューの読み書き（useGitHub のもの） */
 export interface SubIssueApi {
@@ -34,10 +35,10 @@ export function ParentCrumb({ issue, onOpenIssue }: { issue: GitHubIssue; onOpen
     <button
       type="button"
       className="parent-crumb"
-      title={parent.sameRepo ? "親の Issue を開く" : "親の Issue を GitHub で開く"}
+      title={parent.sameRepo ? tr("親の Issue を開く") : tr("親の Issue を GitHub で開く")}
       onClick={() => (parent.sameRepo ? onOpenIssue(parent.number) : openUrl(parent.htmlUrl))}
     >
-      ↑ 親：{parent.label} {parent.title}
+      {trx("↑ 親：{label} {title}", { label: parent.label, title: parent.title })}
     </button>
   );
 }
@@ -111,7 +112,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       const child = await api.create(issue, title);
       setChildren((prev) => [...(prev ?? []), child]);
       setText("");
-      return `${issueRef(child.number)} を作って、子にしました`;
+      return tr("{issueRef} を作って子にしました", { issueRef: issueRef(child.number) });
     });
   }
 
@@ -120,7 +121,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       await api.add(issue.number, candidate);
       setChildren((prev) => [...(prev ?? []), candidate]);
       setText("");
-      return `${issueRef(candidate.number)} を子にしました`;
+      return tr("{issueRef} を子にしました", { issueRef: issueRef(candidate.number) });
     });
   }
 
@@ -128,7 +129,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
     run(async () => {
       await api.remove(issue.number, child);
       setChildren((prev) => (prev ?? []).filter((c) => c.id !== child.id));
-      return `${issueRef(child.number)} を子から外しました（Issue はそのまま残ります）`;
+      return tr("{issueRef} を子から外しました（Issue はそのまま残ります）", { issueRef: issueRef(child.number) });
     });
   }
 
@@ -138,17 +139,17 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       else await onCloseIssue(child.number);
       const state = child.state === "closed" ? "open" : "closed";
       setChildren((prev) => (prev ?? []).map((c) => (c.number === child.number ? { ...c, state } : c)));
-      return state === "closed" ? `${issueRef(child.number)} をクローズしました` : `${issueRef(child.number)} をリオープンしました`;
+      return state === "closed" ? tr("{issueRef} をクローズしました", { issueRef: issueRef(child.number) }) : tr("{issueRef} をリオープンしました", { issueRef: issueRef(child.number) });
     });
   }
 
   return (
     <div className="sub-issues">
       <div className="sub-issues-head">
-        🧩 サブイシュー
+        {tr("🧩 サブイシュー")}
         {rows.length > 0 && (
           <span className="sub-issues-count">
-            {done} / {rows.length} 完了
+            {trx("{done} / {length} 完了", { done, length: rows.length })}
           </span>
         )}
       </div>
@@ -158,20 +159,21 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
         </div>
       )}
 
-      {children === null && <p className="sub-issues-note">読み込み中…</p>}
+      {children === null && <p className="sub-issues-note">{tr("読み込み中…")}</p>}
       {loadError && <p className="sub-issues-note sub-issues-note--error">{loadError}</p>}
       {rows.length > 0 && (
         <ul className="sub-issues-list">
           {rows.map((c) => {
             const same = inThisRepo(c);
-            const status = c.labels?.find((l) => l.name.startsWith("状態:"))?.name.split(":")[1];
+            const statusLabel = c.labels?.find((l) => l.name.startsWith("状態:"))?.name;
+            const status = statusLabel ? labelValueText(statusLabel) : undefined;
             return (
               <li key={c.id ?? c.number} className={`sub-issue${c.state === "closed" ? " sub-issue--closed" : ""}`}>
                 <button
                   type="button"
                   className="sub-issue-state"
                   disabled={busy || !same}
-                  title={c.state === "closed" ? "リオープンする" : "クローズする"}
+                  title={c.state === "closed" ? tr("リオープンする") : tr("クローズする")}
                   onClick={() => toggle(c)}
                 >
                   {c.state === "closed" ? "✔" : "○"}
@@ -180,7 +182,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
                 <button
                   type="button"
                   className="sub-issue-title"
-                  title={same ? "この子の詳細を開く" : "GitHub で開く（ほかのリポジトリの Issue）"}
+                  title={same ? tr("この子の詳細を開く") : tr("GitHub で開く（ほかのリポジトリの Issue）")}
                   onClick={() => (same ? onOpenIssue(c.number, c) : c.html_url && openUrl(c.html_url))}
                 >
                   {c.title}
@@ -190,8 +192,8 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
                   type="button"
                   className="sub-issue-remove"
                   disabled={busy}
-                  title="親子のつながりを外す（Issue は消えません）"
-                  aria-label={`${issueRef(c.number)} を子から外す`}
+                  title={tr("親子のつながりを外す（Issue は消えません）")}
+                  aria-label={tr("{issueRef} を子から外す", { issueRef: issueRef(c.number) })}
                   onClick={() => unlink(c)}
                 >
                   ×
@@ -207,7 +209,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
           className="input-full"
           value={text}
           disabled={busy}
-          placeholder={linking ? "番号かタイトルで探す（例：#42）" : "子の Issue を作る（タイトルを入れて Enter）"}
+          placeholder={linking ? tr("番号かタイトルで探す（例：#42）") : tr("子の Issue を作る（タイトルを入れて Enter）")}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (isEnter(e)) {
@@ -227,7 +229,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
             setText("");
           }}
         >
-          {linking ? "新しく作る" : "既存の Issue をつなぐ…"}
+          {linking ? tr("新しく作る") : tr("既存の Issue をつなぐ…")}
         </button>
         {candidates.length > 0 && (
           <div className="suggestion-dropdown sub-issues-suggest">
@@ -238,7 +240,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
                   <span className={`suggestion-state suggestion-state--${s.state}`}>{s.state === "open" ? "●" : "○"}</span>
                   <span className="suggestion-number">{issueRef(s.number)}</span>
                   <span className="suggestion-title">{s.title}</span>
-                  {other && <span className="sub-issues-moving">{other} の子 → 付け替え</span>}
+                  {other && <span className="sub-issues-moving">{trx("{other} の子 → 付け替え", { other })}</span>}
                 </button>
               );
             })}
@@ -247,14 +249,10 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       </div>
       {busy && (
         <p className="sub-issues-note">
-          <i className="spinner" aria-hidden="true" /> GitHub に送っています…
+          <i className="spinner" aria-hidden="true" /> {" "}{tr("GitHub に送っています…")}
         </p>
       )}
       {message && <p className={`sub-issues-note${message.error ? " sub-issues-note--error" : " sub-issues-note--ok"}`}>{message.text}</p>}
-      <p className="hint">
-        <b>サブイシュー</b>は、大きな Issue を小さく分けた「子」の Issue です。GitHub の画面でも同じ親子で見えます。× は親子のつながりを外すだけで、Issue
-        は消えません。子を全部クローズしても、親は自動では閉じません。
-      </p>
     </div>
   );
 }

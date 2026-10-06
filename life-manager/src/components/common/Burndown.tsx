@@ -3,6 +3,7 @@ import { formatEstimate, formatNumber } from "../../lib/estimate";
 import { burndown, dayOfDate, dayOfTime, dateOfDay, type PaceMode } from "../../lib/sprint";
 import { issueRef } from "../../lib/issueRef";
 import { useEstimateUnit } from "./EstimateChip";
+import { tr, trx } from "../../lib/i18n";
 
 /** YYYY-MM-DD → 「9/28」 */
 function md(date: string): string {
@@ -35,24 +36,24 @@ const nearRight = (px: number, room: number) => px > RIGHT - room;
 export function Burndown({ start, end, issues, mode }: BurndownProps) {
   const unit = useEstimateUnit();
   const b = burndown({ start, end }, issues, mode, unit);
-  const fmt = (v: number) => (mode === "count" ? `${formatNumber(v)} 件` : formatEstimate(v, unit));
+  const fmt = (v: number) => (mode === "count" ? tr("{formatNumber} 件", { formatNumber: formatNumber(v) }) : formatEstimate(v, unit));
 
   // --- 数字 ---
   const proj = b.projection;
   const paceValue =
-    proj.kind === "date" ? `${md(proj.date)} ごろ` :
-    proj.kind === "done" ? "終わりました" :
-    proj.kind === "notStarted" ? "まだ" :
+    proj.kind === "date" ? tr("{md} ごろ", { md: md(proj.date) }) :
+    proj.kind === "done" ? tr("終わりました") :
+    proj.kind === "notStarted" ? tr("まだ") :
     proj.kind === "early" ? "—" : "—";
   const paceNote =
     proj.kind === "date"
-      ? proj.lateDays === null ? "期限は決まっていません"
-        : proj.lateDays > 0 ? `期限より ${proj.lateDays} 日遅れの見込み`
-        : "期限に間に合う見込み"
-      : proj.kind === "done" ? "残りはありません"
-      : proj.kind === "notStarted" ? `始まるのは ${md(start)}`
-      : proj.kind === "early" ? "始まったばかりで、まだ出せません"
-      : "残りが減っていません（足した分と同じくらい）";
+      ? proj.lateDays === null ? tr("期限は決まっていません")
+        : proj.lateDays > 0 ? tr("期限より {lateDays} 日遅れの見込み", { lateDays: proj.lateDays })
+        : tr("期限に間に合う見込み")
+      : proj.kind === "done" ? tr("残りはありません")
+      : proj.kind === "notStarted" ? tr("始まるのは {md}", { md: md(start) })
+      : proj.kind === "early" ? tr("始まったばかりで、まだ出せません")
+      : tr("残りが減っていません（足した分と同じくらい）");
   const late = proj.kind === "date" && proj.lateDays !== null && proj.lateDays > 0;
 
   // --- 図 ---
@@ -75,21 +76,21 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
     <div className="burndown">
       <div className="bd-kpis">
         <div className="bd-kpi">
-          <div className="bd-kpi-k">残り</div>
+          <div className="bd-kpi-k">{tr("残り")}</div>
           <div className="bd-kpi-v bd-est">{fmt(b.remaining)}</div>
           <div className="bd-kpi-s">
-            全体 {fmt(b.total)}
-            {b.addedTotal > 0 && <>（途中で +{fmt(b.addedTotal)}）</>}
-            {b.missing > 0 && <>・見積もりなし {b.missing} 件</>}
+            {trx("全体 {fmt}", { fmt: fmt(b.total) })}
+            {b.addedTotal > 0 && <>{trx("（途中で +{fmt}）", { fmt: fmt(b.addedTotal) })}</>}
+            {b.missing > 0 && <>{trx("・見積もりなし {missing} 件", { missing: b.missing })}</>}
           </div>
         </div>
         <div className="bd-kpi">
-          <div className="bd-kpi-k">経過</div>
-          <div className="bd-kpi-v">{b.totalDays ? `${Math.min(b.elapsed, b.totalDays)} / ${b.totalDays} 日` : `${b.elapsed} 日`}</div>
-          <div className="bd-kpi-s">{b.idealNow !== null ? `理想なら残り ${fmt(Math.round(b.idealNow * 10) / 10)}` : "期限を決めると、理想の線が出ます"}</div>
+          <div className="bd-kpi-k">{tr("経過")}</div>
+          <div className="bd-kpi-v">{b.totalDays ? tr("{min} / {totalDays} 日", { min: Math.min(b.elapsed, b.totalDays), totalDays: b.totalDays }) : tr("{elapsed} 日", { elapsed: b.elapsed })}</div>
+          <div className="bd-kpi-s">{b.idealNow !== null ? tr("理想なら残り {fmt}", { fmt: fmt(Math.round(b.idealNow * 10) / 10) }) : tr("期限を決めると理想の線が出ます")}</div>
         </div>
         <div className={`bd-kpi${late ? " bd-kpi--late" : ""}`}>
-          <div className="bd-kpi-k">このペースだと</div>
+          <div className="bd-kpi-k">{tr("このペースだと")}</div>
           <div className="bd-kpi-v">{paceValue}</div>
           <div className="bd-kpi-s">{paceNote}</div>
         </div>
@@ -97,9 +98,9 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
 
       {b.points.length > 0 && (
         <div className="bd-box">
-          <div className="bd-title">バーンダウン（残りの量）</div>
+          <div className="bd-title">{tr("バーンダウン（残りの量）")}</div>
           <svg viewBox={`0 0 ${W} ${H}`} className="bd-svg" role="img"
-            aria-label={`残り ${fmt(b.remaining)}。開始 ${md(start)}${end ? `、期限 ${md(end)}` : ""}`}>
+            aria-label={tr("残り {fmt}。開始 {md}{v}", { fmt: fmt(b.remaining), md: md(start), v: end ? tr("、期限 {md}", { md: md(end) }) : "" })}>
             {ticks.map((v) => (
               <g key={v}>
                 <line x1={LEFT} y1={y(v)} x2={RIGHT} y2={y(v)} className={v === 0 ? "bd-axis" : "bd-grid"} />
@@ -112,7 +113,7 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
                 <line x1={x(endDay)} y1={TOP} x2={x(endDay)} y2={BOTTOM} className="bd-deadline" />
                 {/* 右の端に近いときは、線の左に書く（切れないように） */}
                 <text x={nearRight(x(endDay), 70) ? x(endDay) - 4 : x(endDay) + 4} y={TOP + 12} className="bd-deadline-text"
-                  textAnchor={nearRight(x(endDay), 70) ? "end" : "start"}>期限 {md(end!)}</text>
+                  textAnchor={nearRight(x(endDay), 70) ? "end" : "start"}>{trx("期限 {md}", { md: md(end!) })}</text>
                 <line x1={x(startDay)} y1={y(b.initial)} x2={x(endDay)} y2={y(0)} className="bd-ideal" />
               </>
             )}
@@ -122,7 +123,7 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
                 <line x1={x(lastPoint)} y1={y(b.remaining)} x2={x(projDay)} y2={y(0)} className="bd-proj" />
                 <circle cx={x(projDay)} cy={y(0)} r={4} className={late ? "bd-proj-dot bd-proj-dot--late" : "bd-proj-dot"} />
                 <text x={x(projDay) - 4} y={y(0) - 10} className={late ? "bd-proj-text bd-proj-text--late" : "bd-proj-text"} textAnchor="end">
-                  このペースだと {md(proj.date)}
+                  {trx("このペースだと {md}", { md: md(proj.date) })}
                 </text>
               </>
             )}
@@ -130,14 +131,16 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
               <>
                 <line x1={x(lastPoint)} y1={TOP} x2={x(lastPoint)} y2={BOTTOM} className="bd-today" />
                 <text x={nearRight(x(lastPoint), 40) ? x(lastPoint) - 4 : x(lastPoint) + 4} y={TOP + 26} className="bd-today-text"
-                  textAnchor={nearRight(x(lastPoint), 40) ? "end" : "start"}>今日</text>
+                  textAnchor={nearRight(x(lastPoint), 40) ? "end" : "start"}>{tr("今日")}</text>
               </>
             )}
             {biggestAdd && (
               <text x={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? x(dayOfDate(biggestAdd.date)) - 4 : x(dayOfDate(biggestAdd.date)) + 4}
                 y={Math.max(TOP + 12, y(top) - 2)} className="bd-add-text"
                 textAnchor={nearRight(x(dayOfDate(biggestAdd.date)), 220) ? "end" : "start"}>
-                +{fmt(biggestAdd.amount)}（{biggestAdd.issues.slice(0, 2).map(issueRef).join("・")}{biggestAdd.issues.length > 2 ? " ほか" : ""} を足した）
+                {biggestAdd.issues.length > 2
+                  ? tr("+{amount}（{refs} ほか を足した）", { amount: fmt(biggestAdd.amount), refs: biggestAdd.issues.slice(0, 2).map(issueRef).join(tr("・")) })
+                  : tr("+{amount}（{refs} を足した）", { amount: fmt(biggestAdd.amount), refs: biggestAdd.issues.slice(0, 2).map(issueRef).join(tr("・")) })}
               </text>
             )}
             {labelDays.map((d) => (
@@ -146,10 +149,10 @@ export function Burndown({ start, end, issues, mode }: BurndownProps) {
             ))}
           </svg>
           <div className="bd-legend">
-            <span><i className="bd-leg-ideal" />理想（期限にちょうど 0）</span>
-            <span><i className="bd-leg-actual" />実際の残り</span>
-            <span><i className="bd-leg-proj" />このペースの見込み</span>
-            <span className="bd-legend-note">Issue は作った日から数えます（途中で足した分は、線が上がります）</span>
+            <span><i className="bd-leg-ideal" />{tr("理想（期限にちょうど 0）")}</span>
+            <span><i className="bd-leg-actual" />{tr("実際の残り")}</span>
+            <span><i className="bd-leg-proj" />{tr("このペースの見込み")}</span>
+            <span className="bd-legend-note">{tr("Issue は作った日から数えます（途中で足した分は線が上がります）")}</span>
           </div>
         </div>
       )}

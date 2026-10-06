@@ -25,3 +25,6 @@ dist-ssr
 
 # マニュアルの PDF（scripts/manual-pdf.ps1 で作る）
 /manual-pdf/
+
+# 訳のない文の一覧（npm run i18n:todo で作る）
+/i18n-todo.json

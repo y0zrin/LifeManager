@@ -177,6 +177,24 @@ fn commit_amend_empty_and_push_new_branch() {
 }
 
 #[test]
+fn a_branch_made_from_origin_main_is_pushed_under_its_own_name() {
+    // 作業をする で別のブランチから始めると origin/main から作る。git はそのブランチの上流を main にするので、
+    // ふつうの git push では送れない（設定によっては main に送ってしまう）。同じ名前で送り、上流を付け直す
+    let t = team("push-from-origin-main");
+    git(&t.a, &["config", "branch.autoSetupMerge", "true"]);
+    git(&t.a, &["fetch", "-q", "origin"]);
+    block(git_switch(s(&t.a), "企画書を書く".into(), true, Some("origin/main".into()))).unwrap();
+    assert_eq!(status(&t.a).upstream.as_deref(), Some("origin/main"));
+    block(git_commit(s(&t.a), vec!["y0zrin が作業開始しました (#1)".into()], false, true)).unwrap();
+
+    let r = block(git_push(s(&t.a))).unwrap();
+    assert_eq!(r.command, "git push -u origin 企画書を書く");
+    assert_eq!(status(&t.a).upstream.as_deref(), Some("origin/企画書を書く"));
+    // main には送っていない
+    assert_eq!(git(&t.a, &["rev-parse", "origin/main"]), git(&t.a, &["rev-parse", "main"]));
+}
+
+#[test]
 fn pull_fast_forwards_merges_without_editor_and_push_is_rejected_when_behind() {
     let t = team("pull");
     // B が送った変更を、A が取り込む（早送り）
@@ -205,6 +223,78 @@ fn pull_fast_forwards_merges_without_editor_and_push_is_rejected_when_behind() {
     assert_eq!(st.ahead, 2);
     block(git_push(s(&t.a))).unwrap();
     assert_eq!(status(&t.a).ahead, 0);
+}
+
+#[test]
+fn pull_branch_updates_a_branch_without_switching() {
+    let t = team("pullbranch");
+    // B が feature を作って送る → A は main のまま、feature を「この PC にない」から作る
+    git(&t.b, &["switch", "-q", "-c", "feature"]);
+    write(&t.b, "enemy.txt", "slime
+");
+    commit_all(&t.b, "敵を置く");
+    git(&t.b, &["push", "-q", "-u", "origin", "feature"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert_eq!(run.output, PULL_CREATED);
+    assert!(run.command.contains("git branch --track feature origin/feature"), "{}", run.command);
+    assert_eq!(status(&t.a).branch, "main", "切り替わってしまった");
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), git(&t.b, &["rev-parse", "feature"]));
+
+    // B がさらに送る → A は main のまま、早送りで feature を進める
+    write(&t.b, "enemy.txt", "slime
+goblin
+");
+    commit_all(&t.b, "敵を足す");
+    git(&t.b, &["push", "-q"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert!(run.command.contains("fetch origin feature:feature"), "{}", run.command);
+    assert_eq!(status(&t.a).branch, "main");
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), git(&t.b, &["rev-parse", "feature"]));
+
+    // A の feature にだけコミットがある → 何もしない（この PC の方が進んでいる）
+    git(&t.a, &["switch", "-q", "feature"]);
+    write(&t.a, "boss.txt", "dragon
+");
+    commit_all(&t.a, "ボスを置く");
+    git(&t.a, &["switch", "-q", "main"]);
+    let run = block(git_pull_branch(s(&t.a), "feature".into())).unwrap();
+    assert_eq!(run.output, PULL_LOCAL_AHEAD);
+
+    // 両方に新しいコミット → 切り替えてからプルするよう伝える（手元のブランチは動かさない）
+    write(&t.b, "enemy.txt", "slime
+goblin
+bat
+");
+    commit_all(&t.b, "こうもりを足す");
+    git(&t.b, &["push", "-q"]);
+    let before = git(&t.a, &["rev-parse", "feature"]);
+    let err = block(git_pull_branch(s(&t.a), "feature".into())).unwrap_err();
+    assert!(err.contains("分かれています") && err.contains("git switch feature"), "{}", err);
+    assert_eq!(git(&t.a, &["rev-parse", "feature"]), before);
+
+    // 今のブランチなら、ふつうのプル
+    write(&t.b, "b.txt", "B
+");
+    git(&t.b, &["switch", "-q", "main"]);
+    git(&t.b, &["pull", "-q", "--no-rebase"]);
+    write(&t.b, "b.txt", "B
+");
+    commit_all(&t.b, "B の変更");
+    git(&t.b, &["push", "-q"]);
+    let run = block(git_pull_branch(s(&t.a), "main".into())).unwrap();
+    assert!(run.command.contains("pull"), "{}", run.command);
+    assert_eq!(read(&t.a, "b.txt"), "B
+");
+
+    // フェッチだけ（GitHub の控えが進む。手元のブランチはそのまま）
+    write(&t.b, "c.txt", "C
+");
+    commit_all(&t.b, "C の変更");
+    git(&t.b, &["push", "-q"]);
+    let local = git(&t.a, &["rev-parse", "main"]);
+    block(git_fetch_branch(s(&t.a), "main".into())).unwrap();
+    assert_eq!(git(&t.a, &["rev-parse", "main"]), local);
+    assert_eq!(git(&t.a, &["rev-parse", "origin/main"]), git(&t.b, &["rev-parse", "main"]));
 }
 
 // ---------------------------------------------------------------- 競合
@@ -582,6 +672,19 @@ fn folder_check_matches_the_github_project() {
     assert!(!check_folder(&sb.root, "y0zrin", "LifeManager").is_repo);
 }
 
+#[test]
+fn use_account_puts_the_app_account_into_origin() {
+    // #245: 断られたときの「〜で使う」。origin に名前を入れ、2 回目は何もしない
+    let t = team("account");
+    git(&t.a, &["remote", "set-url", "origin", "https://github.com/y0zrin3/LMTest.git"]);
+    let r = super::account::use_account(&t.a, "y0zrin3").unwrap();
+    assert!(r.command.contains("remote set-url origin https://y0zrin3@github.com/y0zrin3/LMTest.git"), "{}", r.command);
+    let url = run(&t.a, &["remote", "get-url", "origin"]).unwrap().output;
+    assert_eq!(url.trim(), "https://y0zrin3@github.com/y0zrin3/LMTest.git");
+    let again = super::account::use_account(&t.a, "y0zrin3").unwrap();
+    assert!(again.command.is_empty() && again.output.contains("もう y0zrin3"));
+}
+
 // ---------------------------------------------------------------- クローン（URL）・手元のフォルダを上げる
 
 #[test]
@@ -618,7 +721,7 @@ fn publish_a_new_folder_to_an_empty_remote() {
     assert!(remote_exists(&s(&remote)).unwrap());
     assert!(!remote_exists(&s(&sb.dir("nothing.git"))).unwrap());
 
-    let r = push_to(&game, &s(&remote)).unwrap();
+    let r = push_to(&game, &s(&remote), None).unwrap();
     assert!(r.command.contains("git remote add origin") && r.command.contains("git push -u origin main"), "{}", r.command);
     let st = status(&game);
     assert_eq!(st.upstream.as_deref(), Some("origin/main"));
@@ -652,12 +755,12 @@ fn clone_url_makes_a_folder_named_after_the_repository() {
     let remote = t.a.parent().unwrap().join("remote.git");
     let parent = t.a.parent().unwrap().join("clones");
     fs::create_dir_all(&parent).unwrap();
-    let r = super::publish::clone_url(&parent, &s(&remote)).unwrap();
+    let r = super::publish::clone_url(&parent, &s(&remote), None).unwrap();
     assert!(r.path.ends_with("remote"), "{}", r.path);
     assert_eq!(read(Path::new(&r.path), "shared.txt"), "一行目\n二行目\n三行目\n");
     assert_eq!((r.owner, r.repo), (None, None));
     // 同じ場所には二度作らない
-    assert!(super::publish::clone_url(&parent, &s(&remote)).unwrap_err().contains("すでにあります"));
+    assert!(super::publish::clone_url(&parent, &s(&remote), None).unwrap_err().contains("すでにあります"));
 }
 
 // --- 無視するファイル（.gitignore） ---

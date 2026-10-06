@@ -42,19 +42,23 @@ pub struct CloneUrlResult {
 
 /// URL からクローンする。parent の下に、リポジトリと同じ名前のフォルダを作る。
 /// GitHub のリポジトリは、どの書き方で貼られても https の形でクローンする（ログインを資格情報マネージャーに任せるため）
-pub fn clone_url(parent: &Path, url: &str) -> Result<CloneUrlResult, String> {
+pub fn clone_url(parent: &Path, url: &str, login: Option<&str>) -> Result<CloneUrlResult, String> {
     let url = url.trim();
     if url.is_empty() || url.starts_with('-') {
         return Err("クローンするリポジトリの URL を入れてください".into());
     }
     let github = parse_github(url);
     let (source, name) = match &github {
-        Some((owner, repo)) => (format!("https://github.com/{}/{}.git", owner, repo), repo.clone()),
+        Some((owner, repo)) => {
+            // アプリのアカウントで取りに行く（#245）
+            let base = format!("https://github.com/{}/{}.git", owner, repo);
+            (login.map(|l| super::account::with_account(&base, l)).unwrap_or(base), repo.clone())
+        }
         None => {
             let last = url.trim_end_matches(|c| c == '/' || c == '\\').rsplit(|c| c == '/' || c == '\\' || c == ':').next().unwrap_or("");
             let name = last.strip_suffix(".git").unwrap_or(last).to_string();
             if name.is_empty() {
-                return Err(format!("「{}」からは、フォルダの名前を決められません", url));
+                return Err(format!("「{}」からはフォルダの名前を決められません", url));
             }
             (url.to_string(), name)
         }
@@ -256,7 +260,7 @@ fn prepare_with_limit(path: &Path, template: &str, message: &str, limit: u64) ->
     let state = folder_state(path)?;
     if let Some(top) = &state.inside {
         return Err(format!(
-            "このフォルダは、ほかのリポジトリ（{}）の中にあります。リポジトリの中に、別のリポジトリは作れません",
+            "このフォルダは、ほかのリポジトリ（{}）の中にあります。リポジトリの中に別のリポジトリは作れません",
             top
         ));
     }
@@ -323,12 +327,15 @@ pub fn remote_exists(url: &str) -> Result<bool, String> {
     }
 }
 
-/// つないで送る：origin を url にして（なければ足す）、今のブランチを送り、上流にする
-pub fn push_to(path: &Path, url: &str) -> Result<GitRun, String> {
+/// つないで送る：origin を url にして（なければ足す）、今のブランチを送り、上流にする。
+/// login（アプリのアカウント）があれば、URL に入れる（#245）
+pub fn push_to(path: &Path, url: &str, login: Option<&str>) -> Result<GitRun, String> {
     let url = url.trim();
     if url.is_empty() || url.starts_with('-') {
         return Err("送り先の URL を入れてください".into());
     }
+    let with_login = login.map(|l| super::account::with_account(url, l));
+    let url = with_login.as_deref().unwrap_or(url);
     let mut runs = Vec::new();
     match run(path, &["remote", "get-url", "origin"]) {
         Ok(r) if r.output.trim() == url => {}

@@ -1,10 +1,13 @@
 pub mod actions;
+pub mod artifacts;
 pub mod auth;
+pub mod cards;
 pub mod client;
 pub mod errors;
 pub mod history;
 pub mod pulls;
 pub mod recent;
 pub mod releases;
+pub mod teamwork;
 pub mod templates;
 pub mod token_check;

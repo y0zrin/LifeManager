@@ -445,6 +445,18 @@ pub fn pending_journal_generation(store: &RepoStore, date: &str) -> bool {
     store.outbox.iter().any(|op| matches!(op, Op::GenerateJournal { date: d, .. } if d == date))
 }
 
+/// 送信待ちの日誌の日（つながったら作る日誌・まだ送っていないノート）
+pub fn pending_journal_dates(store: &RepoStore) -> Vec<String> {
+    store
+        .outbox
+        .iter()
+        .filter_map(|op| match op {
+            Op::GenerateJournal { date, .. } | Op::SaveJournalNotes { date, .. } => Some(date.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 fn find_issue(store: &RepoStore, number: i64) -> Option<Value> {
     let (open, closed) = issues_view(store);
     open.into_iter().chain(closed).find(|i| number_of(i) == Some(number))

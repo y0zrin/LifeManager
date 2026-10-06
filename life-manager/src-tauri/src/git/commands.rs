@@ -6,6 +6,7 @@ use super::publish;
 use super::runner::{run, GitRun};
 use super::setup;
 use super::status::{self, BranchInfo, FolderCheck, RepoStatus, StashEntry};
+use super::watch::{self, WatchFinding};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
@@ -21,6 +22,10 @@ fn check_name(name: &str) -> Result<(), String> {
     }
     if name.starts_with('-') {
         return Err(format!("「{}」は使えない名前です（- で始まる名前は使えません）", name));
+    }
+    // : は git の「取り込み元:取り込み先」の区切り（git fetch origin x:main で main が書き換わる）。ブランチやタグの名前には使えない
+    if name.contains(':') {
+        return Err(format!("「{}」は使えない名前です（: は使えません）", name));
     }
     Ok(())
 }
@@ -62,9 +67,9 @@ pub struct CloneResult {
 }
 
 #[tauri::command]
-pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<CloneResult, String> {
+pub async fn git_clone(parent: String, owner: String, repo: String, login: Option<String>) -> Result<CloneResult, String> {
     blocking(move || {
-        let (run, path) = status::clone_repo(Path::new(&parent), &owner, &repo)?;
+        let (run, path) = status::clone_repo(Path::new(&parent), &owner, &repo, login.as_deref())?;
         Ok(CloneResult { run, path })
     })
     .await
@@ -74,8 +79,8 @@ pub async fn git_clone(parent: String, owner: String, repo: String) -> Result<Cl
 
 /// URL（GitHub の URL・「持ち主/名前」など）からクローンする。parent の下に、リポジトリと同じ名前のフォルダを作る
 #[tauri::command]
-pub async fn git_clone_url(parent: String, url: String) -> Result<publish::CloneUrlResult, String> {
-    blocking(move || publish::clone_url(Path::new(&parent), &url)).await
+pub async fn git_clone_url(parent: String, url: String, login: Option<String>) -> Result<publish::CloneUrlResult, String> {
+    blocking(move || publish::clone_url(Path::new(&parent), &url, login.as_deref())).await
 }
 
 /// 上げる前のフォルダの様子（リポジトリか・ファイルの数・コミットの数など）
@@ -98,8 +103,14 @@ pub async fn git_remote_exists(url: String) -> Result<bool, String> {
 
 /// origin を url にして、今のブランチを送る（上流にする）
 #[tauri::command]
-pub async fn git_publish_push(path: String, url: String) -> Result<GitRun, String> {
-    blocking(move || publish::push_to(Path::new(&path), &url)).await
+pub async fn git_publish_push(path: String, url: String, login: Option<String>) -> Result<GitRun, String> {
+    blocking(move || publish::push_to(Path::new(&path), &url, login.as_deref())).await
+}
+
+/// このフォルダの origin を、アプリのアカウントで GitHub に行く URL にする（#245。断られたときの「〜で使う」）
+#[tauri::command]
+pub async fn git_use_account(path: String, login: String) -> Result<GitRun, String> {
+    blocking(move || super::account::use_account(Path::new(&path), &login)).await
 }
 
 // --- 閲覧 ---
@@ -188,10 +199,14 @@ pub async fn git_push(path: String) -> Result<GitRun, String> {
         if st.branch.is_empty() {
             return Err("ブランチから切り離された状態なので、プッシュできません。先にブランチに切り替えてください".into());
         }
-        if st.upstream.is_some() {
+        // 上流が同じ名前の GitHub のブランチのときだけ、ふつうの git push
+        let same_name = st.upstream.as_deref() == Some(format!("origin/{}", st.branch).as_str());
+        if same_name {
             run(&repo, &["push"])
         } else {
-            // まだ GitHub にないブランチは、公開して上流に設定する
+            // まだ GitHub にないブランチは、公開して上流に設定する。
+            // 上流が別の名前のとき（origin/main から作ったブランチは、git が上流を main にする）も同じ名前で送り、上流を付け直す
+            //（git push のままだと、設定によっては main に送ってしまう）
             run(&repo, &["push", "-u", "origin", st.branch.as_str()])
         }
     })
@@ -208,6 +223,75 @@ pub async fn git_pull(path: String) -> Result<GitRun, String> {
 pub async fn git_fetch(path: String) -> Result<GitRun, String> {
     blocking(move || run(Path::new(&path), &["fetch", "--all", "--prune"])).await
 }
+
+/// 見ているブランチだけを、GitHub から読む（切り替えない）。git fetch origin <ブランチ>
+#[tauri::command]
+pub async fn git_fetch_branch(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || {
+        let repo = Path::new(&path);
+        match run(repo, &["fetch", "origin", branch.trim()]) {
+            // GitHub で消されたブランチ: この PC の控え（origin/…）を片づけておく（「GitHub にだけある」と出続けないように）
+            Err(e) if e.contains("couldn't find remote ref") => {
+                let _ = run(repo, &["fetch", "origin", "--prune"]);
+                Err(e)
+            }
+            other => other,
+        }
+    })
+    .await
+}
+
+/// 見ているブランチを、切り替えずに GitHub の最新にする（ブランチ画面の「プル」）。
+/// - 今のブランチなら、ふつうのプル
+/// - この PC にまだないブランチは、GitHub のブランチを追いかけるブランチとして作る（git branch --track）
+/// - 早送りできるとき（GitHub の方が進んでいる・同じ）は、git fetch origin X:X で進める
+/// - この PC の方が進んでいるときは、何もしない（まだプッシュしていないコミットがある）
+/// - 分かれているとき（両方に相手にないコミットがある）は、切り替えてからプルするよう伝える
+#[tauri::command]
+pub async fn git_pull_branch(path: String, branch: String) -> Result<GitRun, String> {
+    check_name(&branch)?;
+    blocking(move || pull_branch(&PathBuf::from(&path), branch.trim())).await
+}
+
+fn pull_branch(repo: &Path, b: &str) -> Result<GitRun, String> {
+    let st = status::read_status(repo)?;
+    if st.branch == b {
+        return run(repo, &["pull", "--no-rebase"]);
+    }
+    let remote = format!("origin/{}", b);
+    let fetched = run(repo, &["fetch", "origin", b])?;
+    let local_exists = run(repo, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{}", b)]).is_ok();
+    if !local_exists {
+        let made = run(repo, &["branch", "--track", b, &remote])?;
+        return Ok(GitRun { command: format!("{} && {}", fetched.command, made.command), output: PULL_CREATED.to_string() });
+    }
+    if run(repo, &["merge-base", "--is-ancestor", b, &remote]).is_ok() {
+        // 早送りできる（GitHub の方が進んでいるか、同じ）
+        let refspec = format!("{0}:{0}", b);
+        return run(repo, &["fetch", "origin", &refspec]).map_err(|e| {
+            if e.contains("checked out at") {
+                format!("{}
+→ {} は、別の作業フォルダで使っています。そちらでプルしてください", e, b)
+            } else {
+                e
+            }
+        });
+    }
+    if run(repo, &["merge-base", "--is-ancestor", &remote, b]).is_ok() {
+        return Ok(GitRun { command: fetched.command, output: PULL_LOCAL_AHEAD.to_string() });
+    }
+    Err(format!(
+        "git fetch origin {0}:{0}
+{0} と GitHub の {0} が分かれています（それぞれに、相手にないコミットがあります）。
+→ 「このブランチに切り替える」→ プルで取り込みます（git switch {0} → git pull）",
+        b
+    ))
+}
+
+/// git_pull_branch の結果の印（画面の言葉を変えるため）
+pub const PULL_CREATED: &str = "created";
+pub const PULL_LOCAL_AHEAD: &str = "local-ahead";
 
 /// ブランチを切り替える。create なら作ってから切り替える（start があれば、そのコミットから作る）
 #[tauri::command]
@@ -300,6 +384,32 @@ pub async fn git_discard_all(path: String, include_untracked: bool) -> Result<Gi
 #[tauri::command]
 pub async fn git_ignore_tracked(path: String, pattern: String) -> Result<Vec<String>, String> {
     blocking(move || ignore::tracked_matching(Path::new(&path), &pattern)).await
+}
+
+/// 自分（この PC の git の user.email、なければ user.name）が since から作ったコミットの数（#238 今日のあなた）。
+/// ブランチ・GitHub のブランチ・タグからたどる（一時退避は数えない）。マージのコミットは数えない。数えられなければ 0
+#[tauri::command]
+pub async fn git_my_commits_since(path: String, since: String) -> Result<u32, String> {
+    blocking(move || {
+        let repo = Path::new(&path);
+        let config = |key: &str| run(repo, &["config", key]).map(|r| r.output.trim().to_string()).unwrap_or_default();
+        let email = config("user.email");
+        let who = if email.is_empty() { config("user.name") } else { email };
+        if who.is_empty() {
+            return Ok(0);
+        }
+        let author = format!("--author={}", who);
+        let since = format!("--since={}", since.trim());
+        let args = ["log", "--branches", "--remotes", "--tags", "--no-merges", "-F", &author, &since, "--format=%H"];
+        Ok(run(repo, &args).map(|r| r.output.lines().filter(|l| !l.trim().is_empty()).count() as u32).unwrap_or(0))
+    })
+    .await
+}
+
+/// コミットの前の見張り（#234）: 変更のあるファイルの中の、大きすぎるファイルと、ツールが作るフォルダ（Unity の Library など）
+#[tauri::command]
+pub async fn git_commit_watch(path: String, paths: Vec<String>) -> Result<Vec<WatchFinding>, String> {
+    blocking(move || watch::commit_watch(Path::new(&path), &paths)).await
 }
 
 /// .gitignore にパターンを書き足す。untrack があれば、そのパスに当てはまるファイルを管理から外す（git rm --cached）
@@ -473,7 +583,7 @@ fn operation_command(operation: &str) -> Result<&'static str, String> {
         "rebase" => Ok("rebase"),
         "cherry-pick" => Ok("cherry-pick"),
         "revert" => Ok("revert"),
-        _ => Err(format!("「{}」は中止・続行できる操作ではありません", operation)),
+        _ => Err(format!("「{}」は中止や続行ができる操作ではありません", operation)),
     }
 }
 
@@ -489,7 +599,7 @@ pub async fn git_abort(path: String, operation: String) -> Result<GitRun, String
 pub async fn git_continue(path: String, operation: String) -> Result<GitRun, String> {
     let op = operation_command(&operation)?;
     if op == "merge" {
-        return Err("マージは、コミットすると完了します".into());
+        return Err("マージはコミットすると完了します".into());
     }
     blocking(move || run(Path::new(&path), &[op, "--continue"])).await
 }

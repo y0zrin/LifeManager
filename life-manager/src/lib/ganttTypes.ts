@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 export type ProgressMode = "checkbox" | "manual" | "binary";
 export type TimeScale = "day" | "week" | "month";
 
@@ -16,6 +17,20 @@ export interface GanttTask {
   estimate: string | null;
   /** 日程がないので、見積もりから仮に置いた日程か（lib/ganttSchedule.ts） */
   tentative?: boolean;
+}
+
+/** 押した（乗せた）タスクの、先行・後続の相手（下の帯・スマホの下の板に出す） */
+export interface GanttLink {
+  n: number;
+  title: string;
+  /** 帯がない理由（帯があれば null。押して送れない） */
+  reason: string | null;
+  /** ふだん省いている矢印（乗せたときだけ点線で出す） */
+  redundant: boolean;
+  /** 順番が逆（後続が、先行の終わる前にはじまる） */
+  broken: boolean;
+  /** 先行が遅れている（終わりの日が過ぎたのに、まだ開いている）。先行のときだけ */
+  late: boolean;
 }
 
 export interface GanttViewConfig {
@@ -48,16 +63,16 @@ export const DEFAULT_BAR_COLORS: GanttBarColors = {
 };
 
 export const BAR_COLOR_LABELS: Record<keyof GanttBarColors, string> = {
-  default: "デフォルト",
-  inProgress: "進行中",
-  blocked: "ブロック",
-  closed: "完了",
-  critical: "クリティカルパス",
+  default: tr("デフォルト"),
+  inProgress: tr("進行中"),
+  blocked: tr("ブロック"),
+  closed: tr("完了"),
+  critical: tr("クリティカルパス"),
   highPriority: "優先:高",
 };
 
 export const TIME_SCALE_CONFIG: Record<TimeScale, { pixelsPerDay: number; label: string }> = {
-  day: { pixelsPerDay: 40, label: "日" },
-  week: { pixelsPerDay: 12, label: "週" },
-  month: { pixelsPerDay: 4, label: "月" },
+  day: { pixelsPerDay: 40, label: tr("日") },
+  week: { pixelsPerDay: 12, label: tr("週") },
+  month: { pixelsPerDay: 4, label: tr("月") },
 };

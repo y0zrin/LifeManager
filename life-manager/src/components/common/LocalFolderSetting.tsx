@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkFolder, cloneRepo, gitVersion } from "../../lib/git";
 import type { GitRun } from "../../lib/types";
+import { tr, trx } from "../../lib/i18n";
 
 interface LocalFolderSettingProps {
   owner: string;
@@ -15,6 +16,8 @@ interface LocalFolderSettingProps {
   onOpenSetup: () => void;
   /** 変わったら Git を確かめ直す（Git を入れたあとなど） */
   setupVersion: number;
+  /** アプリのアカウント（クローンの URL に入れる。#245） */
+  login?: string;
 }
 
 type Message = { kind: "ok" | "error"; text: string };
@@ -26,7 +29,7 @@ function samePath(a: string, b: string) {
 }
 
 /** 今のリポジトリを git で操作するときの、この PC 上のフォルダを決める（PC のみ） */
-export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSetup, setupVersion }: LocalFolderSettingProps) {
+export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSetup, setupVersion, login }: LocalFolderSettingProps) {
   // git が使えるか。null は確認中
   const [git, setGit] = useState<{ version: string } | { error: string } | null>(null);
   const [busy, setBusy] = useState<"pick" | "clone" | null>(null);
@@ -51,29 +54,29 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
     setMessage(null);
     setLastRun(null);
     try {
-      const picked = await open({ directory: true, title: `${owner}/${repo} のフォルダを選ぶ`, defaultPath: folder });
+      const picked = await open({ directory: true, title: tr("{owner}/{repo} のフォルダを選ぶ", { owner, repo }), defaultPath: folder });
       if (typeof picked !== "string") return;
       setBusy("pick");
       const check = await checkFolder(picked, owner, repo);
       if (!check.is_repo) {
         setMessage({
           kind: "error",
-          text: "選んだフォルダは git のリポジトリではありません。まだこの PC にない場合は「GitHub からクローン」を使ってください。",
+          text: tr("選んだフォルダは git のリポジトリではありません。まだこの PC にない場合は「GitHub からクローン」を使ってください。"),
         });
       } else if (!check.matches_project) {
         setMessage({
           kind: "error",
           text: check.remote_url
-            ? `このフォルダは別のリポジトリ（${check.remote_url}）です。${owner}/${repo} のフォルダを選んでください。`
-            : `このフォルダは GitHub のリポジトリにつながっていません（origin がありません）。${owner}/${repo} をクローンしたフォルダを選んでください。`,
+            ? tr("このフォルダは別のリポジトリ（{remote_url}）です。{owner}/{repo} のフォルダを選んでください。", { remote_url: check.remote_url, owner, repo })
+            : tr("このフォルダは GitHub のリポジトリにつながっていません（origin がありません）。{owner}/{repo} をクローンしたフォルダを選んでください。", { owner, repo }),
         });
       } else {
         await onSetFolder(check.top_level);
         setMessage({
           kind: "ok",
           text: samePath(picked, check.top_level)
-            ? "作業フォルダを設定しました"
-            : `作業フォルダを設定しました（選んだフォルダはリポジトリの中なので、いちばん上の ${check.top_level} にしました）`,
+            ? tr("作業フォルダを設定しました")
+            : tr("作業フォルダを設定しました。選んだフォルダはリポジトリの中なので、いちばん上の {top_level} にしました", { top_level: check.top_level }),
         });
       }
     } catch (e) {
@@ -87,13 +90,13 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
     setMessage(null);
     setLastRun(null);
     try {
-      const parent = await open({ directory: true, title: `クローンする場所を選ぶ（この中に ${repo} フォルダを作ります）` });
+      const parent = await open({ directory: true, title: tr("クローンする場所を選ぶ（この中に {repo} フォルダを作ります）", { repo }) });
       if (typeof parent !== "string") return;
       setBusy("clone");
-      const result = await cloneRepo(parent, owner, repo);
+      const result = await cloneRepo(parent, owner, repo, login);
       await onSetFolder(result.path);
       setLastRun(result.run);
-      setMessage({ kind: "ok", text: `${result.path} にクローンして、作業フォルダにしました` });
+      setMessage({ kind: "ok", text: tr("{path} にクローンして作業フォルダにしました", { path: result.path }) });
     } catch (e) {
       setMessage({ kind: "error", text: String(e) });
     } finally {
@@ -113,60 +116,59 @@ export function LocalFolderSetting({ owner, repo, folder, onSetFolder, onOpenSet
 
   return (
     <div className="form-card">
-      <h3 className="settings-section-title">作業フォルダ（この PC）</h3>
+      <h3 className="settings-section-title">{tr("作業フォルダ（この PC）")}</h3>
       <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-        {owner}/{repo} を git で操作するときに使う、この PC 上のフォルダです。
+        {trx("{owner}/{repo} を git で操作するときに使う、この PC 上のフォルダです。", { owner, repo })}
       </p>
 
       <div className="local-folder-row">
         <span className={`local-folder-path${folder ? "" : " local-folder-path--empty"}`} title={folder}>
-          {folder ?? "未設定"}
+          {folder ?? tr("未設定")}
         </span>
         <button className="btn-sm" onClick={pickFolder} disabled={!gitReady || busy !== null}>
-          {folder ? "変更…" : "フォルダを選ぶ…"}
+          {folder ? tr("変更…") : tr("フォルダを選ぶ…")}
         </button>
         {folder ? (
-          <button className="btn-sm" onClick={clear} disabled={busy !== null} title="フォルダそのものは消えません">
-            設定を外す
+          <button className="btn-sm" onClick={clear} disabled={busy !== null} title={tr("フォルダそのものは消えません")}>
+            {tr("設定を外す")}
           </button>
         ) : (
           <button className="btn-sm" onClick={clone} disabled={!gitReady || busy !== null}>
-            GitHub からクローン…
+            {tr("GitHub からクローン…")}
           </button>
         )}
       </div>
 
       {busy === "clone" && (
-        <p className="settings-hint">クローンしています…（大きなリポジトリは時間がかかります）</p>
+        <p className="settings-hint">{tr("クローンしています…（大きなリポジトリは時間がかかります）")}</p>
       )}
       {message && (
         <p className={`local-folder-message local-folder-message--${message.kind}`}>{message.text}</p>
       )}
       {lastRun && (
         <div className="cmd-preview" style={{ marginTop: "var(--space-sm)" }}>
-          <span>実行したコマンド</span>
-          <code>{lastRun.command}</code>
+          {trx("<0>実行したコマンド</0><1>{command}</1>", { command: lastRun.command }, [<span />, <code />])}
         </div>
       )}
 
-      {git === null && <p className="settings-hint">git を確認しています…</p>}
+      {git === null && <p className="settings-hint">{tr("git を確認しています…")}</p>}
       {git && "version" in git && (
         <p className="settings-hint local-folder-git">
-          使う git: {git.version}
+          {trx("使う git: {version}", { version: git.version })}
           <button type="button" className="sec-btn" onClick={onOpenSetup}>
-            使う準備を確かめる
+            {tr("使う準備を確かめる")}
           </button>
         </p>
       )}
       {git && "error" in git && (
         <div className="local-folder-message local-folder-message--error">
-          Git が見つかりません。「作業」「ブランチ」「全体図」を使うには、Git をインストールします。
+          {tr("Git が見つかりません。「作業をする」「ブランチ」「全体図」を使うには、Git をインストールします。")}
           <div className="local-folder-actions">
             <button type="button" className="btn-primary" onClick={onOpenSetup}>
-              Git をインストールする…
+              {tr("Git をインストールする…")}
             </button>
             <button type="button" className="btn-sm" onClick={() => openUrl("https://git-scm.com/downloads")}>
-              Git のページを開く
+              {tr("Git のページを開く")}
             </button>
           </div>
         </div>

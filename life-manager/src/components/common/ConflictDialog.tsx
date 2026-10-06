@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { issueRef } from "../../lib/issueRef";
 import type { ConflictChoice, GitHubMilestone, MergeHunk, SyncConflict } from "../../lib/types";
 import { isEnter, isEscape } from "../../lib/keys";
+import { tr, trx } from "../../lib/i18n";
 
 interface ConflictDialogProps {
   conflicts: SyncConflict[];
@@ -11,17 +12,17 @@ interface ConflictDialogProps {
 }
 
 const FIELD_NAMES: Record<SyncConflict["field"], string> = {
-  title: "タイトル",
-  body: "本文",
-  state: "開いている・閉じた",
-  milestone: "マイルストーン",
-  config: "設定",
-  journal: "ノート",
+  title: tr("タイトル"),
+  body: tr("本文"),
+  state: tr("開いている・閉じた"),
+  milestone: tr("マイルストーン"),
+  config: tr("設定"),
+  journal: tr("ノート"),
   error: "",
 };
 
 // 印（git の競合と同じ書き方）。手で直すときに、まだ選んでいないところに入れる
-const MARK_LOCAL = "<<<<<<< 自分の変更";
+const MARK_LOCAL = tr("<<<<<<< 自分の変更");
 const MARK_SPLIT = "=======";
 const MARK_REMOTE = ">>>>>>> GitHub";
 
@@ -125,10 +126,10 @@ function ConflictView({
   }, [busy, onClose]);
 
   function show(value: string): string {
-    if (conflict.field === "state") return value === "closed" ? "閉じた" : "開いている";
+    if (conflict.field === "state") return value === "closed" ? tr("閉じた") : tr("開いている");
     if (conflict.field === "milestone") {
       const n = Number(value);
-      if (!n) return "なし";
+      if (!n) return tr("なし");
       return milestones.find((m) => m.number === n)?.title ?? `#${n}`;
     }
     if (conflict.field === "config") {
@@ -138,7 +139,7 @@ function ConflictView({
         return value;
       }
     }
-    return value || "（空）";
+    return value || tr("（空）");
   }
 
   async function resolve(choice: ConflictChoice, value?: string) {
@@ -162,18 +163,18 @@ function ConflictView({
 
   function sendDraft() {
     if (isText && [MARK_LOCAL, MARK_SPLIT, MARK_REMOTE].some((m) => draft.split("\n").includes(m))) {
-      setError("印（<<<<<<< ・ ======= ・ >>>>>>>）が残っています。どちらを残すか決めて、印の行を消してください");
+      setError(tr("印（<<<<<<< ・ ======= ・ >>>>>>>）が残っています。どちらを残すか決めて印の行を消してください"));
       return;
     }
     if (conflict.field === "title" && !draft.trim()) {
-      setError("タイトルを入れてください");
+      setError(tr("タイトルを入れてください"));
       return;
     }
     resolve("custom", conflict.field === "title" ? draft.trim() : draft);
   }
 
   const title = conflict.number !== 0 ? `${issueRef(conflict.number)} ${conflict.title}` : conflict.title;
-  const heading = isError ? "送れなかった変更があります" : "GitHub 側でも変えられていました";
+  const heading = isError ? tr("送れなかった変更があります") : tr("GitHub 側でも変えられていました");
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={() => { if (!busy) onClose(); }}>
@@ -194,11 +195,12 @@ function ConflictView({
           <p className="git-dialog-message conflict-message">{conflict.message}</p>
         ) : (
           <p className="git-dialog-note">
-            オフラインのあいだに、この{conflict.number !== 0 ? " Issue の" : ""}「{FIELD_NAMES[conflict.field]}」が
-            GitHub 側でも変えられていました。
+            {conflict.number !== 0
+              ? tr("オフラインのあいだに、この Issue の「{field}」が GitHub 側でも変えられていました。", { field: FIELD_NAMES[conflict.field] })
+              : tr("オフラインのあいだに、この「{field}」が GitHub 側でも変えられていました。", { field: FIELD_NAMES[conflict.field] })}
             {isText && hunks && conflictIndexes.length > 0
-              ? `別々のところの変更はまとめてあります。ぶつかった ${conflictIndexes.length} か所だけ、どちらを残すか選んでください。`
-              : "どちらを残すか選んでください。"}
+              ? tr("別々のところの変更はまとめてあります。ぶつかった {length} か所だけ、どちらを残すか選んでください。", { length: conflictIndexes.length })
+              : tr("どちらを残すか選んでください。")}
           </p>
         )}
 
@@ -231,15 +233,15 @@ function ConflictView({
                 <div key={i} className={`merge-conflict${choices[i] ? " is-chosen" : ""}`}>
                   <div className="merge-sides">
                     <section>
-                      <h4>自分の変更</h4>
-                      <pre>{hunk.local.join("\n") || "（消した）"}</pre>
+                      <h4>{tr("自分の変更")}</h4>
+                      <pre>{hunk.local.join("\n") || tr("（消した）")}</pre>
                     </section>
                     <section>
                       <h4>GitHub</h4>
-                      <pre>{hunk.remote.join("\n") || "（消した）"}</pre>
+                      <pre>{hunk.remote.join("\n") || tr("（消した）")}</pre>
                     </section>
                   </div>
-                  <div className="merge-choices" role="group" aria-label="残す方">
+                  <div className="merge-choices" role="group" aria-label={tr("残す方")}>
                     {(["local", "remote", "both"] as const).map((c) => (
                       <button
                         key={c}
@@ -249,7 +251,7 @@ function ConflictView({
                         disabled={busy}
                         onClick={() => setChoices((prev) => ({ ...prev, [i]: c }))}
                       >
-                        {c === "local" ? "自分の変更" : c === "remote" ? "GitHub" : "両方"}
+                        {c === "local" ? tr("自分の変更") : c === "remote" ? "GitHub" : tr("両方")}
                       </button>
                     ))}
                   </div>
@@ -262,7 +264,7 @@ function ConflictView({
         {!isError && mode === "choose" && !(isText && hunks && conflictIndexes.length > 0) && (
           <div className="conflict-compare">
             <section>
-              <h4>自分の変更</h4>
+              <h4>{tr("自分の変更")}</h4>
               {multiline ? (
                 <div className="conflict-value conflict-value--body">
                   <Lines text={show(conflict.local)} other={show(conflict.remote)} />
@@ -272,7 +274,7 @@ function ConflictView({
               )}
             </section>
             <section>
-              <h4>GitHub の今の内容</h4>
+              <h4>{tr("GitHub の今の内容")}</h4>
               {multiline ? (
                 <div className="conflict-value conflict-value--body">
                   <Lines text={show(conflict.remote)} other={show(conflict.local)} />
@@ -282,7 +284,7 @@ function ConflictView({
               )}
             </section>
             {conflict.base !== "" && !isText && conflict.field !== "config" && (
-              <p className="conflict-base">変える前: {show(conflict.base)}</p>
+              <p className="conflict-base">{trx("変える前: {show}", { show: show(conflict.base) })}</p>
             )}
           </div>
         )}
@@ -291,32 +293,32 @@ function ConflictView({
 
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm conflict-later" disabled={busy} onClick={onClose}>
-            あとで
+            {tr("あとで")}
           </button>
           {isError ? (
             <button ref={firstRef} type="button" className="btn-primary" disabled={busy} onClick={() => resolve("remote")}>
-              分かった
+              {tr("分かった")}
             </button>
           ) : mode === "edit" ? (
             <>
               <button type="button" className="btn-sm" disabled={busy} onClick={() => { setMode("choose"); setError(null); }}>
-                戻る
+                {tr("戻る")}
               </button>
               <button type="button" className="btn-primary" disabled={busy} onClick={sendDraft}>
-                この内容で送る
+                {tr("この内容で送る")}
               </button>
             </>
           ) : (
             <>
               <button ref={firstRef} type="button" className="btn-sm" disabled={busy} onClick={() => resolve("remote")}>
-                GitHub の内容を残す
+                {tr("GitHub の内容を残す")}
               </button>
               <button type="button" className="btn-sm" disabled={busy} onClick={() => resolve("local")}>
-                自分の変更で上書き
+                {tr("自分の変更で上書き")}
               </button>
               {canEdit && (
                 <button type="button" className="btn-sm" disabled={busy} onClick={startEdit}>
-                  手で直す…
+                  {tr("手で直す…")}
                 </button>
               )}
               {isText && hunks && conflictIndexes.length > 0 && (
@@ -324,10 +326,10 @@ function ConflictView({
                   type="button"
                   className="btn-primary"
                   disabled={busy || remaining > 0}
-                  title={remaining > 0 ? `あと ${remaining} か所選んでください` : undefined}
+                  title={remaining > 0 ? tr("あと {remaining} か所選んでください", { remaining }) : undefined}
                   onClick={() => resolve("custom", compose(hunks, choices, false) ?? "")}
                 >
-                  {remaining > 0 ? `選んだ内容で送る（あと ${remaining}）` : "選んだ内容で送る"}
+                  {remaining > 0 ? tr("選んだ内容で送る（あと {remaining}）", { remaining }) : tr("選んだ内容で送る")}
                 </button>
               )}
             </>
@@ -359,7 +361,7 @@ function SameLines({ lines }: { lines: string[] }) {
     <pre className="merge-same">
       {lines.slice(0, 2).join("\n")}
       {"\n"}
-      <span className="merge-fold">…（変わっていない {lines.length - 4} 行）…</span>
+      <span className="merge-fold">{tr("…（変わっていない {n} 行）…", { n: lines.length - 4 })}</span>
       {"\n"}
       {lines.slice(-2).join("\n")}
     </pre>

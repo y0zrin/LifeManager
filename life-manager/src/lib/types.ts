@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 export interface GitHubUser {
   login: string;
   avatar_url: string;
@@ -50,6 +51,10 @@ export interface GitHubIssue {
   user?: { login: string; avatar_url: string };
   /** まだ GitHub に送っていない変更がある（オフラインのあいだの変更）。まだ作っていない Issue の番号は負の数（仮の番号） */
   _pending?: boolean;
+  /** 送っているあいだ（GitHub から返事が来るまで。すぐ画面に出すための仮のもの） */
+  _sending?: boolean;
+  /** 送れなかった（わけ）。「もう一度」「やめる」を出す */
+  _failed?: string;
 }
 
 /** 閉じ方（GitHub の「Close as …」と同じ） */
@@ -86,8 +91,16 @@ export interface GitHubComment {
   user: { login: string; avatar_url: string };
   created_at: string;
   updated_at: string;
+  /** 書いた人とリポジトリの関わり（OWNER・MEMBER・COLLABORATOR・NONE など。GitHub が付ける） */
+  author_association?: string;
   /** まだ GitHub に送っていないコメント */
   _pending?: boolean;
+  /** 送っているあいだ（すぐ画面に出すための仮のもの） */
+  _sending?: boolean;
+  /** 送れなかった（わけ） */
+  _failed?: string;
+  /** 送れた（GitHub の返事のコメント）。読み直した一覧に入るまで、手元の置き場から出す */
+  _sent?: boolean;
 }
 
 // --- オフラインのあいだの変更（送信待ち） ---
@@ -220,19 +233,19 @@ export type EventType =
   | "issue_updated";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  issue_created: "Issue作成",
-  routine_created: "ルーチン実行",
-  issue_closed: "Issue完了",
-  issue_reopened: "Issue再開",
-  status_changed: "状態変更",
-  comment_added: "コメント追加",
-  todo_toggled: "チェックボックス操作",
-  issue_promoted: "メモ昇華",
-  issue_updated: "Issue編集",
+  issue_created: tr("Issue作成"),
+  routine_created: tr("ルーチン実行"),
+  issue_closed: tr("Issue完了"),
+  issue_reopened: tr("Issue再開"),
+  status_changed: tr("状態変更"),
+  comment_added: tr("コメント追加"),
+  todo_toggled: tr("チェックボックス操作"),
+  issue_promoted: tr("メモ昇華"),
+  issue_updated: tr("Issue編集"),
 };
 
-/** ボードのジャンル: 未整理（整理して、やることを決める）・着手済み（やっていることを追う） */
-export type BoardGenre = "triage" | "doing";
+/** ボードのジャンル（タブ）: 未整理（整理して、やることを決める）・着手済み（やっていることを追う）・確認待ち（確かめて、終わらせる） */
+export type BoardGenre = "triage" | "doing" | "review";
 
 export interface BoardColumn {
   key: string;       // label name like "状態:進行中" or "none" for uncategorized
@@ -244,6 +257,8 @@ export interface BoardColumn {
 
 export interface BoardConfig {
   columns: BoardColumn[];
+  /** 何枚のボード（タブ）のときに保存したか（1.0 から 3。ないのは 2 枚のとき〔確認待ちがなかった〕） */
+  boards?: number;
 }
 
 export interface Project {
@@ -261,6 +276,20 @@ export interface GitRun {
 }
 
 /** 追加・削除した行数 */
+/** コミットの前の見張りで見つけたもの（#234） */
+export interface WatchFinding {
+  /** large: GitHub が受け取らない大きなファイル / generated: ツールが作るフォルダ */
+  kind: "large" | "generated";
+  /** ファイル、またはフォルダ（最後の / なし） */
+  path: string;
+  /** generated: 作るツール（Unity など） */
+  tool: string | null;
+  /** large: 大きさ（バイト） */
+  size: number | null;
+  /** 当てはまった、変更のあるファイルの数 */
+  files: number;
+}
+
 export interface GitLineStat {
   added: number;
   deleted: number;
@@ -368,6 +397,8 @@ export interface GitFolderCheck {
 }
 
 export type ViewType =
+  /** スマホのメニュー（ホーム）。オーバービューもここにまとめる */
+  | "menu"
   | "work"
   | "insights" | "dashboard" | "kanban" | "milestones" | "routines" | "timeline" | "gantt"
   | "branches" | "overview" | "pulls" | "actions" | "releases" | "activity"

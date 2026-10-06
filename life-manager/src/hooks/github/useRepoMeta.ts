@@ -1,9 +1,11 @@
 // リポジトリのラベル・マイルストーン・コラボレーター（使える人）
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../lib/invoke";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import type { RepoScope } from "./shared";
+import { isSectionLabel } from "../../lib/section";
+import { tr } from "../../lib/i18n";
 
 export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   const [labels, setLabels] = useState<GitHubLabel[]>([]);
@@ -48,16 +50,22 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   // --- マイルストーン操作 ---
 
-  async function createMilestone(title: string, description: string, dueOn: string | null) {
+  /** マイルストーンを作る。作ったマイルストーンの番号を返す（見本の計画で、タスクを入れるのに使う。分からなければ null） */
+  async function createMilestone(title: string, description: string, dueOn: string | null): Promise<number | null> {
     try {
-      await invoke("create_milestone", {
+      const result = await invoke<string>("create_milestone", {
         owner, repo,
         title, description, dueOn,
       });
-      setStatus("マイルストーンを作成しました");
+      setStatus(tr("マイルストーンを作成しました"));
       await loadMilestones();
+      try {
+        return (JSON.parse(result) as { number?: number }).number ?? null;
+      } catch {
+        return null;
+      }
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -71,10 +79,10 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
         dueOn: updates.dueOn !== undefined ? (updates.dueOn || "") : null,
         milestoneState: null,
       });
-      setStatus("マイルストーンを更新しました");
+      setStatus(tr("マイルストーンを更新しました"));
       await loadMilestones();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -86,9 +94,9 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
         title: null, description: null, dueOn: null, milestoneState: "closed",
       });
       setMilestones((prev) => prev.filter((m) => m.number !== milestoneNumber));
-      setStatus("マイルストーンを完了しました");
+      setStatus(tr("マイルストーンを完了しました"));
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -99,10 +107,10 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
         owner, repo, milestoneNumber,
         title: null, description: null, dueOn: null, milestoneState: "open",
       });
-      setStatus("マイルストーンを再開しました");
+      setStatus(tr("マイルストーンを再開しました"));
       await loadMilestones();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -115,17 +123,17 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
       setStatus(result as string);
       await loadLabels();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
     }
   }
 
   async function createLabel(name: string, color: string, description: string) {
     try {
       await invoke("create_label", { owner, repo, name, color, description });
-      setStatus(`ラベル "${name}" を作成しました`);
+      setStatus(tr("ラベル \"{name}\" を作成しました", { name }));
       await loadLabels();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -133,10 +141,10 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   async function updateLabel(currentName: string, newName: string, color: string, description: string) {
     try {
       await invoke("update_label", { owner, repo, currentName, newName, color, description });
-      setStatus(`ラベル "${newName}" を更新しました`);
+      setStatus(tr("ラベル \"{newName}\" を更新しました", { newName }));
       await loadLabels();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -144,10 +152,10 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   async function deleteLabel(name: string) {
     try {
       await invoke("delete_label", { owner, repo, name });
-      setStatus(`ラベル "${name}" を削除しました`);
+      setStatus(tr("ラベル \"{name}\" を削除しました", { name }));
       await loadLabels();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -155,7 +163,7 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   // --- 派生データ ---
 
   const customLabels = labels.filter(
-    (l) => l.name.startsWith("種別:") || l.name.startsWith("分野:") ||
+    (l) => l.name.startsWith("種別:") || isSectionLabel(l.name) ||
            l.name.startsWith("状態:") || l.name.startsWith("優先:") || l.name.startsWith(ESTIMATE_PREFIX)
   );
 

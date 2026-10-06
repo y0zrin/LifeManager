@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import { tr } from "../../lib/i18n";
 
 interface Props {
   children: ReactNode;
@@ -26,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="error-boundary">
-          <h2 className="error-boundary__title">表示エラーが発生しました</h2>
+          <h2 className="error-boundary__title">{tr("表示エラーが発生しました")}</h2>
           <p className="error-boundary__message">
             {this.state.error?.message}
           </p>
@@ -39,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={() => this.setState({ hasError: false, error: null, componentStack: null })}
             className="btn-primary"
           >
-            再試行
+            {tr("再試行")}
           </button>
         </div>
       );

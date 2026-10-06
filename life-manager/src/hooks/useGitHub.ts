@@ -1,11 +1,12 @@
 import { useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../lib/invoke";
 import { useSession } from "./github/useSession";
 import { useRepoMeta } from "./github/useRepoMeta";
 import { useRepoSettings } from "./github/useRepoSettings";
 import { useJournal } from "./github/useJournal";
 import { useIssues } from "./github/useIssues";
 import type { RepoScope } from "./github/shared";
+import { tr } from "../lib/i18n";
 
 /**
  * GitHub とやりとりする中央のフック。中身は分野ごとのフック（hooks/github/）に分けてあり、
@@ -27,6 +28,7 @@ export function useGitHub() {
   // Issue とその操作（コメント・サブイシュー・テンプレート・変更の履歴・見積もり）
   const issueOps = useIssues(scope, {
     labels: meta.labels,
+    milestones: meta.milestones,
     loadLabels: meta.loadLabels,
     currentUser: session.currentUser,
     eventNotice: settings.eventNotice,
@@ -53,7 +55,7 @@ export function useGitHub() {
       loadAll().then(() => {
         if (needsReload) {
           session.setNeedsReload(false);
-          setStatus("プロジェクトを切り替えました");
+          setStatus(tr("プロジェクトを切り替えました"));
         }
       });
     }
@@ -73,7 +75,7 @@ export function useGitHub() {
       session.setOwner(projOwner);
       session.setRepo(projRepo);
       session.setNeedsReload(true);
-      setStatus(`プロジェクトを切り替え中...`);
+      setStatus(tr("プロジェクトを切り替え中..."));
     } catch (e) {
       setStatus(friendlyError(e));
       throw e;
@@ -88,7 +90,7 @@ export function useGitHub() {
     session.setConnected(false);
     session.setCurrentUser("");
     issueOps.clear();
-    setStatus("ログアウトしました");
+    setStatus(tr("ログアウトしました"));
   }
 
   /** アカウントを切り替えた・足したあと: 前のアカウントのデータを捨てて、今のアカウントのリポジトリを読み直す */
@@ -108,10 +110,10 @@ export function useGitHub() {
     try {
       await invoke("set_token", { token });
       session.setConnected(true);
-      setStatus("トークンを設定しました");
+      setStatus(tr("トークンを設定しました"));
       await loadAll();
     } catch (e) {
-      setStatus("エラー: " + e);
+      setStatus(tr("エラー: ") + e);
       throw e;
     }
   }
@@ -129,6 +131,7 @@ export function useGitHub() {
     closeIssue: issueOps.closeIssue, reopenIssue: issueOps.reopenIssue, promoteIssue: issueOps.promoteIssue,
     changeIssueStatus: issueOps.changeIssueStatus, assignToMe: issueOps.assignToMe, createIssue: issueOps.createIssue,
     createMemo: issueOps.createMemo, updateIssue: issueOps.updateIssue, updateIssueBody: issueOps.updateIssueBody,
+    retrySending: issueOps.retrySending, discardSending: issueOps.discardSending,
     // マイルストーン操作
     createMilestone: meta.createMilestone, updateMilestone: meta.updateMilestone, closeMilestone: meta.closeMilestone, reopenMilestone: meta.reopenMilestone,
     // ルーチン操作
@@ -136,7 +139,7 @@ export function useGitHub() {
     // コメント
     listComments: issueOps.listComments, createComment: issueOps.createComment,
     // ジャーナル
-    generateJournal: journal.generateJournal, getJournal: journal.getJournal, saveJournalNotes: journal.saveJournalNotes,
+    generateJournal: journal.generateJournal, getJournal: journal.getJournal, listJournalDates: journal.listJournalDates, saveJournalNotes: journal.saveJournalNotes,
     // 認証・設定
     setToken, signOut, reloadAccount, setupLabels: meta.setupLabels, createLabel: meta.createLabel, updateLabel: meta.updateLabel, deleteLabel: meta.deleteLabel,
     // リポジトリ設定

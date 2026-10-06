@@ -1,6 +1,7 @@
 // 見積もり（タスクの大きさ・かかる時間）。単位はリポジトリ（チーム）ごとに決める（config/estimate.yaml）。
 // GitHub にはラベル「見積:3pt」「見積:2時間」「見積:0.5日」「見積:1人月」として付ける（1 つの Issue に 1 つ）
 import type { GitHubIssue } from "./types";
+import { tr } from "./i18n";
 
 export const ESTIMATE_PREFIX = "見積:";
 /** ラベルを作るときの色（画面の見積もりの印と同じ青緑） */
@@ -29,39 +30,39 @@ export const DAYS_PER_PERSON_MONTH = 20;
 
 export const UNITS: Record<EstimateUnit, UnitSpec> = {
   pt: {
-    name: "ポイント",
+    name: tr("ポイント"),
     suffix: "pt",
     values: [1, 2, 3, 5, 8],
     hours: null,
-    guide: "時間ではなく、ほかのタスクと比べた大きさ。最初は 1pt＝1 時間ほどを目安に、慣れたらチームで決めた基準のタスクと比べて付ける",
+    guide: tr("時間ではなく、ほかのタスクと比べた大きさ。最初は 1pt＝1 時間ほどを目安に、慣れたらチームで決めた基準のタスクと比べて付ける"),
     valueGuide: {
-      1: "1 時間ほど（文言や数値の直し）",
-      2: "半日ほど",
-      3: "1 日ほど（ふつうの機能一つ）",
-      5: "2〜3 日",
-      8: "1 週間近い（分けることを考える）",
+      1: tr("1 時間ほど（文言や数値の直し）"),
+      2: tr("半日ほど"),
+      3: tr("1 日ほど（ふつうの機能一つ）"),
+      5: tr("2〜3 日"),
+      8: tr("1 週間近い（分けることを考える）"),
     },
   },
   hour: {
-    name: "時間",
+    name: tr("時間"),
     suffix: "時間",
     values: [1, 2, 4, 8, 16],
     hours: 1,
-    guide: `実際にかかると思う時間。1 日＝${HOURS_PER_DAY} 時間。1 日を超えるものは分けることを考える`,
+    guide: tr("実際にかかると思う時間。1 日＝{h} 時間。1 日を超えるものは分けることを考える", { h: HOURS_PER_DAY }),
   },
   day: {
-    name: "日",
+    name: tr("日"),
     suffix: "日",
     values: [0.5, 1, 2, 3, 5],
     hours: HOURS_PER_DAY,
-    guide: `1 人が働いてかかる日数。1 日＝${HOURS_PER_DAY} 時間として数える`,
+    guide: tr("1 人が働いてかかる日数。1 日＝{h} 時間として数える", { h: HOURS_PER_DAY }),
   },
   person_month: {
-    name: "人月",
+    name: tr("人月"),
     suffix: "人月",
     values: [0.25, 0.5, 1, 2, 3],
     hours: HOURS_PER_DAY * DAYS_PER_PERSON_MONTH,
-    guide: `1 人月＝1 人が 1 か月（${DAYS_PER_PERSON_MONTH} 日・${HOURS_PER_DAY * DAYS_PER_PERSON_MONTH} 時間）働く量。大きな作業の計画向き`,
+    guide: tr("1 人月＝1 人が 1 か月（{days} 日・{hours} 時間）働く量。大きな作業の計画向き", { days: DAYS_PER_PERSON_MONTH, hours: HOURS_PER_DAY * DAYS_PER_PERSON_MONTH }),
   },
 };
 
@@ -82,13 +83,18 @@ export function formatNumber(v: number): string {
   return String(Math.round(v * 100) / 100);
 }
 
-/** 「3pt」「2時間」「0.5日」「1.25人月」 */
+/** 画面に出す形「3pt」「2時間」「0.5日」「1.25人月」（英語・中国語では単位を訳す） */
 export function formatEstimate(value: number, unit: EstimateUnit): string {
-  return `${formatNumber(value)}${UNITS[unit].suffix}`;
+  const n = formatNumber(value);
+  if (unit === "hour") return tr("{n}時間", { n });
+  if (unit === "day") return tr("{n}日", { n });
+  if (unit === "person_month") return tr("{n}人月", { n });
+  return `${n}${UNITS[unit].suffix}`;
 }
 
+/** ラベルの名前「見積:2時間」（GitHub に書くので訳さない） */
 export function estimateLabel(value: number, unit: EstimateUnit): string {
-  return `${ESTIMATE_PREFIX}${formatEstimate(value, unit)}`;
+  return `${ESTIMATE_PREFIX}${formatNumber(value)}${UNITS[unit].suffix}`;
 }
 
 // ラベルの後ろの単位（書き方の揺れも受ける。単位のないものはポイント）

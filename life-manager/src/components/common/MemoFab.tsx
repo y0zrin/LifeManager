@@ -2,20 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GitHubLabel } from "../../lib/types";
 import type { MemoButtonPosition } from "../../hooks/useDisplaySettings";
 import { isComposing, isEnter, isEscape } from "../../lib/keys";
+import { isSectionLabel, sectionOf } from "../../lib/section";
+import { isMobile, keyHint } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
 
 interface MemoFabProps {
   /** ボタンを置く角（hidden ならボタンを出さず、Ctrl+M で画面の上のほうに欄を開く） */
   position: MemoButtonPosition;
-  /** このリポジトリのラベル（「分野:」のものを、メモの分野の候補にする） */
+  /** このリポジトリのラベル（セクションのものを、メモのセクションの候補にする） */
   labels: GitHubLabel[];
   /** 送り先のリポジトリ（owner/repo。見出しに出す） */
   repoName: string;
   onCreateMemo: (text: string, theme: string) => Promise<void>;
 }
 
-/** 前に選んだ分野（次に開いたときも同じにする） */
+/** 前に選んだセクション（次に開いたときも同じにする） */
 const THEME_STORE = "memo-theme";
-const THEME_PREFIX = "分野:";
 /** 打つのをやめてから、ボタンが戻ってくるまで */
 const BACK_AFTER_MS = 1500;
 /** 文字を打つ欄（ここで打っているあいだは、ボタンを画面の外へよける） */
@@ -31,9 +33,9 @@ function isTextField(t: EventTarget | null): boolean {
 
 function loadTheme(): string {
   try {
-    return localStorage.getItem(THEME_STORE) ?? "分野:私用";
+    return localStorage.getItem(THEME_STORE) ?? "";
   } catch {
-    return "分野:私用";
+    return "";
   }
 }
 
@@ -44,7 +46,7 @@ type Result = { kind: "sending" | "ok" | "error"; text: string };
  * 角は 設定 → 表示 で選ぶ（サイドバー・上のバーにかぶらない所。CSS で決める）。ほかの欄で文字を打っているあいだは、画面の外へよける
  */
 export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabProps) {
-  const themes = useMemo(() => labels.filter((l) => l.name.startsWith(THEME_PREFIX)).map((l) => l.name), [labels]);
+  const themes = useMemo(() => labels.filter((l) => isSectionLabel(l.name)).map((l) => l.name), [labels]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [theme, setTheme] = useState(loadTheme);
@@ -55,7 +57,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
   // 閉じたら、開く前にいた欄へ戻る（Esc・Ctrl+M で閉じたとき）
   const returnFocus = useRef<HTMLElement | null>(null);
 
-  // 分野は、このリポジトリにあるものから選ぶ（前に選んだものがなければ「なし」）
+  // セクションは、このリポジトリにあるものから選ぶ（前に選んだものがなければ「なし」）
   const current = themes.includes(theme) ? theme : "";
 
   function show() {
@@ -118,7 +120,7 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
     try {
       localStorage.setItem(THEME_STORE, value);
     } catch {
-      // 覚えられなくても、今は選んだ分野で送れる
+      // 覚えられなくても、今は選んだセクションで送れる
     }
   }
 
@@ -131,17 +133,16 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
     try {
       await onCreateMemo(body, current);
       setResult({ kind: "ok", text: body });
-    } catch (e) {
-      // 送れなかったら、書いたものを欄に戻す（もう次を書き始めていたら、そのまま）
-      setText((now) => now || body);
-      setResult({ kind: "error", text: String(e) });
+    } catch {
+      // 送れなかったメモは、一覧・ボードに「送れませんでした」で残る（「もう一度」で送り直せる）ので、欄には戻さない
+      setResult({ kind: "error", text: body });
     }
   }
 
   return (
     <div ref={wrapRef} className={`memo-fab-wrap at-${position}${open ? " open" : away ? " away" : ""}`}>
       {open && (
-        <div className="memo-pop" role="dialog" aria-label="メモを投入"
+        <div className="memo-pop" role="dialog" aria-label={tr("メモを投入")}
           onKeyDown={(e) => {
             if (isEscape(e)) {
               e.stopPropagation();
@@ -149,10 +150,9 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
             }
           }}>
           <div className="memo-pop-head">
-            <b>📝 メモを投入</b>
-            <span className="memo-pop-repo" title="メモは、このリポジトリの Issue（種別:メモ・状態:未整理）になります">{repoName}</span>
+            {trx("<0>📝 メモを投入</0><1>{repoName}</1>", { repoName }, [<b />, <span className="memo-pop-repo" title={tr("メモはこのリポジトリの Issue（種別:メモ・状態:未整理）になります")} />])}
           </div>
-          <input ref={inputRef} className="memo-pop-input" value={text} placeholder="思いついたことを 1 行で"
+          <input ref={inputRef} className="memo-pop-input" value={text} placeholder={tr("思いついたことを 1 行で")}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (isEnter(e)) {
@@ -161,32 +161,32 @@ export function MemoFab({ position, labels, repoName, onCreateMemo }: MemoFabPro
               }
             }} />
           <div className="memo-pop-row">
-            <select className="select-sm" value={current} aria-label="分野" onChange={(e) => changeTheme(e.target.value)}>
-              <option value="">分野: なし</option>
+            <select className="select-sm" value={current} aria-label={tr("セクション")} onChange={(e) => changeTheme(e.target.value)}>
+              <option value="">{tr("セクション: なし")}</option>
               {themes.map((t) => (
-                <option key={t} value={t}>分野: {t.slice(THEME_PREFIX.length)}</option>
+                <option key={t} value={t}>{trx("セクション: {sectionOf}", { sectionOf: sectionOf(t) })}</option>
               ))}
             </select>
-            <button type="button" className="btn-primary" disabled={!text.trim()} onClick={submit}>投入</button>
+            <button type="button" className="btn-primary" disabled={!text.trim()} onClick={submit}>{tr("投入")}</button>
           </div>
           {result?.kind === "sending" ? (
-            <p className="memo-pop-note">「{result.text}」を送っています…</p>
+            <p className="memo-pop-note">{trx("「{text}」を送っています…", { text: result.text })}</p>
           ) : result?.kind === "ok" ? (
-            <p className="memo-pop-note ok">✔ 「{result.text}」を投入しました</p>
+            <p className="memo-pop-note ok">{trx("✔ 「{text}」を投入しました", { text: result.text })}</p>
           ) : result?.kind === "error" ? (
-            <p className="memo-pop-note err">⚠ 送れませんでした（{result.text}）</p>
+            <p className="memo-pop-note err">{trx("⚠ 「{text}」を送れませんでした。タスク一覧やボードの「もう一度」で送り直せます", { text: result.text })}</p>
           ) : (
-            <p className="memo-pop-note">Enter で投入（続けて書けます）・Esc で閉じる</p>
+            <p className="memo-pop-note">{isMobile ? tr("「投入」で入れたあとも、続けて書けます") : tr("Enter で投入（続けて書けます）・Esc で閉じる")}</p>
           )}
         </div>
       )}
       {position !== "hidden" && (
-        <button type="button" className="memo-fab" aria-label="メモを投入（Ctrl+M）" aria-expanded={open}
+        <button type="button" className="memo-fab" aria-label={tr("メモを投入{keyHint}", { keyHint: keyHint("（Ctrl+M）") })} aria-expanded={open}
           onClick={() => (open ? hide(false) : show())}>
           <span aria-hidden="true">📝</span>
         </button>
       )}
-      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">メモ（Ctrl+M）</span>}
+      {position !== "hidden" && !open && <span className="memo-fab-tip" aria-hidden="true">{trx("メモ{keyHint}", { keyHint: keyHint("（Ctrl+M）") })}</span>}
     </div>
   );
 }

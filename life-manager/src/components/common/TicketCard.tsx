@@ -6,10 +6,18 @@ import { DueChip } from "./DueChip";
 import { EstimateChip } from "./EstimateChip";
 import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import { Avatar } from "./Avatar";
+import { labelValueText } from "../../lib/i18n";
 
 interface TicketCardProps {
   issue: GitHubIssue;
   onSelect: (n: number) => void;
+}
+
+/** カードに出すラベルの値（分類を外す。「種別:メモ」なら「メモ」を訳したもの） */
+function labelShown(name: string): string {
+  const v = labelValueText(name);
+  if (v !== name) return v;
+  return name.includes(":") ? name.split(":")[1] : name;
 }
 
 export function TicketCard({ issue, onSelect }: TicketCardProps) {
@@ -20,7 +28,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
     : priorityLabel?.name === "優先:低" ? "var(--accent-green-hover)"
     : "transparent";
 
-  // Category labels (分野, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
+  // Category labels (セクション, 種別 - exclude 状態 and 優先 since shown elsewhere。見積もりは下の「📏 3」で出す)
   const displayLabels = issue.labels.filter(
     (l) => !l.name.startsWith("状態:") && !l.name.startsWith("優先:") && !l.name.startsWith(ESTIMATE_PREFIX)
   );
@@ -54,7 +62,7 @@ export function TicketCard({ issue, onSelect }: TicketCardProps) {
               color: `#${l.color}`,
               border: `1px solid #${l.color}44`
             }}>
-              {l.name.includes(":") ? l.name.split(":")[1] : l.name}
+              {labelShown(l.name)}
             </span>
           ))}
         </div>

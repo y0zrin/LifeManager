@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { resolveResource } from "@tauri-apps/api/path";
+import { invoke } from "../../lib/invoke";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { openManual } from "../../lib/manual";
 import type { GitHubLabel, NotificationSchedule, RoutineSchedule, Project, EventNotificationConfig, EventType, BoardConfig } from "../../lib/types";
 import { EVENT_TYPE_LABELS } from "../../lib/types";
+import { useBackLayer } from "../../lib/back";
 import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, MemoButtonPosition, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
@@ -12,10 +13,16 @@ import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
 import { BoardColumnsSetting } from "../common/BoardColumnsSetting";
-import { THEMES, type Theme } from "../../lib/theme";
+import { THEMES } from "../../lib/theme";
+import { ThemeMini } from "../common/ThemeMini";
+import { SetupChecklist } from "../common/SetupChecklist";
 import { BAR_COLOR_LABELS, DEFAULT_BAR_COLORS, type GanttBarColors } from "../../lib/ganttTypes";
 import { SETUP_ITEMS, loadSetupHidden, saveSetupHidden } from "../../lib/actions";
 import { stepDirection, withTransition } from "../../lib/motion";
+import type { MilestoneBar } from "../../lib/milestoneStage";
+import type { NoticeCorner } from "../../lib/notices";
+import { tr, trx, weekdayName, joinWeekdays } from "../../lib/i18n";
+import { LanguageSelect } from "../common/LanguageSelect";
 
 interface SettingsViewProps {
   labels: GitHubLabel[];
@@ -45,6 +52,10 @@ interface SettingsViewProps {
   /** 使う準備（Git のインストール・コミットに使う名前）のダイアログを開く */
   onOpenSetup: () => void;
   setupVersion: number;
+  /** この PC の作業フォルダ（準備のチェックリスト。スマホは undefined） */
+  localFolder?: string;
+  /** 作業フォルダを決めるところ（作業をする）を開く */
+  onOpenWork: () => void;
   eventNotifConfig: EventNotificationConfig | null;
   onSaveEventNotifConfig: (config: EventNotificationConfig) => Promise<void>;
   /** GitHub にログインしている人 */
@@ -60,6 +71,8 @@ interface SettingsViewProps {
   initialPane?: SettingsPane;
   /** 開いたときに見せる区切り（ボードの「⚙ 区画の設定」・ガントの「⚙ 色の設定」から） */
   initialSection?: string;
+  /** 通知 の「ためしに出す」（おしらせを 1 つ出す） */
+  onTestNotice?: () => void;
 }
 
 /** 新しいバージョンを確かめた結果 */
@@ -67,60 +80,64 @@ export type UpdateCheck = "latest" | "available" | "error";
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const weekdayLabels: Record<string, string> = {
-  mon: "月", tue: "火", wed: "水", thu: "木", fri: "金", sat: "土", sun: "日",
+  mon: weekdayName(1), tue: weekdayName(2), wed: weekdayName(3), thu: weekdayName(4), fri: weekdayName(5), sat: weekdayName(6), sun: weekdayName(0),
 };
 const notifyTypes: Record<string, string> = {
-  today_tasks: "今日のタスク一覧",
-  overdue: "期限超過チェック",
-  summary: "全体サマリー",
-  custom: "カスタムメッセージ",
+  today_tasks: tr("今日のタスク一覧"),
+  overdue: tr("期限超過チェック"),
+  summary: tr("全体サマリー"),
+  custom: tr("カスタムメッセージ"),
 };
 
 export type SettingsPane = "connection" | "tasks" | "notifications" | "display" | "tokens" | "other";
 // 接続（チーム）がいちばん前。トークンは、ふだんは触らないので後ろのほう
-const PANES: { key: SettingsPane; label: string }[] = [
-  { key: "connection", label: "接続" },
-  { key: "tasks", label: "タスク" },
-  { key: "notifications", label: "通知" },
-  { key: "display", label: "表示" },
-  { key: "tokens", label: "トークン" },
-  { key: "other", label: "その他" },
+const PANES: { key: SettingsPane; label: string; icon: string; about: string }[] = [
+  { key: "connection", label: tr("接続"), icon: "🔗", about: tr("チームのメンバー・招待、リポジトリの追加") },
+  { key: "tasks", label: tr("タスク"), icon: "📋", about: tr("見積もりの単位、ボードの区画、ラベル") },
+  { key: "notifications", label: tr("通知"), icon: "🔔", about: tr("Discord、通知のスケジュール、イベント通知") },
+  { key: "display", label: tr("表示"), icon: "🎨", about: tr("テーマ、メモのボタン、マイルストーンのバー、動き") },
+  { key: "tokens", label: tr("トークン"), icon: "🔑", about: tr("ログインとトークン") },
+  { key: "other", label: tr("その他"), icon: "ℹ️", about: tr("マニュアル、フィードバック、バージョン") },
 ];
 
 // サイドバーの位置の選択肢。bar は見本の絵で、帯を描く場所
 const SIDEBAR_POSITION_OPTIONS: { value: SidebarPosition; label: string; note: string; bar: { x: number; y: number; width: number; height: number } }[] = [
-  { value: "left", label: "左", note: "はじめはこれ", bar: { x: 5, y: 5, width: 9, height: 24 } },
-  { value: "right", label: "右", note: "", bar: { x: 32, y: 5, width: 9, height: 24 } },
-  { value: "top", label: "上", note: "横に並んだ帯になります", bar: { x: 5, y: 5, width: 36, height: 7 } },
-  { value: "bottom", label: "下", note: "横に並んだ帯になります", bar: { x: 5, y: 22, width: 36, height: 7 } },
+  { value: "left", label: tr("左"), note: tr("はじめはこれ"), bar: { x: 5, y: 5, width: 9, height: 24 } },
+  { value: "right", label: tr("右"), note: "", bar: { x: 32, y: 5, width: 9, height: 24 } },
+  { value: "top", label: tr("上"), note: tr("横に並んだ帯になります"), bar: { x: 5, y: 5, width: 36, height: 7 } },
+  { value: "bottom", label: tr("下"), note: tr("横に並んだ帯になります"), bar: { x: 5, y: 22, width: 36, height: 7 } },
 ];
-
-// テーマの見本の絵（画面・サイドバー・ボード・下の机の色は、そのテーマと同じ）
-function ThemePreview({ theme }: { theme: Theme }) {
-  return (
-    <svg className={`display-preview pv-theme pv-theme-${theme}`} width="46" height="34" aria-hidden="true">
-      <rect x="1" y="1" width="44" height="32" rx="4" className="pv-t-win" />
-      <rect x="1" y="1" width="10" height="32" rx="2" className="pv-t-side" />
-      <rect x="14" y="5" width="28" height="18" rx="1.5" className="pv-t-frame" />
-      <rect x="16" y="7" width="24" height="14" className="pv-t-board" />
-      <rect x="19" y="10" width="7" height="7" className="pv-t-note" transform="rotate(-5 22.5 13.5)" />
-      <rect x="29" y="11" width="7" height="7" className="pv-t-note2" transform="rotate(4 32.5 14.5)" />
-      <rect x="11" y="26" width="34" height="7" className="pv-t-desk" />
-    </svg>
-  );
-}
 
 // メモのボタン（📝）の場所。dot は見本の絵のボタンの位置（隠すときは出さない）
-const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
-  { value: "top-right", label: "右上", note: "", dot: { cx: 36, cy: 10 } },
-  { value: "bottom-right", label: "右下", note: "", dot: { cx: 36, cy: 24 } },
-  { value: "top-left", label: "左上", note: "", dot: { cx: 10, cy: 10 } },
-  { value: "bottom-left", label: "左下", note: "はじめはこれ", dot: { cx: 10, cy: 24 } },
-  { value: "hidden", label: "隠す", note: "Ctrl+M だけで開きます", dot: null },
+// マイルストーンのバー
+const MILESTONE_BAR_OPTIONS: { value: MilestoneBar; label: string; note: string }[] = [
+  { value: "auto", label: tr("テーマに合わせる（はじめはこれ）"), note: tr("クエストは HP（ボスの残りの体力）、ほかのテーマは達成率") },
+  { value: "progress", label: tr("達成率（のびる）"), note: tr("終えた分だけバーがのびます") },
+  { value: "hp", label: tr("HP（減る）"), note: tr("残りの量を HP にして、終えた分だけ減ります。前に見たときより減った分が「−2pt」と飛びます") },
 ];
 
-export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection }: SettingsViewProps) {
+// おしらせの窓を出す角（画面の絵の、窓の場所）
+const NOTICE_CORNER_OPTIONS: { value: NoticeCorner; label: string; note: string; box: { x: number; y: number } | null }[] = [
+  { value: "top-right", label: tr("右上"), note: tr("はじめはこれ"), box: { x: 27, y: 5 } },
+  { value: "bottom-right", label: tr("右下"), note: "", box: { x: 27, y: 21 } },
+  { value: "top-left", label: tr("左上"), note: "", box: { x: 5, y: 5 } },
+  { value: "bottom-left", label: tr("左下"), note: "", box: { x: 5, y: 21 } },
+  { value: "off", label: tr("アプリの中だけ"), note: tr("窓の外には出さず、アプリの右上に出します。窓を閉じているあいだの知らせは 🔔 のりれきで見られます"), box: null },
+];
+
+const MEMO_BUTTON_OPTIONS: { value: MemoButtonPosition; label: string; note: string; dot: { cx: number; cy: number } | null }[] = [
+  { value: "top-right", label: tr("右上"), note: "", dot: { cx: 36, cy: 10 } },
+  { value: "bottom-right", label: tr("右下"), note: "", dot: { cx: 36, cy: 24 } },
+  { value: "top-left", label: tr("左上"), note: "", dot: { cx: 10, cy: 10 } },
+  { value: "bottom-left", label: tr("左下"), note: tr("はじめはこれ"), dot: { cx: 10, cy: 24 } },
+  { value: "hidden", label: tr("隠す"), note: tr("Ctrl+M だけで開きます"), dot: null },
+];
+
+export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel, onDeleteLabel, onCreateLabel, notificationSchedules, onSaveNotificationSchedules, onSetDiscordWebhook, onLoadDiscordWebhook, onTestDiscordWebhook, projects, onOpenAddRepo, onTokensChanged, onSignOut, displaySettings, onChangeDisplaySettings, estimateUnit, onSaveEstimateUnit, onOpenSetup, setupVersion, localFolder, onOpenWork, eventNotifConfig, onSaveEventNotifConfig, login, boardConfig, onSaveBoardConfig, update, onCheckUpdate, onRunUpdate, initialPane, initialSection, onTestNotice }: SettingsViewProps) {
   const [activePane, setActivePane] = useState<SettingsPane>(initialPane ?? "connection");
+  // スマホは「区分の一覧 → 区分」の 2 段（#210）。区分を開いているときは、戻るボタンで一覧へ
+  const [mobileList, setMobileList] = useState(isMobile && !initialPane);
+  useBackLayer(isMobile && !mobileList, () => setMobileList(true));
   // 区分を切り替える（横に並んだタブなので、右の区分へは右から・左へは左から入れ替わる）
   function changePane(next: SettingsPane) {
     if (next === activePane) return;
@@ -284,7 +301,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
   async function handleSendFeedback() {
     if (!feedbackTitle.trim()) return;
-    const prefix = feedbackCategory === "bug" ? "[バグ]" : feedbackCategory === "feature" ? "[機能要望]" : "[フィードバック]";
+    const prefix = feedbackCategory === "bug" ? tr("[バグ]") : feedbackCategory === "feature" ? tr("[機能要望]") : tr("[フィードバック]");
     const subject = `${prefix} ${feedbackTitle.trim()}`;
     const body = feedbackBody
       ? `${feedbackBody}\n\n---\nLife Manager v${appVersion}`
@@ -298,9 +315,32 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
   return (
     <div className="content">
-      <h2 className="settings-title" style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>設定</h2>
+      <h2 className="settings-title" style={{ fontSize: "var(--font-xl)", marginBottom: "var(--space-md)" }}>{tr("設定")}</h2>
 
-      {/* ペインタブ */}
+      {/* スマホ: 区分の一覧（押すと、その区分だけを開く） */}
+      {isMobile && mobileList && (
+        <div className="settings-pane-list">
+          {PANES.map((p) => (
+            <button key={p.key} type="button" className="settings-pane-item" onClick={() => { setActivePane(p.key); setMobileList(false); }}>
+              <span className="settings-pane-icon" aria-hidden="true">{p.icon}</span>
+              <span className="settings-pane-text">
+                <b>{p.label}</b>
+                <small>{p.about}</small>
+              </span>
+              <span className="settings-pane-go" aria-hidden="true">›</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {isMobile && !mobileList && (
+        <div className="settings-pane-back">
+          <button type="button" className="btn-sm" onClick={() => setMobileList(true)}>{tr("‹ 設定")}</button>
+          <b>{PANES.find((p) => p.key === activePane)?.label}</b>
+        </div>
+      )}
+
+      {/* ペインタブ（PC） */}
+      {!isMobile && (
       <div className="settings-pane-tabs">
         {PANES.map((p) => (
           <button key={p.key}
@@ -311,17 +351,31 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           </button>
         ))}
       </div>
+      )}
 
-      {/* 区分の中身（切り替えると横にすべる） */}
+      {/* 区分の中身（切り替えると横にすべる）。スマホの一覧のあいだは出さない */}
+      {!(isMobile && mobileList) && (
       <div className="settings-pane-body">
 
       {/* === 接続ペイン（チーム。リポジトリの追加・切り替え・この PC のフォルダは左上のリポジトリから） === */}
       {activePane === "connection" && <>
+      <SetupChecklist
+        owner={owner}
+        repo={repo}
+        login={login}
+        folder={localFolder}
+        setupVersion={setupVersion}
+        onOpenAccess={() => changePane("tokens")}
+        onOpenFolder={onOpenWork}
+        onOpenGitSetup={onOpenSetup}
+      />
       <div className="settings-repo-note">
         <span>
-          リポジトリの追加・切り替え・この PC のフォルダは、左上の <b>{owner && repo ? `${owner}/${repo}` : "リポジトリ"}</b> から行います。
+          {owner && repo
+            ? trx("リポジトリの追加・切り替え・この PC のフォルダは、左上の <0>{owner}/{repo}</0> から行います。", { owner, repo }, [<b />])
+            : trx("リポジトリの追加・切り替え・この PC のフォルダは、左上の <0>リポジトリ</0> から行います。", undefined, [<b />])}
         </span>
-        <button type="button" className="btn-sm" onClick={onOpenAddRepo}>＋ リポジトリを追加…</button>
+        <button type="button" className="btn-sm" onClick={onOpenAddRepo}>{tr("＋ リポジトリを追加…")}</button>
       </div>
       <TeamPane owner={owner} repo={repo} login={login} />
       </>}
@@ -334,23 +388,21 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       {/* 見積もりの単位（ラベル「見積:3pt」などの単位。チームで一つ） */}
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>見積もりの単位</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("見積もりの単位")}</h3>
         <div className="display-opts">
           {UNIT_KEYS.map((key) => (
             <label key={key} className="display-opt">
               <input type="radio" name="estimate-unit" checked={estimateUnit === key}
                 onChange={() => { onSaveEstimateUnit(key).catch(() => undefined); }} />
               <span>
-                <b>{UNITS[key].name}<span className="est-unit-values">{UNITS[key].values.map((v) => formatEstimate(v, key)).join("・")}</span></b>
+                <b>{UNITS[key].name}<span className="est-unit-values">{UNITS[key].values.map((v) => formatEstimate(v, key)).join(tr("・"))}</span></b>
                 <small>{UNITS[key].guide}</small>
               </span>
             </label>
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          チームで一つの単位を使います（リポジトリの <code>config/estimate.yaml</code> に置き、GitHub に送ります）。
-          単位を変えても、付けてある見積もりのラベルはそのままです。時間・日・人月どうしは 1 日＝{HOURS_PER_DAY} 時間、1 人月＝{DAYS_PER_PERSON_MONTH} 日で換算して合計し、
-          ポイントと時間の単位は換算しません。
+          {trx("チームで一つの単位を使います（リポジトリの <0>config/estimate.yaml</0> に置き、GitHub に送ります）。 単位を変えても、付けてある見積もりのラベルはそのままです。時間・日・人月どうしは 1 日＝{HOURS_PER_DAY} 時間、1 人月＝{DAYS_PER_PERSON_MONTH} 日で換算して合計し、 ポイントと時間の単位は換算しません。", { HOURS_PER_DAY, DAYS_PER_PERSON_MONTH }, [<code />])}
         </p>
       </div>
 
@@ -360,12 +412,12 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* ラベル管理 */}
       <div className="form-card">
         <div className="settings-section-header">
-          <h3 className="settings-section-title">ラベル管理</h3>
+          <h3 className="settings-section-title">{tr("ラベル管理")}</h3>
           <div className="flex-row" style={{ gap: "6px" }}>
             <button onClick={() => setShowNewLabelForm(!showNewLabelForm)} className="btn-sm">
-              {showNewLabelForm ? "×" : "+ 新規ラベル"}
+              {showNewLabelForm ? "×" : tr("+ 新規ラベル")}
             </button>
-            <button onClick={onSetupLabels} className="btn-sm">ラベル一括作成</button>
+            <button onClick={onSetupLabels} className="btn-sm" title={tr("優先（高・中・低）とセクション（プログラマー・デザイナー・プランナー・その他）の 7 つを作ります。もうあるラベルはそのままです")}>{tr("ラベル一括作成")}</button>
           </div>
         </div>
 
@@ -376,10 +428,10 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)}
                 className="color-picker-input" />
               <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)}
-                placeholder="ラベル名（例: 分野:趣味）" className="input-full" />
+                placeholder={tr("ラベル名（例: セクション:サウンド）")} className="input-full" />
             </div>
             <input value={newLabelDesc} onChange={(e) => setNewLabelDesc(e.target.value)}
-              placeholder="説明（任意）" className="input-full" />
+              placeholder={tr("説明（任意）")} className="input-full" />
             <button
               onClick={async () => {
                 if (!newLabelName.trim()) return;
@@ -398,7 +450,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               style={{ alignSelf: "flex-start" }}
               disabled={!newLabelName.trim() || labelSaving}
             >
-              {labelSaving ? "作成中..." : "作成"}
+              {labelSaving ? tr("作成中...") : tr("作成")}
             </button>
           </div>
         )}
@@ -419,7 +471,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                       className="input-full" style={{ fontSize: "var(--font-md)" }} />
                   </div>
                   <input value={editLabelDesc} onChange={(e) => setEditLabelDesc(e.target.value)}
-                    placeholder="説明（任意）" className="input-full" style={{ fontSize: "var(--font-sm)" }} />
+                    placeholder={tr("説明（任意）")} className="input-full" style={{ fontSize: "var(--font-sm)" }} />
                   <div className="flex-row" style={{ gap: "6px" }}>
                     <button
                       onClick={async () => {
@@ -439,11 +491,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                       style={{ fontSize: "var(--font-sm)" }}
                       disabled={labelSaving}
                     >
-                      {labelSaving ? "保存中..." : "保存"}
+                      {labelSaving ? tr("保存中...") : tr("保存")}
                     </button>
                     <button onClick={() => setEditingLabel(null)} className="btn-sm"
                       style={{ fontSize: "var(--font-sm)" }}>
-                      キャンセル
+                      {tr("キャンセル")}
                     </button>
                   </div>
                 </div>
@@ -456,7 +508,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                 <div className="flex-row" style={{ gap: "var(--space-xs)" }}>
                   {isDeleting ? (
                     <>
-                      <span style={{ fontSize: "var(--font-xs)", color: "var(--accent-red)", marginRight: "var(--space-xs)" }}>削除しますか？</span>
+                      <span style={{ fontSize: "var(--font-xs)", color: "var(--accent-red)", marginRight: "var(--space-xs)" }}>{tr("削除しますか？")}</span>
                       <button
                         onClick={async () => {
                           setLabelSaving(true);
@@ -473,11 +525,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                         style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}
                         disabled={labelSaving}
                       >
-                        {labelSaving ? "..." : "はい"}
+                        {labelSaving ? "..." : tr("はい")}
                       </button>
                       <button onClick={() => setDeletingLabel(null)} className="btn-sm"
                         style={{ fontSize: "var(--font-xs)" }}>
-                        いいえ
+                        {tr("いいえ")}
                       </button>
                     </>
                   ) : (
@@ -492,11 +544,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                         className="btn-sm"
                         style={{ fontSize: "var(--font-xs)" }}
                       >
-                        編集
+                        {tr("編集")}
                       </button>
                       <button onClick={() => setDeletingLabel(l.name)} className="btn-sm"
                         style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}>
-                        削除
+                        {tr("削除")}
                       </button>
                     </>
                   )}
@@ -505,7 +557,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             );
           })}
           {labels.length === 0 && (
-            <p className="settings-hint--subtle">ラベルがありません</p>
+            <p className="settings-hint--subtle">{tr("ラベルがありません")}</p>
           )}
         </div>
       </div>
@@ -515,12 +567,60 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* === 通知ペイン === */}
       {activePane === "notifications" && <>
 
+      {/* アプリのおしらせ（PC だけ。アプリの窓の外の小さな窓と、× でインジケーターに残す） */}
+      {!isMobile && (
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>{tr("アプリのおしらせ")}</h3>
+        <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
+          {tr("担当になった・レビューを頼まれた・名前を呼ばれた・修正を頼まれた・承認された・期限が近い・チェックや Actions の失敗・🆘 助けを求められた・マイルストーンの達成を、画面の角の小さな窓に出します（× か「開く」まで残ります）。届いた知らせは上のバーの 🔔 に 60 日残ります。")}
+        </p>
+        <div className="settings-subtitle">{tr("出す場所")}</div>
+        <div className="display-opts pos-opts">
+          {NOTICE_CORNER_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="notice-corner" checked={displaySettings.noticeCorner === opt.value}
+                onChange={() => onChangeDisplaySettings({ noticeCorner: opt.value })} />
+              <svg className="display-preview" width="46" height="34" aria-hidden="true">
+                <rect x="2" y="2" width="42" height="30" rx="4" className="pv-win" />
+                {opt.box ? <rect {...opt.box} width="14" height="8" rx="1.5" className="pv-bar" /> : <text x="23" y="21" className="pv-key">{tr("アプリ")}</text>}
+              </svg>
+              <span>
+                <b>{opt.label}</b>
+                {opt.note && <small>{opt.note}</small>}
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="settings-subtitle" style={{ marginTop: "var(--space-md)" }}>{tr("× を押したとき")}</div>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="close-to-tray" checked={displaySettings.closeToTray}
+              onChange={() => onChangeDisplaySettings({ closeToTray: true })} />
+            <span>
+              {trx("<0>インジケーターに残す（はじめはこれ）</0><1>画面の右下のインジケーター（タスクトレイ）に残り、おしらせを出し続けます。終えるときはアイコンを右クリック →「終了する」</1>", undefined, [<b />, <small />])}
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="close-to-tray" checked={!displaySettings.closeToTray}
+              onChange={() => onChangeDisplaySettings({ closeToTray: false })} />
+            <span>
+              {trx("<0>終了する</0><1>閉じているあいだはおしらせも出ません</1>", undefined, [<b />, <small />])}
+            </span>
+          </label>
+        </div>
+        {onTestNotice && (
+          <div style={{ marginTop: "var(--space-md)" }}>
+            <button type="button" className="btn-sm" onClick={onTestNotice}>{tr("🔔 ためしに出す")}</button>
+          </div>
+        )}
+      </div>
+      )}
+
       {/* Discord Webhook */}
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>Discord Webhook通知</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>{tr("Discord Webhook通知")}</h3>
         <p style={{ fontSize: "var(--font-sm)", color: "var(--accent-blue)", marginBottom: "10px" }}>
-          対象: <strong>{owner}/{repo}</strong>
-          <span style={{ color: "var(--text-faint)", marginLeft: "6px" }}>（プロジェクトごとに個別設定）</span>
+          {trx("対象: <0>{owner}/{repo}</0><1>（プロジェクトごとに個別設定）</1>", { owner, repo }, [<strong />, <span style={{ color: "var(--text-faint)", marginLeft: "6px" }} />])}
         </p>
 
         {/* ステータス表示 */}
@@ -528,8 +628,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           <span style={{ fontSize: "var(--font-xl)" }}>{discordConfigured ? "✅" : "⚠️"}</span>
           <span>
             {discordConfigured
-              ? "Webhook設定済み — イベント通知がDiscordに送信されます"
-              : "Webhook未設定 — Discord通知を使うにはWebhook URLを登録してください"}
+              ? tr("Webhook設定済み — イベント通知がDiscordに送信されます")
+              : tr("Webhook未設定 — Discord通知を使うにはWebhook URLを登録してください")}
           </span>
         </div>
 
@@ -549,7 +649,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             disabled={!discordWebhookInput.trim() && !discordConfigured}
           >
             {/* 空にして押すと解除（決めてあるときだけ）。決めていないのに空なら、押せない「保存」 */}
-            {discordWebhookInput.trim() || !discordConfigured ? "保存" : "解除"}
+            {discordWebhookInput.trim() || !discordConfigured ? tr("保存") : tr("解除")}
           </button>
           <button
             onClick={async () => {
@@ -566,18 +666,18 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             className="btn-sm"
             disabled={discordTesting || !discordWebhookInput.trim()}
           >
-            {discordTesting ? "送信中..." : "テスト送信"}
+            {discordTesting ? tr("送信中...") : tr("テスト送信")}
           </button>
         </div>
         <details style={{ marginTop: "10px" }}>
           <summary style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", cursor: "pointer" }}>
-            Webhook URLの取得方法
+            {tr("Webhook URLの取得方法")}
           </summary>
           <ol style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", lineHeight: 1.8, paddingLeft: "18px", marginTop: "6px" }}>
-            <li>Discordでサーバーの「サーバー設定」を開く</li>
-            <li>「連携サービス」→「ウェブフック」を選択</li>
-            <li>「新しいウェブフック」を作成し、通知先チャンネルを選択</li>
-            <li>「ウェブフックURLをコピー」してここに貼り付け</li>
+            <li>{tr("Discordでサーバーの「サーバー設定」を開く")}</li>
+            <li>{tr("「連携サービス」→「ウェブフック」を選択")}</li>
+            <li>{tr("「新しいウェブフック」を作成し、通知先チャンネルを選択")}</li>
+            <li>{tr("「ウェブフックURLをコピー」してここに貼り付け")}</li>
           </ol>
         </details>
       </div>
@@ -585,21 +685,21 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* 通知スケジュール */}
       <div className="form-card">
         <div className="settings-section-header">
-          <h3 className="settings-section-title">通知スケジュール</h3>
+          <h3 className="settings-section-title">{tr("通知スケジュール")}</h3>
           <button onClick={() => setShowNotifForm(!showNotifForm)} className="btn-sm">
-            {showNotifForm ? "×" : "+ 追加"}
+            {showNotifForm ? "×" : tr("+ 追加")}
           </button>
         </div>
 
         {showNotifForm && (
           <div className="settings-form-inner">
             <input value={notifName} onChange={(e) => setNotifName(e.target.value)}
-              placeholder="通知名（例: 朝のタスク確認）" className="input-full" />
+              placeholder={tr("通知名（例: 朝のタスク確認）")} className="input-full" />
             <div className="flex-row flex-wrap" style={{ gap: "6px" }}>
               <select value={notifFrequency} onChange={(e) => setNotifFrequency(e.target.value)} className="select-sm">
-                <option value="daily">毎日</option>
-                <option value="weekly">毎週</option>
-                <option value="monthly">毎月</option>
+                <option value="daily">{tr("毎日")}</option>
+                <option value="weekly">{tr("毎週")}</option>
+                <option value="monthly">{tr("毎月")}</option>
               </select>
               <input type="time" value={notifTime} onChange={(e) => setNotifTime(e.target.value)}
                 className="input-full" style={{ maxWidth: "120px" }} />
@@ -617,20 +717,20 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                     {weekdayLabels[wd]}
                   </label>
                 ))}
-                <span className="settings-hint--subtle">（未選択＝毎日）</span>
+                <span className="settings-hint--subtle">{tr("（未選択＝毎日）")}</span>
               </div>
             )}
             {notifFrequency === "weekly" && (
               <select value={notifDay} onChange={(e) => setNotifDay(e.target.value)} className="select-sm">
-                <option value="">曜日を選択...</option>
+                <option value="">{tr("曜日を選択...")}</option>
                 {weekdays.map((wd) => (
-                  <option key={wd} value={wd}>{weekdayLabels[wd]}曜日</option>
+                  <option key={wd} value={wd}>{trx("{weekdayLabels}曜日", { weekdayLabels: weekdayLabels[wd] })}</option>
                 ))}
               </select>
             )}
             {notifFrequency === "monthly" && (
               <input type="number" value={notifDay} onChange={(e) => setNotifDay(e.target.value)}
-                placeholder="日（1-31）" className="input-full" style={{ maxWidth: "120px" }} min="1" max="31" />
+                placeholder={tr("日（1-31）")} className="input-full" style={{ maxWidth: "120px" }} min="1" max="31" />
             )}
             <select value={notifType} onChange={(e) => setNotifType(e.target.value)} className="select-sm">
               {Object.entries(notifyTypes).map(([k, v]) => (
@@ -639,17 +739,17 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             </select>
             {notifType === "custom" && (
               <input value={notifMessage} onChange={(e) => setNotifMessage(e.target.value)}
-                placeholder="通知メッセージ" className="input-full" />
+                placeholder={tr("通知メッセージ")} className="input-full" />
             )}
             <div className="flex-row">
-              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>通知先:</span>
+              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>{tr("通知先:")}</span>
               <label style={{ fontSize: "var(--font-sm)", display: "flex", alignItems: "center", gap: "2px" }}>
                 <input type="checkbox" checked={notifChannels.includes("os")}
                   onChange={(e) => {
                     if (e.target.checked) setNotifChannels([...notifChannels, "os"]);
                     else setNotifChannels(notifChannels.filter((c) => c !== "os"));
                   }} />
-                OS通知
+                {tr("OS通知")}
               </label>
               <label style={{ fontSize: "var(--font-sm)", display: "flex", alignItems: "center", gap: "2px" }}>
                 <input type="checkbox" checked={notifChannels.includes("discord")}
@@ -662,17 +762,17 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             </div>
             <button onClick={handleAddNotif} className="btn-primary" style={{ alignSelf: "flex-start" }}
               disabled={!notifName || notifChannels.length === 0 || notifSaving}>
-              {notifSaving ? "保存中..." : "追加"}
+              {notifSaving ? tr("保存中...") : tr("追加")}
             </button>
           </div>
         )}
 
         {notificationSchedules.map((notif, index) => {
           const scheduleStr = notif.schedule.frequency === "daily"
-            ? `毎日${notif.schedule.days ? ` (${notif.schedule.days.map((d) => weekdayLabels[d] || d).join("")})` : ""}`
+            ? tr("毎日{v}", { v: notif.schedule.days ? ` (${joinWeekdays(notif.schedule.days.map((d) => weekdayLabels[d] || d))})` : "" })
             : notif.schedule.frequency === "weekly"
-            ? `毎週${weekdayLabels[String(notif.schedule.day)] || notif.schedule.day}曜日`
-            : `毎月${notif.schedule.day}日`;
+            ? tr("毎週{v}曜日", { v: weekdayLabels[String(notif.schedule.day)] || notif.schedule.day })
+            : tr("毎月{day}日", { day: notif.schedule.day });
           return (
             <div key={index} className="settings-list-item" style={{ justifyContent: "space-between", marginBottom: "6px" }}>
               <div>
@@ -688,24 +788,24 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                 </span>
               </div>
               <button className="btn-sm" onClick={() => handleDeleteNotif(index)} disabled={notifSaving}
-                style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}>削除</button>
+                style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}>{tr("削除")}</button>
             </div>
           );
         })}
         {notificationSchedules.length === 0 && !showNotifForm && (
-          <p className="settings-hint--subtle">通知スケジュールが設定されていません</p>
+          <p className="settings-hint--subtle">{tr("通知スケジュールが設定されていません")}</p>
         )}
       </div>
 
       {/* イベント通知設定 */}
       <div className="form-card">
         <div className="settings-section-header" style={{ marginBottom: "var(--space-md)" }}>
-          <h3 className="settings-section-title">イベント通知</h3>
+          <h3 className="settings-section-title">{tr("イベント通知")}</h3>
           <div className="flex-row">
             {eventConfigHasChanges && (
               <button onClick={() => onSaveEventNotifConfig(editingEventConfig)} className="btn-primary"
                 style={{ fontSize: "var(--font-sm)" }}>
-                保存
+                {tr("保存")}
               </button>
             )}
             <label style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "var(--space-xs)" }}>
@@ -714,7 +814,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                 checked={editingEventConfig.enabled}
                 onChange={() => setEditingEventConfig((prev) => ({ ...prev, enabled: !prev.enabled }))}
               />
-              有効
+              {tr("有効")}
             </label>
           </div>
         </div>
@@ -723,10 +823,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           <>
             {!discordConfigured && (
               <div className="status-banner status-banner--warning" style={{ marginBottom: "10px" }}>
-                <span style={{ fontSize: "var(--font-lg)" }}>⚠️</span>
-                <span style={{ fontSize: "var(--font-xs)" }}>
-                  Discord Webhookが未設定のため、Discord通知は送信されません。上のセクションで設定してください。
-                </span>
+                {trx("<0>⚠️</0><1>Discord Webhookが未設定のため、Discord通知は送信されません。上のセクションで設定してください。</1>", undefined, [<span style={{ fontSize: "var(--font-lg)" }} />, <span style={{ fontSize: "var(--font-xs)" }} />])}
               </div>
             )}
             <label style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "var(--space-xs)", marginBottom: "10px" }}>
@@ -735,16 +832,13 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
                 checked={editingEventConfig.os_for_own_actions}
                 onChange={() => setEditingEventConfig((prev) => ({ ...prev, os_for_own_actions: !prev.os_for_own_actions }))}
               />
-              自分の操作でもOS通知を送信
+              {tr("自分の操作でもOS通知を送信")}
             </label>
 
             <div className="settings-list">
               {/* ヘッダー行 */}
               <div className="settings-event-header">
-                <span className="settings-event-label">イベント</span>
-                <span className="settings-event-cell">有効</span>
-                <span className="settings-event-cell">OS</span>
-                <span className="settings-event-cell--wide">Discord</span>
+                {trx("<0>イベント</0><1>有効</1><2>OS</2><3>Discord</3>", undefined, [<span className="settings-event-label" />, <span className="settings-event-cell" />, <span className="settings-event-cell" />, <span className="settings-event-cell--wide" />])}
               </div>
               {ALL_EVENT_TYPES.map((eventType) => {
                 const event = editingEventConfig.events[eventType] || { enabled: false, channels: [] };
@@ -778,42 +872,40 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* === 表示ペイン === */}
       {activePane === "display" && <>
 
+      {/* 言語（#256）。変えると画面を読み直す */}
+      <div className="form-card" id="settings-language">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("言語")}</h3>
+        <LanguageSelect />
+      </div>
+
       <div className="form-card" id="settings-theme">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>テーマ</h3>
-        <div className="display-opts">
-          {THEMES.map((t) => (
-            <label key={t.key} className="display-opt">
-              <input type="radio" name="theme" checked={displaySettings.theme === t.key}
-                onChange={() => onChangeDisplaySettings({ theme: t.key })} />
-              <ThemePreview theme={t.key} />
-              <span>
-                <b>{t.label}</b>
-                <small>{t.about}</small>
-              </span>
-            </label>
-          ))}
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("テーマ")}</h3>
+        {/* 選ぶ画面のような大きなカード。カードは、それぞれのテーマの色と模様で描き、ミニの画面が動く（選んでいるカードと、マウスを乗せたカード） */}
+        <div className="theme-cards" role="radiogroup" aria-label={tr("テーマ")}>
+          {THEMES.map((t) => {
+            const on = displaySettings.theme === t.key;
+            return (
+              <button key={t.key} type="button" role="radio" aria-checked={on} className={`theme-card theme-card--${t.key}${on ? " on" : ""}`}
+                onClick={() => onChangeDisplaySettings({ theme: t.key })}>
+                <ThemeMini theme={t.key} />
+                <span className="theme-card-name">
+                  {t.label}
+                  {on && <span className="theme-card-on">{tr("使っている")}</span>}
+                </span>
+                <span className="theme-card-about">{t.about}</span>
+              </button>
+            );
+          })}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          アプリ全体の色が変わります。ボードと、ボードの下の机も、テーマのものになります。
+          {tr("アプリ全体の色が変わります。ボードと、ボードの下の机も、テーマのものになります。")}
         </p>
       </div>
 
-      {/* 学習の補助（git の解説）・全体図は PC だけ（スマホは git の操作をしない） */}
+      {/* 全体図は PC だけ（スマホは git の操作をしない） */}
       {!isMobile && <>
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>学習の補助</h3>
-        <label className="display-opt">
-          <input type="checkbox" checked={displaySettings.hints}
-            onChange={(e) => onChangeDisplaySettings({ hints: e.target.checked })} />
-          <span>
-            <b>解説を表示する</b>
-            <small>ステージ・コミット・退避などの意味と、対応する git のコマンドを画面に添えます</small>
-          </span>
-        </label>
-      </div>
-
-      <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>全体図でのブランチの見せ方</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("全体図でのブランチの見せ方")}</h3>
         <div className="display-opts">
           <label className="display-opt">
             <input type="radio" name="branch-style" checked={displaySettings.branchStyle === "label"}
@@ -826,8 +918,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               <rect x="18" y="20" width="16" height="8" rx="4" className="pv-label" />
             </svg>
             <span>
-              <b>ラベル</b>
-              <small>Sourcetree と同じ。ブランチ名はコミットの横に付きます</small>
+              {trx("<0>ラベル</0><1>Sourcetree と同じ。ブランチ名はコミットの横に付きます</1>", undefined, [<b />, <small />])}
             </span>
           </label>
           <label className="display-opt">
@@ -841,8 +932,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
               <circle cx="10" cy="14" r="3" className="pv-node" />
             </svg>
             <span>
-              <b>線</b>
-              <small>ブランチごとに 1 本の線。いつ切られたかが一目で分かります</small>
+              {trx("<0>線</0><1>ブランチごとに 1 本の線。いつ切られたかが分かります</1>", undefined, [<b />, <small />])}
             </span>
           </label>
         </div>
@@ -851,11 +941,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       <div className="form-card" id="settings-gantt-colors">
         <div className="settings-section-header">
-          <h3 className="settings-section-title">ガントの帯の色</h3>
+          <h3 className="settings-section-title">{tr("ガントの帯の色")}</h3>
           <button type="button" className="btn-sm"
             disabled={JSON.stringify(displaySettings.ganttColors) === JSON.stringify(DEFAULT_BAR_COLORS)}
             onClick={() => onChangeDisplaySettings({ ganttColors: DEFAULT_BAR_COLORS })}>
-            はじめの色に戻す
+            {tr("はじめの色に戻す")}
           </button>
         </div>
         <div className="gantt-colors">
@@ -868,14 +958,14 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          完了・クリティカルパス（遅れると全体が遅れるタスク）・優先:高・状態（進行中・ブロック）の順に効きます。どれでもない帯は デフォルト の色です。
+          {tr("完了・クリティカルパス（遅れると全体が遅れるタスク）・優先:高・状態（進行中・ブロック）の順に効きます。どれでもない帯は「デフォルト」の色です。")}
         </p>
       </div>
 
       {/* サイドバーは PC だけ（スマホは下のナビ） */}
       {!isMobile && (
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>サイドバーの位置</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("サイドバーの位置")}</h3>
         <div className="display-opts pos-opts">
           {SIDEBAR_POSITION_OPTIONS.map((opt) => (
             <label key={opt.value} className="display-opt">
@@ -893,15 +983,15 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          サイドバーの「たたむ」（Ctrl+B）で隠すと、その端にマウスを寄せたときだけ出てきます。
+          {tr("サイドバーの「たたむ」（Ctrl+B）で隠すと、その端にマウスを寄せたときだけ出てきます。")}
         </p>
       </div>
       )}
 
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>メモのボタン（📝）</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("メモのボタン（📝）")}</h3>
         <div className="display-opts pos-opts">
-          {MEMO_BUTTON_OPTIONS.map((opt) => (
+          {MEMO_BUTTON_OPTIONS.filter((opt) => !(isMobile && opt.value === "hidden")).map((opt) => (
             <label key={opt.value} className="display-opt">
               <input type="radio" name="memo-button" checked={displaySettings.memoButton === opt.value}
                 onChange={() => onChangeDisplaySettings({ memoButton: opt.value })} />
@@ -917,31 +1007,79 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
           ))}
         </div>
         <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-          どの場所でも、Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。
+          {isMobile ? tr("ボタンは下の帯にかぶらない所に出ます。") : tr("どの場所でも Ctrl+M でメモの欄が開きます。ボタンはサイドバーや上のバーにかぶらない所に出ます。")}
         </p>
       </div>
 
       <div className="form-card">
-        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>画面の動き</h3>
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("マイルストーンのバー")}</h3>
+        <div className="display-opts">
+          {MILESTONE_BAR_OPTIONS.map((opt) => (
+            <label key={opt.value} className="display-opt">
+              <input type="radio" name="milestone-bar" checked={displaySettings.milestoneBar === opt.value}
+                onChange={() => onChangeDisplaySettings({ milestoneBar: opt.value })} />
+              <span>
+                <b>{opt.label}</b>
+                <small>{opt.note}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("画面の動き")}</h3>
         <div className="display-opts">
           <label className="display-opt">
             <input type="radio" name="motion" checked={displaySettings.motion === "normal"}
               onChange={() => onChangeDisplaySettings({ motion: "normal" })} />
             <span>
-              <b>ふつう（はじめはこれ）</b>
-              <small>動いた向きで動きが変わります。縦に並んだものは上下、横に並んだもの（タブ・横の帯）は左右、作業 ⇄ ブランチ ⇄ 全体図 とカード ⇄ 詳細 は寄る・引く</small>
+              {trx("<0>ふつう（はじめはこれ）</0><1>動いた向きで動きが変わります。縦に並んだものは上下、横に並んだもの（タブ・横の帯）は左右、作業 ⇄ ブランチ ⇄ 全体図 とカード ⇄ 詳細 は寄る・引く</1>", undefined, [<b />, <small />])}
             </span>
           </label>
           <label className="display-opt">
             <input type="radio" name="motion" checked={displaySettings.motion === "reduced"}
               onChange={() => onChangeDisplaySettings({ motion: "reduced" })} />
             <span>
-              <b>少なめ</b>
-              <small>画面はうすく出るだけ。OS で「視差効果を減らす」（アニメーションを減らす）にしているときも、動きは少なくなります</small>
+              {trx("<0>少なめ</0><1>画面はうすく出るだけ。OS で「視差効果を減らす」（アニメーションを減らす）にしているときも、動きは少なくなります</1>", undefined, [<b />, <small />])}
             </span>
           </label>
         </div>
       </div>
+
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("お祝いの音")}</h3>
+        <label className="display-opt">
+          <input type="checkbox" checked={displaySettings.celebrationSound}
+            onChange={(e) => onChangeDisplaySettings({ celebrationSound: e.target.checked })} />
+          <span>
+            <b>{tr("マイルストーンを達成したときに鳴らす")}</b>
+          </span>
+        </label>
+      </div>
+
+      {/* 背景の動き（テーマの粒）。スマホでは動かさない */}
+      {!isMobile && (
+      <div className="form-card">
+        <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("背景の動き")}</h3>
+        <div className="display-opts">
+          <label className="display-opt">
+            <input type="radio" name="stage-motion" checked={displaySettings.stageMotion}
+              onChange={() => onChangeDisplaySettings({ stageMotion: true })} />
+            <span>
+              {trx("<0>動かす（はじめはこれ）</0><1>画面の後ろでテーマの粒が動きます（黒板はチョークの粉、クエストは金の粒、ナイトは星、スプリングは花びら、ウィンターは雪 など）</1>", undefined, [<b />, <small />])}
+            </span>
+          </label>
+          <label className="display-opt">
+            <input type="radio" name="stage-motion" checked={!displaySettings.stageMotion}
+              onChange={() => onChangeDisplaySettings({ stageMotion: false })} />
+            <span>
+              {trx("<0>止める</0><1>粒は止まったまま出ます。画面の動きを「少なめ」にしたときも、OS でアニメーションを減らしているときも止まります</1>", undefined, [<b />, <small />])}
+            </span>
+          </label>
+        </div>
+      </div>
+      )}
 
       </>}
 
@@ -951,12 +1089,12 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* この PC の git（PC のみ） */}
       {!isMobile && <GitInfoCard onOpenSetup={onOpenSetup} setupVersion={setupVersion} />}
 
-      {/* Actions の「はじめる準備」に出すもの（今のリポジトリ・この PC） */}
-      {owner && repo && (
+      {/* Actions の「はじめる準備」に出すもの（今のリポジトリ・この PC）。スマホに Actions の画面はないので出さない */}
+      {owner && repo && !isMobile && (
         <div className="form-card" id="settings-actions-setup">
-          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>Actions の「はじめる準備」に出すもの</h3>
+          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-xs)" }}>{tr("Actions の「はじめる準備」に出すもの")}</h3>
           <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-            {owner}/{repo} の Actions の画面に出す勧めです。そこで「今は使わない」を押すと、ここのチェックが外れます。チェックしてあっても、要るときだけ出ます。
+            {trx("{owner}/{repo} の Actions の画面に出す勧めです。そこで「今は使わない」を押すと、ここのチェックが外れます。チェックしてあっても、要るときだけ出ます。", { owner, repo })}
           </p>
           <div className="display-opts">
             {SETUP_ITEMS.map((item) => (
@@ -976,27 +1114,27 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* バージョン（新しいバージョンを確かめる。PC のみ） */}
       {!isMobile && (
         <div className="form-card" id="settings-update">
-          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>バージョン</h3>
+          <h3 className="settings-section-title" style={{ marginBottom: "var(--space-sm)" }}>{tr("バージョン")}</h3>
           <div className="update-row">
             <span>Life Manager <b>{appVersion ? `v${appVersion}` : "…"}</b></span>
             <button type="button" className="btn-sm" onClick={checkUpdate} disabled={updateCheck === "checking" || update.updating}>
-              {updateCheck === "checking" ? "確かめています…" : "新しいバージョンを確かめる"}
+              {updateCheck === "checking" ? tr("確かめています…") : tr("新しいバージョンを確かめる")}
             </button>
           </div>
           {update.available ? (
             <div className="update-result update-result--new">
-              <span>新しいバージョン <b>v{update.available.version}</b> があります</span>
+              <span>{trx("新しいバージョン <0>v{version}</0> があります", { version: update.available.version }, [<b />])}</span>
               <button type="button" className="btn-primary" onClick={onRunUpdate} disabled={update.updating}>
-                {update.updating ? "更新しています…" : "今すぐ更新"}
+                {update.updating ? tr("更新しています…") : tr("今すぐ更新")}
               </button>
             </div>
           ) : updateCheck === "latest" ? (
-            <p className="update-result">✔ 今のバージョンが最新です</p>
+            <p className="update-result">{tr("✔ 今のバージョンが最新です")}</p>
           ) : updateCheck === "error" ? (
-            <p className="update-result update-result--error">確かめられませんでした。インターネットにつながっているか確かめて、もう一度押してください</p>
+            <p className="update-result update-result--error">{tr("確かめられませんでした。インターネットにつながっているか確かめて、もう一度押してください")}</p>
           ) : null}
           <p className="settings-hint" style={{ marginTop: "var(--space-sm)" }}>
-            起動したときにも確かめます。新しいバージョンがあると、画面の上にお知らせが出ます。
+            {tr("起動したときにも確かめます。新しいバージョンがあると、画面の上にお知らせが出ます。")}
           </p>
         </div>
       )}
@@ -1004,14 +1142,14 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* フィードバック */}
       <div className="form-card">
           <div className="settings-section-header">
-            <h3 className="settings-section-title">フィードバック</h3>
+            <h3 className="settings-section-title">{tr("フィードバック")}</h3>
           </div>
           <p className="settings-hint" style={{ marginBottom: "var(--space-sm)" }}>
-            バグ報告や機能要望をメールで送信できます。
+            {tr("バグ報告や機能要望をメールで送信できます。")}
           </p>
           <div className="flex-row" style={{ gap: "var(--space-xs)", marginBottom: "var(--space-sm)" }}>
             {(["bug", "feature", "other"] as const).map((cat) => {
-              const catLabel = cat === "bug" ? "バグ報告" : cat === "feature" ? "機能要望" : "その他";
+              const catLabel = cat === "bug" ? tr("バグ報告") : cat === "feature" ? tr("機能要望") : tr("その他");
               return (
                 <button key={cat} className={feedbackCategory === cat ? "btn-primary" : "btn-sm"}
                   onClick={() => setFeedbackCategory(cat)}
@@ -1022,14 +1160,14 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
             })}
           </div>
           <input value={feedbackTitle} onChange={(e) => setFeedbackTitle(e.target.value)}
-            placeholder="タイトル" className="input-full" style={{ marginBottom: "var(--space-xs)" }} />
+            placeholder={tr("タイトル")} className="input-full" style={{ marginBottom: "var(--space-xs)" }} />
           <textarea value={feedbackBody} onChange={(e) => setFeedbackBody(e.target.value)}
-            placeholder="詳細（任意）" className="textarea-full" rows={3}
+            placeholder={tr("詳細（任意）")} className="textarea-full" rows={3}
             style={{ marginBottom: "var(--space-sm)" }} />
           <button onClick={handleSendFeedback} className="btn-primary"
             disabled={!feedbackTitle.trim()}
             style={{ alignSelf: "flex-start" }}>
-            メールで送信
+            {tr("メールで送信")}
           </button>
         </div>
 
@@ -1037,19 +1175,11 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       <div style={{ textAlign: "center", marginTop: "var(--space-lg)" }}>
         <button
           className="btn-sm"
-          onClick={async () => {
-            // HTML のマニュアル（ブラウザで開く）。開けなければ GitHub の README
-            try {
-              await openPath(await resolveResource("resources/manual.html"));
-              return;
-            } catch {
-              // README へ
-            }
-            await openUrl("https://github.com/y0zrin/LifeManager/blob/main/README.md");
-          }}
+          // HTML のマニュアル（ブラウザで開く）。開けなければ GitHub の README
+          onClick={() => void openManual()}
           style={{ fontSize: "var(--font-xs)" }}
         >
-          マニュアルを開く
+          {tr("マニュアルを開く")}
         </button>
         {appVersion && isMobile && (
           <p style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)", marginTop: "var(--space-sm)" }}>
@@ -1060,6 +1190,7 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
 
       </>}
       </div>
+      )}
     </div>
   );
 }

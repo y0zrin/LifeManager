@@ -13,6 +13,17 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// 配る APK の署名の鍵は、リポジトリの外に置く（docs/04_keys_and_tokens.md）。
+// 場所は環境変数 LM_ANDROID_KEY_PROPERTIES、なければ ~/.life-manager/android/key.properties。どちらもなければ、署名なしの APK になる
+val releaseKey = Properties().apply {
+    val path = System.getenv("LM_ANDROID_KEY_PROPERTIES")
+        ?: File(System.getProperty("user.home"), ".life-manager/android/key.properties").path
+    val keyFile = File(path)
+    if (keyFile.exists()) {
+        keyFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
     namespace = "com.y0zrin.lifemanager"
@@ -25,11 +36,13 @@ android {
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
     signingConfigs {
-        create("release") {
-            storeFile = file("life-manager.keystore")
-            storePassword = "lifemanager2025"
-            keyAlias = "life-manager"
-            keyPassword = "lifemanager2025"
+        if (releaseKey.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(releaseKey.getProperty("storeFile"))
+                storePassword = releaseKey.getProperty("password")
+                keyAlias = releaseKey.getProperty("keyAlias")
+                keyPassword = releaseKey.getProperty("password")
+            }
         }
     }
     buildTypes {
@@ -45,7 +58,7 @@ android {
             }
         }
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

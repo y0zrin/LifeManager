@@ -1,5 +1,6 @@
 // プルリク（一覧・詳細・作る・マージ・レビュー）。GitHub とのやりとりは Rust（github/pulls.rs）が小さな形にして返す
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./invoke";
+import { tr } from "./i18n";
 
 export interface Person {
   login: string;
@@ -129,6 +130,8 @@ export interface PullRepoInfo {
   delete_branch_on_merge: boolean;
   /** 自分が書き込めるか（マージ・レビューのお願いができるか） */
   can_push: boolean;
+  /** 自分がリポジトリの管理者（リーダー）か */
+  is_admin?: boolean;
 }
 
 export interface Comparison {
@@ -206,34 +209,34 @@ export function pullStatus(p: Pick<PullSummary, "state" | "draft" | "merged">): 
 }
 
 export const STATUS_LABELS: Record<PullStatus, string> = {
-  open: "開いている",
-  draft: "下書き",
-  merged: "マージ済み",
-  closed: "閉じた",
+  open: tr("開いている"),
+  draft: tr("下書き"),
+  merged: tr("マージ済み"),
+  closed: tr("閉じた"),
 };
 
 export const METHOD_LABELS: Record<MergeMethod, string> = {
-  merge: "マージコミット",
-  squash: "スカッシュ",
-  rebase: "リベース",
+  merge: tr("マージコミット"),
+  squash: tr("スカッシュ"),
+  rebase: tr("リベース"),
 };
 
 /** マージの仕方の説明と、手元でするときに近い git のコマンド */
 export function methodHelp(method: MergeMethod, head: string, base: string): { text: string; command: string } {
   if (method === "squash") {
     return {
-      text: `${head} のコミットを 1 つにまとめて、${base} に入れます。${base} の履歴がすっきりします`,
+      text: tr("{head} のコミットを 1 つにまとめて {base} に入れます。{base} の履歴がすっきりします", { head, base }),
       command: `git switch ${base} && git merge --squash ${head} && git commit`,
     };
   }
   if (method === "rebase") {
     return {
-      text: `${head} のコミットを、${base} の先に 1 つずつ並べ直して入れます（合流のコミットは作りません）`,
-      command: `git switch ${head} && git rebase ${base}（そのあと ${base} を進める）`,
+      text: tr("{head} のコミットを {base} の先に 1 つずつ並べ直して入れます。合流のコミットは作りません", { head, base }),
+      command: tr("git switch {head} && git rebase {base}（そのあと {base} を進める）", { head, base }),
     };
   }
   return {
-    text: `${head} のコミットをそのまま残して、合流のコミットを 1 つ作ります。いつ・何を入れたかが履歴に残ります`,
+    text: tr("{head} のコミットをそのまま残して、合流のコミットを 1 つ作ります。いつ何を入れたかが履歴に残ります", { head }),
     command: `git switch ${base} && git merge --no-ff ${head}`,
   };
 }
@@ -262,13 +265,13 @@ export function ago(iso: string | null | undefined): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "";
   const minutes = Math.floor((Date.now() - t) / 60000);
-  if (minutes < 1) return "たった今";
-  if (minutes < 60) return `${minutes} 分前`;
+  if (minutes < 1) return tr("たった今");
+  if (minutes < 60) return tr("{minutes} 分前", { minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 時間前`;
+  if (hours < 24) return tr("{hours} 時間前", { hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return "昨日";
-  if (days < 30) return `${days} 日前`;
+  if (days === 1) return tr("昨日");
+  if (days < 30) return tr("{days} 日前", { days });
   const d = new Date(t);
   return `${d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}/`}${d.getMonth() + 1}/${d.getDate()}`;
 }
@@ -301,7 +304,7 @@ export function parsePatch(patch: string): PatchRow[] {
       newNo = Number(m[2]);
       rows.push({ kind: "h", text: line });
     } else if (line.startsWith("\\")) {
-      rows.push({ kind: "note", text: "（ファイルの最後に改行がありません）" });
+      rows.push({ kind: "note", text: tr("（ファイルの最後に改行がありません）") });
     } else if (line.startsWith("+")) {
       rows.push({ kind: "a", text: line.slice(1), old: null, new: newNo++ });
     } else if (line.startsWith("-")) {

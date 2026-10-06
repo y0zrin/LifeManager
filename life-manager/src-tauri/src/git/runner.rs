@@ -110,10 +110,14 @@ pub fn run(repo: &Path, args: &[&str]) -> Result<GitRun, String> {
 fn hint_for(message: &str) -> &'static str {
     if message.contains("terminal prompts disabled") || message.contains("Authentication failed") {
         "\n→ GitHub へのログインが必要です。一度ターミナルで同じ git の操作をして、ログインを済ませてください"
+    } else if message.contains("couldn't find remote ref") {
+        "\n→ このブランチは GitHub にもうありません（消されています）"
     } else if message.contains("Could not resolve host") {
         "\n→ インターネットにつながっているか確認してください"
+    } else if message.contains("Repository not found") || (message.contains("Permission to") && message.contains("denied to")) {
+        "\n→ 招待をまだ受けていないか、この PC の git がこのリポジトリを使えない GitHub アカウントで行っているかもしれません（非公開のリポジトリは「見つからない」と出ます）"
     } else if message.contains("[rejected]") || message.contains("non-fast-forward") {
-        "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでから、プッシュしてください"
+        "\n→ GitHub 側に新しいコミットがあります。先にプルして取り込んでからプッシュしてください"
     } else if message.contains("Author identity unknown") || message.contains("Please tell me who you are") {
         "\n→ コミットに使う名前とメールアドレスが決まっていません。設定（接続）の「作業フォルダ」にある「使う準備を確かめる」から決められます"
     } else {
@@ -155,5 +159,7 @@ mod tests {
         assert!(hint_for("fatal: unable to access '…': Could not resolve host: github.com").contains("インターネット"));
         assert!(hint_for(" ! [rejected]        feature -> feature (fetch first)").contains("プル"));
         assert_eq!(hint_for("error: pathspec 'x' did not match any file(s) known to git"), "");
+        assert!(hint_for("remote: Repository not found.\nfatal: repository 'https://github.com/a/b.git/' not found").contains("アカウント"));
+        assert!(hint_for("remote: Permission to a/b.git denied to y0zrin.").contains("アカウント"));
     }
 }

@@ -1,15 +1,25 @@
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from "react";
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, BoardConfig, BoardColumn, BoardGenre, GitHubUser } from "../../lib/types";
+import { IssueSendState, SendingBird, isUnsent } from "../common/Sending";
+import { Buncho } from "../common/Buncho";
+import { isIdle } from "../../lib/idle";
+import { issueRef } from "../../lib/issueRef";
 import { PendingChip } from "../common/PendingChip";
-import { BOARD_GENRES, DEFAULT_COLUMNS, genreOf } from "../../lib/board";
+import { BOARD_GENRES, boardColumns, genreOf } from "../../lib/board";
 import type { Theme } from "../../lib/theme";
 import { ESTIMATE_PREFIX, estimateDays, estimateOf, formatEstimate, sumEstimates } from "../../lib/estimate";
 import { daysUntil, dueOf } from "../../lib/due";
 import { EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
-import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
+import { TaskFilterButton, TaskFilterChips, TaskFilterGroups, clearAll, filterCount, type TaskFilterProps } from "../common/TaskFilterButton";
+import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { matchesLabelFilters, type LabelFilters } from "../../lib/taskList";
 import type { MilestoneFilter } from "../../lib/savedViews";
-import { closingIssues, issueOfBranch, listPulls, pullVerdicts } from "../../lib/pulls";
+import { closingIssues, listPulls, pullVerdicts } from "../../lib/pulls";
+import { issueForBranch } from "../../lib/branchName";
+import { isEnter, isEscape } from "../../lib/keys";
+import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
+import { isMobile as isPhone } from "../../lib/platform";
+import { tr } from "../../lib/i18n";
 
 interface KanbanViewProps {
   owner: string;
@@ -31,10 +41,23 @@ interface KanbanViewProps {
   onAssignToMe: (n: number) => void;
   /** 設定 → タスク の「ボードの区画」を開く */
   onOpenBoardSettings: () => void;
+  /** 区画の「＋ ここにタスクを追加」（すぐ「送っています…」の付箋が出て、GitHub から番号が来たら置き換わる） */
+  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
+  /** マイルストーンの「📊 ボードでタスクを足す」から来たとき: そのマイルストーンで絞り、未整理のボードを開く（nonce が変わるたびに） */
+  focus?: { milestone: number; nonce: number } | null;
 }
 
 const GENRE_KEY = "board-genre";
 const MINE_KEY = "board-mine-only";
+/** 下の机の、たたんだときの高さ（PC は App.css の --bd-desk-height と同じ。スマホは 1 列ぶん） */
+const DESK_MIN = 84;
+const DESK_MIN_NARROW = 64;
+/** 広げた机の高さ（px。0 はたたんでいる。DESK_TOP は一番上まで）。次に開いたときも同じ（#213） */
+const DESK_KEY = "board-desk-height";
+/** 一番上まで（区画のタブのすぐ下。でっぱりがタブにかからない所） */
+const DESK_TOP = 100000;
+/** 机の上に出る「でっぱり」の高さ（一番上まで広げても、でっぱりは見えるように） */
+const DESK_TAB = 30;
 
 function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -67,16 +90,86 @@ function useIsMobile(breakpoint = 640) {
 
 /** 空の区画に出す、どうすれば入るか */
 const EMPTY_HINTS: Record<string, string> = {
-  "状態:進行中": "作業タブで始めると、ここに入ります",
-  "状態:チェック待ち": "プルリクを作ると、ここに入ります",
+  "状態:進行中": tr("「作業をする」で始めるとここに入ります"),
+  "状態:チェック待ち": tr("プルリクを作るとここに入ります"),
 };
 
 /** ボードの下の机（テーマごと）。付箋を置くと、自分の担当になる */
 const DESKS: Record<Theme, { name: string; count: string; drop: string; empty: string; deco: string }> = {
-  chalk: { name: "✏️ 自分の机", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "📓✏️" },
-  white: { name: "🖥 自分のデスク", count: "自分の担当", drop: "ここに置くと、自分の担当になります", empty: "担当の付箋はありません。付箋をここへ持ってくると、自分の担当になります", deco: "⌨️☕" },
-  quest: { name: "🛎 ギルドの受付", count: "受注した依頼", drop: "受付に出すと、受注します（自分の担当になります）", empty: "受注した依頼はありません。依頼書をここへ持ってくると、受注します", deco: "🛎🪶" },
+  chalk: { name: tr("✏️ 自分の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "📓✏️" },
+  white: { name: tr("🖥 自分のデスク"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "⌨️☕" },
+  quest: { name: tr("🛎 ギルドの受付"), count: tr("受注した依頼"), drop: tr("受付に出すと受注します（自分の担当になります）"), empty: tr("受注した依頼はありません"), deco: "🛎🪶" },
+  night: { name: tr("🌙 夜の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🕯️☕" },
+  day: { name: tr("☀️ カフェのテーブル"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🌿☕" },
+  spring: { name: tr("🌸 春の机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍡🍵" },
+  winter: { name: tr("❄️ こたつ"), count: tr("自分の担当"), drop: tr("こたつに入れると自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍊🍊" },
+  kingyo: { name: tr("🎐 縁側"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "🍉🍧" },
+  // 文机の上の小物（手紙・一輪挿し・湯のみ）は App.css の絵
+  buncho: { name: tr("🪶 文机"), count: tr("自分の担当"), drop: tr("ここに置くと自分の担当になります"), empty: tr("担当の付箋はありません"), deco: "" },
 };
+
+/**
+ * 文鳥のテーマ: パートナーの文鳥がとまるボードと、止まり木の上の場所。しばらくすると（26〜48 秒）、ほかのボードの止まり木へ移る。
+ * だれも操作していないあいだ（窓が前面にない・隠れている）と、背景の動きを止めているあいだは移らない
+ */
+function usePerch(count: number, on: boolean) {
+  const [perch, setPerch] = useState<{ at: number; x: number; flip: boolean; phase: "arrive" | "leave" }>({ at: 0, x: 18, flip: true, phase: "arrive" });
+  useEffect(() => {
+    if (!on || count === 0) return;
+    let timer = 0;
+    const schedule = () => {
+      timer = window.setTimeout(move, 26000 + Math.random() * 22000);
+    };
+    const move = () => {
+      if (isIdle() || document.documentElement.classList.contains("stage-still")) {
+        schedule();
+        return;
+      }
+      setPerch((p) => ({ ...p, phase: "leave" }));
+      timer = window.setTimeout(() => {
+        setPerch((p) => ({
+          at: count > 1 ? (p.at + 1 + Math.floor(Math.random() * (count - 1))) % count : 0,
+          x: Math.round(8 + Math.random() * 56),
+          flip: Math.random() < 0.6,
+          phase: "arrive",
+        }));
+        schedule();
+      }, 450);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [count, on]);
+  return { ...perch, at: Math.min(perch.at, Math.max(0, count - 1)) };
+}
+
+/** 金魚のテーマ: 水そう（ボード）の中を泳ぐ金魚。ボードごとに、色・場所・向き・速さを変える */
+const FISH: { kind: "red" | "black" | "sarasa"; x: number; y: number; dx: number; dy: number; t: number; d: number }[] = [
+  { kind: "red", x: 16, y: 56, dx: 150, dy: -14, t: 11, d: 0 },
+  { kind: "black", x: 58, y: 74, dx: -120, dy: 10, t: 13, d: -4 },
+  { kind: "sarasa", x: 30, y: 86, dx: 170, dy: -6, t: 15, d: -2 },
+];
+
+function Fishes({ seed }: { seed: number }) {
+  const count = seed % 2 === 0 ? 3 : 2;
+  return (
+    <div className="bd-fishes" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => {
+        const f = FISH[(seed + i) % FISH.length];
+        const style = {
+          left: `${(f.x + seed * 17) % 60 + 8}%`,
+          top: `${f.y - (seed % 3) * 7}%`,
+          "--dx": `${f.dx}px`,
+          "--dy": `${f.dy}px`,
+          // 絵は右向き。はじめに左へ進む金魚は、左を向いて泳ぎ出す
+          "--face": f.dx < 0 ? -1 : 1,
+          "--t": `${f.t + (seed % 3)}s`,
+          "--d": `${f.d - seed * 1.3}s`,
+        } as CSSProperties;
+        return <span key={i} className={`bd-fish ${f.kind}`} style={style} />;
+      })}
+    </div>
+  );
+}
 
 /** 付箋の色（ホワイトボード・黒板）: 種別で分ける */
 function noteColor(issue: GitHubIssue): string {
@@ -124,30 +217,35 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   const quest = look === "quest";
   // 番号で決まる、少しの傾き（毎回同じ）
   const tilt = (((issue.number * 37) % 7) - 3) * 0.4;
-  const fields = issue.labels.filter((l) => l.name.startsWith("分野:")).map((l) => l.name.replace("分野:", ""));
+  const fields = issue.labels.filter((l) => isSectionLabel(l.name)).map((l) => sectionOf(l.name));
 
   return (
-    <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
-      {overdue && <span className="bd-late">期限切れ</span>}
+    <div className={`bd-note bd-${quest ? "paper" : noteColor(issue)}${mine ? " mine" : ""}${issue._sending ? " sending" : ""}${issue._failed ? " failed" : ""}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
+      {overdue && <span className="bd-late">{tr("期限切れ")}</span>}
       <div className="bd-nt">
-        <span className="bd-no">#{issue.number}</span>
+        <span className="bd-no">{issueRef(issue.number)}</span>
         {issue.title}
         {issue._pending && <PendingChip />}
       </div>
+      {isUnsent(issue) && (
+        <div className="bd-send">
+          <IssueSendState issue={issue} />
+        </div>
+      )}
       <div className="bd-line">
         {quest && est && <span className="bd-stars">{starsOf(issue)}</span>}
-        {est && <span>{quest ? `報酬 ${formatEstimate(est.value, est.unit)}` : formatEstimate(est.value, est.unit)}</span>}
+        {est && <span>{quest ? tr("報酬 {formatEstimate}", { formatEstimate: formatEstimate(est.value, est.unit) }) : formatEstimate(est.value, est.unit)}</span>}
         {due && (
           <span className={overdue ? "bd-over" : ""}>
-            {quest ? `期限 ${m}/${d}` : overdue ? `${m}/${d} 期限切れ！` : `${m}/${d} まで`}
+            {quest ? tr("期限 {m}/{d}", { m, d }) : overdue ? tr("{m}/{d} 期限切れ！", { m, d }) : tr("{m}/{d} まで", { m, d })}
           </span>
         )}
-        {fields.length > 0 && <span>{fields.join("・")}</span>}
+        {fields.length > 0 && <span>{fields.join(tr("・"))}</span>}
       </div>
       <div className="bd-foot">
         {mine ? (
           quest ? (
-            <span className="bd-hanko">受注</span>
+            <span className="bd-hanko">{tr("受注")}</span>
           ) : (
             <span className="bd-magnet">{me.slice(0, 1).toUpperCase()}</span>
           )
@@ -155,14 +253,14 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
           <span className="bd-magnet other">{others[0].slice(0, 1).toUpperCase()}</span>
         ) : null}
         <span className={mine ? "bd-mine" : "bd-who"}>
-          {mine ? (others.length > 0 ? `自分・${others.join("・")}` : "自分") : others.length > 0 ? others.join("・") : quest ? "受注者 募集中" : "担当なし"}
+          {mine ? (others.length > 0 ? tr("自分・{join}", { join: others.join(tr("・")) }) : tr("自分")) : others.length > 0 ? others.join(tr("・")) : quest ? tr("受注者 募集中") : tr("担当なし")}
         </span>
-        {working && <span className="bd-flag work">✏️ 作業中</span>}
+        {working && <span className="bd-flag work">{tr("✏️ 作業中")}</span>}
         {pull && (
           <button
             type="button"
             className="bd-flag pr"
-            title={`プルリク #${pull.number} を開く`}
+            title={tr("プルリク #{number} を開く", { number: pull.number })}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -177,13 +275,83 @@ function BoardNote({ issue, look, me, working, pull, onOpenPull }: NoteProps) {
   );
 }
 
-export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings }: KanbanViewProps) {
-  const baseColumns = boardConfig?.columns || DEFAULT_COLUMNS;
+/**
+ * 区画の下の「＋ ここにタスクを追加」。押すと、その区画に白紙の付箋が出て、名前を書いて Enter で貼る（続けて書ける）。
+ * Esc・やめる・空のまま外を押すと、閉じる
+ */
+function AddHere({ look, open, target, onOpen, onClose, onAdd }: { look: Theme; open: boolean; target: string | null; onOpen: () => void; onClose: () => void; onAdd: (title: string) => void }) {
+  const [text, setText] = useState("");
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (open) ref.current?.focus();
+  }, [open]);
+  if (!open) {
+    return (
+      <button type="button" className="bd-add" onClick={onOpen} title={target ? tr("{target} のタスクとして足します", { target }) : undefined}>
+        {tr("＋ ここにタスクを追加")}{target && <span className="bd-add-target">🎯 {target}</span>}
+      </button>
+    );
+  }
+  const close = () => {
+    setText("");
+    onClose();
+  };
+  const submit = () => {
+    const title = text.trim();
+    if (!title) return;
+    onAdd(title);
+    setText("");
+    ref.current?.focus();
+  };
+  return (
+    <div className="bd-add-form">
+      <div className={`bd-note bd-${look === "quest" ? "paper" : "yellow"} bd-add-note`}>
+        <textarea
+          ref={ref}
+          className="bd-add-input"
+          value={text}
+          rows={2}
+          placeholder={tr("タスクの名前")}
+          aria-label={tr("足すタスクの名前")}
+          onChange={(e) => setText(e.target.value.replace(/[\r\n]+/g, " "))}
+          onKeyDown={(e) => {
+            if (isEnter(e)) {
+              e.preventDefault();
+              submit();
+            } else if (isEscape(e)) {
+              e.preventDefault();
+              e.stopPropagation();
+              close();
+            }
+          }}
+          onBlur={() => {
+            if (!text.trim()) close();
+          }}
+        />
+      </div>
+      <div className="bd-add-actions">
+        {/* 押しても欄から離れない（離れると、空のときは閉じてしまう） */}
+        <button type="button" className="btn-primary btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={submit} disabled={!text.trim()}>
+          {tr("追加")}
+        </button>
+        <button type="button" className="btn-sm" onMouseDown={(e) => e.preventDefault()} onClick={close}>
+          {tr("やめる")}
+        </button>
+        <small>{isPhone ? tr("追加したあとも、続けて書けます") : tr("Enter で貼って続けて書けます")}</small>
+      </div>
+    </div>
+  );
+}
+
+export function KanbanView({ owner, repo, issues, labels, milestones, collaborators, boardConfig, currentUser, workingIssue, onStatusChange, onSelectIssue, onOpenPull, look, onAssignToMe, onOpenBoardSettings, onCreateIssue, focus }: KanbanViewProps) {
+  const baseColumns = boardColumns(boardConfig);
   const unit = useEstimateUnit();
   const isMobile = useIsMobile();
+  // スマホの、下から出る絞り込みの板（#207）
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // ジャンル・自分の担当だけ（この PC に覚えておく。見た目はテーマのもの）
-  const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing"] as const, "doing"));
+  const [genre, setGenreState] = useState<BoardGenre>(() => loadPref(GENRE_KEY, ["triage", "doing", "review"] as const, "doing"));
   const [mineOnly, setMineOnlyState] = useState(() => loadPref(MINE_KEY, ["1", "0"] as const, "0") === "1");
   const setGenre = (v: BoardGenre) => { setGenreState(v); savePref(GENRE_KEY, v); };
   const setMineOnly = (v: boolean) => { setMineOnlyState(v); savePref(MINE_KEY, v ? "1" : "0"); };
@@ -193,10 +361,17 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const [filters, setFilters] = useState<LabelFilters>({});
   const [assignee, setAssignee] = useState("");
   const [milestone, setMilestone] = useState<MilestoneFilter | null>(null);
-  const categoryNames: Record<string, string> = { "種別:": "種別", "分野:": "分野", "優先:": "優先", [ESTIMATE_PREFIX]: "見積" };
+  // マイルストーンの「📊 ボードでタスクを足す」から来たら、そのマイルストーンで絞って、未整理のボードを開く
+  useEffect(() => {
+    if (!focus) return;
+    setMilestone(focus.milestone);
+    setGenre("triage");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
+  const categoryNames: Record<string, string> = { "種別:": tr("種別"), [SECTION_PREFIX]: tr("セクション"), "優先:": tr("優先"), [ESTIMATE_PREFIX]: tr("見積") };
   const filterProps: TaskFilterProps = {
     categories: Object.keys(categoryNames)
-      .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => l.name.startsWith(prefix)) }))
+      .map((prefix) => ({ prefix, name: categoryNames[prefix], labels: labels.filter((l) => inCategory(l.name, prefix)) }))
       .filter((c) => c.labels.length > 0),
     filters,
     onFiltersChange: setFilters,
@@ -225,8 +400,8 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
         const map = new Map<number, PullMark>();
         for (const p of open) {
           const v = (verdicts as Record<string, { approved: string[]; changes_requested: string[] }>)[String(p.number)];
-          const state = p.draft ? "下書き" : v?.changes_requested.length ? "修正の依頼" : v?.approved.length ? "承認済み" : "レビュー待ち";
-          const branchIssue = issueOfBranch(p.head);
+          const state = p.draft ? tr("下書き") : v?.changes_requested.length ? tr("修正の依頼") : v?.approved.length ? tr("承認済み") : tr("レビュー待ち");
+          const branchIssue = issueForBranch(p.head, issues, owner, repo);
           for (const n of [...closingIssues(p.body ?? ""), ...(branchIssue !== null ? [branchIssue] : [])]) {
             if (!map.has(n)) map.set(n, { number: p.number, state });
           }
@@ -257,11 +432,25 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     col.key === "none" ? shown.filter((i) => !i.labels.some((l) => l.name.startsWith("状態:"))) : shown.filter((i) => i.labels.some((l) => l.name === col.key));
   const columnsOf = (g: BoardGenre) => baseColumns.filter((c) => genreOf(c) === g);
   const countOf = (g: BoardGenre) => columnsOf(g).reduce((n, c) => n + issuesOf(c).length, 0);
-  // ジャンルのタブに落としたときの行き先（着手済み → 進行中、未整理 → 未着手。なければ最初の区画）
+  // ジャンルのタブに落としたときの行き先（着手済み → 進行中、確認待ち → チェック待ち、未整理 → 未着手。なければ最初の区画）
   const landingOf = (g: BoardGenre) => {
     const cols = columnsOf(g);
-    const prefer = g === "doing" ? "状態:進行中" : "状態:未着手";
+    const prefer = g === "doing" ? "状態:進行中" : g === "review" ? "状態:チェック待ち" : "状態:未着手";
     return (cols.find((c) => c.key === prefer) ?? cols[0])?.key ?? null;
+  };
+
+  // --- 区画の「＋ ここにタスクを追加」 ---
+  // 足したタスクが、今の絞り込みでも見えるようにする（マイルストーン・担当・種別・セクション・優先のラベル）。種別がなければイシュー
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const addTask = (col: BoardColumn, title: string) => {
+    const picked = Object.entries(filters)
+      .filter(([prefix]) => prefix !== ESTIMATE_PREFIX)
+      .flatMap(([, f]) => (!f || f.values.length === 0 ? [] : f.mode === "all" ? f.values : [f.values[0]]));
+    const labels = [...new Set([...(picked.some((l) => l.startsWith("種別:")) ? [] : ["種別:イシュー"]), ...picked, ...(col.key === "none" ? [] : [col.key])])];
+    const who = mineOnly ? currentUser : assignee;
+    onCreateIssue(title, "", labels, typeof milestone === "number" ? milestone : null, who ? [who] : undefined).catch(() => {
+      // 送れなかったタスクは、付箋に「送れませんでした」で残る（知らせは上のバーに出ている）
+    });
   };
 
   // --- ドラッグ（PC。マウスで付箋を区画・タブへ） ---
@@ -331,13 +520,103 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragging, dragFrom, over, onStatusChange]);
 
-  // --- スマホ: 「移動」で区画を選ぶ ---
-  const [moving, setMoving] = useState<number | null>(null);
+  // --- スマホ: 「移動」で区画を選ぶ（ボードと机の両方に同じ付箋が出るので、どちらの付箋かも覚える） ---
+  const [moving, setMoving] = useState<string | null>(null);
 
   const draggedIssue = dragging !== null ? issues.find((i) => i.number === dragging) ?? null : null;
 
   // --- 下の机（自分の担当。絞り込みにかかわらず、区画の並びの順） ---
   const desk = DESKS[look];
+  // 机の高さ: 上の縁をつまんで上へ引くと広がり、押すと開く・たたむ（#213）。広げると区画ごとに折り返して並べる
+  const viewRef = useRef<HTMLDivElement>(null);
+  const deskMin = isMobile ? DESK_MIN_NARROW : DESK_MIN;
+  const [deskSaved, setDeskSaved] = useState(() => {
+    try {
+      return Math.max(0, Number(localStorage.getItem(DESK_KEY)) || 0);
+    } catch {
+      return 0;
+    }
+  });
+  // 引いているあいだの高さ（離すと deskSaved に入る）
+  const [deskPull, setDeskPull] = useState<number | null>(null);
+  const gripMoved = useRef(false);
+  // ボードの画面の高さ（窓の大きさが変わったら、広げた机の上限も変える）
+  const [viewH, setViewH] = useState(0);
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    setViewH(el.clientHeight);
+    const ro = new ResizeObserver(() => setViewH(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const viewHeight = () => viewH || viewRef.current?.clientHeight || 600;
+  // 広げられるのは、区画の板の上の端（タブのすぐ下）まで
+  const wallRef = useRef<HTMLDivElement>(null);
+  const wallTop = () => {
+    const wall = wallRef.current?.getBoundingClientRect();
+    const view = viewRef.current?.getBoundingClientRect();
+    return wall && view ? wall.top - view.top : viewHeight() * 0.2;
+  };
+  const deskMax = () => Math.max(deskMin, Math.round(viewHeight() - wallTop() - DESK_TAB));
+  const deskH = deskPull ?? (deskSaved > 0 ? Math.min(Math.max(deskSaved, deskMin), deskMax()) : deskMin);
+  const deskOpen = deskH > deskMin + 24;
+  function saveDesk(h: number) {
+    setDeskSaved(h);
+    try {
+      localStorage.setItem(DESK_KEY, String(h));
+    } catch {
+      // 覚えられなくても、今は広がる
+    }
+  }
+  function onDeskGripDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return;
+    const grip = e.currentTarget;
+    const startY = e.clientY;
+    const startH = deskH;
+    gripMoved.current = false;
+    try {
+      grip.setPointerCapture(e.pointerId);
+    } catch {
+      // つかめなくても、つまみの上で動かしているあいだは引ける
+    }
+    const heightAt = (y: number) => Math.min(deskMax(), Math.max(deskMin, startH + (startY - y)));
+    const onMove = (ev: PointerEvent) => {
+      if (Math.abs(startY - ev.clientY) > 4) gripMoved.current = true;
+      if (gripMoved.current) setDeskPull(heightAt(ev.clientY));
+    };
+    const onUp = (ev: PointerEvent) => {
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", onUp);
+      grip.removeEventListener("pointercancel", onUp);
+      setDeskPull(null);
+      if (!gripMoved.current) return;
+      // たたんだ高さの近くで離したら、たたむ
+      const h = heightAt(ev.clientY);
+      saveDesk(h < deskMin + 24 ? 0 : h);
+    };
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", onUp);
+    grip.addEventListener("pointercancel", onUp);
+  }
+  // 押しただけ（引いていない）なら、一番上まで広げる・たたむ。キーボードの Enter・Space も
+  function onDeskGripClick() {
+    if (gripMoved.current) {
+      gripMoved.current = false;
+      return;
+    }
+    saveDesk(deskOpen ? 0 : DESK_TOP);
+  }
+  // メモのボタンとお知らせは、たたんだ机の上に出す（広げても動かさない。上へ動かすと区画の板にかぶるので、
+  // 広げた机では付箋の並びの下をあける）。スマホの机の高さを画面の外枠に渡す
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>(".app-shell");
+    if (!shell) return;
+    shell.style.setProperty("--bd-desk-height", `${deskMin}px`);
+    return () => {
+      shell.style.removeProperty("--bd-desk-height");
+    };
+  }, [deskMin]);
   const colIndex = (issue: GitHubIssue) => {
     const i = baseColumns.findIndex((c) => c.key === (statusOf(issue) || "none"));
     return i < 0 ? baseColumns.length : i;
@@ -345,6 +624,11 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   const myIssues = issues
     .filter((i) => i.state === "open" && !!currentUser && i.assignees?.some((a) => a.login === currentUser))
     .sort((a, b) => colIndex(a) - colIndex(b) || a.number - b.number);
+  // 広げた机では、区画ごとに分けて並べる（区画にない状態は最後に「そのほか」）
+  const myGroups = [
+    ...baseColumns.map((c) => ({ key: c.key, label: `${c.emoji} ${tr(c.title)}`, items: myIssues.filter((i) => (statusOf(i) || "none") === c.key) })),
+    { key: "@other", label: tr("そのほか"), items: myIssues.filter((i) => colIndex(i) === baseColumns.length) },
+  ].filter((g) => g.items.length > 0);
   const [deskNote, setDeskNote] = useState<string | null>(null);
   useEffect(() => {
     if (!deskNote) return;
@@ -357,49 +641,142 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
     const names = (issue?.assignees ?? []).map((a) => a.login);
     if (!issue || !currentUser || names.includes(currentUser)) return;
     if (names.length > 0) {
-      setDeskNote(`#${n} は ${names.join("・")} の担当です（Issue の詳細で担当を変えられます）`);
+      setDeskNote(tr("#{n} は {join} の担当です（Issue の詳細で担当を変えられます）", { n, join: names.join(tr("・")) }));
       return;
     }
     onAssignToMe(n);
-    setDeskNote(look === "quest" ? `#${n} を受注しました` : `#${n} を自分の担当にしました`);
+    setDeskNote(look === "quest" ? tr("#{n} を受注しました", { n }) : tr("#{n} を自分の担当にしました", { n }));
   }
   // ドラッグ中に、机に置けるか
   const deskHint = (() => {
     if (!draggedIssue) return null;
     const names = (draggedIssue.assignees ?? []).map((a) => a.login);
-    if (names.includes(currentUser)) return { ok: false, text: look === "quest" ? "もう受注しています" : "もう自分の担当です" };
-    if (names.length > 0) return { ok: false, text: `ほかの人（${names.join("・")}）の担当です` };
+    if (names.includes(currentUser)) return { ok: false, text: look === "quest" ? tr("もう受注しています") : tr("もう自分の担当です") };
+    if (names.length > 0) return { ok: false, text: tr("ほかの人（{join}）の担当です", { join: names.join(tr("・")) }) };
     return { ok: true, text: desk.drop };
   })();
   const cols = columnsOf(genre);
+  const perch = usePerch(cols.length, look === "buncho");
 
   const note = (issue: GitHubIssue) => (
     <BoardNote issue={issue} look={look} me={currentUser} working={issue.number === workingIssue} pull={pullOf.get(issue.number) ?? null} onOpenPull={onOpenPull} />
   );
 
+  /** 区画に貼る付箋 1 枚（押すと詳細・ドラッグで区画へ。スマホは「移動」）。広げた机にも同じものを並べる */
+  const slot = (issue: GitHubIssue, place: "board" | "desk") => {
+    const key = `${place}:${issue.number}`;
+    return (
+      <div
+        key={issue.number}
+        className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
+        onMouseDown={isMobile || isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+        onClick={() => {
+          // 送っているあいだ・送れなかった仮の付箋は開かない
+          if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
+        }}
+      >
+        {note(issue)}
+        {/* 送っている途中・送れなかった仮の付箋は、まだ動かせない */}
+        {isMobile && !isUnsent(issue) && (
+          <button
+            type="button"
+            className="btn-sm bd-move"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMoving(moving === key ? null : key);
+            }}
+          >
+            {tr("移動")}
+          </button>
+        )}
+        {isMobile && moving === key && (
+          <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
+            {currentUser && !issue.assignees?.length && (
+              <button
+                className="kanban-status-option"
+                onClick={() => {
+                  onAssignToMe(issue.number);
+                  setMoving(null);
+                }}
+              >
+                🙋 {look === "quest" ? tr("受注する（自分の担当にする）") : tr("自分の担当にする")}
+              </button>
+            )}
+            {baseColumns
+              .filter((c) => c.key !== (statusOf(issue) || "none"))
+              .map((c) => (
+                <button
+                  key={c.key}
+                  className="kanban-status-option"
+                  onClick={() => {
+                    onStatusChange(issue.number, c.key === "none" ? "" : c.key);
+                    setMoving(null);
+                  }}
+                >
+                  {c.emoji} {tr(c.title)}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="bd-view">
-      <div className="bd-toolbar">
+    <div className="bd-view" ref={viewRef}>
+      <div className={`bd-toolbar${isPhone ? " toolbar m-compact" : ""}`}>
         <div className="search-bar bd-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Issue を検索..." className="search-input" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr("Issue を検索...")} className="search-input" />
           {query && (
             <button className="search-clear" onClick={() => setQuery("")}>
               ×
             </button>
           )}
         </div>
-        <TaskFilterButton {...filterProps} />
-        <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
-          👤 自分の担当だけ{mineOnly ? " ✓" : ""}
-        </button>
-        <span className="grow" />
-        <button className="btn-sm" onClick={onOpenBoardSettings} title="設定 → タスク の「ボードの区画」を開きます">
-          ⚙ 区画の設定
-        </button>
+        {isPhone ? (
+          // スマホは「絞り込み」だけ。自分の担当だけ・フィルタ・区画の設定は板に
+          <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) + (mineOnly ? 1 : 0) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+            {tr("表示するタスク")}{filterCount(filterProps) + (mineOnly ? 1 : 0) > 0 && <span className="m-filter-n">{filterCount(filterProps) + (mineOnly ? 1 : 0)}</span>}
+          </button>
+        ) : (
+          <>
+            <TaskFilterButton {...filterProps} />
+            <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+              {tr("👤 自分の担当だけ")}{mineOnly ? " ✓" : ""}
+            </button>
+            <span className="grow" />
+            <button className="btn-sm" onClick={onOpenBoardSettings} title={tr("設定 → タスク の「ボードの区画」を開きます")}>
+              {tr("⚙ 区画の設定")}
+            </button>
+          </>
+        )}
       </div>
       <TaskFilterChips {...filterProps} />
+      {isPhone && (
+        <MobileSheet
+          open={sheetOpen}
+          title={tr("表示するタスク")}
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0 && !mineOnly} onClick={() => { clearAll(filterProps); setMineOnly(false); }}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{tr("閉じる")}</button>
+            </>
+          }
+        >
+          <SheetRow label={tr("担当")}>
+            <button type="button" className={`bd-mine-toggle${mineOnly ? " on" : ""}`} aria-pressed={mineOnly} onClick={() => setMineOnly(!mineOnly)}>
+              {tr("👤 自分の担当だけ")}{mineOnly ? " ✓" : ""}
+            </button>
+          </SheetRow>
+          <TaskFilterGroups {...filterProps} />
+          <SheetRow label={tr("ボード")}>
+            <button type="button" className="btn-sm" onClick={() => { setSheetOpen(false); onOpenBoardSettings(); }}>{tr("⚙ 区画の設定")}</button>
+          </SheetRow>
+        </MobileSheet>
+      )}
 
-      <div className="bd-tabs" role="tablist" aria-label="ボード">
+      <div className="bd-tabs" role="tablist" aria-label={tr("ボード")}>
         {BOARD_GENRES.map((g) => (
           <button
             key={g.key}
@@ -412,112 +789,100 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
           >
             {g.icon} {g.label}
             <span className="bd-tab-n">{countOf(g.key)}</span>
-            <small>{dragging !== null && genre !== g.key ? "ここに落とすと移せます" : g.about}</small>
+            <small>{dragging !== null && genre !== g.key ? tr("ここに落とすと移せます") : g.about}</small>
           </button>
         ))}
       </div>
 
-      <div className={`bd-wall look-${look}`}>
-        {cols.length === 0 && <p className="bd-none">このボードに置く区画がありません（⚙ 区画の設定 で選べます）</p>}
-        {cols.map((col) => {
+      <div ref={wallRef} className={`bd-wall look-${look}`}>
+        {cols.length === 0 && <p className="bd-none">{tr("このボードに置く区画がありません（⚙ 区画の設定 で選べます）")}</p>}
+        {cols.map((col, ci) => {
           const list = issuesOf(col);
           return (
             <section key={col.key} ref={target(col.key)} className={`bd-board${over === col.key ? " over" : ""}`}>
+              {look === "kingyo" && <Fishes seed={ci} />}
+              {look === "buncho" && perch.at === ci && (
+                <span key={`perch-${perch.at}-${perch.x}`} className={`bd-partner ${perch.phase}`} style={{ left: `${perch.x}%` }}>
+                  <Buncho flip={perch.flip} />
+                </span>
+              )}
               <header className="bd-head">
                 <span className="bd-title">
-                  {col.emoji} {col.title}
+                  {col.emoji} {tr(col.title)}
                 </span>
                 <span className="bd-count">{list.length}</span>
                 <EstimateSumText sum={sumEstimates(list, unit)} showMissing={false} />
               </header>
-              <div className="bd-notes">
-                {list.map((issue) => (
-                  <div
-                    key={issue.number}
-                    className={`bd-slot${dragging === issue.number ? " dragging" : ""}`}
-                    onMouseDown={isMobile ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
-                    onClick={() => {
-                      if (!isDraggingRef.current) onSelectIssue(issue.number);
-                    }}
-                  >
-                    {note(issue)}
-                    {isMobile && (
-                      <button
-                        type="button"
-                        className="btn-sm bd-move"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMoving(moving === issue.number ? null : issue.number);
-                        }}
-                      >
-                        移動
-                      </button>
-                    )}
-                    {isMobile && moving === issue.number && (
-                      <div className="kanban-status-sheet" onClick={(e) => e.stopPropagation()}>
-                        {currentUser && !issue.assignees?.length && (
-                          <button
-                            className="kanban-status-option"
-                            onClick={() => {
-                              onAssignToMe(issue.number);
-                              setMoving(null);
-                            }}
-                          >
-                            🙋 {look === "quest" ? "受注する（自分の担当にする）" : "自分の担当にする"}
-                          </button>
-                        )}
-                        {baseColumns
-                          .filter((c) => c.key !== (statusOf(issue) || "none"))
-                          .map((c) => (
-                            <button
-                              key={c.key}
-                              className="kanban-status-option"
-                              onClick={() => {
-                                onStatusChange(issue.number, c.key === "none" ? "" : c.key);
-                                setMoving(null);
-                              }}
-                            >
-                              {c.emoji} {c.title}
-                            </button>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {list.length === 0 && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? "「移動」で、ここに移せます" : "ここへドラッグして貼ります")}</div>}
+              <div className="bd-notes">{list.map((issue) => slot(issue, "board"))}</div>
+              {list.length === 0 && addingTo !== col.key && <div className="bd-empty">{EMPTY_HINTS[col.key] ?? (isMobile ? tr("「移動」でここに移せます") : tr("ここへドラッグして貼ります"))}</div>}
+              <AddHere look={look} open={addingTo === col.key} target={typeof milestone === "number" ? milestones.find((m) => m.number === milestone)?.title ?? null : null} onOpen={() => setAddingTo(col.key)} onClose={() => setAddingTo((cur) => (cur === col.key ? null : cur))} onAdd={(title) => addTask(col, title)} />
             </section>
           );
         })}
       </div>
 
-      {/* 下の机（PC）。付箋を置くと自分の担当に。机の上には自分の担当が並ぶ（押すと詳細・ドラッグで区画へ） */}
-      {!isMobile && currentUser && (
-        <div ref={target("@desk")} className={`bd-desk desk-${look}${over === "@desk" ? " over" : ""}`}>
+      {/* 下の机。付箋を置くと自分の担当に（PC）。机の上には自分の担当が並ぶ（押すと詳細・ドラッグで区画へ）。
+          上の縁をつまんで上へ引くと広がり、区画ごとに折り返して並ぶ（#213）。スマホでも出す */}
+      {currentUser && (
+        <div ref={target("@desk")} className={`bd-desk desk-${look}${deskOpen ? " open" : ""}${deskPull !== null ? " pulling" : ""}${over === "@desk" ? " over" : ""}`} style={{ height: deskH }}>
+          {/* 机の縁のでっぱり: 押すと一番上まで広がる（広げていれば、たたむ）。上下に引くと好きな高さに */}
+          <button
+            type="button"
+            className="bd-desk-tab"
+            aria-label={deskOpen ? tr("机をたたむ（上下に引くと高さが変わります）") : tr("机を一番上まで広げる（上へ引くと好きな高さに）")}
+            aria-expanded={deskOpen}
+            title={deskOpen ? tr("押すとたたむ・上下に引くと高さが変わる") : tr("押すと一番上まで広がる・上へ引くと好きな高さに")}
+            onPointerDown={onDeskGripDown}
+            onClick={onDeskGripClick}
+          >
+            {deskOpen ? tr("▼ たたむ") : tr("▲ 広げる")}
+          </button>
           <div className="bd-desk-name">
             <b>{desk.name}</b>
             <small>
               {desk.count} {myIssues.length}
             </small>
           </div>
-          <div className="bd-desk-items">
+          <div className={`bd-desk-items${deskOpen ? ` look-${look}` : ""}`}>
             {myIssues.length === 0 && <span className="bd-desk-empty">{desk.empty}</span>}
-            {myIssues.map((issue) => (
+            {/* 広げたときは、ボードと同じ付箋を区画ごとに並べる */}
+            {deskOpen &&
+              myGroups.map((g) => (
+                <div key={g.key} className="bd-desk-group">
+                  <div className="bd-desk-group-h">
+                    {g.label} <small>{g.items.length}</small>
+                  </div>
+                  <div className="bd-notes">{g.items.map((issue) => slot(issue, "desk"))}</div>
+                </div>
+              ))}
+            {!deskOpen &&
+              myIssues.map((issue) => (
               <button
                 key={issue.number}
                 type="button"
-                className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}`}
-                title={issue.title}
-                onMouseDown={(e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
+                className={`bd-desk-chip bd-${look === "quest" ? "paper" : noteColor(issue)}${dragging === issue.number ? " dragging" : ""}${issue._sending ? " sending" : issue._failed ? " failed" : ""}`}
+                title={issue._sending ? tr("{title}（送っています…）", { title: issue.title }) : issue._failed ? tr("{title}（送れませんでした。付箋の「もう一度」で送り直せます）", { title: issue.title }) : issue.title}
+                onMouseDown={isUnsent(issue) ? undefined : (e) => onNoteMouseDown(e, issue.number, statusOf(issue))}
                 onClick={() => {
-                  if (!isDraggingRef.current) onSelectIssue(issue.number);
+                  if (!isDraggingRef.current && !isUnsent(issue)) onSelectIssue(issue.number);
                 }}
               >
-                {look === "quest" && <span className="bd-desk-hanko">受注</span>}
-                <span className="bd-desk-no">#{issue.number}</span>
+                {look === "quest" && <span className="bd-desk-hanko">{tr("受注")}</span>}
+                <span className="bd-desk-no">
+                  {issue._sending ? (
+                    <>
+                      <i className="sending-spin" aria-label={tr("送っています")} />
+                      <SendingBird />
+                    </>
+                  ) : issue._failed ? (
+                    "⚠"
+                  ) : (
+                    issueRef(issue.number)
+                  )}
+                </span>
                 {issue.title}
               </button>
-            ))}
+              ))}
           </div>
           <span className="bd-desk-deco" aria-hidden="true">
             {desk.deco}

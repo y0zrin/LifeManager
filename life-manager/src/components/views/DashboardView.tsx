@@ -2,15 +2,18 @@ import { Fragment, useState, useRef, useEffect, useMemo, useContext, useCallback
 import type { GitHubIssue, GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { IssueCard } from "../common/IssueCard";
 import { IssueTable } from "../common/IssueTable";
-import { TaskFilterButton, TaskFilterChips, type TaskFilterProps } from "../common/TaskFilterButton";
+import { TaskFilterButton, TaskFilterChips, TaskFilterGroups, clearAll, filterCount, type TaskFilterProps } from "../common/TaskFilterButton";
+import { MobileSheet, SheetRow } from "../common/MobileSheet";
+import { isMobile } from "../../lib/platform";
 import { SavedViewsMenu } from "../common/SavedViewsMenu";
 import { EstimatePicker, EstimateSumText, useEstimateUnit } from "../common/EstimateChip";
 import { BulkBar, type BulkAction } from "../common/BulkBar";
 import { IssueIndexContext } from "../common/SubIssueMarks";
 import { TemplatePicker } from "../common/TemplatePicker";
 import { BUILTIN_TEMPLATES, type IssueTemplate } from "../../lib/issueTemplates";
-import { serializeGanttDates } from "../../lib/ganttParser";
-import { issueRef } from "../../lib/issueRef";
+import { serializeGanttDates, withGanttDates } from "../../lib/ganttParser";
+import { localToday, plansFor, type TentativePlan } from "../../lib/ganttSchedule";
+import { isSending, issueRef } from "../../lib/issueRef";
 import { isEscape } from "../../lib/keys";
 import { stepDirection, withTransition } from "../../lib/motion";
 import { celebrateDone, sparkleNew } from "../../lib/celebrate";
@@ -22,6 +25,8 @@ import {
   type GroupKey, type LabelFilters, type ListMode, type SortKey,
 } from "../../lib/taskList";
 import { Avatar } from "../common/Avatar";
+import { inCategory, SECTION_PREFIX } from "../../lib/section";
+import { tr, trx, jaOf, labelText } from "../../lib/i18n";
 
 /** 並び・まとめ方・カード／表は、次に開いたときも同じにする */
 const SORT_STORE = "task-list-sort";
@@ -71,23 +76,28 @@ type IssueUpdates = { title?: string; body?: string; labels?: string[]; assignee
 function bulkMessage(action: BulkAction, n: number): string {
   switch (action.kind) {
     case "close":
-      return `${n} 件を完了にしました`;
+      return tr("{n} 件を完了にしました", { n });
     case "reopen":
-      return `${n} 件を再開しました`;
+      return tr("{n} 件を再開しました", { n });
     case "status":
-      return `${n} 件の状態を「${action.label.replace("状態:", "")}」にしました`;
+      return tr("{n} 件の状態を「{replace}」にしました", { n, replace: tr(action.label.replace("状態:", "")) });
     case "label":
-      return `${n} 件にラベル「${action.label}」を付けました`;
+      return tr("{n} 件にラベル「{label}」を付けました", { n, label: action.label });
     case "milestone":
-      return action.number === null ? `${n} 件のマイルストーンを外しました` : `${n} 件のマイルストーンを「${action.title}」にしました`;
+      return action.number === null ? tr("{n} 件のマイルストーンを外しました", { n }) : tr("{n} 件のマイルストーンを「{title}」にしました", { n, title: action.title });
     case "assignee":
-      return action.login === null ? `${n} 件の担当を外しました` : `${n} 件の担当を「${action.login}」にしました`;
+      return action.login === null ? tr("{n} 件の担当を外しました", { n }) : tr("{n} 件の担当を「{login}」にしました", { n, login: action.login });
     case "estimate":
-      return action.value === null ? `${n} 件の見積もりを外しました` : `${n} 件の見積もりを「${action.value}」にしました`;
+      return action.value === null ? tr("{n} 件の見積もりを外しました", { n }) : tr("{n} 件の見積もりを「{value}」にしました", { n, value: action.value });
+    case "schedule":
+      return tr("{n} 件の日程を、見積もりから決めました", { n });
   }
 }
 
 interface DashboardViewProps {
+  /** この人の担当で開く（オーバービューのメンバーの今から。#246）。使ったら onAssigneeRequestHandled */
+  assigneeRequest?: { login: string; at: number } | null;
+  onAssigneeRequestHandled?: () => void;
   issues: GitHubIssue[];
   closedIssues: GitHubIssue[];
   labels: GitHubLabel[];
@@ -105,7 +115,10 @@ interface DashboardViewProps {
   /** Issue テンプレート（.github/ISSUE_TEMPLATE）を読む・置く */
   onListTemplates: () => Promise<IssueTemplate[]>;
   onAddTemplates: (templates: IssueTemplate[]) => Promise<IssueTemplate[]>;
-  onCreateIssue: (title: string, body: string, labels: string[], milestone: number | null, assignees?: string[]) => Promise<number>;
+  onCreateIssue: (
+    title: string, body: string, labels: string[], milestone: number | null, assignees?: string[],
+    extra?: { prepare?: () => Promise<void>; onCreated?: (n: number) => Promise<void> | void },
+  ) => Promise<number>;
   onRefresh: () => Promise<void>;
   onSelectIssue: (n: number) => void;
   onAddReminder: (issueNumber: number, title: string, datetime: string, channels: string[]) => Promise<void>;
@@ -146,7 +159,7 @@ export function DashboardView({
   issues, closedIssues, labels, milestones, collaborators, currentUser, filters, onFiltersChange,
   onClose, onReopen, onPromote, onStatusChange, onUpdateIssue, onListTemplates, onAddTemplates,
   onCreateIssue, onRefresh, onSelectIssue, onAddReminder, savedViews, onSaveViews, stateOrder, onEnsureEstimateLabel, status,
-  splitCapable = false, onSplitChange, selectedIssue = null, detail,
+  splitCapable = false, onSplitChange, selectedIssue = null, detail, assigneeRequest = null, onAssigneeRequestHandled,
 }: DashboardViewProps) {
   const index = useContext(IssueIndexContext);
   const unit = useEstimateUnit();
@@ -168,7 +181,7 @@ export function DashboardView({
     if (issueTitle.length < 2) return [];
     const q = issueTitle.toLowerCase();
     return [...issues, ...closedIssues]
-      .filter(i => i.title.toLowerCase().includes(q))
+      .filter(i => !isSending(i.number) && i.title.toLowerCase().includes(q))
       .slice(0, 5);
   }, [issueTitle, issues, closedIssues]);
 
@@ -177,17 +190,29 @@ export function DashboardView({
     setIssueMilestone(undefined);
   }, [milestones]);
   const [assigneeFilter, setAssigneeFilter] = useState(currentUser || "");
+  // オーバービューのメンバーの今で人を押したとき: その人の担当の、開いているタスク（#246）
+  useEffect(() => {
+    if (!assigneeRequest) return;
+    setAssigneeFilter(assigneeRequest.login);
+    onAssigneeRequestHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assigneeRequest]);
   // マイルストーンで絞る（null は全部）
   const [milestoneFilter, setMilestoneFilter] = useState<MilestoneFilter | null>(null);
   const [stateFilter, setStateFilter] = useState<StateFilter>("open");
   const [sortKey, setSortKey] = useState<SortKey>(loadSort);
   const [group, setGroup] = useState<GroupKey>(loadGroup);
   const [mode, setMode] = useState<ListMode>(loadMode);
-  // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える
+  // 「☑ 選ぶ」: 選んだ Issue を、下の帯でまとめて変える。PC はチェックをいつも出し、1 つ選ぶと帯が出る。スマホは「☑ 選ぶ」で出す
   const [picking, setPicking] = useState(false);
+  const pickable = !isMobile;
+  // スマホの、下から出る絞り込みの板
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [bulkDone, setBulkDone] = useState<string | null>(null);
+  // 下の帯を出している（スマホは「☑ 選ぶ」のあいだ。PC は 1 つ以上選んだときと、まとめて変えた結果を出しているあいだ）
+  const selecting = picking || (pickable && (picked.size > 0 || bulkBusy !== null || bulkDone !== null));
   // Issue テンプレート（作るフォームを開いたときに読む。プロジェクトを切り替えたら読み直す）
   const [templates, setTemplates] = useState<IssueTemplate[] | null>(null);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -223,7 +248,7 @@ export function DashboardView({
     setTemplateNote(null);
     if (titleUntouched) setIssueTitle(t?.title ?? "");
     if (bodyUntouched) setIssueBody(t?.body ?? "");
-    else if (t) setTemplateNote("本文に書いた内容があるので、テンプレートの本文は入れませんでした（本文を消してから選ぶと入ります）");
+    else if (t) setTemplateNote(tr("本文に書いた内容があるので、テンプレートの本文は入れませんでした。本文を消してから選ぶと入ります"));
     setIssueSelectedLabels(t && t.labels.length > 0 ? t.labels : ["種別:イシュー", "状態:未整理"]);
     setAppliedTemplate(t);
   }
@@ -236,13 +261,13 @@ export function DashboardView({
 
   // 選んでいるあいだは、Esc で選ぶのをやめる
   useEffect(() => {
-    if (!picking) return;
+    if (!selecting) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isEscape(e) && !bulkBusy) quitPicking();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [picking, bulkBusy]);
+  }, [selecting, bulkBusy]);
 
   function quitPicking() {
     setPicking(false);
@@ -288,17 +313,21 @@ export function DashboardView({
     setIssueGanttEnd("");
     setAppliedTemplate(null);
     setTemplateNote(null);
-    // バックグラウンドで作成（見積もりのラベルは、なければ先に作って色をそろえる）
-    if (estimate) await onEnsureEstimateLabel(estimate);
-    const issueNumber = await onCreateIssue(title, body, labels, milestone, assignees);
-    if (reminderDt && reminderCh.length > 0 && issueNumber) {
-      await onAddReminder(issueNumber, title, reminderDt, reminderCh);
+    // すぐ一覧に「送っています…」で出して、後ろで送る。見積もりのラベルは、なければ送る前に作って色をそろえる。
+    // リマインダーは、届いて番号が付いたら付ける（送れなかったあとの「もう一度」で届いたときも）
+    try {
+      await onCreateIssue(title, body, labels, milestone, assignees, {
+        prepare: estimate ? () => onEnsureEstimateLabel(estimate) : undefined,
+        onCreated: reminderDt && reminderCh.length > 0 ? (n) => onAddReminder(n, title, reminderDt, reminderCh) : undefined,
+      });
+    } catch {
+      // 送れなかった Issue は、一覧に「送れませんでした」で残る（「もう一度」「やめる」）
     }
   }
 
-  const categories = ["種別:", "分野:", "状態:", "優先:", ESTIMATE_PREFIX] as const;
+  const categories = ["種別:", SECTION_PREFIX, "状態:", "優先:", ESTIMATE_PREFIX] as const;
   const categoryLabels: Record<string, string> = {
-    "種別:": "種別", "分野:": "分野", "状態:": "状態", "優先:": "優先", [ESTIMATE_PREFIX]: "見積",
+    "種別:": tr("種別"), [SECTION_PREFIX]: tr("セクション"), "状態:": tr("状態"), "優先:": tr("優先"), [ESTIMATE_PREFIX]: tr("見積"),
   };
 
   const allIssues = [...issues, ...closedIssues];
@@ -365,7 +394,8 @@ export function DashboardView({
   const freshTimers = useRef<number[]>([]);
   useEffect(() => () => freshTimers.current.forEach((t) => window.clearTimeout(t)), []);
   useEffect(() => {
-    const now = new Set(issues.map((i) => i.number));
+    // 送っている途中の仮の Issue は数えない（GitHub に届いて番号が付いたときに光らせる）
+    const now = new Set(issues.map((i) => i.number).filter((n) => !isSending(n)));
     const before = seenIssues.current;
     seenIssues.current = now;
     if (!before) return;
@@ -393,7 +423,8 @@ export function DashboardView({
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest("input, textarea, select, [contenteditable='true'], .palette-overlay")) return;
-      const order = rows.map((r) => r.issue.number);
+      // 送っている途中の仮の Issue は飛ばす（まだ詳細を開けない）
+      const order = rows.map((r) => r.issue.number).filter((n) => !isSending(n));
       if (order.length === 0) return;
       const at = selectedIssue === null ? -1 : order.indexOf(selectedIssue);
       const next = e.key === "ArrowDown" ? order[Math.min(order.length - 1, at + 1)] : order[Math.max(0, at === -1 ? 0 : at - 1)];
@@ -477,10 +508,10 @@ export function DashboardView({
     changeMode(v.mode);
   }
 
-  // 「フィルタ」にまとめた絞り込み（種別・分野・状態・優先・見積のラベル、担当者、マイルストーン、表示）
+  // 「フィルタ」にまとめた絞り込み（種別・セクション・状態・優先・見積のラベル、担当者、マイルストーン、表示）
   const filterProps: TaskFilterProps = {
     categories: categories
-      .map((cat) => ({ prefix: cat, name: categoryLabels[cat], labels: labels.filter((l) => l.name.startsWith(cat)) }))
+      .map((cat) => ({ prefix: cat, name: categoryLabels[cat], labels: labels.filter((l) => inCategory(l.name, cat)) }))
       .filter((c) => c.labels.length > 0),
     filters,
     onFiltersChange,
@@ -497,33 +528,54 @@ export function DashboardView({
   };
 
 
-  const pickedIssues = allIssues.filter((i) => picked.has(i.number));
+  // 送っている途中の仮の Issue は、まとめて変える相手にしない（GitHub にまだ番号がない）
+  const pickedIssues = allIssues.filter((i) => picked.has(i.number) && !isSending(i.number));
 
   async function runBulk(action: BulkAction) {
     if (action.kind === "estimate" && action.value !== null) await onEnsureEstimateLabel(action.value);
-    const targets = pickedIssues.filter((i) =>
-      action.kind === "close" || action.kind === "status" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
+    let targets = pickedIssues.filter((i) =>
+      action.kind === "close" || action.kind === "status" || action.kind === "schedule" ? i.state === "open" : action.kind === "reopen" ? i.state === "closed" : true
     );
-    if (targets.length === 0) return;
+    // 見積もりから日程: ガントの仮の日程と同じ置き方。日程があるか見積もりのないタスクは、そのまま
+    const plans = action.kind === "schedule" ? plansFor(targets, allIssues, localToday()) : null;
+    const skipped = plans ? targets.length - plans.size : 0;
+    if (plans) targets = targets.filter((i) => plans.has(i.number));
+    if (targets.length === 0) {
+      if (plans) setBulkDone(tr("日程を決められるタスクはありません（日程があるか、見積もりがありません）"));
+      return;
+    }
     setBulkDone(null);
     let done = 0;
     let failed = 0;
+    // まとめて完了にしたものは、知らせの「元に戻す」で開き直せる（#232）
+    const closedNow: number[] = [];
     for (const issue of targets) {
-      setBulkBusy(`${done + failed + 1} / ${targets.length} 件目…`);
+      setBulkBusy(tr("{v} / {length} 件目…", { v: done + failed + 1, length: targets.length }));
       try {
-        await applyBulk(action, issue);
+        await applyBulk(action, issue, plans);
         done++;
+        if (action.kind === "close") closedNow.push(issue.number);
       } catch {
         failed++;
       }
     }
     setBulkBusy(null);
     setPicked(new Set());
-    setBulkDone(bulkMessage(action, done) + (failed ? `（${failed} 件はできませんでした。上の知らせを見てください）` : ""));
-    if (action.kind === "close" && done > 0) celebrateDone(`${done} 件`);
+    setBulkDone(
+      bulkMessage(action, done) +
+        (skipped ? tr("（{skipped} 件は日程があるか見積もりがないので、そのまま）", { skipped }) : "") +
+        (failed ? tr("（{failed} 件はできませんでした。上の知らせを見てください）", { failed }) : ""),
+    );
+    if (action.kind === "close" && done > 0) {
+      celebrateDone(tr("{done} 件", { done }), undefined, undefined, () => {
+        void (async () => {
+          for (const n of closedNow) await onReopen(n);
+        })();
+      });
+    }
   }
 
-  async function applyBulk(action: BulkAction, issue: GitHubIssue) {
+  async function applyBulk(action: BulkAction, issue: GitHubIssue, plans: Map<number, TentativePlan> | null) {
     const names = issue.labels.map((l) => l.name);
     switch (action.kind) {
       case "close":
@@ -549,6 +601,11 @@ export function DashboardView({
           if (action.value === null ? e === null : e?.unit === unit && e.value === action.value) return;
           return onUpdateIssue(issue.number, { labels: withEstimate(names, action.value, unit) });
         }
+      case "schedule": {
+        const p = plans?.get(issue.number);
+        if (!p) return;
+        return onUpdateIssue(issue.number, { body: withGanttDates(issue.body, p.start, p.end) });
+      }
     }
   }
 
@@ -556,14 +613,13 @@ export function DashboardView({
   const list = (
     <>
       {mode === "table" && rows.length > 0 ? (
-        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} picked={picked} onTogglePick={togglePick} fresh={freshIssues} />
+        <IssueTable groups={groups} onSelect={onSelectIssue} picking={picking} pickable={pickable} picked={picked} onTogglePick={togglePick} fresh={freshIssues} />
       ) : (
         groups.map((g) => (
           <Fragment key={g.title || "all"}>
             {g.title && (
               <div className="task-group-head">
-                {g.title}
-                <span>{g.rows.length} 件</span>
+                {trx("{title}<0>{length} 件</0>", { title: labelText(g.title), length: g.rows.length }, [<span />])}
                 <EstimateSumText sum={sumEstimates(g.rows.map((r) => r.issue), unit)} />
               </div>
             )}
@@ -575,19 +631,19 @@ export function DashboardView({
                 depth={depth}
                 index={i}
                 fresh={freshIssues.has(issue.number)}
-                picking={picking} picked={picked.has(issue.number)} onTogglePick={togglePick}
+                picking={picking} pickable={pickable} picked={picked.has(issue.number)} onTogglePick={togglePick}
                 selected={splitActive && selectedIssue === issue.number} />
             ))}
           </Fragment>
         ))
       )}
-      {filteredIssues.length === 0 && status && (status.includes("見つかりません") || status.includes("認証エラー") || status.includes("アクセス拒否")) ? (
+      {filteredIssues.length === 0 && status && (jaOf(status).includes("見つかりません") || jaOf(status).includes("認証エラー") || jaOf(status).includes("アクセス拒否")) ? (
         <div className="error-message">
           <p className="error-message__title">⚠️ {status}</p>
-          <p className="error-message__detail">設定画面でリポジトリやトークンを確認してください。</p>
+          <p className="error-message__detail">{tr("設定画面でリポジトリやトークンを確認してください。")}</p>
         </div>
       ) : filteredIssues.length === 0 ? (
-        <p className="empty-message">イシューがありません</p>
+        <p className="empty-message">{tr("イシューがありません")}</p>
       ) : null}
     </>
   );
@@ -595,51 +651,108 @@ export function DashboardView({
   return (
     // 表のときは、列が入るように横いっぱいに使う
     <div className={`content${splitActive ? " task-split-page" : mode === "table" ? " task-table-page" : ""}`}>
-      {/* 検索・絞り込み（メモの投入は、画面の下の角の 📝 か Ctrl+M から） */}
-      <div className="toolbar task-toolbar">
+      {/* 検索・絞り込み（メモの投入は、画面の下の角の 📝 か Ctrl+M から）。スマホは検索・絞り込み・＋ だけにして、ほかは下から出る板へ */}
+      <div className={`toolbar task-toolbar${isMobile ? " m-compact" : ""}`}>
         <div className="search-bar">
           <input value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Issue を検索..."
+            placeholder={tr("Issue を検索...")}
             className="search-input" />
           {searchQuery && (
             <button className="search-clear" onClick={() => setSearchQuery("")}>×</button>
           )}
         </div>
+        {isMobile ? (
+          <>
+            <button type="button" className={`btn-sm m-filter-btn${filterCount(filterProps) ? " on" : ""}`} onClick={() => setSheetOpen(true)}>
+              {tr("表示するタスク")}{filterCount(filterProps) > 0 && <span className="m-filter-n">{filterCount(filterProps)}</span>}
+            </button>
+            <button type="button" onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm m-add-btn" aria-label={showIssueForm ? tr("作るのをやめる") : tr("イシューを作る")}>
+              {showIssueForm ? "×" : "＋"}
+            </button>
+          </>
+        ) : (
+        <>
         <TaskFilterButton {...filterProps} />
-        <span className="list-mode" role="group" aria-label="見せ方">
+        <span className="list-mode" role="group" aria-label={tr("見せ方")}>
           {(["card", "table"] as ListMode[]).map((m) => (
             <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
-              {m === "card" ? "カード" : "表"}
+              {m === "card" ? tr("カード") : tr("表")}
             </button>
           ))}
         </span>
-        <select value={group} className="select-sm" aria-label="まとめる" onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+        <select value={group} className="select-sm" aria-label={tr("まとめる")} onChange={(e) => changeGroup(e.target.value as GroupKey)}>
           {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
-            <option key={k} value={k}>まとめる: {GROUP_LABELS[k]}</option>
+            <option key={k} value={k}>{trx("まとめる: {GROUP_LABELS}", { GROUP_LABELS: GROUP_LABELS[k] })}</option>
           ))}
         </select>
-        <select value={sortKey} className="select-sm" aria-label="並び" onChange={(e) => changeSort(e.target.value as SortKey)}>
+        <select value={sortKey} className="select-sm" aria-label={tr("並び")} onChange={(e) => changeSort(e.target.value as SortKey)}>
           {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-            <option key={k} value={k}>並び: {SORT_LABELS[k]}</option>
+            <option key={k} value={k}>{trx("並び: {SORT_LABELS}", { SORT_LABELS: SORT_LABELS[k] })}</option>
           ))}
         </select>
-        <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
-          onClick={() => (picking ? quitPicking() : setPicking(true))}>
-          ☑ 選ぶ
-        </button>
         <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
         <span className="issue-count task-list-count">
-          {filteredIssues.length} 件
+          {trx("{length} 件", { length: filteredIssues.length })}
           <EstimateSumText sum={sumEstimates(filteredIssues, unit)} showMissing={false} />
         </span>
-        <button onClick={onRefresh} className="btn-sm">更新</button>
+        <button onClick={onRefresh} className="btn-sm">{tr("更新")}</button>
         <button onClick={() => setShowIssueForm(!showIssueForm)} className="btn-sm">
-          {showIssueForm ? "×" : "+ イシュー作成"}
+          {showIssueForm ? "×" : tr("+ イシュー作成")}
         </button>
+        </>
+        )}
       </div>
       {/* かけている絞り込み（× で外す） */}
       <TaskFilterChips {...filterProps} />
+      {isMobile && (
+        <MobileSheet
+          open={sheetOpen}
+          title={tr("表示するタスク")}
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-sm" disabled={filterCount(filterProps) === 0} onClick={() => clearAll(filterProps)}>{tr("すべて外す")}</button>
+              <button type="button" className="btn-primary" onClick={() => setSheetOpen(false)}>{trx("{length} 件を見る", { length: filteredIssues.length })}</button>
+            </>
+          }
+        >
+          <SheetRow label={tr("並び")}>
+            <select value={sortKey} className="select-sm" aria-label={tr("並び")} onChange={(e) => changeSort(e.target.value as SortKey)}>
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <option key={k} value={k}>{SORT_LABELS[k]}</option>
+              ))}
+            </select>
+          </SheetRow>
+          <SheetRow label={tr("まとめる")}>
+            <select value={group} className="select-sm" aria-label={tr("まとめる")} onChange={(e) => changeGroup(e.target.value as GroupKey)}>
+              {(Object.keys(GROUP_LABELS) as GroupKey[]).map((k) => (
+                <option key={k} value={k}>{GROUP_LABELS[k]}</option>
+              ))}
+            </select>
+          </SheetRow>
+          <SheetRow label={tr("見せ方")}>
+            <span className="list-mode" role="group" aria-label={tr("見せ方")}>
+              {(["card", "table"] as ListMode[]).map((m) => (
+                <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => changeMode(m)}>
+                  {m === "card" ? tr("カード") : tr("表")}
+                </button>
+              ))}
+            </span>
+          </SheetRow>
+          <SheetRow label={tr("保存した見方")}>
+            <SavedViewsMenu views={savedViews} current={currentView} onApply={applyView} onSave={onSaveViews} milestoneTitle={milestoneTitle} />
+          </SheetRow>
+          <TaskFilterGroups {...filterProps} />
+          <SheetRow label={tr("ほか")}>
+            <button type="button" className={`btn-sm${picking ? " task-list-picking" : ""}`}
+              onClick={() => { setSheetOpen(false); if (picking) quitPicking(); else setPicking(true); }}>
+              {tr("☑ 選んでまとめて変える")}
+            </button>
+            <button type="button" onClick={() => { setSheetOpen(false); onRefresh(); }} className="btn-sm">{tr("更新")}</button>
+          </SheetRow>
+        </MobileSheet>
+      )}
 
       {/* Issue作成フォーム */}
       {showIssueForm && (
@@ -657,7 +770,7 @@ export function DashboardView({
               onChange={(e) => { setIssueTitle(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              placeholder="タイトル" className="input-full" />
+              placeholder={tr("タイトル")} className="input-full" />
             {showSuggestions && suggestions.length > 0 && (
               <div className="suggestion-dropdown">
                 {suggestions.map((s) => (
@@ -674,7 +787,7 @@ export function DashboardView({
             )}
           </div>
           <textarea ref={bodyRef} value={issueBody} onChange={(e) => setIssueBody(e.target.value)}
-            placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full"
+            placeholder={tr("本文（タスクリストは - [ ] で記述）")} className="textarea-full"
             // テンプレートの本文が見えるよう、選んだら高くする
             style={appliedTemplate ? { height: "180px" } : undefined} />
           <button type="button" className="btn-sm" style={{ fontSize: "11px", marginBottom: "6px" }}
@@ -692,10 +805,10 @@ export function DashboardView({
                 ta.focus();
                 ta.setSelectionRange(cursor, cursor);
               });
-            }}>+ タスク項目</button>
+            }}>{tr("+ タスク項目")}</button>
           <div className="label-selector">
             {issueSelectedLabels.filter((name) => !labels.some((l) => l.name === name)).map((name) => (
-              <span key={name} className="label-chip active label-chip--new" title="まだリポジトリにないラベルです（作るときに GitHub が作ります）"
+              <span key={name} className="label-chip active label-chip--new" title={tr("まだリポジトリにないラベルです（作るときに GitHub が作ります）")}
                 onClick={() => setIssueSelectedLabels(issueSelectedLabels.filter((n) => n !== name))}>
                 {name}
               </span>
@@ -722,7 +835,7 @@ export function DashboardView({
           </div>
           {/* 見積もり（ラベル「見積:3pt」など。1 つだけ） */}
           <div className="est-row est-row--form">
-            <span className="est-row-label">📏 見積もり</span>
+            <span className="est-row-label">{tr("📏 見積もり")}</span>
             <EstimatePicker
               value={issueSelectedLabels.map(parseEstimateLabel).find((e) => e !== null) ?? null}
               onChange={(v) => setIssueSelectedLabels(withEstimate(issueSelectedLabels, v, unit))}
@@ -730,14 +843,14 @@ export function DashboardView({
             />
           </div>
           <select value={issueMilestone || ""} onChange={(e) => setIssueMilestone(e.target.value ? parseInt(e.target.value) : undefined)} className="select-sm">
-            <option value="">マイルストーンなし</option>
+            <option value="">{tr("マイルストーンなし")}</option>
             {milestones.map((m) => (
               <option key={m.number} value={m.number}>{m.title}</option>
             ))}
           </select>
           {collaborators.length > 0 && (
             <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>担当者:</span>
+              <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>{tr("担当者:")}</span>
               <div className="label-selector" style={{ marginTop: "4px" }}>
                 {collaborators.map((c) => {
                   const active = issueAssignees.includes(c.login);
@@ -760,17 +873,17 @@ export function DashboardView({
           )}
           {/* ガント日程 */}
           <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px" }}>
-            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>日程:</span>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>{tr("日程:")}</span>
             <input type="date" value={issueGanttStart} onChange={(e) => setIssueGanttStart(e.target.value)}
               style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
             <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
             <input type="date" value={issueGanttEnd} onChange={(e) => setIssueGanttEnd(e.target.value)}
               style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border-default)", borderRadius: "4px", padding: "3px 6px", fontSize: "12px" }} />
-            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>(ガント)</span>
+            <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>{tr("(ガント)")}</span>
           </div>
           {/* リマインダー設定 */}
           <div style={{ marginTop: "4px" }}>
-            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>リマインダー (任意):</span>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)" }}>{tr("リマインダー (任意):")}</span>
             <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", marginTop: "4px" }}>
               <input type="datetime-local" value={issueReminderDatetime}
                 onChange={(e) => setIssueReminderDatetime(e.target.value)}
@@ -793,11 +906,7 @@ export function DashboardView({
               </label>
             </div>
           </div>
-          <button onClick={handleIssueCreate} className="btn-primary">作成</button>
-          <p className="hint">
-            <b>テンプレート</b>は、よく書く Issue の書き出しです。GitHub では <code>.github/ISSUE_TEMPLATE/</code> に置いた Markdown ファイルで、
-            先頭に名前・説明・ラベルなどを書きます。中身を変えるときは、そのファイルを直します（作業タブでコミット、または GitHub で編集）。
-          </p>
+          <button onClick={handleIssueCreate} className="btn-primary">{tr("作成")}</button>
         </div>
       )}
 
@@ -807,16 +916,16 @@ export function DashboardView({
           <div className="task-split-list" ref={listRef} style={{ width: `${splitLeft}%` }}>
             {list}
           </div>
-          <div className="task-split-grip" role="separator" aria-orientation="vertical" title="ドラッグで幅を変える" onMouseDown={startDrag} />
+          <div className="task-split-grip" role="separator" aria-orientation="vertical" title={tr("ドラッグで幅を変える")} onMouseDown={startDrag} />
           <div className="task-split-detail">
-            {detail ?? <p className="task-split-empty">タスクを選ぶと、ここに詳細が出ます（↑↓ で上下のタスクへ）</p>}
+            {detail ?? <p className="task-split-empty">{tr("タスクを選ぶとここに詳細が出ます（↑↓ で上下のタスクへ）")}</p>}
           </div>
         </div>
       ) : (
         list
       )}
 
-      {picking && (
+      {selecting && (
         <BulkBar
           count={pickedIssues.length}
           hasOpen={pickedIssues.length === 0 || pickedIssues.some((i) => i.state === "open")}
@@ -828,7 +937,7 @@ export function DashboardView({
           busy={bulkBusy}
           message={bulkDone}
           onRun={runBulk}
-          onSelectAll={() => { setBulkDone(null); setPicked(new Set(rows.map((r) => r.issue.number))); }}
+          onSelectAll={() => { setBulkDone(null); setPicked(new Set(rows.map((r) => r.issue.number).filter((n) => !isSending(n)))); }}
           onQuit={quitPicking}
         />
       )}

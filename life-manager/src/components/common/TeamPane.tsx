@@ -4,6 +4,7 @@ import {
   type InviteOutcome, type RepoInvitation, type TeamOverview,
 } from "../../lib/team";
 import { InvitesForMe } from "./InvitesForMe";
+import { tr, trx } from "../../lib/i18n";
 
 /** アプリのダウンロード先（参加の案内に書く） */
 const DOWNLOAD_URL = "https://github.com/y0zrin/LifeManager/releases/latest";
@@ -20,20 +21,20 @@ type Result = { name: string; outcome: InviteOutcome };
 
 function ago(iso: string): string {
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
-  return days <= 0 ? "今日" : days === 1 ? "昨日" : `${days} 日前`;
+  return days <= 0 ? tr("今日") : days === 1 ? tr("昨日") : tr("{days} 日前", { days });
 }
 
 /** 招待の結果の 1 行 */
 function resultText({ name, outcome }: Result): { mark: string; tone: string; text: string } {
   switch (outcome.status) {
     case "invited":
-      return { mark: "✔", tone: "ok", text: `${name} — 招待しました（GitHub からメールで届きます。メンバーは、メールの View invitation から参加します）` };
+      return { mark: "✔", tone: "ok", text: tr("{name} — 招待しました。GitHub からメールで届きます。メンバーはメールの View invitation から参加します", { name }) };
     case "already":
-      return { mark: "―", tone: "warn", text: `${name} — もうこのリポジトリを使えます` };
+      return { mark: "―", tone: "warn", text: tr("{name} — もうこのリポジトリを使えます", { name }) };
     case "no_user":
-      return { mark: "✖", tone: "bad", text: `${name} — その名前の人は GitHub にいません（綴りを確かめてください）` };
+      return { mark: "✖", tone: "bad", text: tr("{name} — その名前の人は GitHub にいません（綴りを確かめてください）", { name }) };
     default:
-      return { mark: "✖", tone: "bad", text: `${name} — ${outcome.message ?? "招待できませんでした"}` };
+      return { mark: "✖", tone: "bad", text: `${name} — ${outcome.message ?? tr("招待できませんでした")}` };
   }
 }
 
@@ -89,13 +90,13 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
 
   // メンバーに送る「参加の案内」（チャット・メール・授業のページなどに貼る）
   const joinGuide = [
-    `Life Manager で「${owner}/${repo}」を使います。`,
-    `① アプリを入れる：${DOWNLOAD_URL}`,
-    "② アプリを開いて「GitHub でログイン」→「招待を受ける」（アカウントがなければ「GitHub で作る」）",
-    `③ 画面に出る「あなたの GitHub の名前」を、${login} に伝える`,
-    "④ 招待のメールが届いたら「View invitation」→「Accept invitation」",
-    `　（このリンクからも受けられます：https://github.com/${owner}/${repo}/invitations）`,
-    "⑤ アプリが気づくので「このリポジトリではじめる」",
+    tr("Life Manager で「{owner}/{repo}」を使います。", { owner, repo }),
+    tr("① アプリを入れる：{DOWNLOAD_URL}", { DOWNLOAD_URL }),
+    tr("② アプリを開いて「GitHub でログイン」→「招待を受ける」（アカウントがなければ「GitHub で作る」）"),
+    tr("③ 画面に出る「あなたの GitHub の名前」を {login} に伝える", { login }),
+    tr("④ 招待のメールが届いたら「View invitation」→「Accept invitation」"),
+    tr("　（このリンクからも受けられます：https://github.com/{owner}/{repo}/invitations）", { owner, repo }),
+    tr("⑤ アプリが気づくので「このリポジトリではじめる」"),
   ].join("\n");
 
   async function send() {
@@ -103,14 +104,14 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
     const done: Result[] = [];
     for (let i = 0; i < parsed.names.length; i++) {
       const name = parsed.names[i];
-      setSending(`${i + 1} / ${parsed.names.length} 人目…`);
+      setSending(tr("{v} / {length} 人目…", { v: i + 1, length: parsed.names.length }));
       try {
         done.push({ name, outcome: await inviteMember(owner, repo, name, overview?.organization ? permission : null) });
       } catch (e) {
         done.push({ name, outcome: { status: "failed", message: String(e) } });
       }
     }
-    const invalid: Result[] = parsed.invalid.map((name) => ({ name, outcome: { status: "invalid", message: "GitHub の名前に使えない文字があります（英数字とハイフンだけ）" } }));
+    const invalid: Result[] = parsed.invalid.map((name) => ({ name, outcome: { status: "invalid", message: tr("GitHub の名前に使えない文字があります（英数字とハイフンだけ）") } }));
     setResults([...invalid, ...done]);
     setSending(null);
     // 招待できた名前は欄から消し、できなかった名前は直して送り直せるよう残す
@@ -173,45 +174,48 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
     <div className="team-pane">
 
       {!owner || !repo ? (
-        <p className="team-note">プロジェクト（リポジトリ）を選ぶと、ここでメンバーを招待できます。</p>
+        <p className="team-note">{tr("プロジェクト（リポジトリ）を選ぶと、ここでメンバーを招待できます。")}</p>
       ) : error ? (
-        <p className="token-error">{owner}/{repo} のメンバーを読めませんでした（{error}）</p>
+        <p className="token-error">{trx("{owner}/{repo} のメンバーを読めませんでした（{error}）", { owner, repo, error })}</p>
       ) : !overview ? (
-        <p className="team-note"><i className="spinner" aria-hidden="true" /> {owner}/{repo} のメンバーを読んでいます…</p>
+        <p className="team-note"><i className="spinner" aria-hidden="true" /> {" "}{trx("{owner}/{repo} のメンバーを読んでいます…", { owner, repo })}</p>
       ) : (
         <>
           {overview.admin ? (
             <div className="form-card team-card">
               <h3 className="team-h">
-                {owner}/{repo} に招待する <small>あなたはこのリポジトリの管理者です</small>
+                {trx("{owner}/{repo} に招待する <0>あなたはこのリポジトリの管理者です</0>", { owner, repo }, [<small />])}
               </h3>
               {overview.invitations_error && <p className="token-error team-error">{overview.invitations_error}</p>}
               <div className="team-guide">
                 <div className="team-guide-head">
-                  <b>メンバーに送る「参加の案内」</b>
+                  <b>{tr("メンバーに送る「参加の案内」")}</b>
                   <button type="button" className="btn-sm" onClick={() => copy(joinGuide, "guide")}>
-                    {copied === "guide" ? "✔ コピーしました" : "案内をコピー"}
+                    {copied === "guide" ? tr("✔ コピーしました") : tr("案内をコピー")}
                   </button>
                 </div>
                 <pre className="team-guide-text">{joinGuide}</pre>
-                <p className="team-note">チャット・メール・授業のページなどに貼ります。届いた名前を、下に貼って招待します。</p>
+                <p className="team-note">{tr("チャット、メール、授業のページなどに貼ります。届いた名前を下に貼って招待します。")}</p>
               </div>
               <textarea
                 className="team-names"
                 value={text}
-                placeholder={"メンバーから届いた GitHub の名前を貼る（何人でも）\n例: sato-taro, baba-yui"}
+                placeholder={tr("メンバーから届いた GitHub の名前を貼る（何人でも）\n例: sato-taro, baba-yui")}
                 onChange={(e) => setText(e.target.value)}
                 disabled={sending !== null}
               />
               <div className="team-form">
                 <span className="team-note">
-                  改行・カンマ・空白で区切れます
-                  {parsed.names.length > 0 && <>（{parsed.names.length} 人{parsed.invalid.length > 0 && `・名前に使えない文字 ${parsed.invalid.length} 件`}）</>}
+                  {tr("改行、カンマ、空白で区切れます")}
+                  {parsed.names.length > 0 &&
+                    (parsed.invalid.length > 0
+                      ? tr("（{n} 人・名前に使えない文字 {bad} 件）", { n: parsed.names.length, bad: parsed.invalid.length })
+                      : tr("（{n} 人）", { n: parsed.names.length }))}
                 </span>
                 <span className="team-form-right">
                   {overview.organization ? (
                     <label className="team-note">
-                      権限{" "}
+                      {tr("権限")}{" "}
                       <select className="select-sm" value={permission} onChange={(e) => setPermission(e.target.value)} disabled={sending !== null}>
                         {INVITE_PERMISSIONS.map((p) => (
                           <option key={p.value} value={p.value}>{p.label}</option>
@@ -219,10 +223,10 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                       </select>
                     </label>
                   ) : (
-                    <span className="team-note" title="個人のリポジトリでは、招待した人はみな書き込みの権限になります">権限: 書き込み</span>
+                    <span className="team-note" title={tr("個人のリポジトリでは招待した人はみな書き込みの権限になります")}>{tr("権限: 書き込み")}</span>
                   )}
                   <button type="button" className="btn-primary" disabled={parsed.names.length === 0 || sending !== null} onClick={send}>
-                    {sending ?? "招待を送る"}
+                    {sending ?? tr("招待を送る")}
                   </button>
                 </span>
               </div>
@@ -238,15 +242,14 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                   })}
                 </ul>
               )}
-              <div className="team-cmd">GitHub に送る内容: PUT /repos/{owner}/{repo}/collaborators/名前（1 人ずつ）</div>
+              <div className="team-cmd">{trx("GitHub に送る内容: PUT /repos/{owner}/{repo}/collaborators/名前（1 人ずつ）", { owner, repo })}</div>
             </div>
           ) : (
             <div className="form-card team-card">
-              <h3 className="team-h">{owner}/{repo} に招待する</h3>
+              <h3 className="team-h">{trx("{owner}/{repo} に招待する", { owner, repo })}</h3>
               <p className="team-note">
-                招待できるのは、このリポジトリの管理者だけです。チームに入れてほしい人は、リーダーに GitHub の名前を伝えてもらいます。あなたの名前:{" "}
-                <b>{login}</b>{" "}
-                <button type="button" className="btn-sm" onClick={() => copy(login, "me")}>{copied === "me" ? "コピーしました" : "コピー"}</button>
+                {trx("招待できるのはこのリポジトリの管理者だけです。チームに入れてほしい人は、リーダーに GitHub の名前を伝えてもらいます。あなたの名前: <0>{login}</0>", { login }, [<b />])}{" "}
+                <button type="button" className="btn-sm" onClick={() => copy(login, "me")}>{copied === "me" ? tr("コピーしました") : tr("コピー")}</button>
               </p>
             </div>
           )}
@@ -255,12 +258,12 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
             {overview.admin && (
               <div className="form-card team-card">
                 <h3 className="team-h">
-                  送った招待 <small>まだ受けていない（{INVITATION_DAYS} 日で切れます）</small>
+                  {trx("送った招待 <0>まだ受けていない（{INVITATION_DAYS} 日で切れます）</0>", { INVITATION_DAYS }, [<small />])}
                 </h3>
                 {overview.invitations_error ? (
-                  <p className="team-note">読めませんでした（上の「招待する」の欄を見てください）。</p>
+                  <p className="team-note">{tr("読めませんでした（上の「招待する」の欄を見てください）。")}</p>
                 ) : (
-                  invitations.length === 0 && <p className="team-note">ありません。</p>
+                  invitations.length === 0 && <p className="team-note">{tr("ありません。")}</p>
                 )}
                 {invitations.map((inv) => {
                   const left = daysLeft(inv.created_at);
@@ -269,18 +272,18 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                     <div key={inv.id} className="team-row">
                       {inv.invitee?.avatar_url && <img src={inv.invitee.avatar_url} alt="" />}
                       <span className="team-row-main">
-                        {inv.invitee?.login ?? "（名前なし）"}{" "}
-                        <small className={expired ? "team-expired" : ""}>— {expired ? "切れました" : `${ago(inv.created_at)}・あと ${left} 日`}</small>
+                        {inv.invitee?.login ?? tr("（名前なし）")}{" "}
+                        <small className={expired ? "team-expired" : ""}>— {expired ? tr("切れました") : tr("{ago}・あと {left} 日", { ago: ago(inv.created_at), left })}</small>
                       </span>
                       {expired ? (
-                        <button type="button" className="btn-sm" disabled={busyId !== null} onClick={() => resend(inv)}>送り直す</button>
+                        <button type="button" className="btn-sm" disabled={busyId !== null} onClick={() => resend(inv)}>{tr("送り直す")}</button>
                       ) : (
                         <>
                           <button type="button" className="link-button" onClick={() => copy(inv.html_url, `link-${inv.id}`)}
-                            title="招待を受けるページの URL（チャットで送る用）">
-                            {copied === `link-${inv.id}` ? "コピーしました" : "リンクをコピー"}
+                            title={tr("招待を受けるページの URL（チャットで送る用）")}>
+                            {copied === `link-${inv.id}` ? tr("コピーしました") : tr("リンクをコピー")}
                           </button>
-                          <button type="button" className="btn-sm" disabled={busyId !== null} onClick={() => cancel(inv)}>取り消す</button>
+                          <button type="button" className="btn-sm" disabled={busyId !== null} onClick={() => cancel(inv)}>{tr("取り消す")}</button>
                         </>
                       )}
                     </div>
@@ -291,7 +294,7 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
             {overview.push && (
               <div className="form-card team-card">
                 <h3 className="team-h">
-                  メンバー <small>このリポジトリを使える人</small>
+                  {trx("メンバー <0>このリポジトリを使える人</0>", undefined, [<small />])}
                 </h3>
                 {overview.members_error && <p className="token-error">{overview.members_error}</p>}
                 {overview.members.map((m) => {
@@ -302,24 +305,23 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                       {m.avatar_url && <img src={m.avatar_url} alt="" />}
                       <span className="team-row-main">
                         {m.login}
-                        {m.login === login && <small>（あなた）</small>}
+                        {m.login === login && <small>{tr("（あなた）")}</small>}
                       </span>
                       {m.role_name && <span className="team-role">{ROLE_LABELS[m.role_name] ?? m.role_name}</span>}
                       {canRemove && removing !== m.login && (
                         <button type="button" className="btn-sm team-remove" disabled={removeBusy}
                           onClick={() => { setRemoving(m.login); setRemoved(null); setRemoveError(null); }}>
-                          外す
+                          {tr("外す")}
                         </button>
                       )}
                       {removing === m.login && (
                         <div className="team-confirm">
-                          <b>{m.login} を {owner}/{repo} から外しますか？</b>
-                          <span className="team-note">このリポジトリを使えなくなります（非公開なら見ることもできません）。もう一度招待すれば戻せます。</span>
+                          {trx("<0>{login} を {owner}/{repo} から外しますか？</0><1>このリポジトリを使えなくなります（非公開なら見ることもできません）。もう一度招待すれば戻せます。</1>", { login: m.login, owner, repo }, [<b />, <span className="team-note" />])}
                           <span className="team-confirm-actions">
                             <button type="button" className="btn-danger" disabled={removeBusy} onClick={() => remove(m.login)}>
-                              {removeBusy ? "外しています…" : "外す"}
+                              {removeBusy ? tr("外しています…") : tr("外す")}
                             </button>
-                            <button type="button" className="btn-sm" disabled={removeBusy} onClick={() => setRemoving(null)}>やめる</button>
+                            <button type="button" className="btn-sm" disabled={removeBusy} onClick={() => setRemoving(null)}>{tr("やめる")}</button>
                           </span>
                         </div>
                       )}
@@ -329,30 +331,30 @@ export function TeamPane({ owner, repo, login }: TeamPaneProps) {
                 {removed && (
                   <p className={`team-removed ${removed.still ? "team-result--warn" : "team-result--ok"}`}>
                     {removed.still
-                      ? `― ${removed.login} を外しましたが、組織のメンバーとしてまだ使えます（組織の画面の People・Teams で外します）`
-                      : `✔ ${removed.login} を外しました`}
+                      ? tr("― {login} を外しましたが、組織のメンバーとしてまだ使えます（組織の画面の People・Teams で外します）", { login: removed.login })
+                      : tr("✔ {login} を外しました", { login: removed.login })}
                   </p>
                 )}
                 {removeError && <p className="token-error">{removeError}</p>}
                 <p className="team-note">
                   {overview.admin
-                    ? "外した人は、このリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。"
-                    : "メンバーを外せるのは、このリポジトリの管理者です。"}
+                    ? tr("外した人はこのリポジトリを使えなくなります（書いた Issue やコメントは残ります）。もう一度招待すれば戻せます。")
+                    : tr("メンバーを外せるのはこのリポジトリの管理者です。")}
                 </p>
-                {overview.admin && <div className="team-cmd">GitHub に送る内容: DELETE /repos/{owner}/{repo}/collaborators/名前</div>}
+                {overview.admin && <div className="team-cmd">{trx("GitHub に送る内容: DELETE /repos/{owner}/{repo}/collaborators/名前", { owner, repo })}</div>}
               </div>
             )}
           </div>
-          <p className="team-note">組織そのものへの招待（組織のメンバーにする）は、GitHub の組織の画面（People）で行います。</p>
+          <p className="team-note">{tr("組織そのものへの招待（組織のメンバーにする）は、GitHub の組織の画面（People）で行います。")}</p>
         </>
       )}
 
       {/* あなた宛ての招待（トークンで入ったときなど。GitHub でログインでは、参加する前の招待はここに出ない） */}
       <div className="form-card team-card">
         <h3 className="team-h">
-          あなた宛ての招待 <small>招待は GitHub から届くメールの「View invitation」で受けます</small>
+          {trx("あなた宛ての招待 <0>招待は GitHub から届くメールの「View invitation」で受けます</0>", undefined, [<small />])}
         </h3>
-        <InvitesForMe empty={<p className="team-note">「GitHub でログイン」では、まだ参加していないリポジトリの招待は、ここには出ません（GitHub の決まり）。</p>} />
+        <InvitesForMe empty={<p className="team-note">{tr("「GitHub でログイン」では、まだ参加していないリポジトリの招待は、ここには出ません（GitHub の決まり）。")}</p>} />
       </div>
     </div>
   );

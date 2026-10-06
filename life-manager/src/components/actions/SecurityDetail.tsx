@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { LEVELS, SEVERITY_LABELS, type StackCard } from "../../lib/actions";
 import { ago } from "../../lib/pulls";
+import { tr, trx } from "../../lib/i18n";
 
 interface SecurityDetailProps {
   card: StackCard;
@@ -41,12 +42,12 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
     <div className="ac-detail">
       <div className="ac-head">
         {level && <span className={`ac-level l${card.level}`}>{level.icon} {level.label}</span>}
-        <span className="ac-sev">危険度「{SEVERITY_LABELS[severity] ?? severity}」</span>
+        <span className="ac-sev">{tr("危険度「{level}」", { level: SEVERITY_LABELS[severity] ?? severity })}</span>
         <h2 className="ac-title">{a ? `🛡 ${a.package}` : `🔍 ${c?.rule ?? ""}`}</h2>
         <span className="grow" />
         {url && (
           <button type="button" className="btn-sm" onClick={() => openUrl(url).catch(() => {})}>
-            GitHub で開く ↗
+            {tr("GitHub で開く ↗")}
           </button>
         )}
       </div>
@@ -56,61 +57,55 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
           <table className="ac-table">
             <tbody>
               <tr>
-                <th>ライブラリ</th>
+                <th>{tr("ライブラリ")}</th>
                 <td>
-                  <code>{a.package}</code> <span className="muted">（{a.ecosystem}）</span>
+                  <code>{a.package}</code> <span className="muted">{tr("（{v}）", { v: a.ecosystem })}</span>
                 </td>
               </tr>
               <tr>
-                <th>書いてあるファイル</th>
+                <th>{tr("書いてあるファイル")}</th>
                 <td>
                   <code>{a.manifest}</code>
                 </td>
               </tr>
               <tr>
-                <th>危ない版</th>
+                <th>{tr("危ない版")}</th>
                 <td>{a.vulnerable ?? "—"}</td>
               </tr>
               <tr>
-                <th>直った版</th>
-                <td>{a.fixed ?? "まだありません"}</td>
+                <th>{tr("直った版")}</th>
+                <td>{a.fixed ?? tr("まだありません")}</td>
               </tr>
               <tr>
-                <th>番号</th>
-                <td>{[a.cve, a.ghsa].filter(Boolean).join("・") || "—"}</td>
+                <th>{tr("番号")}</th>
+                <td>{[a.cve, a.ghsa].filter(Boolean).join(tr("・")) || "—"}</td>
               </tr>
               <tr>
-                <th>出た日</th>
+                <th>{tr("出た日")}</th>
                 <td>{ago(a.created_at)}</td>
               </tr>
             </tbody>
           </table>
           <div className={`ac-todo l${card.level}`}>
-            <b>何をすればよいか</b>
+            <b>{tr("何をすればよいか")}</b>
             <ol>
               {card.fixPull ? (
                 <li>
-                  Dependabot が、直すプルリク{" "}
-                  <button type="button" className="pr-ref" onClick={() => onOpenPull(card.fixPull!.number)}>
-                    #{card.fixPull.number}
-                  </button>{" "}
-                  を出しています。変更されたファイルとチェックを見て、よければマージします。
+                  {trx("Dependabot が、直すプルリク <0>#{number}</0> を出しています。変更されたファイルとチェックを見て、よければマージします。", { number: card.fixPull.number }, [
+                    <button type="button" className="pr-ref" onClick={() => onOpenPull(card.fixPull!.number)} />,
+                  ])}
                 </li>
               ) : a.fixed ? (
                 <li>
-                  <code>{a.manifest}</code> の {a.package} を <b>{a.fixed}</b> 以上に上げます
-                  {upgradeCommand(a.ecosystem, a.package, a.fixed) && (
-                    <>
-                      （この PC で <code>{upgradeCommand(a.ecosystem, a.package, a.fixed)}</code>）
-                    </>
-                  )}
-                  。
+                  {upgradeCommand(a.ecosystem, a.package, a.fixed)
+                    ? trx("<0>{manifest}</0> の {package} を <1>{fixed}</1> 以上に上げます（この PC で <2>{command}</2>）。", { manifest: a.manifest, package: a.package, fixed: a.fixed, command: upgradeCommand(a.ecosystem, a.package, a.fixed) }, [<code />, <b />, <code />])
+                    : trx("<0>{manifest}</0> の {package} を <1>{fixed}</1> 以上に上げます。", { manifest: a.manifest, package: a.package, fixed: a.fixed }, [<code />, <b />])}
                 </li>
               ) : (
-                <li>直った版はまだありません。GitHub の説明を読み、危ない使い方をしていないかを確かめるか、ほかのライブラリに替えます。</li>
+                <li>{tr("直った版はまだありません。GitHub の説明を読み、危ない使い方をしていないかを確かめるか、ほかのライブラリに替えます。")}</li>
               )}
-              <li>上げたらテストを動かして、こわれていないかを確かめてからコミット・プッシュします（Actions が確かめます）。</li>
-              <li>直ると、このお知らせは GitHub が自動で閉じ、山から消えます。</li>
+              <li>{tr("上げたらテストを動かして、こわれていないかを確かめてからコミットとプッシュをします（Actions が確かめます）。")}</li>
+              <li>{tr("直ると、このお知らせは GitHub が自動で閉じ、山から消えます。")}</li>
             </ol>
           </div>
         </>
@@ -118,12 +113,12 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
       {c && (
         <>
           <p className="ac-meta">
-            {c.tool} が見つけました（{ago(c.created_at)}）。
+            {trx("{tool} が見つけました（{ago}）。", { tool: c.tool, ago: ago(c.created_at) })}
           </p>
           <table className="ac-table">
             <tbody>
               <tr>
-                <th>場所</th>
+                <th>{tr("場所")}</th>
                 <td>
                   <code>
                     {c.path ?? "—"}
@@ -132,16 +127,16 @@ export function SecurityDetail({ card, onOpenPull }: SecurityDetailProps) {
                 </td>
               </tr>
               <tr>
-                <th>中身</th>
+                <th>{tr("中身")}</th>
                 <td>{c.message ?? "—"}</td>
               </tr>
             </tbody>
           </table>
           <div className={`ac-todo l${card.level}`}>
-            <b>何をすればよいか</b>
+            <b>{tr("何をすればよいか")}</b>
             <ol>
-              <li>GitHub で開くと、なぜ危ないかと、直し方の例が見られます。</li>
-              <li>その場所を直してコミット・プッシュすると、次のスキャンで閉じます。</li>
+              <li>{tr("GitHub で開くと、なぜ危ないかと直し方の例が見られます。")}</li>
+              <li>{tr("その場所を直してコミットとプッシュをすると、次のスキャンで閉じます。")}</li>
             </ol>
           </div>
         </>

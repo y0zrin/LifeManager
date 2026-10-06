@@ -552,6 +552,41 @@ async fn read_config_as<T: serde::de::DeserializeOwned>(
 
 // --- 通知メッセージ生成 ---
 
+/// 本文の <!-- gantt:開始/終了 --> の終了日（YYYY-MM-DD）。前後が逆なら遅いほう（画面の parseGanttDates と同じ）
+fn gantt_end(body: &str) -> Option<String> {
+    let is_date = |s: &str| {
+        let b = s.as_bytes();
+        b.len() == 10
+            && b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() })
+    };
+    let mut rest = body;
+    while let Some(open) = rest.find("<!--") {
+        let after = &rest[open + 4..];
+        let Some(close) = after.find("-->") else { break };
+        let inner = after[..close].trim();
+        if let Some(dates) = inner.strip_prefix("gantt:") {
+            if let Some((a, b)) = dates.trim().split_once('/') {
+                if is_date(a) && is_date(b) {
+                    return Some(if a <= b { b } else { a }.to_string());
+                }
+            }
+        }
+        rest = &after[close + 3..];
+    }
+    return None;
+}
+
+/// Issue の期限（YYYY-MM-DD）。画面（src/lib/due.ts の dueOf）と同じ決まり: ガントの終了日、なければマイルストーンの期限
+fn due_of(issue: &serde_json::Value) -> Option<String> {
+    if let Some(end) = issue["body"].as_str().and_then(gantt_end) {
+        return Some(end);
+    }
+    return issue["milestone"]["due_on"]
+        .as_str()
+        .filter(|d| d.len() >= 10 && d.is_char_boundary(10))
+        .map(|d| d[..10].to_string());
+}
+
 async fn build_notification_message(
     app: &tauri::AppHandle,
     client: &GitHubClient,
@@ -611,15 +646,10 @@ async fn build_notification_message(
                 Err(_) => return String::new(),
             };
 
+            // 期限は画面と同じ決まり（ガントの終了日、なければマイルストーンの期限）
             let overdue: Vec<String> = issues
                 .iter()
-                .filter(|i| {
-                    i.get("milestone")
-                        .and_then(|m| m.get("due_on"))
-                        .and_then(|d| d.as_str())
-                        .map(|due_on| &due_on[..10] < today_str.as_str())
-                        .unwrap_or(false)
-                })
+                .filter(|i| due_of(i).map(|due| due.as_str() < today_str.as_str()).unwrap_or(false))
                 .map(|i| {
                     format!(
                         "{} {}",
@@ -679,5 +709,31 @@ async fn build_notification_message(
             return custom_message.unwrap_or("").to_string();
         }
         _ => return String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn due_follows_the_screen_rule() {
+        let ms = serde_json::json!({ "due_on": "2026-10-08T00:00:00Z" });
+        // ガントの日程があれば、その終了日（マイルストーンの期限より先に見る）
+        let i = serde_json::json!({ "body": "本文
+<!-- gantt:2026-10-01/2026-10-03 -->
+<!-- depends:#5 -->", "milestone": ms });
+        assert_eq!(due_of(&i).as_deref(), Some("2026-10-03"));
+        // 前後が逆でも遅いほう
+        let i = serde_json::json!({ "body": "<!--gantt:2026-10-05/2026-10-02-->", "milestone": null });
+        assert_eq!(due_of(&i).as_deref(), Some("2026-10-05"));
+        // ガントの日程がなければマイルストーンの期限
+        let i = serde_json::json!({ "body": "<!-- depends:#5 -->", "milestone": ms });
+        assert_eq!(due_of(&i).as_deref(), Some("2026-10-08"));
+        // どちらもなければ期限なし。形の崩れた印は読まない
+        let i = serde_json::json!({ "body": "<!-- gantt:2026-10/2026-10-03 -->", "milestone": null });
+        assert_eq!(due_of(&i), None);
+        let i = serde_json::json!({ "body": null, "milestone": null });
+        assert_eq!(due_of(&i), None);
     }
 }

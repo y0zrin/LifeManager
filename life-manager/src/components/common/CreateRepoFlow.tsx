@@ -7,6 +7,7 @@ import { isEnter } from "../../lib/keys";
 import { createMyRepo } from "../../lib/team";
 import { useLoginInfo } from "../../hooks/useLoginInfo";
 import { AllowRepoStep } from "./AllowRepoStep";
+import { tr, trx } from "../../lib/i18n";
 
 interface CreateRepoFlowProps {
   /** 名前の欄に最初に入れておくもの */
@@ -42,7 +43,7 @@ function saveParent(path: string) {
 
 const sep = (path: string) => (path.includes("\\") ? "\\" : "/");
 
-const STEP_LABELS = ["作る", "Life Manager に許可", "この PC に"];
+const STEP_LABELS = [tr("作る"), tr("Life Manager に許可"), tr("この PC に")];
 
 /**
  * 新しく作る: ① GitHub にリポジトリを作る → ② そのリポジトリだけを Life Manager に許可する → ③ この PC に持ってくる（クローン）。
@@ -112,7 +113,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
   }
 
   async function pickParent() {
-    const chosen = await openDialog({ directory: true, title: "クローンする置き場所を選ぶ（この中にフォルダを作ります）", defaultPath: parent || undefined });
+    const chosen = await openDialog({ directory: true, title: tr("クローンする置き場所を選ぶ（この中にフォルダを作ります）"), defaultPath: parent || undefined });
     if (typeof chosen === "string") {
       setParent(chosen);
       saveParent(chosen);
@@ -124,7 +125,7 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
     if (!created) return;
     const target = created;
     run(async () => {
-      const folder = useClone ? (await git.cloneRepo(parent, target.owner, target.repo)).path : undefined;
+      const folder = useClone ? (await git.cloneRepo(parent, target.owner, target.repo, me?.login)).path : undefined;
       await onFinish(target.owner, target.repo, folder);
     });
   }
@@ -135,16 +136,16 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
         {STEP_LABELS.map((s, i) => (
           <li key={s} className={i < step ? "done" : i === step ? "on" : ""}>
             {s}
-            {i === 1 && !byLogin && me && "（不要）"}
+            {i === 1 && !byLogin && me && tr("（不要）")}
           </li>
         ))}
       </ol>
 
       {step === 0 && (
         <>
-          <p className="git-dialog-message">GitHub に、あなたのリポジトリを作ります。</p>
+          <p className="git-dialog-message">{tr("GitHub にあなたのリポジトリを作ります。")}</p>
           <label className="git-dialog-label">
-            名前（英数字・ハイフン・ドット・アンダースコア）
+            {tr("名前（英数字・ハイフン・ドット・アンダースコア）")}
             <span className="add-project-row">
               <span className="setup-create-owner">{owner ? `${owner} /` : ""}</span>
               <input className="input-full" value={name} autoFocus spellCheck={false} placeholder="my-project"
@@ -152,30 +153,30 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
                 onKeyDown={(e) => { if (isEnter(e) && appCreates) createByApp(); }} disabled={busy} />
             </span>
           </label>
-          {repoName && !valid && <p className="git-dialog-error">名前に使えない文字があります（英数字・ハイフン・ドット・アンダースコアだけ）</p>}
+          {repoName && !valid && <p className="git-dialog-error">{tr("名前に使えない文字があります（英数字・ハイフン・ドット・アンダースコアだけ）")}</p>}
           <label className="chk">
             <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} disabled={busy} />
-            非公開にする（学校の課題やチーム制作は、こちら）
+            {tr("非公開にする（学校の課題やチーム制作はこちら）")}
           </label>
           {!ready && (
             <p className="git-dialog-note">
-              <i className="spinner" aria-hidden="true" /> 準備しています…
+              <i className="spinner" aria-hidden="true" /> {" "}{tr("準備しています…")}
             </p>
           )}
           {ready && !appCreates && (
             <>
               <span>
                 <button type="button" className={openedNew ? "btn-sm" : "btn-primary"} onClick={openNewPage} disabled={!valid || busy}>
-                  GitHub で作る（ブラウザが開きます）
+                  {tr("GitHub で作る（ブラウザが開きます）")}
                 </button>
               </span>
               <p className="allow-step-how">
-                GitHub の画面で「<b>Add a README file</b>」にチェックを入れて「<b>Create repository</b>」を押したら、ここに戻って「作ったので次へ」を押します。
+                {trx("GitHub の画面で「<0>Add a README file</0>」にチェックを入れて「<1>Create repository</1>」を押したら、ここに戻って「作ったので次へ」を押します。", undefined, [<b />, <b />])}
               </p>
             </>
           )}
           {ready && appCreates && byLogin && (
-            <p className="git-dialog-note">あなたのアカウントには Life Manager が入っているので、アプリが作ります（作ったリポジトリは、そのまま Life Manager で使えます）。</p>
+            <p className="git-dialog-note">{tr("あなたのアカウントには Life Manager が入っているので、アプリが作ります。作ったリポジトリはそのまま Life Manager で使えます。")}</p>
           )}
         </>
       )}
@@ -188,29 +189,31 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
       {step === 2 && created && (
         <>
           <p className="local-folder-message local-folder-message--ok">
-            ✔ {created.owner}/{created.repo} を作りました{byLogin ? "。Life Manager で使えます" : ""}
+            {byLogin
+              ? tr("✔ {owner}/{repo} を作りました。Life Manager で使えます", { owner: created.owner, repo: created.repo })
+              : tr("✔ {owner}/{repo} を作りました", { owner: created.owner, repo: created.repo })}
           </p>
           {!isMobile && (
             <>
               <label className="chk add-project-clone">
                 <input type="checkbox" checked={clone} onChange={(e) => setClone(e.target.checked)} disabled={busy} />
-                この PC にも持ってくる（クローン。git の作業をしないなら外してよい）
+                {tr("この PC にも持ってくる（クローン。git の作業をしないなら外してよい）")}
               </label>
               {clone && (
                 <div className="add-project-indent">
                   <label className="git-dialog-label">
-                    置き場所
+                    {tr("置き場所")}
                     <span className="add-project-row">
-                      <input className="input-full" value={parent} readOnly placeholder="フォルダを選んでください" />
+                      <input className="input-full" value={parent} readOnly placeholder={tr("フォルダを選んでください")} />
                       <button type="button" className="btn-sm" onClick={pickParent} disabled={busy}>
-                        選ぶ…
+                        {tr("選ぶ…")}
                       </button>
                     </span>
                   </label>
-                  {dest && <p className="git-dialog-note">→ <b>{dest}</b> ができ、作業フォルダになります</p>}
+                  {dest && <p className="git-dialog-note">{trx("→ <0>{dest}</0> ができ、作業フォルダになります", { dest }, [<b />])}</p>}
                   <div className="cmd-preview">
-                    <span>実行するコマンド</span>
-                    <code>{git.displayCommand(["clone", `https://github.com/${created.owner}/${created.repo}.git`, dest || `（置き場所）${sep(parent || "\\")}${created.repo}`])}</code>
+                    <span>{tr("実行するコマンド")}</span>
+                    <code>{git.displayCommand(["clone", `https://github.com/${created.owner}/${created.repo}.git`, dest || tr("（置き場所）{sep}{repo}", { sep: sep(parent || "\\"), repo: created.repo })])}</code>
                   </div>
                 </div>
               )}
@@ -221,23 +224,23 @@ export function CreateRepoFlow({ defaultName = "", finishLabel, onFinish, onBack
 
       {busy && (
         <p className="git-dialog-running">
-          <i className="spinner" aria-hidden="true" /> {step === 2 && useClone ? "クローンしています…（大きなリポジトリは時間がかかります）" : "実行しています…"}
+          <i className="spinner" aria-hidden="true" /> {step === 2 && useClone ? tr("クローンしています…（大きなリポジトリは時間がかかります）") : tr("実行しています…")}
         </p>
       )}
       {error && <p className="git-dialog-error">{error}</p>}
 
       <div className="git-dialog-actions add-project-actions">
         {step === 0 && (
-          <button type="button" className="link-button" onClick={onBack} disabled={busy}>← 戻る</button>
+          <button type="button" className="link-button" onClick={onBack} disabled={busy}>{tr("← 戻る")}</button>
         )}
         {step === 1 && (
-          <button type="button" className="link-button" onClick={() => setStep(0)} disabled={busy}>← 前へ</button>
+          <button type="button" className="link-button" onClick={() => setStep(0)} disabled={busy}>{tr("← 前へ")}</button>
         )}
         {step === 0 && ready && appCreates && (
-          <button type="button" className="btn-primary" onClick={createByApp} disabled={!valid || busy}>作る</button>
+          <button type="button" className="btn-primary" onClick={createByApp} disabled={!valid || busy}>{tr("作る")}</button>
         )}
         {step === 0 && ready && !appCreates && (
-          <button type="button" className={openedNew ? "btn-primary" : "btn-sm"} onClick={madeOnGitHub} disabled={!valid || busy}>作ったので次へ</button>
+          <button type="button" className={openedNew ? "btn-primary" : "btn-sm"} onClick={madeOnGitHub} disabled={!valid || busy}>{tr("作ったので次へ")}</button>
         )}
         {step === 2 && (
           <button type="button" className="btn-primary" onClick={finish} disabled={busy || (useClone && !parent)}>

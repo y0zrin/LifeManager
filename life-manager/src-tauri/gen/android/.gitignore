@@ -17,3 +17,6 @@ key.properties
 
 /.tauri
 /tauri.settings.gradle
+# 署名の鍵は入れない（docs/04_keys_and_tokens.md）
+*.keystore
+*.jks

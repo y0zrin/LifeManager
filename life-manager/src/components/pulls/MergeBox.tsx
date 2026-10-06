@@ -15,6 +15,7 @@ import {
   type PullRepoInfo,
 } from "../../lib/pulls";
 import type { CommitChecks } from "../../lib/actions";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 const METHOD_KEY = "pull-merge-method";
 
@@ -46,10 +47,18 @@ function loadMethod(): MergeMethod {
   }
 }
 
+/**
+ * 長く残すブランチ（版の名前 0.9.0・v1.2・release/1.0、develop など）。マージしたあとも残すことが多いので、
+ * 「マージしたらブランチを消す」を、はじめは外しておく（作業のブランチ issue-3・feature/… は、はじめから消す）
+ */
+export function keepsBranch(name: string): boolean {
+  return /^v?\d+(\.\d+)+(-[\w.]+)?$/i.test(name) || /^(release|releases|hotfix)\//i.test(name) || /^(develop|development|dev|staging|production|master|main|gh-pages)$/i.test(name);
+}
+
 /** マージの箱（会話のいちばん下）。マージできるか・レビューの判断・マージの仕方・閉じる。マージしたあとは、ブランチの片づけ */
 export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChanged, onMerged, onFixLocally, checks, onOpenCheck }: MergeBoxProps) {
   const [method, setMethodState] = useState<MergeMethod>(loadMethod);
-  const [deleteBranch, setDeleteBranch] = useState(true);
+  const [deleteBranch, setDeleteBranch] = useState(() => !keepsBranch(pull.head));
   const [confirming, setConfirming] = useState<"merge" | "close" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,12 +105,12 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
   }
 
   const merge = (button: HTMLElement) =>
-    run("マージしています…", async () => {
+    run(tr("マージしています…"), async () => {
       const autoDelete = info?.delete_branch_on_merge ?? false;
       const result = await mergePull(owner, repo, pull.number, chosen, pull.head_sha, canDeleteBranch && deleteBranch && !autoDelete ? pull.head : null);
-      const also = closes.length > 0 ? `（${closes.map((n) => `#${n}`).join("・")} も閉じました）` : "";
-      celebrateDone(`#${pull.number}`, button, `#${pull.number} をマージしました${also}`);
-      if (result.branch_error) setNote(`マージしました。${result.branch_error}`);
+      const also = closes.length > 0 ? tr("（{join} も閉じました）", { join: closes.map((n) => `#${n}`).join(tr("・")) }) : "";
+      celebrateDone(`#${pull.number}`, button, tr("#{number} をマージしました{also}", { number: pull.number, also }));
+      if (result.branch_error) setNote(tr("マージしました。{branch_error}", { branch_error: result.branch_error }));
       onChanged();
       onMerged?.();
     });
@@ -114,36 +123,33 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
         <div className="mb-status">
           <span className="mb-icon" aria-hidden="true">🟣</span>
           <div>
-            <b>マージしました</b>
+            <b>{tr("マージしました")}</b>
             <div className="muted">
-              {ago(pull.merged_at)}、{pull.merged_by?.login ?? "だれか"} が <code>{pull.head}</code> を <code>{pull.base}</code> に入れました
-              {pull.merge_commit_sha && <>（<code>{pull.merge_commit_sha.slice(0, 7)}</code>）</>}
+              {trx("{ago}、{who} が <0>{head}</0> を <1>{base}</1> に入れました", { ago: ago(pull.merged_at), who: pull.merged_by?.login ?? tr("だれか"), head: pull.head, base: pull.base }, [<code />, <code />])}
+              {pull.merge_commit_sha && trx("（<0>{sha}</0>）", { sha: pull.merge_commit_sha.slice(0, 7) }, [<code />])}
             </div>
           </div>
         </div>
         {pull.same_repo && pull.head_exists === true && (
           <div className="mb-row">
-            <span>ブランチ <code>{pull.head}</code> は GitHub に残っています。もう使わなければ、消して片づけます（この PC のブランチは残ります）。</span>
+            <span>{trx("ブランチ <0>{head}</0> は GitHub に残っています。もう使わなければ、消して片づけます。", { head: pull.head }, [<code />])}</span>
             {canPush && (
-              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run("消しています…", async () => { await deletePullBranch(owner, repo, pull.head); onChanged(); })}>
-                ブランチを消す
+              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run(tr("消しています…"), async () => { await deletePullBranch(owner, repo, pull.head); onChanged(); })}>
+                {tr("ブランチを消す")}
               </button>
             )}
           </div>
         )}
         {pull.same_repo && pull.head_exists === false && (
           <div className="mb-row">
-            <span className="muted">ブランチ <code>{pull.head}</code> は GitHub から消してあります。</span>
+            <span className="muted">{trx("ブランチ <0>{head}</0> は GitHub から消してあります。", { head: pull.head }, [<code />])}</span>
             {canPush && (
-              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run("戻しています…", async () => { await restorePullBranch(owner, repo, pull.head, pull.head_sha); onChanged(); })}>
-                ブランチを戻す
+              <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run(tr("戻しています…"), async () => { await restorePullBranch(owner, repo, pull.head, pull.head_sha); onChanged(); })}>
+                {tr("ブランチを戻す")}
               </button>
             )}
           </div>
         )}
-        <p className="hint">
-          この PC では、<code>{pull.base}</code> に切り替えてプルすると、この変更が入ります（<code>git switch {pull.base}</code> → <code>git pull</code>）。
-        </p>
         {busy && <p className="muted">{busy}</p>}
         {note && <p className="mb-note">{note}</p>}
         {error && <p className="git-dialog-error">{error}</p>}
@@ -157,19 +163,19 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
         <div className="mb-status">
           <span className="mb-icon" aria-hidden="true">🔴</span>
           <div>
-            <b>マージせずに閉じました</b>
-            <div className="muted">{ago(pull.closed_at)}。変更は <code>{pull.base}</code> に入っていません。</div>
+            <b>{tr("マージせずに閉じました")}</b>
+            <div className="muted">{trx("{ago}。変更は <0>{base}</0> に入っていません。", { ago: ago(pull.closed_at), base: pull.base }, [<code />])}</div>
           </div>
         </div>
         {(canPush || mine) && pull.head_exists !== false && (
           <div className="mb-row">
             <span className="grow" />
-            <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run("開き直しています…", async () => { await updatePull(owner, repo, pull.number, { pullState: "open" }); onChanged(); })}>
-              開き直す
+            <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => run(tr("開き直しています…"), async () => { await updatePull(owner, repo, pull.number, { pullState: "open" }); onChanged(); })}>
+              {tr("開き直す")}
             </button>
           </div>
         )}
-        {pull.head_exists === false && <p className="muted">ブランチ <code>{pull.head}</code> が消されているので、開き直すには先にブランチを戻します。</p>}
+        {pull.head_exists === false && <p className="muted">{trx("ブランチ <0>{head}</0> が消されているので、開き直すには先にブランチを戻します。", { head: pull.head }, [<code />])}</p>}
         {error && <p className="git-dialog-error">{error}</p>}
       </div>
     );
@@ -185,19 +191,17 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
 
   let status: { icon: string; tone: string; title: string; text: ReactNode };
   if (pull.draft) {
-    status = { icon: "📝", tone: "draft", title: "下書きです", text: "仕上がったら「レビューをお願いする」にします。下書きのあいだはマージできません。" };
+    status = { icon: "📝", tone: "draft", title: tr("下書きです"), text: tr("下書きのあいだはマージできません。") };
   } else if (checking) {
-    status = { icon: "⏳", tone: "wait", title: "マージできるか、GitHub が調べています…", text: "少し待つと表示されます。" };
+    status = { icon: "⏳", tone: "wait", title: tr("マージできるか GitHub が調べています…"), text: tr("少し待つと表示されます。") };
   } else if (conflict) {
     status = {
       icon: "⚠",
       tone: "bad",
-      title: "競合（コンフリクト）があります",
+      title: tr("競合（コンフリクト）があります"),
       text: (
         <>
-          <code>{pull.base}</code> でも同じところが変わっています。この PC で <code>{pull.base}</code> を <code>{pull.head}</code> に取り込み、
-          競合を直してコミット・プッシュすると、マージできるようになります（<code>git switch {pull.head}</code> → <code>git pull</code> →{" "}
-          <code>git merge origin/{pull.base}</code> → 直す → コミット → プッシュ）。
+          {trx("<0>{base}</0> でも同じところが変わっています。この PC で <1>{base}</1> を <2>{head}</2> に取り込みます。競合を直してコミットとプッシュをすると、マージできるようになります（<3>git switch {head}</3> → <4>git pull</4> → <5>git merge origin/{base}</5> → 直す → コミット → プッシュ）。", { base: pull.base, head: pull.head }, [<code />, <code />, <code />, <code />, <code />, <code />])}
         </>
       ),
     };
@@ -205,20 +209,20 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
     status = {
       icon: "↻",
       tone: "warn",
-      title: `${pull.base} に新しいコミットがあります`,
-      text: <>先に取り込んで（ブランチを更新して）から、マージします。</>,
+      title: tr("{base} に新しいコミットがあります", { base: pull.base }),
+      text: <>{tr("先に取り込んで（ブランチを更新して）から、マージします。")}</>,
     };
   } else if (state === "blocked") {
     status = {
       icon: "🔒",
       tone: "warn",
-      title: "まだマージできません",
-      text: "ブランチの保護ルールで、承認や、チェックの成功が必要です。",
+      title: tr("まだマージできません"),
+      text: tr("ブランチの保護ルールで、承認や、チェックの成功が必要です。"),
     };
   } else if (state === "unstable") {
-    status = { icon: "⚠", tone: "warn", title: "失敗したチェックがあります", text: "マージはできますが、先に確かめておくと安心です。" };
+    status = { icon: "⚠", tone: "warn", title: tr("失敗したチェックがあります"), text: tr("マージはできますが、先に確かめておきましょう。") };
   } else {
-    status = { icon: "✔", tone: "ok", title: "マージできます", text: "競合はありません。" };
+    status = { icon: "✔", tone: "ok", title: tr("マージできます"), text: tr("競合はありません。") };
   }
 
   const blocked = pull.draft || checking || conflict;
@@ -230,18 +234,17 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       ]
     : [];
   const pendingChecks = checks ? checks.checks.filter((c) => c.status !== "completed").length + checks.statuses.filter((s) => s.state === "pending").length : 0;
-  const help = methodHelp(chosen, pull.head, pull.base);
 
   return (
     <div className="mb" id="merge-box">
       <div className="mb-reviews">
-        {approved.length > 0 && <span className="ok">✔ 承認: {approved.join("、")}</span>}
-        {changes_requested.length > 0 && <span className="ng">✖ 修正の依頼: {changes_requested.join("、")}</span>}
+        {approved.length > 0 && <span className="ok">{trx("✔ 承認: {join}", { join: approved.join(listSep()) })}</span>}
+        {changes_requested.length > 0 && <span className="ng">{trx("✖ 修正の依頼: {join}", { join: changes_requested.join(listSep()) })}</span>}
         {approved.length === 0 && changes_requested.length === 0 && (
           <span className="muted">
             {waiting.length > 0
-              ? `レビューを待っています（${waiting.join("、")}）`
-              : "まだ誰もレビューしていません。ひとりで作っているなら、差分を自分で確かめてからマージしてかまいません。"}
+              ? tr("レビューを待っています（{join}）", { join: waiting.join(listSep()) })
+              : tr("まだ誰もレビューしていません")}
           </span>
         )}
       </div>
@@ -254,85 +257,85 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
       </div>
       {failedChecks.length > 0 && (
         <div className="mb-checks">
-          <b className="ng">⚠ 失敗したチェックがあります</b>
+          <b className="ng">{tr("⚠ 失敗したチェックがあります")}</b>
           {failedChecks.slice(0, 4).map((c) => (
             <span key={c.name} className="mb-check-item">
               ✖ {c.name}
               <button type="button" className="btn-sm" onClick={() => onOpenCheck(c.url, c.fallback)}>
-                ログを見る →
+                {tr("ログを見る →")}
               </button>
             </span>
           ))}
           <span className="muted">
-            {state === "blocked" ? "保護ルールで、チェックの成功が決まっています。直すまでマージできません。" : "マージはできますが、先に直すと安心です。"}
+            {state === "blocked" ? tr("保護ルールでチェックの成功が必要です。直すまでマージできません。") : tr("マージはできますが、先に直しておきましょう。")}
           </span>
         </div>
       )}
-      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">● チェックが動いています（{pendingChecks}）。終わってからマージすると安心です。</p>}
+      {failedChecks.length === 0 && pendingChecks > 0 && <p className="mb-pending">{trx("● チェックが動いています（{pendingChecks}）", { pendingChecks })}</p>}
       {conflict && onFixLocally && (
         <div className="mb-row">
-          <span>この PC の作業フォルダで取り込むと、作業タブの「競合を直す」で直せます。</span>
+          <span className="grow" />
           <button type="button" className="btn-sm" onClick={onFixLocally}>
-            この PC で直す
+            {tr("この PC で直す")}
           </button>
         </div>
       )}
       {state === "behind" && canPush && (
         <div className="mb-row">
-          <span className="muted">GitHub の上で <code>{pull.base}</code> を <code>{pull.head}</code> に取り込みます（マージコミットができます）。</span>
+          <span className="grow" />
           <button
             type="button"
             className="btn-sm"
             disabled={busy !== null}
-            onClick={() => run("更新しています…", async () => { await updatePullBranch(owner, repo, pull.number, pull.head_sha); setNote("ブランチを更新しています。少しすると反映されます。"); window.setTimeout(onChanged, 2500); })}
+            onClick={() => run(tr("更新しています…"), async () => { await updatePullBranch(owner, repo, pull.number, pull.head_sha); setNote(tr("ブランチを更新しています")); window.setTimeout(onChanged, 2500); })}
           >
-            ブランチを更新する
+            {tr("ブランチを更新する")}
           </button>
         </div>
       )}
       {pull.draft && (canPush || mine) && (
         <div className="mb-row">
           <span className="grow" />
-          <button type="button" className="btn-sm primary" disabled={busy !== null} onClick={() => run("切り替えています…", async () => { await setPullDraft(pull.node_id, false); onChanged(); })}>
-            レビューをお願いする（下書きをやめる）
+          <button type="button" className="btn-sm primary" disabled={busy !== null} onClick={() => run(tr("切り替えています…"), async () => { await setPullDraft(pull.node_id, false); onChanged(); })}>
+            {tr("レビューをお願いする（下書きをやめる）")}
           </button>
         </div>
       )}
 
       {canPush && !pull.draft && (
         <div className="mb-merge">
-          <div className="mb-methods" role="radiogroup" aria-label="マージの仕方">
-            {allowed.map((m) => (
-              <label key={m} className={`mb-method${chosen === m ? " on" : ""}`}>
-                <input type="radio" name="merge-method" checked={chosen === m} onChange={() => setMethod(m)} />
-                {METHOD_LABELS[m]}
-              </label>
-            ))}
+          <div className="mb-methods" role="radiogroup" aria-label={tr("マージの仕方")}>
+            {allowed.map((m) => {
+              const help = methodHelp(m, pull.head, pull.base);
+              return (
+                <label key={m} className={`mb-method${chosen === m ? " on" : ""}`} title={tr("{text}。手元でするなら {command}", { text: help.text, command: help.command })}>
+                  <input type="radio" name="merge-method" checked={chosen === m} onChange={() => setMethod(m)} />
+                  {METHOD_LABELS[m]}
+                </label>
+              );
+            })}
           </div>
-          <p className="hint">
-            {help.text}。手元でするなら <code>{help.command}</code>
-          </p>
           {canDeleteBranch &&
             (info?.delete_branch_on_merge ? (
-              <p className="muted">マージすると、ブランチ <code>{pull.head}</code> は GitHub の設定で自動で消えます。</p>
+              <p className="muted">{trx("マージするとブランチ <0>{head}</0> は GitHub の設定で自動で消えます。", { head: pull.head }, [<code />])}</p>
             ) : (
               <label className="mb-check">
                 <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />
-                マージしたら GitHub のブランチ <code>{pull.head}</code> を消す（あとで戻せます）
+                {trx("マージしたら GitHub のブランチ <0>{head}</0> を消す（あとで戻せます）", { head: pull.head }, [<code />])}
               </label>
             ))}
-          {closes.length > 0 && <p className="mb-closes">🔗 マージすると {closes.map((n) => `#${n}`).join("・")} も閉じます（本文の Closes）</p>}
+          {closes.length > 0 && <p className="mb-closes">{tr("🔗 マージすると {issues} も閉じます（本文の Closes）", { issues: closes.map((n) => `#${n}`).join(tr("・")) })}</p>}
           <div className="mb-actions">
             {confirming === "merge" ? (
               <>
                 <span className="mb-confirm">
-                  <code>{pull.head}</code> を <code>{pull.base}</code> に入れます（{METHOD_LABELS[chosen]}）。よいですか？
+                  {trx("<0>{head}</0> を <1>{base}</1> に入れます（{METHOD_LABELS}）。よいですか？", { head: pull.head, base: pull.base, METHOD_LABELS: METHOD_LABELS[chosen] }, [<code />, <code />])}
                 </span>
                 <button type="button" className="btn-sm" disabled={busy !== null} onClick={() => setConfirming(null)}>
-                  やめる
+                  {tr("やめる")}
                 </button>
                 <button type="button" className="btn-sm merge" disabled={busy !== null} onClick={(e) => merge(e.currentTarget)}>
-                  {busy ?? "マージする"}
+                  {busy ?? tr("マージする")}
                 </button>
               </>
             ) : (
@@ -342,33 +345,33 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
                   type="button"
                   className="btn-sm merge"
                   disabled={blocked || busy !== null}
-                  title={blocked ? "今はマージできません（上の説明を見てください）" : undefined}
+                  title={blocked ? tr("今はマージできません（上の説明を見てください）") : undefined}
                   onClick={() => setConfirming("merge")}
                 >
-                  マージする…
+                  {tr("マージする…")}
                 </button>
               </>
             )}
           </div>
         </div>
       )}
-      {!canPush && info && <p className="muted">マージできるのは、このリポジトリに書き込める人です。</p>}
+      {!canPush && info && <p className="muted">{tr("マージできるのはこのリポジトリに書き込める人です。")}</p>}
 
       {(canPush || mine) && (
         <div className="mb-close">
           {confirming === "close" ? (
             <>
-              <span>マージせずに閉じます（あとで開き直せます）。よいですか？</span>
+              <span>{tr("マージせずに閉じます（あとで開き直せます）。よいですか？")}</span>
               <button type="button" className="btn-sm" onClick={() => setConfirming(null)}>
-                やめる
+                {tr("やめる")}
               </button>
-              <button type="button" className="btn-sm danger" disabled={busy !== null} onClick={() => run("閉じています…", async () => { await updatePull(owner, repo, pull.number, { pullState: "closed" }); onChanged(); })}>
-                閉じる
+              <button type="button" className="btn-sm danger" disabled={busy !== null} onClick={() => run(tr("閉じています…"), async () => { await updatePull(owner, repo, pull.number, { pullState: "closed" }); onChanged(); })}>
+                {tr("閉じる")}
               </button>
             </>
           ) : (
             <button type="button" className="link-button" onClick={() => setConfirming("close")}>
-              マージせずに閉じる…
+              {tr("マージせずに閉じる…")}
             </button>
           )}
         </div>

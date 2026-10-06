@@ -10,6 +10,7 @@ import {
   type PullFile,
   type ReviewComment,
 } from "../../lib/pulls";
+import { tr, trx } from "../../lib/i18n";
 
 /** 1 つのファイルで最初に見せる行の数（長いファイルは「続きを見る」で） */
 const FIRST_ROWS = 600;
@@ -18,23 +19,23 @@ const LAYOUT_KEY = "pull-diff-layout";
 type Layout = "unified" | "split";
 
 const STATUS_NAMES: Record<string, string> = {
-  added: "追加",
-  removed: "削除",
-  modified: "変更",
-  renamed: "名前",
-  copied: "コピー",
-  changed: "変更",
-  unchanged: "同じ",
+  added: tr("追加"),
+  removed: tr("削除"),
+  modified: tr("変更"),
+  renamed: tr("名前"),
+  copied: tr("コピー"),
+  changed: tr("変更"),
+  unchanged: tr("同じ"),
 };
 
 const STATUS_TITLES: Record<string, string> = {
-  added: "新しく作ったファイル",
-  removed: "削除したファイル",
-  modified: "中身を変えたファイル",
-  renamed: "名前（場所）を変えたファイル",
-  copied: "コピーしたファイル",
-  changed: "種類や権限が変わったファイル",
-  unchanged: "変わっていないファイル",
+  added: tr("新しく作ったファイル"),
+  removed: tr("削除したファイル"),
+  modified: tr("中身を変えたファイル"),
+  renamed: tr("名前（場所）を変えたファイル"),
+  copied: tr("コピーしたファイル"),
+  changed: tr("種類や権限が変わったファイル"),
+  unchanged: tr("変わっていないファイル"),
 };
 
 export interface LineCommentDraft {
@@ -174,8 +175,8 @@ export function PullFiles({ files, error, comments = [], onComment, viewedKey, f
   }, [comments]);
 
   if (error) return <p className="pf-message error">{error}</p>;
-  if (!files) return <p className="pf-message">変更したファイルを読み込んでいます…</p>;
-  if (files.length === 0) return <p className="pf-message">変更したファイルはありません。</p>;
+  if (!files) return <p className="pf-message">{tr("変更したファイルを読み込んでいます…")}</p>;
+  if (files.length === 0) return <p className="pf-message">{tr("変更したファイルはありません。")}</p>;
 
   const added = files.reduce((n, f) => n + f.additions, 0);
   const deleted = files.reduce((n, f) => n + f.deletions, 0);
@@ -185,28 +186,28 @@ export function PullFiles({ files, error, comments = [], onComment, viewedKey, f
     <div className={`pf${compact ? " pf--compact" : ""}`}>
       <div className="pf-toolbar">
         <span className="pf-total">
-          <b>{files.length}</b> ファイル <span className="add">+{added}</span> <span className="del">−{deleted}</span>
+          {trx("<0>{length}</0> ファイル <1>+{added}</1> <2>−{deleted}</2>", { length: files.length, added, deleted }, [<b />, <span className="add" />, <span className="del" />])}
         </span>
         {viewedKey && (
-          <span className="pf-seen" title="「見た」に印を付けたファイルは、たたんでおけます（差分が変わると外れます）">
-            見た {seen} / {files.length}
+          <span className="pf-seen" title={tr("「見た」に印を付けたファイルは、たたんでおけます（差分が変わると外れます）")}>
+            {trx("見た {seen} / {length}", { seen, length: files.length })}
           </span>
         )}
         <span className="grow" />
-        <span className="seg" role="group" aria-label="差分の見せ方">
-          <button type="button" className={layout === "unified" ? "on" : ""} onClick={() => setLayout("unified")} title="消した行（赤）と足した行（緑）を 1 列に">
-            1 列
+        <span className="seg" role="group" aria-label={tr("差分の見せ方")}>
+          <button type="button" className={layout === "unified" ? "on" : ""} onClick={() => setLayout("unified")} title={tr("消した行（赤）と足した行（緑）を 1 列に")}>
+            {tr("1 列")}
           </button>
-          <button type="button" className={layout === "split" ? "on" : ""} onClick={() => setLayout("split")} title="左に変える前、右に変えたあとを並べる">
-            左右に並べる
+          <button type="button" className={layout === "split" ? "on" : ""} onClick={() => setLayout("split")} title={tr("左に変える前、右に変えたあとを並べる")}>
+            {tr("左右に並べる")}
           </button>
         </span>
         <button type="button" className="btn-sm" onClick={() => setFolded(folded.size > 0 ? new Set() : new Set(files.map((f) => f.filename)))}>
-          {folded.size > 0 ? "すべて開く" : "すべてたたむ"}
+          {folded.size > 0 ? tr("すべて開く") : tr("すべてたたむ")}
         </button>
       </div>
       <div className="pf-body">
-        <div className="pf-list" ref={listRef} role="list" aria-label="変更したファイル">
+        <div className="pf-list" ref={listRef} role="list" aria-label={tr("変更したファイル")}>
           {files.map((f) => (
             <button
               key={f.filename}
@@ -223,7 +224,7 @@ export function PullFiles({ files, error, comments = [], onComment, viewedKey, f
                 <span className="add">+{f.additions}</span>
                 <span className="del">−{f.deletions}</span>
               </span>
-              {isViewed(f) && <span className="pf-check" aria-label="見た">✓</span>}
+              {isViewed(f) && <span className="pf-check" aria-label={tr("見た")}>✓</span>}
             </button>
           ))}
         </div>
@@ -231,7 +232,7 @@ export function PullFiles({ files, error, comments = [], onComment, viewedKey, f
           {files.map((f) => (
             <section key={f.filename} id={fileId(f.filename)} className={`pf-file${current === f.filename ? " on" : ""}`}>
               <header className="pf-file-head">
-                <button type="button" className="pf-fold" aria-expanded={isOpen(f)} onClick={() => toggleFold(f)} title={isOpen(f) ? "たたむ" : "開く"}>
+                <button type="button" className="pf-fold" aria-expanded={isOpen(f)} onClick={() => toggleFold(f)} title={isOpen(f) ? tr("たたむ") : tr("開く")}>
                   {isOpen(f) ? "▾" : "▸"}
                 </button>
                 <span className={`pf-status s-${f.status}`} title={STATUS_TITLES[f.status]}>
@@ -244,8 +245,8 @@ export function PullFiles({ files, error, comments = [], onComment, viewedKey, f
                 </span>
                 <ChangeBar added={f.additions} deleted={f.deletions} />
                 {viewedKey && (
-                  <label className="pf-viewed" title="見終わったら印を付けます（たたみます）">
-                    <input type="checkbox" checked={isViewed(f)} onChange={() => toggleViewed(f)} /> 見た
+                  <label className="pf-viewed" title={tr("見終わったら印を付けます（たたみます）")}>
+                    <input type="checkbox" checked={isViewed(f)} onChange={() => toggleViewed(f)} /> {" "}{tr("見た")}
                   </label>
                 )}
               </header>
@@ -285,8 +286,8 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
     return (
       <p className="pf-message">
         {file.status === "renamed" && file.additions + file.deletions === 0
-          ? "（名前だけの変更です）"
-          : "（画像などのバイナリか、大きすぎる変更なので、GitHub が差分を出していません）"}
+          ? tr("（名前だけの変更です）")
+          : tr("（画像などのバイナリか大きすぎる変更なので、GitHub が差分を出していません）")}
       </p>
     );
   }
@@ -314,13 +315,13 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
       <div className="pf-thread">
         {list.map((c) => (
           <div key={c.id} className="pf-comment">
-            <b>{c.user?.login ?? "（不明）"}</b> <span className="muted">{ago(c.at)}</span>
+            <b>{c.user?.login ?? tr("（不明）")}</b> <span className="muted">{ago(c.at)}</span>
             <div className="pf-comment-body">{c.body}</div>
           </div>
         ))}
         {composing && composer && onComment && (
           <LineComposer
-            label={`${composer.side === "LEFT" ? "変える前の" : ""} ${composer.line} 行目にコメント`}
+            label={composer.side === "LEFT" ? tr("変える前の {line} 行目にコメント", { line: composer.line }) : tr("{line} 行目にコメント", { line: composer.line })}
             onCancel={() => setComposer(null)}
             onSubmit={async (body) => {
               await onComment({ path: file.filename, line: composer.line, side: composer.side, body });
@@ -334,7 +335,7 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
 
   const addButton = (l: PatchLine, side?: "LEFT" | "RIGHT") =>
     onComment ? (
-      <button type="button" className="pf-add" title="この行にコメントを付ける" aria-label="この行にコメントを付ける" onClick={() => setComposer(target(l, side))}>
+      <button type="button" className="pf-add" title={tr("この行にコメントを付ける")} aria-label={tr("この行にコメントを付ける")} onClick={() => setComposer(target(l, side))}>
         +
       </button>
     ) : null;
@@ -398,7 +399,7 @@ function FileDiff({ file, layout, comments, onComment }: FileDiffProps) {
           )}
       {more > 0 && (
         <button type="button" className="pf-more" onClick={() => setLimit(rows.length)}>
-          残りの {more} 行を見る
+          {trx("残りの {more} 行を見る", { more })}
         </button>
       )}
     </div>
@@ -415,15 +416,15 @@ function LineComposer({ label, onSubmit, onCancel }: { label: string; onSubmit: 
         autoFocus
         rows={3}
         value={body}
-        placeholder={`${label.trim()}（例: ここは画面の外に出ませんか？）`}
+        placeholder={tr("{trim}（例: ここは画面の外に出ませんか？）", { trim: label.trim() })}
         onChange={(e) => setBody(e.target.value)}
       />
       {error && <p className="git-dialog-error">{error}</p>}
       <div className="pf-composer-actions">
-        <span className="muted">その場で送られます（レビューのコメントになります）</span>
+        <span className="muted">{tr("「コメントする」を押すと送られます（レビューのコメントになります）")}</span>
         <span className="grow" />
         <button type="button" className="btn-sm" disabled={busy} onClick={onCancel}>
-          やめる
+          {tr("やめる")}
         </button>
         <button
           type="button"
@@ -440,7 +441,7 @@ function LineComposer({ label, onSubmit, onCancel }: { label: string; onSubmit: 
             }
           }}
         >
-          {busy ? "送っています…" : "コメントする"}
+          {busy ? tr("送っています…") : tr("コメントする")}
         </button>
       </div>
     </div>

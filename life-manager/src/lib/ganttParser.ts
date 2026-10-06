@@ -82,6 +82,11 @@ export function serializeGanttDates(start: string, end: string): string {
   return `<!-- gantt:${start}/${end} -->`;
 }
 
+/** 本文の日程（<!-- gantt:開始/終了 -->）を書き換える。なければ足す */
+export function withGanttDates(body: string | null, start: string, end: string): string {
+  return updateBodyMetadata(body, /<!--\s*gantt:\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}\s*-->/, serializeGanttDates(start, end));
+}
+
 /** 依存関係メタデータを生成 */
 export function serializeDependencies(deps: number[]): string {
   if (deps.length === 0) return "";
@@ -126,6 +131,28 @@ export function issuesToGanttTasks(issues: GitHubIssue[]): GanttTask[] {
   });
 }
 
+/** 番号の並び。まだ送っていない Issue（仮の番号 = 負の数。-1 が先に作ったもの）は、送った Issue のあとに作った順で */
+function numberOrder(n: number): number {
+  return n < 0 ? Number.MAX_SAFE_INTEGER / 2 - n : n;
+}
+
+/**
+ * ガントの行の並び: 開始日の早い順（同じなら終了日、それも同じなら番号の順）。
+ * 日程のないタスクは下に、番号の順で並べる（GitHub から返る順は作った日の新しい順で、先行タスクの順に流れないため）
+ */
+export function compareGanttRows(a: GanttTask, b: GanttTask): number {
+  if (a.startDate && b.startDate) {
+    return (
+      a.startDate.localeCompare(b.startDate) ||
+      (a.endDate ?? "").localeCompare(b.endDate ?? "") ||
+      numberOrder(a.issueNumber) - numberOrder(b.issueNumber)
+    );
+  }
+  if (a.startDate) return -1;
+  if (b.startDate) return 1;
+  return numberOrder(a.issueNumber) - numberOrder(b.issueNumber);
+}
+
 /** body からガントメタデータ行をすべて除去 */
 export function stripGanttMetadata(body: string): string {
   return body
@@ -135,4 +162,26 @@ export function stripGanttMetadata(body: string): string {
     .replace(/<!--\s*progress:\d+\s*-->\n?/g, "")
     .replace(/<!--\s*progress:(done|undone)\s*-->\n?/g, "")
     .trimEnd();
+}
+
+/**
+ * ガントの下の帯・スマホの板に出す、タスクの内容（本文のはじめ）。HTML のコメント（ガントの日程・先行など）を除き、
+ * 見出しと箇条書きの印を外して 1 つの段にまとめる（行の区切りは「／」、チェックは ☐・☑）。#217
+ */
+export function bodyExcerpt(body: string | null, max = 240): string {
+  const lines = (body ?? "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split("\n")
+    .map((l) =>
+      l
+        .trim()
+        .replace(/^[-*]\s+\[[xX]\]\s*/, "☑ ")
+        .replace(/^[-*]\s+\[ \]\s*/, "☐ ")
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/^[-*+>]\s+/, "")
+        .replace(/^\d+\.\s+/, ""),
+    )
+    .filter(Boolean);
+  const text = lines.join(" ／ ");
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }

@@ -10,6 +10,9 @@ import {
   setDefaultToken, SIGNED_OUT_STORE, takeLoginNotice, type Installation, type SavedAccount, type TokenReport, type UserRepo,
 } from "../../lib/auth";
 import { listMyInvitations, SIGNUP_URL } from "../../lib/team";
+import { THIS_DEVICE } from "../../lib/platform";
+import { tr, trx } from "../../lib/i18n";
+import { LanguageSelect } from "../common/LanguageSelect";
 
 interface SetupViewProps {
   /** 使うリポジトリが決まった（トークンはもうアプリの中にしまってある）。inviteNext なら、はじめたあと 設定 → 接続 を開く。
@@ -23,15 +26,17 @@ interface SetupViewProps {
   onRestoreAccount?: (login: string) => Promise<void>;
   /** ログインできた。前にこの PC で使っていたアカウントで、そのまま続けられるなら true（セットアップはここで終わる） */
   onLoggedIn?: (report: TokenReport) => Promise<boolean>;
+  /** はじめに見た目を選んだ（手順の 1. に「見た目」を出し、押すと選び直せる） */
+  onLook?: () => void;
 }
 
 /** ログインのあとに選ぶ使い方: チームを作る（リーダー）／招待を受ける（メンバー）／個人で使う */
 type Path = "team" | "join" | "solo";
 
 const PATHS: { id: Path; icon: string; label: string; desc: string }[] = [
-  { id: "team", icon: "👥", label: "チームを作る", desc: "リーダー向け。リポジトリを用意して、メンバーを招待します" },
-  { id: "join", icon: "📨", label: "招待を受ける", desc: "メンバー向け。名前をリーダーに伝えて、届いた招待で参加します" },
-  { id: "solo", icon: "👤", label: "個人で使う", desc: "自分だけのリポジトリで使います（あとからチームにもできます）" },
+  { id: "team", icon: "👥", label: tr("チームを作る"), desc: tr("リーダー向け。リポジトリを用意してメンバーを招待します") },
+  { id: "join", icon: "📨", label: tr("招待を受ける"), desc: tr("メンバー向け。名前をリーダーに伝えて、届いた招待で参加します") },
+  { id: "solo", icon: "👤", label: tr("個人で使う"), desc: tr("自分だけのリポジトリで使います（あとからチームにもできます）") },
 ];
 
 /** 新しく作るリポジトリの名前（手順 1 の欄に、はじめに入れておくもの） */
@@ -61,7 +66,7 @@ type Signup = "none" | "opened" | "login";
  * 招待を受ける: 自分の GitHub の名前を大きく出す。招待はメール（か招待のページ）で受け、使えるようになったらアプリが気づいて
  * 「このリポジトリではじめる」を出す。どの道も、最後のボタンでそのままはじめる
  */
-export function SetupView({ onDone, resume = false, adding = null, onRestoreAccount, onLoggedIn }: SetupViewProps) {
+export function SetupView({ onDone, resume = false, adding = null, onRestoreAccount, onLoggedIn, onLook }: SetupViewProps) {
   const [step, setStep] = useState(0);
   const [path, setPath] = useState<Path | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
@@ -284,7 +289,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
   const ownInstall = !!me && !!installations?.some((i) => i.account.login.toLowerCase() === me.login.toLowerCase());
   const startReady = mode === "existing" && !!picked && pickedOk;
   const team = path === "team";
-  const startLabel = team ? "はじめて、メンバーを招待する" : "はじめる";
+  const startLabel = team ? tr("はじめて、メンバーを招待する") : tr("はじめる");
 
   function choose(p: Path) {
     setPath(p);
@@ -365,7 +370,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
   async function copyJoinText() {
     if (!joinProblem) return;
     const [, repo] = joinProblem.fullName.split("/");
-    const text = `${joinProblem.fullName} に参加しました。Life Manager で使えるように、このリポジトリに Life Manager App を入れてください（Life Manager の「使用するリポジトリを選ぶ」か「リポジトリを追加する」で ${repo} を選びます）。`;
+    const text = tr("{fullName} に参加しました。Life Manager で使えるように、このリポジトリに Life Manager App を入れてください。Life Manager の「使用するリポジトリを選ぶ」か「リポジトリを追加する」で {repo} を選びます。", { fullName: joinProblem.fullName, repo });
     try {
       await navigator.clipboard.writeText(text);
       setJoinTextCopied(true);
@@ -374,14 +379,14 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
     }
   }
 
-  const steps = ["GitHub にログイン", "使い方を選ぶ", PATHS.find((p) => p.id === path)?.label ?? "準備する"];
+  const steps = [tr("GitHub にログイン"), tr("使い方を選ぶ"), PATHS.find((p) => p.id === path)?.label ?? tr("準備する")];
 
   const signupTips = (
     <ul className="setup-tips">
-      <li>メールに届く数字のコードを入れると、登録が終わります。届かないときは、迷惑メールのフォルダも見てください。</li>
-      <li>使い方などの質問が出たら、飛ばして（Skip）かまいません。</li>
+      <li>{tr("メールに届く数字のコードを入れると、登録が終わります。届かないときは迷惑メールのフォルダも見てください。")}</li>
+      <li>{tr("使い方などの質問が出たら、飛ばして（Skip）かまいません。")}</li>
       <li>
-        ブラウザが開かないとき:{" "}
+        {tr("ブラウザが開かないとき:")}{" "}
         <button type="button" className="link-button" onClick={() => openUrl(SIGNUP_URL).catch(() => {})}>
           github.com/signup
         </button>
@@ -392,12 +397,20 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
   return (
     <div className="setup-view">
       <div className="setup-card">
-        <h1 className="setup-title">Life Manager へようこそ</h1>
-        <p className="setup-sub">タスク（GitHub の Issue）と git の作業を、ひとつの画面で。</p>
+        <LanguageSelect className="lang-select--setup" />
+        <h1 className="setup-title">{tr("Life Manager へようこそ")}</h1>
+        <p className="setup-sub">{tr("タスク（GitHub の Issue）と git の作業をひとつの画面で。")}</p>
         <ol className="setup-steps">
+          {onLook && (
+            <li className="done">
+              <button type="button" className="link-button setup-look" onClick={onLook} title={tr("見た目を選び直す")}>
+                {tr("1. 見た目")}
+              </button>
+            </li>
+          )}
           {steps.map((s, i) => (
             <li key={s} className={i < step ? "done" : i === step ? "on" : ""}>
-              {i + 1}. {s}
+              {i + (onLook ? 2 : 1)}. {s}
             </li>
           ))}
         </ol>
@@ -406,16 +419,15 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         {adding && (
           <div className="setup-adding">
             <div>
-              <b>別のアカウントを追加しています</b>（{adding} はしまってあります）。
+              {trx("<0>別のアカウントを追加しています</0>（{adding} はしまってあります）。", { adding }, [<b />])}
               {step === 0 && (
                 <>
-                  先に、<b>ブラウザの GitHub を、追加したいアカウントに切り替えて</b>ください（GitHub の右上のアイコン →「Switch account」か「Add account」）。
-                  今のアカウントのままだと、同じアカウントが入ります。
+                  {trx("先に、<0>ブラウザの GitHub を、追加したいアカウントに切り替えて</0>ください（GitHub の右上のアイコン →「Switch account」か「Add account」）。 今のアカウントのままだと、同じアカウントが入ります。", undefined, [<b />])}
                 </>
               )}
             </div>
             <button type="button" className="btn-sm" disabled={restoring !== null} onClick={() => restore(adding)}>
-              {restoring === adding ? "戻っています…" : `やめる（${adding} に戻る）`}
+              {restoring === adding ? tr("戻っています…") : tr("やめる（{adding} に戻る）", { adding })}
             </button>
           </div>
         )}
@@ -423,11 +435,11 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         {/* この PC にしまってあるアカウント（足している途中で閉じた・ログアウトしたあとなど）に戻れる */}
         {step === 0 && !adding && onRestoreAccount && savedAccounts.length > 0 && (
           <div className="setup-saved">
-            <span>この PC でログインしたアカウントで続ける:</span>
+            <span>{trx("{THIS_DEVICE}でログインしたアカウントで続ける:", { THIS_DEVICE })}</span>
             {savedAccounts.map((a) => (
               <button key={a.login} type="button" className="btn-sm setup-saved-account" disabled={restoring !== null} onClick={() => restore(a.login)}>
                 {a.avatar_url ? <img src={a.avatar_url} alt="" /> : <span aria-hidden="true">👤</span>}
-                {restoring === a.login ? "戻っています…" : a.login}
+                {restoring === a.login ? tr("戻っています…") : a.login}
               </button>
             ))}
           </div>
@@ -436,17 +448,15 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
         {step === 0 && notice && (
           <div className="setup-notice">
             {notice.kind === "expired" ? (
-              <>この PC で使う期限が来たので、ログインの鍵を消しました。もう一度ログインしてください。</>
+              <>{trx("{THIS_DEVICE}で使う期限が来たので、ログインの鍵を消しました。もう一度ログインしてください。", { THIS_DEVICE })}</>
             ) : (
               <>
-                ログアウトしました（この PC から鍵を消しました）。
+                {trx("ログアウトしました（{THIS_DEVICE}から鍵を消しました）。", { THIS_DEVICE })}
                 {notice.login && (
                   <>
-                    GitHub での Life Manager の許可も取り消すときは{" "}
-                    <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})}>
-                      GitHub の画面を開く
-                    </button>
-                    （Life Manager App の Revoke を押します）。
+                    {trx("GitHub での Life Manager の許可も取り消すときは <0>GitHub の画面を開く</0>（Life Manager App の Revoke を押します）。", undefined, [
+                      <button type="button" className="link-button" onClick={() => openUrl(APP_AUTHORIZATIONS_PAGE).catch(() => {})} />,
+                    ])}
                   </>
                 )}
               </>
@@ -458,15 +468,15 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
           <>
             {(useToken || clientId === "") && (
               <>
-                <TokenEntry repos={[]} saveLabel="このトークンで入る" onSave={async (t) => { await setDefaultToken(t); await loggedIn(); }}
+                <TokenEntry repos={[]} saveLabel={tr("このトークンで入る")} onSave={async (t) => { await setDefaultToken(t); await loggedIn(); }}
                   onCancel={canLogin ? () => setUseToken(false) : undefined} />
                 {clientId === "" && (
                   <p className="setup-alt">
-                    GitHub のアカウントがないとき:
+                    {tr("GitHub のアカウントがないとき:")}
                     <button type="button" className="link-button" onClick={() => openUrl(SIGNUP_URL).catch(() => {})}>
-                      GitHub で作る ↗
+                      {tr("GitHub で作る ↗")}
                     </button>
-                    （作ったら、上のボタンからトークンを作ります）
+                    {tr("（作ったら、上のボタンからトークンを作ります）")}
                   </p>
                 )}
               </>
@@ -475,34 +485,33 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
             {canLogin && !useToken && signup === "none" && (
               <>
                 <div className="setup-choices">
-                  <div className="setup-choice">
-                    <h3>アカウントを持っている</h3>
+                  <div
+                    className="setup-choice"
+                    title={tr("ログインすると、このアプリがあなたの代わりに読み書きできるようになります。読み書きできるのは、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルです。GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。")}
+                  >
+                    <h3>{tr("アカウントを持っている")}</h3>
                     <ul>
-                      <li>自分の GitHub のアカウントで入ります</li>
-                      <li>パスワードはアプリに渡りません</li>
+                      <li>{tr("自分の GitHub のアカウントで入ります")}</li>
+                      <li>{tr("パスワードはアプリに渡りません")}</li>
                     </ul>
                     <GitHubLogin onDone={loggedIn} />
                   </div>
                   <div className="setup-choice setup-choice--new">
-                    <h3>持っていない（5 分ほど）</h3>
+                    <h3>{tr("持っていない（5 分ほど）")}</h3>
                     <ul>
-                      <li><b>メールアドレス</b>: 今すぐ受け取れるもの（途中で数字のコードが届きます）</li>
-                      <li><b>パスワード</b>: 15 文字以上か、8 文字以上で数字と英小文字を入れる</li>
-                      <li><b>ユーザー名</b>: 英数字とハイフン。チームに伝える名前で、公開されます</li>
+                      <li>{trx("<0>メールアドレス</0>: 今すぐ受け取れるもの（途中で数字のコードが届きます）", undefined, [<b />])}</li>
+                      <li>{trx("<0>パスワード</0>: 15 文字以上か、8 文字以上で数字と英小文字を入れる", undefined, [<b />])}</li>
+                      <li>{trx("<0>ユーザー名</0>: 英数字とハイフン。チームに伝える名前で、公開されます", undefined, [<b />])}</li>
                     </ul>
                     <button type="button" className="btn-sm setup-signup" onClick={() => { openUrl(SIGNUP_URL).catch(() => {}); setSignup("opened"); }}>
-                      GitHub で作る ↗
+                      {tr("GitHub で作る ↗")}
                     </button>
                   </div>
                 </div>
-                <p className="hint">
-                  <b>ログイン</b>すると、このアプリが、あなたが選んだリポジトリ（Life Manager を入れたリポジトリ）の Issue やファイルを、あなたの代わりに読み書きできるようになります。
-                  GitHub の設定（Applications）から、いつでも取り消せます。チームでは、リーダーがリポジトリに Life Manager を入れてメンバーを招待し、メンバーはそれぞれ自分のアカウントでログインします。
-                </p>
                 <p className="setup-alt">
-                  学校から「トークンを使って」と言われたとき：
+                  {tr("学校から「トークンを使って」と言われたとき：")}
                   <button type="button" className="link-button" onClick={() => setUseToken(true)}>
-                    トークンで入る
+                    {tr("トークンで入る")}
                   </button>
                 </p>
               </>
@@ -510,22 +519,22 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
 
             {canLogin && !useToken && signup === "opened" && (
               <div className="setup-signup-wait">
-                <p className="setup-lead">ブラウザで GitHub の登録のページを開きました。登録を終えたら、ここに戻って押してください。</p>
+                <p className="setup-lead">{tr("ブラウザで GitHub の登録のページを開きました。登録を終えたら、ここに戻って押してください。")}</p>
                 <button type="button" className="gh-login-button" onClick={() => setSignup("login")}>
-                  作れた・ログインへ
+                  {tr("作れた・ログインへ")}
                 </button>
                 {signupTips}
                 <button type="button" className="link-button" onClick={() => setSignup("none")}>
-                  ← 最初の画面に戻る
+                  {tr("← 最初の画面に戻る")}
                 </button>
               </div>
             )}
 
             {canLogin && !useToken && signup === "login" && (
               <div className="setup-signup-wait">
-                <GitHubLogin onDone={loggedIn} autoStart label="作れた・ログインへ" />
+                <GitHubLogin onDone={loggedIn} autoStart label={tr("作れた・ログインへ")} />
                 <button type="button" className="link-button" onClick={() => setSignup("opened")}>
-                  ← 登録がまだ終わっていない
+                  {tr("← 登録がまだ終わっていない")}
                 </button>
               </div>
             )}
@@ -538,12 +547,12 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
               <div className="setup-me">
                 {me.avatar_url && <img src={me.avatar_url} alt="" />}
                 <span>
-                  ログイン中：<b>{me.login}</b>
+                  {trx("ログイン中：<0>{login}</0>", { login: me.login }, [<b />])}
                 </span>
-                {meExpiry && <span className="setup-me-expiry">（期限 {meExpiry.date}）</span>}
+                {meExpiry && <span className="setup-me-expiry">{trx("（期限 {date}）", { date: meExpiry.date })}</span>}
               </div>
             )}
-            <h2 className="setup-ask">どのように使いますか？</h2>
+            <h2 className="setup-ask">{tr("どのように使いますか？")}</h2>
             <div className="setup-picks">
               {PATHS.map((p) => {
                 const hot = p.id === "join" && inviteCount > 0;
@@ -553,7 +562,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                     <span className="setup-pick-body">
                       <span className="setup-pick-title">
                         {p.label}
-                        {hot && <span className="setup-pick-badge">{inviteCount} 件届いています</span>}
+                        {hot && <span className="setup-pick-badge">{trx("{inviteCount} 件届いています", { inviteCount })}</span>}
                       </span>
                       <span className="setup-pick-desc">{p.desc}</span>
                     </span>
@@ -572,94 +581,91 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                 <div className="setup-name">
                   {me.avatar_url && <img src={me.avatar_url} alt="" />}
                   <div className="setup-name-body">
-                    <div className="setup-name-k">あなたの GitHub の名前</div>
+                    <div className="setup-name-k">{tr("あなたの GitHub の名前")}</div>
                     <div className="setup-name-v">{me.login}</div>
                   </div>
-                  <button type="button" className="btn-sm" onClick={copyName} title="チームのリーダーに伝えて、リポジトリに招待してもらいます">
-                    {nameCopied ? "✔ コピーしました" : "コピー"}
+                  <button type="button" className="btn-sm" onClick={copyName} title={tr("チームのリーダーに伝えて、リポジトリに招待してもらいます")}>
+                    {nameCopied ? tr("✔ コピーしました") : tr("コピー")}
                   </button>
                 </div>
               </>
             )}
             <ol className="setup-join-steps">
-              <li>この名前をリーダーに伝える</li>
+              <li>{tr("この名前をリーダーに伝える")}</li>
               <li>
-                招待のメールが届いたら「<b>View invitation</b>」→「<b>Accept invitation</b>」（リーダーから届いたリンクを開いても同じ）
+                {trx("招待のメールが届いたら「<0>View invitation</0>」→「<1>Accept invitation</1>」（リーダーから届いたリンクを開いても同じ）", undefined, [<b />, <b />])}
               </li>
-              <li>参加すると、アプリが自分で気づきます</li>
+              <li>{tr("参加するとアプリが自動で見つけます")}</li>
             </ol>
             {newlyJoined.length === 0 ? (
               <p className="setup-wait">
-                <i className="spinner" aria-hidden="true" /> 参加を待っています…
+                <i className="spinner" aria-hidden="true" /> {" "}{tr("参加を待っています…")}
               </p>
             ) : (
               newlyJoined.map((r) => (
                 <div key={r.full_name} className="setup-joined-new">
-                  <b>✔ {r.full_name} に参加しました</b>
+                  <b>{trx("✔ {full_name} に参加しました", { full_name: r.full_name })}</b>
                   <span className="setup-note">
-                    {r.owner.type === "Organization" ? `組織 ${r.owner.login} のリポジトリ` : `${r.owner.login} さんのリポジトリ`}
-                    {r.private ? "・非公開" : ""}
+                    {r.owner.type === "Organization" ? tr("組織 {login} のリポジトリ", { login: r.owner.login }) : tr("{login} さんのリポジトリ", { login: r.owner.login })}
+                    {r.private ? tr("・非公開") : ""}
                   </span>
                   <button type="button" className="btn-primary" disabled={!!joining || finishing} onClick={() => joinAndStart(r.full_name)}>
-                    このリポジトリではじめる
+                    {tr("このリポジトリではじめる")}
                   </button>
                 </div>
               ))
             )}
             {joining && (
               <p className="setup-note">
-                <i className="spinner" aria-hidden="true" /> {joining} を使えるか確かめています…
+                <i className="spinner" aria-hidden="true" /> {" "}{trx("{joining} を使えるか確かめています…", { joining })}
               </p>
             )}
             {joinProblem && (
               <div className="setup-note setup-note--warn">
-                <b>{joinProblem.fullName} に参加しましたが、まだ使えません。</b>
+                <b>{trx("{fullName} に参加しましたが、まだ使えません。", { fullName: joinProblem.fullName })}</b>
                 {joinProblem.message && <div>{joinProblem.message}</div>}
                 <div className="setup-install">
-                  <button type="button" className="btn-sm" onClick={copyJoinText}>{joinTextCopied ? "✔ コピーしました" : "リーダーに送る文をコピー"}</button>
-                  <button type="button" className="link-button" onClick={() => joinAndStart(joinProblem.fullName)}>もう一度確かめる</button>
+                  <button type="button" className="btn-sm" onClick={copyJoinText}>{joinTextCopied ? tr("✔ コピーしました") : tr("リーダーに送る文をコピー")}</button>
+                  <button type="button" className="link-button" onClick={() => joinAndStart(joinProblem.fullName)}>{tr("もう一度確かめる")}</button>
                 </div>
               </div>
             )}
             {otherJoined.length > 0 && (
               <div className="setup-joined">
-                <p className="setup-note">ほかに参加しているリポジトリ</p>
+                <p className="setup-note">{tr("ほかに参加しているリポジトリ")}</p>
                 {otherJoined.map((r) => (
                   <div key={r.full_name} className="setup-joined-row">
                     {r.owner.avatar_url && <img src={r.owner.avatar_url} alt="" />}
                     <span className="setup-joined-name">{r.full_name}</span>
-                    {r.private && <span className="setup-repo-badge">非公開</span>}
+                    {r.private && <span className="setup-repo-badge">{tr("非公開")}</span>}
                     <button type="button" className="btn-sm" disabled={!!joining || finishing} onClick={() => joinAndStart(r.full_name)}>
-                      はじめる
+                      {tr("はじめる")}
                     </button>
                   </div>
                 ))}
               </div>
             )}
             <p className="setup-note">
-              招待はアプリの中には出ません（参加する前のリポジトリは、GitHub の決まりでアプリから見えないため）。
-              参加したのに、しばらくしても出てこないときは、リーダーに「そのリポジトリに Life Manager を入れて」と伝えてください。
+              {tr("招待はアプリの中には出ません。参加する前のリポジトリは、GitHub の決まりでアプリから見えないためです。参加したのに、しばらくしても出てこないときは、リーダーに「そのリポジトリに Life Manager を入れて」と伝えてください。")}
             </p>
           </>
         )}
 
         {step === 2 && (path === "team" || path === "solo") && (
           <>
-            <p className="setup-lead">{team ? "チームで使うリポジトリを用意して、メンバーを招待します。" : "自分だけのリポジトリで、タスクを管理します。"}</p>
+            <p className="setup-lead">{team ? tr("チームで使うリポジトリを用意して、メンバーを招待します。") : tr("自分だけのリポジトリでタスクを管理します。")}</p>
             {mode === null && (
               <div className="wizard-choices">
                 <button type="button" className="wizard-choice" onClick={() => { setMode("existing"); setError(null); }}>
                   <span className="wizard-choice-icon" aria-hidden="true">📂</span>
                   <span className="wizard-choice-body">
-                    <b>もうあるリポジトリを使う</b>
-                    <span>GitHub にあるリポジトリを、Life Manager に許可して使います</span>
+                    {trx("<0>もうあるリポジトリを使う</0><1>GitHub にあるリポジトリを Life Manager に許可して使います</1>", undefined, [<b />, <span />])}
                   </span>
                 </button>
                 <button type="button" className="wizard-choice" onClick={() => { setMode("new"); setError(null); }}>
                   <span className="wizard-choice-icon" aria-hidden="true">✨</span>
                   <span className="wizard-choice-body">
-                    <b>新しく作る</b>
-                    <span>作る → Life Manager に許可 → この PC に持ってくる、の順に進めます</span>
+                    {trx("<0>新しく作る</0><1>作る → Life Manager に許可 → この PC に持ってくる、の順に進めます</1>", undefined, [<b />, <span />])}
                   </span>
                 </button>
               </div>
@@ -670,7 +676,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                 <ol className="setup-path-steps">
                   {byLogin && me && installUrl && (
                     <li>
-                      <b>Life Manager に許可する</b>（使うリポジトリだけを選びます）
+                      {trx("<0>Life Manager に許可する</0>（使うリポジトリだけを選びます）", undefined, [<b />])}
                       <RepoAccess me={me} installUrl={installUrl} installations={installations} primary={!ownInstall}
                         onChanged={async (added) => {
                           await loadInstallations();
@@ -679,7 +685,7 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                     </li>
                   )}
                   <li>
-                    <b>使うリポジトリを選ぶ</b>
+                    <b>{tr("使うリポジトリを選ぶ")}</b>
                     <div className="setup-radio">
                       {ownRepos.length > 0 ? (
                         <select className="select-sm" value={picked ? `${picked.owner}/${picked.repo}` : ""}
@@ -687,31 +693,31 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
                             const [owner, repo] = e.target.value.split("/");
                             if (owner && repo) setPicked({ owner, repo });
                           }}>
-                          {!picked && <option value="">選ぶ</option>}
+                          {!picked && <option value="">{tr("選ぶ")}</option>}
                           {ownRepos.map((r) => (
                             <option key={r.full_name} value={r.full_name}>
-                              {r.full_name}{r.private ? "（非公開）" : ""}
+                              {r.full_name}{r.private ? tr("（非公開）") : ""}
                             </option>
                           ))}
                         </select>
                       ) : (
-                        <span className="setup-note">{repos === null ? "読んでいます…" : byLogin ? "まだありません（上で許可すると、ここに出ます）" : "まだありません"}</span>
+                        <span className="setup-note">{repos === null ? tr("読んでいます…") : byLogin ? tr("まだありません（上で許可するとここに出ます）") : tr("まだありません")}</span>
                       )}
                       <button type="button" className="link-button" onClick={() => { loadRepos(); if (byLogin) loadInstallations(); }}
-                        title="GitHub で許可したあとなど、使えるリポジトリをもう一度読みます">
-                        読み直す
+                        title={tr("GitHub で許可したあとなど、使えるリポジトリをもう一度読みます")}>
+                        {tr("読み直す")}
                       </button>
                     </div>
                   </li>
                 </ol>
                 {checking && (
                   <p className="setup-note">
-                    <i className="spinner" aria-hidden="true" /> 使えるか確かめています…
+                    <i className="spinner" aria-hidden="true" /> {" "}{tr("使えるか確かめています…")}
                   </p>
                 )}
                 {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={check} installUrl={installUrl} />}
                 {check && check.repos[0]?.ok && check.repos[0].message && <p className="setup-note">⚠ {check.repos[0].message}</p>}
-                {reposError && <p className="token-error">リポジトリの一覧を読めませんでした（{reposError}）</p>}
+                {reposError && <p className="token-error">{trx("リポジトリの一覧を読めませんでした（{reposError}）", { reposError })}</p>}
               </>
             )}
 
@@ -728,8 +734,8 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
             {mode !== "new" && (
               <p className="setup-note">
                 {team
-                  ? "はじめると 設定 → 接続 が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。"
-                  : "あとから 設定 → 接続 でメンバーを招待すれば、チームで使えます。"}
+                  ? tr("はじめると 設定 → 接続 が開きます。「参加の案内をコピー」してチャットなどに貼り、届いた名前を貼って招待します。")
+                  : tr("あとから 設定 → 接続 でメンバーを招待すれば、チームで使えます。")}
               </p>
             )}
           </>
@@ -741,11 +747,11 @@ export function SetupView({ onDone, resume = false, adding = null, onRestoreAcco
           <div className="setup-actions">
             <button type="button" className="btn-sm" style={{ visibility: step > 0 ? "visible" : "hidden" }} disabled={finishing || createBusy}
               onClick={back}>
-              ← 戻る
+              {tr("← 戻る")}
             </button>
             {step === 2 && mode === "existing" && (path === "team" || path === "solo") && (
               <button type="button" className="btn-primary" disabled={!startReady || finishing} onClick={start}>
-                {finishing ? "準備しています…" : startLabel}
+                {finishing ? tr("準備しています…") : startLabel}
               </button>
             )}
           </div>

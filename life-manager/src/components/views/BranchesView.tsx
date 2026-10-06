@@ -15,6 +15,7 @@ import {
 import { easeScrollTo } from "../../lib/motion";
 import type { GitActions } from "../../hooks/useGitActions";
 import { BranchPicker } from "../git/BranchPicker";
+import { tr, trx, listSep } from "../../lib/i18n";
 
 interface BranchesViewProps {
   history: GitHistory;
@@ -46,16 +47,27 @@ export const belowButton = (el: HTMLElement): MenuPos => {
 
 const MAX_CHAIN = 300;
 
+/** 名前の帯: 左右の端のボタンの幅と、となりの名前までの間（帯の幅に対する割合） */
+const NAME_INSET = 44;
+const NAME_STEP = 0.36;
+/** 履歴を名前と同じ間で並べるときの、1 列の幅の下限。これより狭いときは 1 本を大きく出し、左右は端に少しだけ見せる */
+const MIN_COLUMN = 320;
+const PEEK_PAGE = 0.86;
+
+/** 真ん中からの離れぐあい（ページ何枚分か）に合わせた薄さ。名前も履歴も同じ */
+const fade = (d: number) => Math.max(0, 1 - Math.min(1, Math.abs(d)) * 0.45 - Math.max(0, Math.abs(d) - 1) * 0.5);
+
 export function roleOf(e: BranchEntry, local: boolean): string {
   const parts: string[] = [];
-  if (e.isDefault) parts.push("既定のブランチ");
-  if (e.isCurrent) parts.push("チェックアウト中");
-  if (local && !e.onPc) parts.push("GitHub にだけある");
-  if (local && e.onPc && !e.onGitHub) parts.push("この PC にだけある");
-  return parts.join("・") || "ブランチ";
+  if (e.isDefault) parts.push(tr("既定のブランチ"));
+  if (e.isCurrent) parts.push(tr("チェックアウト中"));
+  if (local && !e.onPc) parts.push(tr("GitHub にだけある"));
+  if (local && e.onPc && !e.onGitHub) parts.push(tr("この PC にだけある"));
+  return parts.join(tr("・")) || tr("ブランチ");
 }
 
-/** ブランチ画面: ブランチごとのページを左右にスライドして見る。名前の帯はスライドに合わせて大きさが変わる */
+/** ブランチ画面: ブランチごとのページを左右にスライドして見る。名前の帯はスライドに合わせて大きさが変わる。
+ * 広いときは、履歴も名前と同じ間で並べ、左右のブランチの履歴は名前と同じ薄さで出す（#228） */
 export function BranchesView(props: BranchesViewProps) {
   const { entries, selected, onSelect } = props;
   const found = entries.findIndex((e) => e.name === selected);
@@ -63,17 +75,38 @@ export function BranchesView(props: BranchesViewProps) {
   const pagerRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(index);
   const stopAnim = useRef<(() => void) | null>(null);
-  const placed = useRef(false);
   const settleTimer = useRef(0);
   const frame = useRef(0);
 
-  // 外から（一覧・全体図・矢印）ブランチが変わったら、そのページへスライドする（最初の表示だけは動かさずに置く）
+  // ページの幅: 広いときは名前の間と同じ（3 列）、狭いときは 1 本を大きく（左右は端に少しだけ）。窓の大きさが変わったら決め直す
+  const [lay, setLay] = useState({ w: 0, page: 0 });
   useLayoutEffect(() => {
     const el = pagerRef.current;
     if (!el) return;
-    const target = index * el.clientWidth;
-    if (!placed.current) {
-      placed.current = true;
+    const measure = () => {
+      const w = el.clientWidth;
+      const step = (w - 2 * NAME_INSET) * NAME_STEP;
+      const page = Math.round(step >= MIN_COLUMN ? step : w * PEEK_PAGE);
+      setLay((p) => (p.w === w && p.page === page ? p : { w, page }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [entries.length > 0]);
+  const cols = lay.page > 0 && lay.page < lay.w * 0.6;
+  // 1 列が狭いとき（3 列と、スマホ）は、行を詰める
+  const compact = lay.page > 0 && lay.page < 520;
+
+  // 外から（一覧・全体図・矢印）ブランチが変わったら、そのページへスライドする（最初と、並べ方が変わったときは動かさずに置く）
+  const laidFor = useRef(0);
+  useLayoutEffect(() => {
+    const el = pagerRef.current;
+    if (!el || !lay.page) return;
+    const target = index * lay.page;
+    if (laidFor.current !== lay.page) {
+      laidFor.current = lay.page;
+      stopAnim.current?.();
       el.scrollLeft = target;
       setPos(index);
       return;
@@ -81,27 +114,17 @@ export function BranchesView(props: BranchesViewProps) {
     if (Math.abs(el.scrollLeft - target) < 2) return;
     stopAnim.current?.();
     stopAnim.current = easeScrollTo(el, { left: target });
-  }, [index]);
-
-  // 窓の大きさが変わったら、今のページにそろえ直す
-  useEffect(() => {
-    const onResize = () => {
-      const el = pagerRef.current;
-      if (el) el.scrollLeft = index * el.clientWidth;
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [index]);
+  }, [index, lay.page]);
 
   const onScroll = () => {
     const el = pagerRef.current;
-    if (!el || !el.clientWidth) return;
+    if (!el || !lay.page) return;
     cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => setPos(el.scrollLeft / el.clientWidth));
+    frame.current = requestAnimationFrame(() => setPos(el.scrollLeft / lay.page));
     // 指やホイールで動かして止まったら、そのページのブランチを選んだことにする
     window.clearTimeout(settleTimer.current);
     settleTimer.current = window.setTimeout(() => {
-      const i = Math.round(el.scrollLeft / el.clientWidth);
+      const i = Math.round(el.scrollLeft / lay.page);
       if (entries[i] && entries[i].name !== selected) onSelect(entries[i].name);
     }, 140);
   };
@@ -168,7 +191,7 @@ export function BranchesView(props: BranchesViewProps) {
   if (entries.length === 0) {
     return (
       <div className="content">
-        <p className="work-loading">ブランチがまだありません（最初のコミットをすると、ブランチができます）</p>
+        <p className="work-loading">{tr("ブランチがまだありません")}</p>
       </div>
     );
   }
@@ -176,7 +199,7 @@ export function BranchesView(props: BranchesViewProps) {
   return (
     <div className="bview">
       <div className="bv-strip" ref={stripRef}>
-        <button type="button" className="bv-edge l" aria-label="前のブランチ" disabled={index === 0} onClick={() => go(index - 1)}>
+        <button type="button" className="bv-edge l" aria-label={tr("前のブランチ")} disabled={index === 0} onClick={() => go(index - 1)}>
           ‹
         </button>
         <div className="bv-names">
@@ -194,9 +217,9 @@ export function BranchesView(props: BranchesViewProps) {
                 }}
                 className={`bv-name${i === index ? " on" : ""}`}
                 style={{
-                  left: `calc(50% + ${d * 36}%)`,
+                  left: `calc(50% + ${d * NAME_STEP * 100}%)`,
                   transform: `translateX(-50%) scale(${0.62 + 0.38 * k})`,
-                  opacity: 1 - Math.min(1, Math.abs(d)) * 0.45 - Math.max(0, Math.abs(d) - 1) * 0.5,
+                  opacity: fade(d),
                 }}
                 tabIndex={Math.abs(d) < 1.5 ? 0 : -1}
                 onClick={() => go(i)}
@@ -210,7 +233,7 @@ export function BranchesView(props: BranchesViewProps) {
         <button
           type="button"
           className="bv-edge r"
-          aria-label="次のブランチ"
+          aria-label={tr("次のブランチ")}
           disabled={index === entries.length - 1}
           onClick={() => go(index + 1)}
         >
@@ -228,27 +251,43 @@ export function BranchesView(props: BranchesViewProps) {
         </div>
       </div>
 
-      <div className="bv-pager" ref={pagerRef} onScroll={onScroll}>
-        {entries.map((e, i) => (
-          <div key={e.name} className="bv-page">
-            {Math.abs(i - near) <= 1 && (
-              <BranchPage
-                entry={e}
-                history={props.history}
-                byHash={props.byHash}
-                defaultEntry={defaultEntry}
-                status={e.isCurrent ? props.status : null}
-                actions={props.actions}
-                focusCommit={i === index ? props.focusCommit : null}
-                onFocusHandled={props.onFocusHandled}
-                onOpenWork={props.onOpenWork}
-                onOpenOverview={props.onOpenOverview}
-                onCommitMenu={props.onCommitMenu}
-                onBranchMenu={props.onBranchMenu}
-              />
-            )}
-          </div>
-        ))}
+      <div
+        className={`bv-pager${cols ? " cols" : ""}${compact ? " compact" : ""}`}
+        ref={pagerRef}
+        onScroll={onScroll}
+        style={lay.page ? { paddingInline: (lay.w - lay.page) / 2, ["--bv-page" as string]: `${lay.page}px` } : undefined}
+      >
+        {entries.map((e, i) => {
+          // 左右のブランチの履歴は、名前と同じ薄さ。押すと、そのブランチへ（中のボタンは押せない）
+          const side = i !== index;
+          return (
+            <div
+              key={e.name}
+              className={`bv-page${side ? " side" : ""}`}
+              style={{ ["--o" as string]: fade(i - pos) }}
+              onClick={side ? () => go(i) : undefined}
+            >
+              <div className="bv-page-in" inert={side}>
+                {Math.abs(i - near) <= (cols ? 2 : 1) && (
+                  <BranchPage
+                    entry={e}
+                    history={props.history}
+                    byHash={props.byHash}
+                    defaultEntry={defaultEntry}
+                    status={e.isCurrent ? props.status : null}
+                    actions={props.actions}
+                    focusCommit={i === index ? props.focusCommit : null}
+                    onFocusHandled={props.onFocusHandled}
+                    onOpenWork={props.onOpenWork}
+                    onOpenOverview={props.onOpenOverview}
+                    onCommitMenu={props.onCommitMenu}
+                    onBranchMenu={props.onBranchMenu}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -301,7 +340,7 @@ const BranchPage = memo(function BranchPage({
       if (r.kind === "branch" && r.name === entry.name) continue;
       if (r.kind === "remote" && r.name !== `origin/${entry.name}`) continue;
       if (r.kind === "remote" && r.hash === entry.tip) continue;
-      const chip = r.kind === "remote" ? { kind: "remote", name: "GitHub の位置" } : { kind: r.kind, name: r.name };
+      const chip = r.kind === "remote" ? { kind: "remote", name: tr("GitHub の位置") } : { kind: r.kind, name: r.name };
       map.set(r.hash, [...(map.get(r.hash) ?? []), chip]);
     }
     return map;
@@ -376,8 +415,8 @@ const BranchPage = memo(function BranchPage({
       <button
         type="button"
         className="row-more"
-        aria-label="コミットの操作"
-        title="コミットの操作（右クリックでも開けます）"
+        aria-label={tr("コミットの操作")}
+        title={tr("コミットの操作（右クリックでも開けます）")}
         onClick={(ev) => onCommitMenu(belowButton(ev.currentTarget), c)}
       >
         ⋯
@@ -389,45 +428,63 @@ const BranchPage = memo(function BranchPage({
     <div className="bv-scroll" ref={scrollRef}>
       <div className="p-info">
         <div className="p-chips">
-          {info && info.ahead > 0 && <span className="chip warn" title="まだ GitHub に送っていないコミット">↑{info.ahead} 未プッシュ</span>}
-          {info && info.behind > 0 && <span className="chip warn" title="GitHub にあって、まだ取り込んでいないコミット">↓{info.behind} 未プル</span>}
-          {info?.gone && <span className="chip ng">GitHub で削除済み</span>}
-          {local && entry.onPc && !entry.onGitHub && <span className="chip muted">未公開</span>}
-          {local && !entry.onPc && <span className="chip muted">GitHub にだけある</span>}
+          {info && info.ahead > 0 && <span className="chip warn" title={tr("まだ GitHub に送っていないコミット")}>{trx("↑{ahead} 未プッシュ", { ahead: info.ahead })}</span>}
+          {info && info.behind > 0 && <span className="chip warn" title={tr("GitHub にあって、まだ取り込んでいないコミット")}>{trx("↓{behind} 未プル", { behind: info.behind })}</span>}
+          {info?.gone && <span className="chip ng">{tr("GitHub で削除済み")}</span>}
+          {local && entry.onPc && !entry.onGitHub && !info?.gone && <span className="chip muted">{tr("未公開")}</span>}
+          {local && !entry.onPc && <span className="chip muted">{tr("GitHub にだけある")}</span>}
           {entry.isCurrent && changes > 0 && (
             <button type="button" className="chip wip-link" onClick={onOpenWork}>
-              ✎ 作業中の変更 {changes} → 作業
+              {trx("✎ 作業中の変更 {changes} → 作業をする", { changes })}
             </button>
           )}
           <span className="p-actions">
-            {local && actions && !entry.isCurrent && (
-              <button type="button" className="btn-sm" onClick={() => actions.requestSwitch(entry.name)} title={`git switch ${entry.name}`}>
-                このブランチに切り替える
+            {/* GitHub で消されたブランチ: この PC にあるものから、GitHub にもう一度作る */}
+            {local && actions && info?.gone && entry.onPc && (
+              <button type="button" className="btn-sm" onClick={() => actions.pushBranch(entry)} title={`git push -u origin ${entry.name}`}>
+                {tr("⬆ GitHub にもう一度送る")}
               </button>
             )}
-            <button type="button" className="btn-sm" onClick={onOpenOverview} title="全体図（−キー）">
-              全体図で見る
+            {/* 見ているブランチを、切り替えずにフェッチ・プル（作業フォルダは今のブランチのまま） */}
+            {local && actions && entry.onGitHub && (
+              <>
+                <button type="button" className="btn-sm" onClick={() => actions.fetchBranch(entry)} title={tr("git fetch origin {name}（GitHub の {name} を読むだけ）", { name: entry.name })}>
+                  {tr("⟳ フェッチ")}
+                </button>
+                <button type="button" className="btn-sm" onClick={() => actions.pullBranch(entry)}
+                  title={entry.isCurrent ? "git pull" : entry.onPc ? tr("git fetch origin {name}:{name}（切り替えずに、GitHub の最新にする）", { name: entry.name }) : tr("git branch --track {name} origin/{name}（切り替えずに、この PC に作る）", { name: entry.name })}>
+                  {tr("⬇ プル")}
+                </button>
+              </>
+            )}
+            {local && actions && !entry.isCurrent && (
+              <button type="button" className="btn-sm" onClick={() => actions.requestSwitch(entry.name)} title={`git switch ${entry.name}`}>
+                {tr("このブランチに切り替える")}
+              </button>
+            )}
+            <button type="button" className="btn-sm" onClick={onOpenOverview} title={tr("全体図（−キー）")}>
+              {tr("全体図で見る")}
             </button>
             <button type="button" className="btn-sm" onClick={(ev) => onBranchMenu(belowButton(ev.currentTarget), entry)}>
-              ⋯ ブランチの操作
+              {tr("⋯ ブランチの操作")}
             </button>
           </span>
         </div>
         <div className="p-meta">
-          {tip && <span>最終更新 {shortWhen(tip.date)}</span>}
+          {tip && <span>{trx("最終更新 {shortWhen}", { shortWhen: shortWhen(tip.date) })}</span>}
           <span>
             {chain.length}
-            {chain.length >= MAX_CHAIN ? "+" : ""} コミット
+            {chain.length >= MAX_CHAIN ? "+" : ""} {" "}{tr("コミット")}
           </span>
           {vsDefault && defaultEntry && (vsDefault.ahead > 0 || vsDefault.behind > 0) && (
             <span>
-              {defaultEntry.name} より
-              {vsDefault.ahead > 0 && ` ${vsDefault.ahead} 先行`}
-              {vsDefault.ahead > 0 && vsDefault.behind > 0 && "、"}
-              {vsDefault.behind > 0 && ` ${vsDefault.behind} 遅れ`}
+              {trx("{name} より", { name: defaultEntry.name })}
+              {vsDefault.ahead > 0 && tr(" {ahead} 先行", { ahead: vsDefault.ahead })}
+              {vsDefault.ahead > 0 && vsDefault.behind > 0 && listSep()}
+              {vsDefault.behind > 0 && tr(" {behind} 遅れ", { behind: vsDefault.behind })}
             </span>
           )}
-          {vsDefault && defaultEntry && vsDefault.ahead === 0 && vsDefault.behind === 0 && <span>{defaultEntry.name} と同じ</span>}
+          {vsDefault && defaultEntry && vsDefault.ahead === 0 && vsDefault.behind === 0 && <span>{trx("{name} と同じ", { name: defaultEntry.name })}</span>}
         </div>
       </div>
 
@@ -444,7 +501,7 @@ const BranchPage = memo(function BranchPage({
                     <span className="c-time">{timeOf(it.commits[0].date)}</span>
                     <span className="c-dot auto" />
                     <span className="c-msg">
-                      🤖 アプリの自動コミット {it.commits.length} 件 <span className="c-sub">{appCommitBreakdown(it.commits)}</span>
+                      {trx("🤖 アプリの自動コミット {length} 件 <0>{appCommitBreakdown}</0>", { length: it.commits.length, appCommitBreakdown: appCommitBreakdown(it.commits) }, [<span className="c-sub" />])}
                     </span>
                     <span className="c-chips" />
                     <span className="c-hash">▾</span>
@@ -457,7 +514,7 @@ const BranchPage = memo(function BranchPage({
           </section>
         ))}
         {(chain.length >= MAX_CHAIN || history.truncated) && (
-          <p className="c-more">これより前のコミットは読み込んでいません</p>
+          <p className="c-more">{tr("これより前のコミットは読み込んでいません")}</p>
         )}
       </div>
     </div>

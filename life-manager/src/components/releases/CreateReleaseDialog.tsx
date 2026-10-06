@@ -20,6 +20,7 @@ import {
   type ReleaseAsset,
   type ReleaseMilestone,
 } from "../../lib/releases";
+import { tr, trx } from "../../lib/i18n";
 
 type Source = "milestone" | "github" | "manual";
 
@@ -34,7 +35,7 @@ interface CreateReleaseDialogProps {
   onClose: () => void;
 }
 
-const MANUAL = (tag: string) => `## ${tag}\n\n### 新しい機能\n- \n\n### 直した不具合\n- \n`;
+const MANUAL = (tag: string) => tr("## {tag}\n\n### 新しい機能\n- \n\n### 直した不具合\n- \n", { tag });
 const baseName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
 /** ＋ リリースを作る: マイルストーンの閉じた Issue から（か GitHub のプルリクから・自分で書く）ノートを作り、タグを付けて、ファイルを添える */
@@ -119,12 +120,12 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
   }, [source, milestone, milestones]);
 
   useEffect(() => {
-    if (source === "manual") fill({ body: MANUAL(tag || "新しい版") });
+    if (source === "manual") fill({ body: MANUAL(tag || tr("新しい版")) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
 
   async function fromGitHub() {
-    setBusy("GitHub がノートを作っています…");
+    setBusy(tr("GitHub がノートを作っています…"));
     setError(null);
     try {
       const notes = await generateReleaseNotes(owner, repo, tag.trim(), target, previous || null);
@@ -139,7 +140,7 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
   }
 
   async function pickFiles() {
-    const picked = await openDialog({ multiple: true, directory: false, title: "リリースに添えるファイルを選ぶ（setup.exe・latest.json など）" });
+    const picked = await openDialog({ multiple: true, directory: false, title: tr("リリースに添えるファイルを選ぶ（setup.exe・latest.json など）") });
     const list = Array.isArray(picked) ? picked : picked ? [picked] : [];
     setFiles((f) => [...f, ...list.filter((p) => !f.includes(p))]);
   }
@@ -153,11 +154,11 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
     setError(null);
     const warnings: string[] = [];
     try {
-      setBusy("リリースを作っています…");
+      setBusy(tr("リリースを作っています…"));
       const created = await createRelease(owner, repo, { tag: tag.trim(), target, name: name.trim() || tag.trim(), body, draft, prerelease, latest });
       const uploaded: ReleaseAsset[] = [];
       for (let i = 0; i < files.length; i++) {
-        setBusy(`${baseName(files[i])} を送っています（${i + 1}/${files.length}）…`);
+        setBusy(tr("{baseName} を送っています（{v}/{length}）…", { baseName: baseName(files[i]), v: i + 1, length: files.length }));
         try {
           uploaded.push(await uploadReleaseAsset(owner, repo, created.id, files[i]));
         } catch (e) {
@@ -173,7 +174,7 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
           warnings.push(String(e));
         }
       }
-      celebrateDone(release.tag_name, button, `${release.name || release.tag_name} を${draft ? "下書きにしました" : "出しました"}`);
+      celebrateDone(release.tag_name, button, tr("{v} を{v2}", { v: release.name || release.tag_name, v2: draft ? tr("下書きにしました") : tr("出しました") }));
       onCreated(release, warnings);
     } catch (e) {
       setError(String(e));
@@ -183,44 +184,43 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
 
   return createPortal(
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
-      <div className="git-dialog pr-ui pr-dialog rl-dialog" role="dialog" aria-modal="true" aria-label="リリースを作る" onClick={(e) => e.stopPropagation()}>
-        <h3>🏷️ ＋ リリースを作る</h3>
-        <p className="hint">リリースは「この版をみんなに配る」印です。コミットに付ける名前（タグ）に、何が変わったか（ノート）と、配るファイルをまとめます。</p>
+      <div className="git-dialog pr-ui pr-dialog rl-dialog" role="dialog" aria-modal="true" aria-label={tr("リリースを作る")} onClick={(e) => e.stopPropagation()}>
+        <h3>{tr("🏷️ ＋ リリースを作る")}</h3>
 
-        <div className="rl-sources" role="radiogroup" aria-label="ノートのもと">
+        <div className="rl-sources" role="radiogroup" aria-label={tr("ノートのもと")}>
           <label className={source === "milestone" ? "on" : ""}>
             <input type="radio" checked={source === "milestone"} onChange={() => setSource("milestone")} disabled={milestones?.length === 0} />
-            マイルストーンから
+            {tr("マイルストーンから")}
           </label>
           <label className={source === "github" ? "on" : ""}>
             <input type="radio" checked={source === "github"} onChange={() => setSource("github")} />
-            GitHub のプルリクから
+            {tr("GitHub のプルリクから")}
           </label>
           <label className={source === "manual" ? "on" : ""}>
             <input type="radio" checked={source === "manual"} onChange={() => setSource("manual")} />
-            自分で書く
+            {tr("自分で書く")}
           </label>
         </div>
 
         {source === "milestone" && (
           <label>
-            <span className="git-dialog-label">マイルストーン（閉じた Issue を、種別: のラベルで「新しい機能」「直した不具合」に分けます）</span>
+            <span className="git-dialog-label">{tr("マイルストーン（閉じた Issue を種別: のラベルで「新しい機能」「直した不具合」に分けます）")}</span>
             <select className="select-sm" value={milestone ?? ""} onChange={(e) => setMilestone(Number(e.target.value))} disabled={!milestones}>
-              {!milestones && <option value="">読み込んでいます…</option>}
+              {!milestones && <option value="">{tr("読み込んでいます…")}</option>}
               {milestones?.map((m) => (
                 <option key={m.number} value={m.number}>
-                  {m.title}（{m.state === "open" ? "開いている" : "閉じた"}・閉じた Issue {m.closed_issues}{m.open_issues > 0 ? `・まだの Issue ${m.open_issues}` : ""}）
+                  {m.title}（{m.state === "open" ? tr("開いている") : tr("閉じた")}{trx("・閉じた Issue {closed_issues}", { closed_issues: m.closed_issues })}{m.open_issues > 0 ? tr("・まだの Issue {open_issues}", { open_issues: m.open_issues }) : ""}）
                 </option>
               ))}
             </select>
-            {ms && ms.open_issues > 0 && <span className="mb-note">まだ終わっていない Issue が {ms.open_issues} あります（ノートには入りません）</span>}
-            {issues && <span className="muted">ノートに入れる Issue: {used}（予定なし・重複・メモ・ルーチンは入れません）</span>}
+            {ms && ms.open_issues > 0 && <span className="mb-note">{trx("まだ終わっていない Issue が {open_issues} あります（ノートには入りません）", { open_issues: ms.open_issues })}</span>}
+            {issues && <span className="muted">{trx("ノートに入れる Issue: {used}（予定なし・重複・メモ・ルーチンは入れません）", { used })}</span>}
           </label>
         )}
 
         <div className="pr-dialog-branches">
           <label>
-            <span className="git-dialog-label">タグ（版の名前）</span>
+            <span className="git-dialog-label">{tr("タグ（版の名前）")}</span>
             <input
               className="git-dialog-input"
               value={tag}
@@ -233,35 +233,35 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
                 }
                 setTag(next);
               }}
-              placeholder="例: 1.0.0"
+              placeholder={tr("例: 1.0.0")}
             />
           </label>
           <span className="pr-dialog-arrow" aria-hidden="true">→</span>
           <label>
-            <span className="git-dialog-label">付けるところ（このブランチの今のコミット）</span>
+            <span className="git-dialog-label">{tr("付けるところ（このブランチの今のコミット）")}</span>
             <select className="select-sm" value={target} onChange={(e) => setTarget(e.target.value)}>
               {(info.branches.length > 0 ? info.branches : [info.default_branch]).map((b) => (
                 <option key={b} value={b}>
                   {b}
-                  {b === info.default_branch ? "（既定）" : ""}
+                  {b === info.default_branch ? tr("（既定）") : ""}
                 </option>
               ))}
             </select>
           </label>
         </div>
         {tag && tagProblem && <p className="git-dialog-error">{tagProblem}</p>}
-        {duplicate && <p className="git-dialog-error">タグ {tag} のリリースは、もうあります。</p>}
+        {duplicate && <p className="git-dialog-error">{trx("タグ {tag} のリリースはもうあります。", { tag })}</p>}
 
         <label>
-          <span className="git-dialog-label">題名</span>
-          <input className="git-dialog-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={`例: ${repo} 1.0.0`} />
+          <span className="git-dialog-label">{tr("題名")}</span>
+          <input className="git-dialog-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("例: {repo} 1.0.0", { repo })} />
         </label>
         {source === "github" && (
           <div className="rl-generate">
             <label>
-              <span className="git-dialog-label">前の版（ここから今までのプルリクを並べます）</span>
+              <span className="git-dialog-label">{tr("前の版（ここから今までのプルリクを並べます）")}</span>
               <select className="select-sm" value={previous} onChange={(e) => setPrevious(e.target.value)}>
-                <option value="">（はじめから）</option>
+                <option value="">{tr("（はじめから）")}</option>
                 {releases
                   .filter((r) => !r.draft)
                   .map((r) => (
@@ -272,58 +272,55 @@ export function CreateReleaseDialog({ owner, repo, info, releases, onCreated, on
               </select>
             </label>
             <button type="button" className="btn-sm" disabled={!!tagProblem || busy !== null} onClick={fromGitHub}>
-              GitHub にノートを作ってもらう
+              {tr("GitHub にノートを作ってもらう")}
             </button>
           </div>
         )}
         <label>
-          <span className="git-dialog-label">ノート（何が変わったか。Markdown で書けます）</span>
+          <span className="git-dialog-label">{tr("ノート（何が変わったか）")}</span>
           <textarea className="git-dialog-input pr-dialog-body" rows={9} value={body} onChange={(e) => setBody(e.target.value)} />
         </label>
 
         <div className="rl-files">
-          <span className="git-dialog-label">添えるファイル（インストーラー・latest.json など）</span>
+          <span className="git-dialog-label">{tr("添えるファイル（インストーラー・latest.json など）")}</span>
           {files.map((f) => (
             <span key={f} className="rl-file">
               📎 {baseName(f)}
-              <button type="button" className="pr-reviewer-x" aria-label={`${baseName(f)} を外す`} onClick={() => setFiles(files.filter((x) => x !== f))}>
+              <button type="button" className="pr-reviewer-x" aria-label={tr("{baseName} を外す", { baseName: baseName(f) })} onClick={() => setFiles(files.filter((x) => x !== f))}>
                 ×
               </button>
             </span>
           ))}
           <button type="button" className="btn-sm" disabled={busy !== null} onClick={pickFiles}>
-            ファイルを選ぶ…
+            {tr("ファイルを選ぶ…")}
           </button>
         </div>
 
         <div className="rl-flags">
           <label>
-            <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> 下書き（まだ見せない）
+            <input type="checkbox" checked={draft} onChange={(e) => setDraft(e.target.checked)} /> {" "}{tr("下書き（まだ見せない）")}
           </label>
           <label>
-            <input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} /> 試用版（pre-release）
+            <input type="checkbox" checked={prerelease} onChange={(e) => setPrerelease(e.target.checked)} /> {" "}{tr("試用版（pre-release）")}
           </label>
           <label>
-            <input type="checkbox" checked={latest && !draft && !prerelease} disabled={draft || prerelease} onChange={(e) => setLatest(e.target.checked)} /> 最新にする
+            <input type="checkbox" checked={latest && !draft && !prerelease} disabled={draft || prerelease} onChange={(e) => setLatest(e.target.checked)} /> {" "}{tr("最新にする")}
           </label>
           {source === "milestone" && ms?.state === "open" && (
             <label>
-              <input type="checkbox" checked={closeMs && !draft} disabled={draft} onChange={(e) => setCloseMs(e.target.checked)} /> マイルストーン {ms.title} を閉じる
+              <input type="checkbox" checked={closeMs && !draft} disabled={draft} onChange={(e) => setCloseMs(e.target.checked)} /> {" "}{trx("マイルストーン {title} を閉じる", { title: ms.title })}
             </label>
           )}
         </div>
-        {latest && !draft && !prerelease && (
-          <p className="muted">「最新」は、GitHub のリポジトリの画面と、アプリの自動更新（latest.json を添えたとき）が見るリリースです。</p>
-        )}
 
         {busy && <p className="git-dialog-running">{busy}</p>}
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
           <button type="button" className="btn-sm" disabled={busy !== null} onClick={onClose}>
-            やめる
+            {tr("やめる")}
           </button>
           <button type="button" className="btn-primary" disabled={!canCreate} onClick={(e) => submit(e.currentTarget)}>
-            {draft ? "下書きを作る" : "リリースする"}
+            {draft ? tr("下書きを作る") : tr("リリースする")}
           </button>
         </div>
       </div>

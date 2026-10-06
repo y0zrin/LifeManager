@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as git from "../../lib/git";
 import type { GitResult } from "../../hooks/useGit";
 import { isComposing, isEscape } from "../../lib/keys";
+import { tr, trx } from "../../lib/i18n";
 
 interface GitignoreEditorProps {
   folder: string;
@@ -11,11 +12,11 @@ interface GitignoreEditorProps {
 
 // 書き方の早見表（左がパターン、右が意味）
 const HELP: [string, string][] = [
-  ["*.log", "拡張子が .log のファイル（どのフォルダでも）"],
-  ["/build/", "いちばん上の build フォルダ（/ で始めると、その場所だけ）"],
-  ["build/", "どこにある build フォルダでも"],
-  ["!keep.log", "! で始めると例外（無視しない）"],
-  ["# メモ", "# で始まる行はメモ"],
+  ["*.log", tr("拡張子が .log のファイル（どのフォルダでも）")],
+  ["/build/", tr("いちばん上の build フォルダ（/ で始めるとその場所だけ）")],
+  ["build/", tr("どこにある build フォルダでも")],
+  ["!keep.log", tr("! で始めると例外（無視しない）")],
+  [tr("# メモ"), tr("# で始まる行はメモ")],
 ];
 
 /** .gitignore（git で記録しないファイルの一覧）を、その場で書き換える */
@@ -82,11 +83,11 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
 
   return (
     <div className="palette-overlay git-dialog-back" onClick={() => { if (!saving && !dirty) onClose(); }}>
-      <div className="git-dialog gi-editor" role="dialog" aria-modal="true" aria-label=".gitignore を編集" onClick={(e) => e.stopPropagation()}>
-        <h3>.gitignore を編集</h3>
+      <div className="git-dialog gi-editor" role="dialog" aria-modal="true" aria-label={tr(".gitignore を編集")} onClick={(e) => e.stopPropagation()}>
+        <h3>{tr(".gitignore を編集")}</h3>
         <p className="git-dialog-note">
-          git で記録しない（無視する）ファイルを、1 行に 1 つ書きます。
-          {!exists && " まだ .gitignore はありません。保存すると、リポジトリのいちばん上に作ります。"}
+          {tr("git で記録しない（無視する）ファイルを 1 行に 1 つ書きます。")}
+          {!exists && tr(" まだ .gitignore はありません。")}
         </p>
         {loaded ? (
           <textarea
@@ -108,7 +109,7 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
             }}
           />
         ) : (
-          <p className="git-dialog-running">読み込んでいます…</p>
+          <p className="git-dialog-running">{tr("読み込んでいます…")}</p>
         )}
         <dl className="gi-help">
           {HELP.map(([pattern, meaning]) => (
@@ -119,17 +120,16 @@ export function GitignoreEditor({ folder, onSave, onClose }: GitignoreEditorProp
           ))}
         </dl>
         <p className="git-dialog-note">
-          すでに git で管理しているファイルは、ここに書いても無視されません。作業タブでファイルを右クリックして「無視する」を選ぶと、管理から外せます（
-          <code>git rm --cached</code>）。
+          {trx("すでに git で管理しているファイルは、ここに書いても無視されません。「作業をする」の ③ でファイルを右クリックして「無視する」を選ぶと、管理から外せます（<0>git rm --cached</0>）。", undefined, [<code />])}
         </p>
         {error && <p className="git-dialog-error">{error}</p>}
         <div className="git-dialog-actions">
-          {dirty && <span className="gi-dirty">保存していない変更があります</span>}
+          {dirty && <span className="gi-dirty">{tr("保存していない変更があります")}</span>}
           <button type="button" className="btn-sm" disabled={saving} onClick={onClose}>
-            キャンセル
+            {tr("キャンセル")}
           </button>
           <button type="button" className="btn-primary" disabled={saving || !dirty} onClick={save}>
-            {saving ? "保存しています…" : "保存"}
+            {saving ? tr("保存しています…") : tr("保存")}
           </button>
         </div>
       </div>

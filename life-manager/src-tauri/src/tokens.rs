@@ -531,7 +531,7 @@ pub fn restore(login: &str) -> Result<(), String> {
     let key = account_token_key(login);
     let keys: SavedKeys = read(&key)
         .and_then(|json| serde_json::from_str(&json).ok())
-        .ok_or_else(|| format!("{} の鍵が、この PC にありません。もう一度ログインしてください", login))?;
+        .ok_or_else(|| format!("{} の鍵がこの PC にありません。もう一度ログインしてください", login))?;
     write(DEFAULT_KEY, &keys.token)?;
     match keys.login {
         Some(record) => write(LOGIN_KEY, &record)?,

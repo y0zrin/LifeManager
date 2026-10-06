@@ -11,6 +11,7 @@ import { CreateRepoFlow } from "./CreateRepoFlow";
 import { PublishDialog } from "./PublishDialog";
 import { RepoAccess } from "./RepoAccess";
 import { TokenReportView } from "./TokenReportView";
+import { tr, trx } from "../../lib/i18n";
 
 interface AddRepoWizardProps {
   /** GitHub にログインしている人（新しく作る・手元のフォルダを上げるときの持ち主） */
@@ -53,10 +54,10 @@ const sameRepo = (a: { owner: string; repo: string }, b: { owner: string; repo: 
 
 function ago(iso: string): string {
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
-  if (days <= 0) return "今日";
-  if (days === 1) return "昨日";
-  if (days < 30) return `${days} 日前`;
-  return `${Math.floor(days / 30)} か月前`;
+  if (days <= 0) return tr("今日");
+  if (days === 1) return tr("昨日");
+  if (days < 30) return tr("{days} 日前", { days });
+  return tr("{floor} か月前", { floor: Math.floor(days / 30) });
 }
 
 /** 画面の切り替えの動き（transform）の内側だと、重ねる画面がずれたり透けたりするので、アプリのいちばん外側に出す */
@@ -105,7 +106,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
       setRepos(await listUserRepos());
     } catch (e) {
       setRepos([]);
-      setError(`使えるリポジトリを読めませんでした（${String(e)}）。URL を貼っても選べます`);
+      setError(tr("使えるリポジトリを読めませんでした（{String}）。URL を貼っても選べます", { String: String(e) }));
     }
   };
   useEffect(() => {
@@ -132,7 +133,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
   }, [picked, repos]);
 
   async function pickParent() {
-    const chosen = await openDialog({ directory: true, title: "クローンする置き場所を選ぶ（この中にフォルダを作ります）", defaultPath: parent || undefined });
+    const chosen = await openDialog({ directory: true, title: tr("クローンする置き場所を選ぶ（この中にフォルダを作ります）"), defaultPath: parent || undefined });
     if (typeof chosen === "string") {
       setParent(chosen);
       saveParent(chosen);
@@ -156,14 +157,14 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
     await onAddProject(owner, repo, label, projectToken);
     if (folder) await onSetLocalFolder(owner, repo, folder);
     await onSwitch(owner, repo);
-    onNotify(folder ? `${owner}/${repo} を追加しました（作業フォルダ: ${folder}）` : `${owner}/${repo} を追加しました`);
+    onNotify(folder ? tr("{owner}/{repo} を追加しました（作業フォルダ: {folder}）", { owner, repo, folder }) : tr("{owner}/{repo} を追加しました", { owner, repo }));
     onClose();
   }
 
   // --- GitHub にある ---
   const remoteDest = picked && parent ? joinPath(parent, picked.repo) : "";
   const cloneCommand = picked
-    ? git.displayCommand(["clone", `https://github.com/${picked.owner}/${picked.repo}.git`, remoteDest || `（置き場所）${sep(parent || "\\")}${picked.repo}`])
+    ? git.displayCommand(["clone", `https://github.com/${picked.owner}/${picked.repo}.git`, remoteDest || tr("（置き場所）{sep}{repo}", { sep: sep(parent || "\\"), repo: picked.repo })])
     : "";
   const useClone = clone && !isMobile;
 
@@ -174,7 +175,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
       const label = displayName.trim() || `${target.owner}/${target.repo}`;
       let folder: string | undefined;
       if (useClone) {
-        const result = await git.cloneUrl(parent, `https://github.com/${target.owner}/${target.repo}`);
+        const result = await git.cloneUrl(parent, `https://github.com/${target.owner}/${target.repo}`, login);
         folder = result.path;
       }
       await finish(target.owner, target.repo, label, folder, token.trim() || undefined);
@@ -183,7 +184,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
 
   // --- この PC にある ---
   async function pickLocal() {
-    const chosen = await openDialog({ directory: true, title: "追加するフォルダを選ぶ" });
+    const chosen = await openDialog({ directory: true, title: tr("追加するフォルダを選ぶ") });
     if (typeof chosen !== "string") return;
     setLocalFolder(chosen);
     setLocalFound(null);
@@ -233,24 +234,23 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
       <>
         <label className="chk add-project-clone">
           <input type="checkbox" checked={clone} onChange={(e) => setClone(e.target.checked)} disabled={busy} />
-          この PC にも持ってくる（クローン）
+          {tr("この PC にも持ってくる（クローン）")}
         </label>
         {clone && (
           <div className="add-project-indent">
             <label className="git-dialog-label">
-              置き場所
+              {tr("置き場所")}
               <span className="add-project-row">
-                <input className="input-full" value={parent} readOnly placeholder="フォルダを選んでください" />
+                <input className="input-full" value={parent} readOnly placeholder={tr("フォルダを選んでください")} />
                 <button type="button" className="btn-sm" onClick={pickParent} disabled={busy}>
-                  選ぶ…
+                  {tr("選ぶ…")}
                 </button>
               </span>
             </label>
-            {dest && <p className="git-dialog-note">→ <b>{dest}</b> ができ、作業フォルダになります</p>}
+            {dest && <p className="git-dialog-note">{trx("→ <0>{dest}</0> ができ、作業フォルダになります", { dest }, [<b />])}</p>}
             {command && (
               <div className="cmd-preview">
-                <span>実行するコマンド</span>
-                <code>{command}</code>
+                {trx("<0>実行するコマンド</0><1>{command}</1>", { command }, [<span />, <code />])}
               </div>
             )}
           </div>
@@ -260,57 +260,55 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
 
   return onTop(
     <div className="palette-overlay git-dialog-back" onClick={() => !busy && onClose()}>
-      <div className="git-dialog add-repo" role="dialog" aria-modal="true" aria-label="リポジトリを追加" onClick={(e) => e.stopPropagation()}>
+      <div className="git-dialog add-repo" role="dialog" aria-modal="true" aria-label={tr("リポジトリを追加")} onClick={(e) => e.stopPropagation()}>
         {step === "choose" && (
           <>
-            <h3>リポジトリを追加</h3>
-            <p className="git-dialog-message">どこにあるリポジトリですか？</p>
+            <h3>{tr("リポジトリを追加")}</h3>
+            <p className="git-dialog-message">{tr("どこにあるリポジトリですか？")}</p>
             <div className="wizard-choices">
               <button type="button" className="wizard-choice" onClick={() => setStep("remote")}>
                 <span className="wizard-choice-icon" aria-hidden="true">🌐</span>
                 <span className="wizard-choice-body">
-                  <b>GitHub にある（リモート）</b>
-                  <span>チームのリポジトリや、GitHub で作ったもの。{isMobile ? "" : "この PC に持ってくる（クローン）こともできます"}</span>
+                  <b>{tr("GitHub にある（リモート）")}</b>
+                  <span>{tr("チームのリポジトリや GitHub で作ったもの。")}{isMobile ? "" : tr("この PC に持ってくる（クローン）こともできます")}</span>
                 </span>
               </button>
               {!isMobile && (
                 <button type="button" className="wizard-choice" onClick={() => setStep("local")}>
                   <span className="wizard-choice-icon" aria-hidden="true">💻</span>
                   <span className="wizard-choice-body">
-                    <b>この PC にある（ローカル）</b>
-                    <span>手元のフォルダ。GitHub にまだなければ、GitHub に上げます</span>
+                    {trx("<0>この PC にある（ローカル）</0><1>手元のフォルダ。GitHub にまだなければ、GitHub に上げます</1>", undefined, [<b />, <span />])}
                   </span>
                 </button>
               )}
               <button type="button" className="wizard-choice" onClick={() => setStep("create")}>
                 <span className="wizard-choice-icon" aria-hidden="true">✨</span>
                 <span className="wizard-choice-body">
-                  <b>新しく作る</b>
-                  <span>GitHub に空のリポジトリ（README つき）を作ります。{isMobile ? "" : "この PC にも持ってこられます"}</span>
+                  <b>{tr("新しく作る")}</b>
+                  <span>{tr("GitHub に空のリポジトリ（README つき）を作ります。")}{isMobile ? "" : tr("この PC にも持ってこられます")}</span>
                 </span>
               </button>
             </div>
             <div className="git-dialog-actions">
-              <button type="button" className="btn-sm" onClick={onClose}>やめる</button>
+              <button type="button" className="btn-sm" onClick={onClose}>{tr("やめる")}</button>
             </div>
           </>
         )}
 
         {step === "remote" && (
           <>
-            <h3>GitHub のリポジトリを選ぶ</h3>
+            <h3>{tr("GitHub のリポジトリを選ぶ")}</h3>
             <input className="input-full" value={query} autoFocus spellCheck={false}
-              placeholder="名前で探す、または URL を貼る（https://github.com/持ち主/名前）"
+              placeholder={tr("名前で探す、または URL を貼る（https://github.com/持ち主/名前）")}
               onChange={(e) => { setQuery(e.target.value); const p = git.parseGitHub(e.target.value); if (p) setPicked(p); }} disabled={busy} />
             <div className="wizard-list">
               {repos === null && (
-                <p className="git-dialog-note"><i className="spinner" aria-hidden="true" /> 使えるリポジトリを読んでいます…</p>
+                <p className="git-dialog-note"><i className="spinner" aria-hidden="true" /> {" "}{tr("使えるリポジトリを読んでいます…")}</p>
               )}
               {pasted && !shown.some((r) => sameRepo({ owner: r.owner.login, repo: r.name }, pasted)) && (
                 <button type="button" className={`wizard-item${picked && sameRepo(picked, pasted) ? " on" : ""}`} onClick={() => setPicked(pasted)} disabled={busy}>
-                  <span className="wizard-item-name">{pasted.owner}/{pasted.repo}</span>
-                  <span className="setup-repo-badge">貼った URL</span>
-                  {isAdded(pasted) && <span className="setup-repo-badge">追加済み</span>}
+                  {trx("<0>{owner}/{repo}</0><1>貼った URL</1>", { owner: pasted.owner, repo: pasted.repo }, [<span className="wizard-item-name" />, <span className="setup-repo-badge" />])}
+                  {isAdded(pasted) && <span className="setup-repo-badge">{tr("追加済み")}</span>}
                 </button>
               )}
               {shown.map((r) => {
@@ -318,36 +316,35 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
                 const added = isAdded(it);
                 return (
                   <button key={r.full_name} type="button" className={`wizard-item${picked && sameRepo(picked, it) ? " on" : ""}`}
-                    onClick={() => setPicked(it)} disabled={busy || added} title={added ? "もう一覧にあります（左上のリポジトリから切り替えます）" : undefined}>
+                    onClick={() => setPicked(it)} disabled={busy || added} title={added ? tr("もう一覧にあります（左上のリポジトリから切り替えます）") : undefined}>
                     <span className="wizard-item-name">{r.full_name}</span>
-                    {r.private && <span className="setup-repo-badge">非公開</span>}
-                    {r.owner.type === "Organization" && <span className="setup-repo-badge">チーム</span>}
-                    {added && <span className="setup-repo-badge">追加済み</span>}
+                    {r.private && <span className="setup-repo-badge">{tr("非公開")}</span>}
+                    {r.owner.type === "Organization" && <span className="setup-repo-badge">{tr("チーム")}</span>}
+                    {added && <span className="setup-repo-badge">{tr("追加済み")}</span>}
                     <span className="wizard-item-when">{ago(r.updated_at)}</span>
                   </button>
                 );
               })}
-              {repos !== null && repos.length > 0 && shown.length === 0 && !pasted && <p className="git-dialog-note">見つかりません。URL を貼っても選べます。</p>}
-              {repos !== null && repos.length === 0 && !pasted && <p className="git-dialog-note">まだありません。URL を貼るか、下から追加・作成します。</p>}
+              {repos !== null && repos.length > 0 && shown.length === 0 && !pasted && <p className="git-dialog-note">{tr("見つかりません。URL を貼っても選べます。")}</p>}
+              {repos !== null && repos.length === 0 && !pasted && <p className="git-dialog-note">{tr("まだありません。URL を貼るか、下から追加・作成します。")}</p>}
             </div>
             {check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={check} installUrl={installUrl} />}
             <div className="wizard-more">
-              <span className="git-dialog-note">一覧にないとき：</span>
-              {repoAccess}
-              <button type="button" className="link-button" onClick={() => setStep("create")} disabled={busy}>GitHub に新しく作る</button>
+              {trx("<0>一覧にないとき：</0>{repoAccess}", { repoAccess }, [<span className="git-dialog-note" />])}
+              <button type="button" className="link-button" onClick={() => setStep("create")} disabled={busy}>{tr("GitHub に新しく作る")}</button>
             </div>
             {cloneOptions(remoteDest, cloneCommand)}
             <button type="button" className="add-project-more" onClick={() => setShowMore((v) => !v)}>
-              {showMore ? "▾" : "▸"} 表示名・このプロジェクト専用のトークン
+              {showMore ? "▾" : "▸"} {" "}{tr("表示名・このプロジェクト専用のトークン")}
             </button>
             {showMore && (
               <div className="add-project-indent">
                 <label className="git-dialog-label">
-                  表示名（任意）
-                  <input className="input-full" value={displayName} placeholder="例：合同制作" onChange={(e) => setDisplayName(e.target.value)} disabled={busy} />
+                  {tr("表示名（任意）")}
+                  <input className="input-full" value={displayName} placeholder={tr("例：合同制作")} onChange={(e) => setDisplayName(e.target.value)} disabled={busy} />
                 </label>
                 <label className="git-dialog-label">
-                  トークン（任意。入れなければ、いつものトークンを使います）
+                  {tr("トークン（任意。入れなければ、いつものトークンを使います）")}
                   <input className="input-full" type="password" value={token} placeholder="github_pat_…" onChange={(e) => setToken(e.target.value)} disabled={busy} />
                 </label>
               </div>
@@ -357,49 +354,52 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
 
         {step === "local" && (
           <>
-            <h3>この PC のフォルダを選ぶ</h3>
+            <h3>{tr("この PC のフォルダを選ぶ")}</h3>
             <label className="git-dialog-label">
-              追加するフォルダ
+              {tr("追加するフォルダ")}
               <span className="add-project-row">
-                <input className="input-full" value={localFolder} readOnly placeholder="フォルダを選んでください" />
-                <button type="button" className="btn-sm" onClick={pickLocal} disabled={busy}>選ぶ…</button>
+                <input className="input-full" value={localFolder} readOnly placeholder={tr("フォルダを選んでください")} />
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={pickLocal}
+                  disabled={busy}
+                  title={tr("GitHub からクローンしたフォルダを選ぶと、そのまま追加します。GitHub にまだないフォルダ（課題のプロジェクトなど）は、GitHub に上げてから追加します。")}
+                >
+                  {tr("選ぶ…")}
+                </button>
               </span>
             </label>
             {localFound && (
               <div className="wizard-case wizard-case--ok">
-                <b>✔ GitHub の {localFound.owner}/{localFound.repo} のフォルダです</b>
+                <b>{trx("✔ GitHub の {owner}/{repo} のフォルダです", { owner: localFound.owner, repo: localFound.repo })}</b>
                 <span className="git-dialog-note">
-                  {isAdded(localFound) ? "もう一覧にあります。このフォルダを作業フォルダにして、切り替えます。" : "追加して、このフォルダを作業フォルダにします。"}
-                  {localFound.top.replace(/[\\/]+$/, "") !== localFolder.replace(/[\\/]+$/, "") && `（選んだフォルダはリポジトリの中なので、いちばん上の ${localFound.top} にします）`}
+                  {isAdded(localFound) ? tr("もう一覧にあります。このフォルダを作業フォルダにして切り替えます。") : tr("追加して、このフォルダを作業フォルダにします。")}
+                  {localFound.top.replace(/[\\/]+$/, "") !== localFolder.replace(/[\\/]+$/, "") && tr("（選んだフォルダはリポジトリの中なので、いちばん上の {top} にします）", { top: localFound.top })}
                 </span>
               </div>
             )}
             {localFound && check && check.repos[0] && !check.repos[0].ok && <TokenReportView report={check} installUrl={installUrl} />}
             {localChecked && !localFound && (
               <div className="wizard-case wizard-case--warn">
-                <b>⚠ まだ GitHub にありません</b>
+                <b>{tr("⚠ まだ GitHub にありません")}</b>
                 <span className="git-dialog-note">
-                  {localOther ? `このフォルダは GitHub 以外（${localOther}）につながっています。` : ""}
-                  git の記録を始めて（git init）、GitHub にリポジトリを作って上げます。実行するコマンドを見せながら進めます。
+                  {localOther ? tr("このフォルダは GitHub 以外（{localOther}）につながっています。", { localOther }) : ""}
+                  {tr("git の記録を始めて（git init）、GitHub にリポジトリを作って上げます。実行するコマンドを見せながら進めます。")}
                 </span>
                 <span>
-                  <button type="button" className="btn-primary" onClick={() => setPublishing(true)}>GitHub に上げる…</button>
+                  <button type="button" className="btn-primary" onClick={() => setPublishing(true)}>{tr("GitHub に上げる…")}</button>
                 </span>
               </div>
-            )}
-            {!localFolder && (
-              <p className="hint">
-                GitHub からクローンしたフォルダを選ぶと、そのまま追加します。GitHub にまだないフォルダ（課題のプロジェクトなど）は、GitHub に上げてから追加します。
-              </p>
             )}
           </>
         )}
 
         {step === "create" && (
           <>
-            <h3>新しく作る</h3>
+            <h3>{tr("新しく作る")}</h3>
             <CreateRepoFlow
-              finishLabel={(c) => (c ? "クローンして追加する" : "追加する")}
+              finishLabel={(c) => (c ? tr("クローンして追加する") : tr("追加する"))}
               onFinish={(o, r, folder) => finish(o, r, `${o}/${r}`, folder)}
               onBack={() => { setStep("choose"); setError(null); }}
               onBusyChange={setBusy}
@@ -409,7 +409,7 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
 
         {busy && step !== "create" && (
           <p className="git-dialog-running">
-            <i className="spinner" aria-hidden="true" /> {useClone && step === "remote" ? "クローンしています…（大きなリポジトリは時間がかかります）" : "実行しています…"}
+            <i className="spinner" aria-hidden="true" /> {useClone && step === "remote" ? tr("クローンしています…（大きなリポジトリは時間がかかります）") : tr("実行しています…")}
           </p>
         )}
         {error && step !== "create" && <p className="git-dialog-error">{error}</p>}
@@ -417,18 +417,18 @@ export function AddRepoWizard({ login, projects, onAddProject, onSetLocalFolder,
         {(step === "remote" || step === "local") && (
           <div className="git-dialog-actions add-project-actions">
             <button type="button" className="link-button" onClick={() => { setStep("choose"); setError(null); }} disabled={busy}>
-              ← 戻る
+              {tr("← 戻る")}
             </button>
-            <button type="button" className="btn-sm" onClick={onClose} disabled={busy}>やめる</button>
+            <button type="button" className="btn-sm" onClick={onClose} disabled={busy}>{tr("やめる")}</button>
             {step === "remote" && (
               <button type="button" className="btn-primary" onClick={addRemote} disabled={busy || !picked || (useClone && !parent)}>
-                {useClone ? "クローンして追加する" : "追加する"}
+                {useClone ? tr("クローンして追加する") : tr("追加する")}
               </button>
             )}
             {step === "local" && localFound && (
               <button type="button" className="btn-primary" disabled={busy}
                 onClick={() => run(() => finish(localFound.owner, localFound.repo, `${localFound.owner}/${localFound.repo}`, localFound.top))}>
-                {isAdded(localFound) ? "作業フォルダにして切り替える" : "追加する"}
+                {isAdded(localFound) ? tr("作業フォルダにして切り替える") : tr("追加する")}
               </button>
             )}
           </div>

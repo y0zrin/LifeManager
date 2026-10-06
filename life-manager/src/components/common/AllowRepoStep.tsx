@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listUserRepos, repoAccessUrl, type Installation, type UserRepo } from "../../lib/auth";
+import { tr, trx } from "../../lib/i18n";
 
 /** GitHub の画面で許可しているあいだ、確かめに行く間隔と、あきらめるまで */
 const WATCH_MS = 3000;
@@ -106,44 +107,43 @@ export function AllowRepoStep({ me, installUrl, installations, target, onAllowed
   return (
     <div className="allow-step">
       <p className="git-dialog-message">
-        Life Manager に <b>{full}</b> を使わせます。あなたのほかのリポジトリには触れません。
+        {trx("Life Manager に <0>{full}</0> を使わせます。あなたのほかのリポジトリには触れません。", { full }, [<b />])}
       </p>
       {state === "checking" && (
         <p className="git-dialog-note">
-          <i className="spinner" aria-hidden="true" /> もう使えるか確かめています…
+          <i className="spinner" aria-hidden="true" /> {" "}{tr("もう使えるか確かめています…")}
         </p>
       )}
       {(state === "idle" || state === "watching") && (
         <>
           <span>
             <button type="button" className={state === "watching" ? "btn-sm" : "btn-primary"} onClick={open}>
-              {state === "watching" ? "許可する画面をもう一度開く" : "許可する画面を開く（GitHub）"}
+              {state === "watching" ? tr("許可する画面をもう一度開く") : tr("許可する画面を開く（GitHub）")}
             </button>
           </span>
           <p className="allow-step-how">
             {isOrg ? (
-              <>GitHub の画面で組織 <b>{target.owner}</b> を選び、<b>{target.repo}</b> を選んで「Install」（または「Save」）を押します。組織のリポジトリは、組織の持ち主が許可します。</>
+              <>{trx("GitHub の画面で組織 <0>{owner}</0> を選び、<1>{repo}</1> を選んで「Install」（または「Save」）を押します。組織のリポジトリは組織の持ち主が許可します。", { owner: target.owner, repo: target.repo }, [<b />, <b />])}</>
             ) : mine ? (
-              <>GitHub の画面で <b>{target.repo}</b> にチェックを入れて（足して）「Save」を押します。</>
+              <>{trx("GitHub の画面で <0>{repo}</0> にチェックを入れて（足して）「Save」を押します。", { repo: target.repo }, [<b />])}</>
             ) : (
-              <>GitHub の画面で「<b>Only select repositories</b>」→ <b>{target.repo}</b> を選んで「Install」を押します。</>
+              <>{trx("GitHub の画面で「<0>Only select repositories</0>」→ <1>{repo}</1> を選んで「Install」を押します。", { repo: target.repo }, [<b />, <b />])}</>
             )}
           </p>
         </>
       )}
       {state === "watching" && (
         <p className="setup-wait">
-          <i className="spinner" aria-hidden="true" /> 許可を待っています…（許可すると、自分で気づいて次へ進みます）
-          <button type="button" className="link-button" onClick={stop}>やめる</button>
+          <i className="spinner" aria-hidden="true" /> {" "}{tr("許可を待っています…（許可すると自動で次へ進みます）")}
+          <button type="button" className="link-button" onClick={stop}>{tr("やめる")}</button>
         </p>
       )}
       {state === "other" && other && (
         <div className="wizard-case wizard-case--warn">
-          <b>✔ {other.owner}/{other.repo} を使えるようになりました</b>
-          <span className="git-dialog-note">{full} とは名前が違います（GitHub で別の名前にしましたか？）。</span>
+          {trx("<0>✔ {owner}/{repo} を使えるようになりました</0><1>{full} とは名前が違います（GitHub で別の名前にしましたか？）。</1>", { owner: other.owner, repo: other.repo, full }, [<b />, <span className="git-dialog-note" />])}
           <span className="allow-step-actions">
-            <button type="button" className="btn-primary" onClick={() => onAllowed(other)}>このリポジトリで続ける</button>
-            <button type="button" className="btn-sm" onClick={open}>もう一度開く</button>
+            <button type="button" className="btn-primary" onClick={() => onAllowed(other)}>{tr("このリポジトリで続ける")}</button>
+            <button type="button" className="btn-sm" onClick={open}>{tr("もう一度開く")}</button>
           </span>
         </div>
       )}

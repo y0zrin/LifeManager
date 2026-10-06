@@ -1,7 +1,11 @@
 mod credential;
+#[cfg(windows)]
+mod frame_guard;
 mod git;
 mod github;
 mod journal;
+mod manual;
+mod notice_window;
 mod notify;
 mod offline;
 mod scheduler;
@@ -399,7 +403,7 @@ async fn switch_account(
     target: String,
 ) -> Result<(), String> {
     if !tokens::has_saved_keys(&target) {
-        return Err(format!("{} の鍵が、この PC にありません。「別のアカウントを追加」からログインしてください", target));
+        return Err(format!("{} の鍵がこの PC にありません。「別のアカウントを追加」からログインしてください", target));
     }
     tokens::stash_active(&current, current_avatar)?;
     if let Err(e) = tokens::restore(&target) {
@@ -440,7 +444,7 @@ async fn check_token(
     repo: Option<String>,
     repos: Vec<github::token_check::RepoRef>,
 ) -> Result<github::token_check::TokenReport, String> {
-    const NO_TOKEN: &str = "トークンがありません（ログインの期限が来たときは、もう一度ログインしてください）";
+    const NO_TOKEN: &str = "トークンがありません。ログインの期限が来たときは、もう一度ログインしてください";
     let project = match (owner.as_deref(), repo.as_deref(), &token) {
         (Some(o), Some(r), None) => tokens::project_token(o, r),
         _ => None,
@@ -459,7 +463,7 @@ async fn check_token(
             return github::token_check::check(&fresh, &repos).await;
         }
         if tokens::default_token().is_none() {
-            return Err("ログインの鍵が使えなくなりました（期限が切れたか、GitHub で取り消されました）。もう一度ログインしてください".into());
+            return Err("ログインの鍵が使えなくなりました。期限が切れたか、GitHub で取り消されました。もう一度ログインしてください".into());
         }
     }
     report
@@ -611,9 +615,9 @@ async fn create_my_repo(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, na
             format!("「{}」というリポジトリはもうあります。別の名前にするか、一覧から選んでください", name)
         } else if e.contains("not accessible by integration") {
             // GitHub でログインしたとき: 自分のアカウントに Life Manager が入っていない（入れたリポジトリにしか触れない）
-            "Life Manager が、あなたのアカウントにまだ入っていないため、ここでは作れません。先に「使用するリポジトリを選ぶ」で Life Manager を入れてください（入れたあとは、ここで作れます）".to_string()
+            "Life Manager があなたのアカウントにまだ入っていないため、ここでは作れません。先に「使用するリポジトリを選ぶ」で Life Manager を入れてください。入れたあとは、ここで作れます".to_string()
         } else if e.contains("not accessible by personal access token") {
-            format!("{}（GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです）", token_permission_message(&e, "リポジトリを作ること"))
+            format!("{}。GitHub の画面 github.com/new で作ってから、一覧から選んでも同じです", token_permission_message(&e, "リポジトリを作ること"))
         } else {
             e
         }
@@ -677,7 +681,7 @@ fn invite_outcome(status: u16, body: &str, user_exists: Option<bool>) -> InviteO
         201 => outcome("invited", None),
         204 => outcome("already", None),
         404 if user_exists == Some(false) => outcome("no_user", None),
-        404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます（リポジトリが見つからないか、管理者の権限がありません）".into())),
+        404 => outcome("forbidden", Some("このリポジトリの管理者だけが招待できます。リポジトリが見つからないか、管理者の権限がありません".into())),
         403 => {
             let raw = github_message.unwrap_or_default();
             let message = if raw.contains("not accessible by personal access token") {
@@ -726,7 +730,7 @@ async fn remove_member(state: tauri::State<'_, Mutex<Option<GitHubClient>>>, own
     let username = username.trim().trim_start_matches('@');
     client.remove_collaborator(&owner, &repo, username).await.map_err(|e| {
         if e.starts_with("HTTP 403") && !e.contains("not accessible by") {
-            "メンバーを外せるのは、このリポジトリの管理者だけです".to_string()
+            "メンバーを外せるのはこのリポジトリの管理者だけです".to_string()
         } else {
             token_permission_message(&e, "メンバーを外すこと")
         }
@@ -890,23 +894,17 @@ async fn setup_labels(
     let guard = state.lock().await;
     let client = guard.as_ref().ok_or("トークンが未設定です")?;
 
+    // 既定のラベルは、チームの仕事に要るものだけ（ユーザー決定 2026-10-01）: 優先と、だれの仕事か（セクション）。
+    // 種別（イシュー・メモ・ルーチン・バグ）と状態（ボードの区画）は、アプリがタスクを作る・付箋を動かすときに付ける（なければ GitHub が作る）。
+    // 見積もり（見積:3pt など）は、単位がリポジトリの設定で変わるので、付けるときに画面が作る
     let labels = vec![
-        ("種別:イシュー",   "0E8A16", "具体的な成果単位"),
-        ("種別:メモ",       "FBCA04", "思いつき・タスク未満の断片"),
-        ("種別:ルーチン",   "1D76DB", "繰り返しタスク"),
-        ("分野:仕事",       "B60205", "仕事関連"),
-        ("分野:私用",       "D93F0B", "プライベート"),
-        ("分野:やりたい",   "F9D0C4", "やりたいことリスト"),
-        ("分野:健康",       "0E8A16", "健康・運動"),
-        ("分野:学習",       "5319E7", "学習・スキルアップ"),
-        ("状態:未整理",     "C2E0C6", "投入直後・未分類"),
-        ("状態:進行中",     "0075CA", "着手済み"),
-        ("状態:ブロック",   "E4E669", "外部要因で停止中"),
-        ("状態:いつか",     "D4C5F9", "いつかやる"),
-        ("優先:高",         "B60205", "高優先度"),
-        ("優先:中",         "FBCA04", "中優先度"),
-        ("優先:低",         "0E8A16", "低優先度"),
-        // 見積もり（見積:3pt など）は、単位がリポジトリの設定で変わるので、付けるときに画面が作る
+        ("優先:高",                 "B60205", "先にやる"),
+        ("優先:中",                 "FBCA04", "ふつう"),
+        ("優先:低",                 "0E8A16", "手が空いたら"),
+        ("セクション:プログラマー", "1D76DB", "プログラムを書く仕事"),
+        ("セクション:デザイナー",   "D876E3", "絵・UI・モデルなど、見た目を作る仕事"),
+        ("セクション:プランナー",   "F9A03F", "企画・仕様・レベルデザイン・調整の仕事"),
+        ("セクション:その他",       "BFD4F2", "サウンド・資料など、ほかの仕事"),
     ];
 
     let mut created = 0;
@@ -1198,6 +1196,18 @@ async fn get_journal(
     return offline::get_journal(&app, &client, &owner, &repo, &date).await;
 }
 
+/// 日誌がある日（YYYY-MM-DD。日誌のカレンダーの 📓）
+#[tauri::command]
+async fn list_journal_dates(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<Vec<String>, String> {
+    let client = current_client(&state).await?;
+    return offline::list_journal_dates(&app, &client, &owner, &repo).await;
+}
+
 /// つながらないときは送信待ちに並べる（pending: true）
 #[tauri::command]
 async fn save_journal_notes(
@@ -1414,7 +1424,11 @@ async fn test_discord_webhook(webhook_url: String) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // もう一度起動したときは、インジケーターに残っている Life Manager を前に出す（二重に起動しない）
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| notice_window::show_main(app)));
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1422,6 +1436,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(None::<GitHubClient>))
         .setup(|app| {
+            // おしらせの窓・インジケーターを作れなくても、アプリは起動する（知らせはアプリの中に出す）
+            #[cfg(desktop)]
+            if let Err(e) = notice_window::setup(app) {
+                eprintln!("おしらせの窓を用意できませんでした: {e}");
+            }
+            // 窓と、その中の枠（メディアビューワーの PDF など）が、外のページへ移らないようにする（メインの窓とおしらせの窓）
+            #[cfg(windows)]
+            for w in tauri::Manager::webview_windows(app).values() {
+                frame_guard::guard(w);
+            }
             let app_handle = app.handle().clone();
             credential::init_android_data_dir(&app_handle);
             tauri::async_runtime::spawn(async move {
@@ -1499,6 +1523,7 @@ pub fn run() {
             save_routines,
             generate_journal,
             get_journal,
+            list_journal_dates,
             save_journal_notes,
             send_notification,
             get_notification_schedules,
@@ -1524,6 +1549,17 @@ pub fn run() {
             github::releases::create_release,
             github::releases::update_release,
             github::releases::upload_release_asset,
+            github::cards::repo_card,
+            github::teamwork::team_totals,
+            github::artifacts::issue_artifacts,
+            notice_window::notice_fit,
+            notice_window::focus_main,
+            notice_window::set_close_to_tray,
+            notice_window::set_tray_labels,
+            github::artifacts::media_read_github,
+            git::media::media_read_local,
+            git::media::media_open_local,
+            git::media::media_read_commit,
             github::releases::close_milestone,
             github::releases::activity_feed,
             github::actions::actions_overview,
@@ -1580,6 +1616,8 @@ pub fn run() {
             git::commands::git_push,
             git::commands::git_pull,
             git::commands::git_fetch,
+            git::commands::git_fetch_branch,
+            git::commands::git_pull_branch,
             git::commands::git_switch,
             git::commands::git_stash_push,
             git::commands::git_stash_pop,
@@ -1589,6 +1627,10 @@ pub fn run() {
             git::commands::git_open_terminal,
             git::commands::git_ignore_tracked,
             git::commands::git_ignore_add,
+            git::commands::git_commit_watch,
+            git::commands::git_my_commits_since,
+            git::commands::git_use_account,
+            manual::open_manual,
             git::commands::git_gitignore_read,
             git::commands::git_gitignore_write,
             git::commands::git_history,

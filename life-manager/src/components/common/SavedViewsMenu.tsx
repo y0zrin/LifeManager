@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDismiss } from "../../hooks/useDismiss";
 import { isEnter } from "../../lib/keys";
 import { describeView, sameSettings, type SavedView, type ViewSettings } from "../../lib/savedViews";
+import { tr } from "../../lib/i18n";
 
 interface SavedViewsMenuProps {
   views: SavedView[];
@@ -45,7 +46,7 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
     try {
       await onSave(next);
     } catch (e) {
-      setError(`保存できませんでした: ${e}`);
+      setError(tr("保存できませんでした: {e}", { e }));
     } finally {
       setBusy(false);
     }
@@ -61,7 +62,7 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
   function rename() {
     if (!active || !trimmed || busy) return;
     if (existing && existing !== active) {
-      setError(`「${trimmed}」という見方はもうあります`);
+      setError(tr("「{trimmed}」という見方はもうあります", { trimmed }));
       return;
     }
     save(views.map((v) => (v === active ? { ...v, name: trimmed } : v)));
@@ -75,13 +76,13 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
   return (
     <span className="views-menu" ref={ref}>
       <button type="button" className={`select-sm views-menu-button${active ? " views-menu-button--on" : ""}`} onClick={() => setOpen((v) => !v)}>
-        保存した見方: {active ? <b>{active.name}</b> : "—"} ▾
+        {tr("保存した見方:")}{" "} {active ? <b>{active.name}</b> : "—"} ▾
       </button>
       {open && (
         <div className="views-menu-pop popover">
-          <div className="views-menu-title">このリポジトリの見方（チームで共有）</div>
+          <div className="views-menu-title">{tr("このリポジトリの見方（チームで共有）")}</div>
           {views.length === 0 && (
-            <div className="views-menu-empty">まだありません。今の絞り込み・並び・まとめ方に名前を付けて保存できます</div>
+            <div className="views-menu-empty">{tr("まだありません")}</div>
           )}
           {views.map((v) => (
             <button
@@ -98,29 +99,26 @@ export function SavedViewsMenu({ views, current, onApply, onSave, milestoneTitle
             <input
               className="input-full"
               value={name}
-              placeholder="今の見方に名前を付ける（例: 今週やること）"
+              placeholder={tr("今の見方に名前を付ける（例: 今週やること）")}
               onChange={(e) => { setName(e.target.value); setError(null); }}
               onKeyDown={(e) => { if (isEnter(e)) saveCurrent(); }}
               disabled={busy}
             />
             <div className="views-menu-actions">
               <button type="button" className="btn-sm" onClick={saveCurrent} disabled={!trimmed || busy}>
-                {existing ? "上書き保存" : "保存"}
+                {existing ? tr("上書き保存") : tr("保存")}
               </button>
               <button type="button" className="btn-sm" onClick={rename} disabled={!active || !trimmed || trimmed === active.name || busy}
-                title={active ? `「${active.name}」の名前を変える` : "保存した見方を選んでいるときに使えます"}>
-                名前を変える
+                title={active ? tr("「{name}」の名前を変える", { name: active.name }) : tr("保存した見方を選んでいるときに使えます")}>
+                {tr("名前を変える")}
               </button>
               <button type="button" className="btn-sm" onClick={remove} disabled={!active || busy}
-                title={active ? `「${active.name}」を消す` : "保存した見方を選んでいるときに使えます"}>
-                消す
+                title={active ? tr("「{name}」を消す", { name: active.name }) : tr("保存した見方を選んでいるときに使えます")}>
+                {tr("消す")}
               </button>
             </div>
-            {busy && <div className="views-menu-note">保存しています…</div>}
+            {busy && <div className="views-menu-note">{tr("保存しています…")}</div>}
             {error && <div className="views-menu-error">{error}</div>}
-            <div className="views-menu-note">
-              保存すると <code>config/views.yaml</code> に書いて GitHub に送ります。「担当: 自分」は、開いた人に読み替えます
-            </div>
           </div>
         </div>
       )}

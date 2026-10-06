@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { GitHubLabel, Routine } from "../../lib/types";
 import { LabelBadge } from "../common/LabelBadge";
+import { tr, trx, weekdayName, joinWeekdays } from "../../lib/i18n";
 
 interface RoutinesViewProps {
   routines: Routine[];
@@ -11,7 +12,7 @@ interface RoutinesViewProps {
 
 const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const weekdayLabels: Record<string, string> = {
-  mon: "月", tue: "火", wed: "水", thu: "木", fri: "金", sat: "土", sun: "日",
+  mon: weekdayName(1), tue: weekdayName(2), wed: weekdayName(3), thu: weekdayName(4), fri: weekdayName(5), sat: weekdayName(6), sun: weekdayName(0),
 };
 
 export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: RoutinesViewProps) {
@@ -111,25 +112,25 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
     <div className="content">
       <div className="toolbar">
         <button onClick={() => { if (showForm) resetForm(); else setShowForm(true); }} className="btn-sm">
-          {showForm ? "×" : "+ ルーチン追加"}
+          {showForm ? "×" : tr("+ ルーチン追加")}
         </button>
-        <button onClick={onRefresh} className="btn-sm">更新</button>
+        <button onClick={onRefresh} className="btn-sm">{tr("更新")}</button>
       </div>
 
       {showForm && (
         <div className="form-card" style={{ borderLeft: isEditing ? "3px solid var(--accent-blue)" : undefined }}>
           {isEditing && (
             <p style={{ fontSize: "var(--font-sm)", color: "var(--accent-blue)", margin: "0 0 var(--space-xs)" }}>
-              「{routines[editingIndex]?.name}」を編集中
+              {trx("「{name}」を編集中", { name: routines[editingIndex]?.name })}
             </p>
           )}
           <input value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="ルーチン名" className="input-full" />
+            placeholder={tr("ルーチン名")} className="input-full" />
           <div className="flex-row">
             <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="select-sm">
-              <option value="daily">毎日</option>
-              <option value="weekly">毎週</option>
-              <option value="monthly">毎月</option>
+              <option value="daily">{tr("毎日")}</option>
+              <option value="weekly">{tr("毎週")}</option>
+              <option value="monthly">{tr("毎月")}</option>
             </select>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
               className="input-full" style={{ maxWidth: "120px" }} />
@@ -153,20 +154,20 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
 
           {frequency === "weekly" && (
             <select value={day} onChange={(e) => setDay(e.target.value)} className="select-sm">
-              <option value="">曜日を選択...</option>
+              <option value="">{tr("曜日を選択...")}</option>
               {weekdays.map((wd) => (
-                <option key={wd} value={wd}>{weekdayLabels[wd]}曜日</option>
+                <option key={wd} value={wd}>{trx("{weekdayLabels}曜日", { weekdayLabels: weekdayLabels[wd] })}</option>
               ))}
             </select>
           )}
 
           {frequency === "monthly" && (
             <input type="number" value={day} onChange={(e) => setDay(e.target.value)}
-              placeholder="日（1-31）" className="input-full" style={{ maxWidth: "120px" }} min="1" max="31" />
+              placeholder={tr("日（1-31）")} className="input-full" style={{ maxWidth: "120px" }} min="1" max="31" />
           )}
 
           <input value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder="Issue タイトル（{{date}}, {{week}}, {{month}} が使えます）" className="input-full" />
+            placeholder={tr("Issue タイトル（{{date}}, {{week}}, {{month}} が使えます）")} className="input-full" />
           <div className="label-selector">
             {availableLabels.map((l) => {
               const active = selectedLabels.includes(l.name);
@@ -189,24 +190,24 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
             })}
           </div>
           <textarea value={body} onChange={(e) => setBody(e.target.value)}
-            placeholder="本文（タスクリストは - [ ] で記述）" className="textarea-full" />
+            placeholder={tr("本文（タスクリストは - [ ] で記述）")} className="textarea-full" />
           <div className="flex-row" style={{ alignItems: "center", gap: "var(--space-xs)" }}>
-            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>期間:</span>
+            <span style={{ fontSize: "var(--font-sm)", color: "var(--text-muted)", flexShrink: 0 }}>{tr("期間:")}</span>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
               className="input-full" style={{ maxWidth: "160px" }} />
             <span style={{ fontSize: "var(--font-sm)", color: "var(--text-faint)" }}>〜</span>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
               className="input-full" style={{ maxWidth: "160px" }} />
-            <span style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)" }}>（空欄で無期限）</span>
+            <span style={{ fontSize: "var(--font-xs)", color: "var(--text-faint)" }}>{tr("（空欄で無期限）")}</span>
           </div>
           <input value={autoClose} onChange={(e) => setAutoClose(e.target.value)}
-            placeholder="自動クローズ時刻（例: 23:59、空欄で無効）" className="input-full" style={{ maxWidth: "200px" }} />
+            placeholder={tr("自動クローズ時刻（例: 23:59、空欄で無効）")} className="input-full" style={{ maxWidth: "200px" }} />
           <div className="flex-row">
             <button onClick={handleSubmit} className="btn-primary" disabled={!name || !title || saving}>
-              {saving ? "保存中..." : isEditing ? "更新" : "追加"}
+              {saving ? tr("保存中...") : isEditing ? tr("更新") : tr("追加")}
             </button>
             {isEditing && (
-              <button onClick={resetForm} className="btn-sm">キャンセル</button>
+              <button onClick={resetForm} className="btn-sm">{tr("キャンセル")}</button>
             )}
           </div>
         </div>
@@ -214,10 +215,10 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
 
       {routines.map((routine, index) => {
         const scheduleStr = routine.schedule.frequency === "daily"
-          ? `毎日${routine.schedule.days ? ` (${routine.schedule.days.map((d) => weekdayLabels[d] || d).join("")})` : ""}`
+          ? tr("毎日{v}", { v: routine.schedule.days ? ` (${joinWeekdays(routine.schedule.days.map((d) => weekdayLabels[d] || d))})` : "" })
           : routine.schedule.frequency === "weekly"
-          ? `毎週${weekdayLabels[String(routine.schedule.day)] || routine.schedule.day}曜日`
-          : `毎月${routine.schedule.day}日`;
+          ? tr("毎週{v}曜日", { v: weekdayLabels[String(routine.schedule.day)] || routine.schedule.day })
+          : tr("毎月{day}日", { day: routine.schedule.day });
 
         const periodStr = (routine.schedule.start_date || routine.schedule.end_date)
           ? ` [${routine.schedule.start_date || ""}〜${routine.schedule.end_date || ""}]`
@@ -233,9 +234,9 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
                 </span>
               </div>
               <div className="flex-row" style={{ gap: "var(--space-xs)" }}>
-                <button className="btn-sm" onClick={() => handleEdit(index)} disabled={saving}>編集</button>
+                <button className="btn-sm" onClick={() => handleEdit(index)} disabled={saving}>{tr("編集")}</button>
                 <button className="btn-sm" onClick={() => handleDelete(index)} disabled={saving}
-                  style={{ color: "var(--accent-red)" }}>削除</button>
+                  style={{ color: "var(--accent-red)" }}>{tr("削除")}</button>
               </div>
             </div>
             <p className="issue-card-body">→ {routine.issue.title}</p>
@@ -251,7 +252,7 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
               })}
               {routine.auto_close && (
                 <span style={{ fontSize: "var(--font-xs)", color: "var(--text-muted)", marginLeft: "4px" }}>
-                  自動クローズ: {routine.auto_close}
+                  {trx("自動クローズ: {auto_close}", { auto_close: routine.auto_close })}
                 </span>
               )}
             </div>
@@ -259,7 +260,7 @@ export function RoutinesView({ routines, availableLabels, onSave, onRefresh }: R
         );
       })}
       {routines.length === 0 && (
-        <p className="empty-message">ルーチンが設定されていません</p>
+        <p className="empty-message">{tr("ルーチンが設定されていません")}</p>
       )}
     </div>
   );

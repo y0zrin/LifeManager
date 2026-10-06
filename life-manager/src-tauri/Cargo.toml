@@ -1,6 +1,6 @@
 [package]
 name = "life-manager"
-version = "0.9.0"
+version = "1.0.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
@@ -35,3 +35,9 @@ tauri-plugin-dialog = "2"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+tauri-plugin-single-instance = "2"
+
+# アプリの中の枠（PDF など）が外のページへ移らないよう見張る（frame_guard.rs）。tauri（wry）が使っているのと同じ版
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"

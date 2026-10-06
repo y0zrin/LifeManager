@@ -1,6 +1,7 @@
 // スプリント（＝マイルストーン）: 開始日・バーンダウン・ベロシティ・サイクルタイム
 import type { GitHubIssue, GitHubMilestone, TimelineEvent } from "./types";
 import { convertEstimate, estimateOf, type EstimateUnit } from "./estimate";
+import { tr } from "./i18n";
 
 /** 量の数え方: 見積もり（設定の単位）か、件数 */
 export type PaceMode = "estimate" | "count";
@@ -278,10 +279,10 @@ export function cycleDays(closedAt: string, started: string): number {
 
 /** 日数の分け方（サイクルタイムの分布） */
 export const FLOW_BUCKETS: { label: string; max: number }[] = [
-  { label: "1 日以内", max: 1 },
-  { label: "2〜3 日", max: 3 },
-  { label: "4〜7 日", max: 7 },
-  { label: "8 日以上", max: Number.POSITIVE_INFINITY },
+  { label: tr("1 日以内"), max: 1 },
+  { label: tr("2〜3 日"), max: 3 },
+  { label: tr("4〜7 日"), max: 7 },
+  { label: tr("8 日以上"), max: Number.POSITIVE_INFINITY },
 ];
 
 export function bucketize(values: number[]): number[] {

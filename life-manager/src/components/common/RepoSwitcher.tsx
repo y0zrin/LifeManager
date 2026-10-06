@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { checkFolder, cloneRepo } from "../../lib/git";
 import { isMobile } from "../../lib/platform";
 import { isEscape } from "../../lib/keys";
 import type { Project } from "../../lib/types";
+import { repoKey as keyOf, useRepoFolderActions } from "../../hooks/useRepoFolderActions";
+import { tr } from "../../lib/i18n";
 
 interface RepoSwitcherProps {
   projects: Project[];
@@ -20,28 +20,27 @@ interface RepoSwitcherProps {
   onSetFolder: (owner: string, repo: string, path: string | null) => Promise<void>;
   /** リポジトリを追加（ウィザード）を開く */
   onAdd: () => void;
+  /** あれば、押したときに一覧ではなく、リポジトリを選ぶ画面（大きな画面）を開く（PC） */
+  onOpenPicker?: () => void;
+  /** アプリのアカウント（クローンの URL に入れる。#245） */
+  login?: string;
 }
 
 /** 一覧の幅（画面の端からはみ出さないように置くため。CSS の .repo-pop と同じ） */
 const POP_WIDTH = 320;
 
-type Note = { key: string; kind: "ok" | "error"; text: string; command?: string };
-
-const keyOf = (p: { owner: string; repo: string }) => `${p.owner}/${p.repo}`;
-
 /**
- * 左上のリポジトリ（GitHub Desktop のように）。押すと一覧が開き、選ぶと切り替える。
+ * 左上のリポジトリ（GitHub Desktop のように）。PC では押すとリポジトリを選ぶ画面、スマホでは一覧が開き、選ぶと切り替える。
  * 各行の「⋯」で、この PC のフォルダ（選ぶ・変える・クローン・外す）、エクスプローラーで表示、GitHub で開く、一覧から外す。
  * 一番下の「＋ リポジトリを追加…」で、追加のウィザード（GitHub にある／この PC にある／新しく作る）
  */
-export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemove, onSetFolder, onAdd }: RepoSwitcherProps) {
+export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemove, onSetFolder, onAdd, onOpenPicker, login }: RepoSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties>({});
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState<Note | null>(null);
+  const { busy, note, setNote, pickFolder, clone, clearFolder, remove } = useRepoFolderActions(folders, onSetFolder, onRemove, login);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -63,6 +62,10 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
   }, [isOpen, busy]);
 
   function toggle() {
+    if (onOpenPicker) {
+      onOpenPicker();
+      return;
+    }
     if (isOpen) {
       setIsOpen(false);
       return;
@@ -92,85 +95,17 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
     if (keyOf(p) !== currentKey) await onSwitch(p.owner, p.repo);
   }
 
-  // この PC のフォルダを選ぶ・変える（そのリポジトリをクローンしたフォルダか確かめる）
-  async function pickFolder(p: Project) {
-    const k = keyOf(p);
-    setNote(null);
-    const picked = await openDialog({ directory: true, title: `${k} のフォルダを選ぶ`, defaultPath: folders[k] });
-    if (typeof picked !== "string") return;
-    setBusy(k);
-    try {
-      const check = await checkFolder(picked, p.owner, p.repo);
-      if (!check.is_repo) {
-        setNote({ key: k, kind: "error", text: "選んだフォルダは git のリポジトリではありません。まだこの PC にないときは「この PC にクローンする…」を使います。" });
-      } else if (!check.matches_project) {
-        setNote({
-          key: k,
-          kind: "error",
-          text: check.remote_url
-            ? `このフォルダは別のリポジトリ（${check.remote_url}）です。${k} のフォルダを選んでください。`
-            : `このフォルダは GitHub のリポジトリにつながっていません（origin がありません）。${k} をクローンしたフォルダを選んでください。`,
-        });
-      } else {
-        await onSetFolder(p.owner, p.repo, check.top_level);
-        setNote({ key: k, kind: "ok", text: `作業フォルダにしました（${check.top_level}）` });
-        setMenuFor(null);
-      }
-    } catch (e) {
-      setNote({ key: k, kind: "error", text: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  // この PC にクローンして、作業フォルダにする
-  async function clone(p: Project) {
-    const k = keyOf(p);
-    setNote(null);
-    const parent = await openDialog({ directory: true, title: `クローンする置き場所を選ぶ（この中に ${p.repo} フォルダを作ります）` });
-    if (typeof parent !== "string") return;
-    setBusy(k);
-    try {
-      const result = await cloneRepo(parent, p.owner, p.repo);
-      await onSetFolder(p.owner, p.repo, result.path);
-      setNote({ key: k, kind: "ok", text: `${result.path} にクローンして、作業フォルダにしました`, command: result.run.command });
-      setMenuFor(null);
-    } catch (e) {
-      setNote({ key: k, kind: "error", text: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function clearFolder(p: Project) {
-    const k = keyOf(p);
-    try {
-      await onSetFolder(p.owner, p.repo, null);
-      setNote({ key: k, kind: "ok", text: "フォルダの設定を外しました（フォルダそのものは消えていません）" });
-      setMenuFor(null);
-    } catch (e) {
-      setNote({ key: k, kind: "error", text: String(e) });
-    }
-  }
-
-  async function remove(p: Project) {
-    const k = keyOf(p);
-    setBusy(k);
-    try {
-      await onRemove(p.owner, p.repo);
-      setConfirmRemove(null);
-      setMenuFor(null);
-    } catch (e) {
-      setNote({ key: k, kind: "error", text: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  }
+  // うまくいったら、メニューを閉じる
+  const closeMenuIf = (ok: boolean) => {
+    if (!ok) return;
+    setMenuFor(null);
+    setConfirmRemove(null);
+  };
 
   return (
     <div className="repo-switcher" ref={rootRef}>
       <button type="button" ref={buttonRef} className={`repo-switch${isOpen ? " open" : ""}`} onClick={toggle}
-        title="リポジトリを切り替える・追加する" aria-haspopup="menu" aria-expanded={isOpen}>
+        title={tr("リポジトリを切り替える・追加する")} aria-haspopup={onOpenPicker ? "dialog" : "menu"} aria-expanded={isOpen}>
         <span className="repo-switch-icon" aria-hidden="true">📦</span>
         <span className="repo-switch-name">{label}</span>
         <span className="repo-switch-chev" aria-hidden="true">▾</span>
@@ -178,7 +113,7 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
       {isOpen && (
         <div className="repo-pop" style={pos}>
           {projects.length > 4 && (
-            <input className="input-full repo-pop-search" value={query} autoFocus placeholder="リポジトリを探す"
+            <input className="input-full repo-pop-search" value={query} autoFocus placeholder={tr("リポジトリを探す")}
               onChange={(e) => setQuery(e.target.value)} />
           )}
           <div className="repo-pop-list">
@@ -195,11 +130,11 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                         <span className="repo-row-name">{p.name || k}</span>
                         {p.name && p.name !== k && <span className="repo-row-sub">{k}</span>}
                         {!isMobile && (
-                          <span className="repo-row-sub" title={folder}>{folder ? `📁 ${folder}` : "この PC にはありません"}</span>
+                          <span className="repo-row-sub" title={folder}>{folder ? `📁 ${folder}` : tr("この PC にはありません")}</span>
                         )}
                       </span>
                     </button>
-                    <button type="button" className={`repo-row-more${menuFor === k ? " on" : ""}`} aria-label={`${k} の操作`}
+                    <button type="button" className={`repo-row-more${menuFor === k ? " on" : ""}`} aria-label={tr("{k} の操作", { k })}
                       disabled={busy !== null} onClick={() => { setMenuFor(menuFor === k ? null : k); setConfirmRemove(null); }}>
                       ⋯
                     </button>
@@ -209,37 +144,37 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                       {!isMobile &&
                         (folder ? (
                           <>
-                            <button type="button" role="menuitem" onClick={() => pickFolder(p)}>📁 この PC のフォルダを変える…</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを変える…")}</button>
                             <button type="button" role="menuitem" onClick={() => revealItemInDir(folder).catch((e) => setNote({ key: k, kind: "error", text: String(e) }))}>
-                              🗂 エクスプローラーで表示
+                              {tr("🗂 エクスプローラーで表示")}
                             </button>
-                            <button type="button" role="menuitem" onClick={() => clearFolder(p)}>フォルダの設定を外す（フォルダは消えません）</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clearFolder(p))}>{tr("フォルダの設定を外す（フォルダは消えません）")}</button>
                           </>
                         ) : (
                           <>
-                            <button type="button" role="menuitem" onClick={() => clone(p)}>⬇ この PC にクローンする…</button>
-                            <button type="button" role="menuitem" onClick={() => pickFolder(p)}>📁 この PC のフォルダを選ぶ…</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await clone(p))}>{tr("⬇ この PC にクローンする…")}</button>
+                            <button type="button" role="menuitem" onClick={async () => closeMenuIf(await pickFolder(p))}>{tr("📁 この PC のフォルダを選ぶ…")}</button>
                           </>
                         ))}
-                      <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>↗ GitHub で開く</button>
+                      <button type="button" role="menuitem" onClick={() => openUrl(`https://github.com/${k}`).catch(() => {})}>{tr("↗ GitHub で開く")}</button>
                       {isCurrent ? (
-                        <span className="repo-row-menu-note">今のリポジトリは一覧から外せません（ほかに切り替えてから）</span>
+                        <span className="repo-row-menu-note">{tr("今のリポジトリは一覧から外せません（ほかに切り替えてから）")}</span>
                       ) : confirmRemove === k ? (
                         <span className="repo-row-confirm">
-                          一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）
+                          {tr("一覧から外しますか？（GitHub のリポジトリやフォルダは消えません）")}
                           <span className="repo-row-confirm-actions">
-                            <button type="button" className="btn-danger" onClick={() => remove(p)} disabled={busy !== null}>外す</button>
-                            <button type="button" className="btn-sm" onClick={() => setConfirmRemove(null)}>やめる</button>
+                            <button type="button" className="btn-danger" onClick={async () => closeMenuIf(await remove(p))} disabled={busy !== null}>{tr("外す")}</button>
+                            <button type="button" className="btn-sm" onClick={() => setConfirmRemove(null)}>{tr("やめる")}</button>
                           </span>
                         </span>
                       ) : (
-                        <button type="button" role="menuitem" className="repo-row-menu-red" onClick={() => setConfirmRemove(k)}>一覧から外す</button>
+                        <button type="button" role="menuitem" className="repo-row-menu-red" onClick={() => setConfirmRemove(k)}>{tr("一覧から外す")}</button>
                       )}
                     </div>
                   )}
                   {busy === k && (
                     <p className="repo-note">
-                      <i className="spinner" aria-hidden="true" /> 実行しています…（クローンは、大きなリポジトリだと時間がかかります）
+                      <i className="spinner" aria-hidden="true" /> {" "}{tr("実行しています…（クローンは大きなリポジトリだと時間がかかります）")}
                     </p>
                   )}
                   {note?.key === k && (
@@ -251,10 +186,10 @@ export function RepoSwitcher({ projects, owner, repo, folders, onSwitch, onRemov
                 </div>
               );
             })}
-            {shown.length === 0 && <p className="repo-note">{projects.length === 0 ? "まだありません" : "見つかりません"}</p>}
+            {shown.length === 0 && <p className="repo-note">{projects.length === 0 ? tr("まだありません") : tr("見つかりません")}</p>}
           </div>
           <button type="button" className="repo-add" onClick={() => { setIsOpen(false); onAdd(); }} disabled={busy !== null}>
-            ＋ リポジトリを追加…
+            {tr("＋ リポジトリを追加…")}
           </button>
         </div>
       )}

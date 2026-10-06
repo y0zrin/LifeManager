@@ -19,6 +19,7 @@
     "notification:allow-request-permission",
     "updater:default",
     "process:allow-restart",
+    "process:allow-exit",
     "dialog:allow-open"
   ]
 }

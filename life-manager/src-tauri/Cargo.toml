@@ -1,6 +1,6 @@
 [package]
 name = "life-manager"
-version = "1.0.0-beta"
+version = "1.0.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"

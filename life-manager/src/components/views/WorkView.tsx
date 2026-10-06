@@ -540,7 +540,8 @@ function Workspace({
           toDefault,
         ]
       : [];
-  // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す
+  // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す。作業を選ぶ前か、今の作業が閉じたあとに出す
+  const showLeftover = onBranch && (flow.step === 1 || !!closedIssue);
   const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, askDrop] : pr?.state === "open" ? [toDefault] : [toDefault, askDrop];
   const dropLosesWork = hasOwnCommits && !pr?.merged;
   const dropConfirm: ReactNode = (
@@ -781,8 +782,8 @@ function Workspace({
           onOpenIssue={onOpenIssue}
           onOpenMilestones={onOpenMilestones}
           onAddOnBoard={onAddOnBoard}
-          note={flow.step === 1 && onBranch ? leftoverNote : null}
-          extras={flow.step === 1 && onBranch && !dropAsk ? leftoverButtons : []}
+          note={showLeftover ? leftoverNote : null}
+          extras={showLeftover && !dropAsk ? leftoverButtons : []}
           busy={g.busy !== null}
         />
       ) : shown === 2 ? (

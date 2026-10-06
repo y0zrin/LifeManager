@@ -12952,8 +12952,9 @@ html.stage-still .desk-buncho::after {
 
 .w-step-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
@@ -12962,9 +12963,21 @@ html.stage-still .desk-buncho::after {
   font-size: var(--font-sm);
 }
 
+/* 文は狭くしすぎない。ボタンは右に寄せ、入らなければ次の行へ */
+.w-step-note-text {
+  flex: 1 1 18em;
+  min-width: 0;
+}
+
+.w-step-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
 .w-step-note .btn-sm {
   flex: none;
-  margin-left: auto;
 }
 
 .w-issue-now {

@@ -525,7 +525,7 @@ function Workspace({
     }
   };
   const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
-  const askDrop: StepButton = { label: tr("ブランチ {branch} を消す…", { branch: st.branch }), run: () => setDropAsk(true) };
+  const askDrop: StepButton = { label: tr("このブランチを消す…"), run: () => setDropAsk(true) };
   // マージしたあと: このブランチで続ける（既定のブランチの最新を取り込む）か、既定のブランチに戻って最新にする
   const branchAfter: StepButton[] =
     onBranch && pr?.merged
@@ -992,12 +992,16 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
       </h4>
       {note && (
         <div className="w-step-note">
-          <span>{note}</span>
-          {extras.map((b) => (
-            <button key={b.label} type="button" className="btn-sm" disabled={busy} onClick={b.run}>
-              {b.label}
-            </button>
-          ))}
+          <span className="w-step-note-text">{note}</span>
+          {extras.length > 0 && (
+            <span className="w-step-note-actions">
+              {extras.map((b) => (
+                <button key={b.label} type="button" className="btn-sm" disabled={busy} onClick={b.run}>
+                  {b.label}
+                </button>
+              ))}
+            </span>
+          )}
         </div>
       )}
       {(now || missing) && (

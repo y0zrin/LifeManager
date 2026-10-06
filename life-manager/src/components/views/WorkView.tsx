@@ -96,6 +96,8 @@ const STEP_NAMES = [tr("作業を選ぶ"), tr("作業報告"), tr("コミット�
 /** 上の 1 行の段に出す短い名前 */
 const STEP_SHORT = [tr("選ぶ"), tr("作業報告"), tr("コミット・プッシュ"), tr("完了")];
 const IN_PROGRESS = "状態:進行中";
+/** 作業を止めた・引き継いだときに Issue に書くコメントの、続きのブランチのところ（受け取る人は、このブランチで続ける） */
+const CONTINUE_ON = /続きはブランチ「([^」]+)」にあります。/;
 
 // --- 取り組み中の Issue は、リポジトリとアカウントごとにこの PC に覚えておく
 //     （同じ PC でアカウントを切り替えたとき、前のアカウントの作業が今の作業にならないように） ---
@@ -598,8 +600,9 @@ function Workspace({
     const branchName = onBranch ? st.branch : "";
     const to = mode === "hand" ? handTo || others[0]?.login || "" : "";
     if (mode === "hand" && !to) return;
-    // まだ GitHub にないブランチも送る（コミットがなくても、受け取る人がそのブランチで続けられるように）
-    if (onBranch && (!published || needsPush)) {
+    // 作業のブランチは必ず GitHub に送る（受け取る人が、そのブランチでコミットの履歴ごと続けられるように）。
+    // 送るコミットがなくても送る（GitHub で消されていれば作り直す）。既定のブランチでも、送っていないコミットは送る
+    if (onBranch || needsPush) {
       const pushed = await g.exec(tr("プッシュしています"), gitApi.push, tr("プッシュしました"));
       if (!pushed.ok) return;
     }
@@ -670,6 +673,17 @@ function Workspace({
     async (name: string) => (await gRef.current.exec(tr("GitHub を調べています"), (p) => gitApi.fetchBranch(p, name), "", { quiet: true, inlineError: true })).ok,
     [],
   );
+  // 止めた・引き継いだときのコメント（「続きはブランチ「…」にあります。」）から、続きのブランチを読む（いちばん新しいもの）
+  const listRef = useRef(onListComments);
+  listRef.current = onListComments;
+  const handedBranch = useCallback(async (n: number) => {
+    const comments = await listRef.current(n);
+    for (let k = comments.length - 1; k >= 0; k--) {
+      const m = CONTINUE_ON.exec(comments[k].body);
+      if (m) return m[1];
+    }
+    return null;
+  }, []);
   // ① で、既定のブランチでないブランチにいる（前の作業のブランチ）: 戻る・消す。作業を選ぶ前か、今の作業が閉じたあとに出す
   const showLeftover = onBranch && (flow.step === 1 || !!closedIssue);
   const leftoverButtons: StepButton[] = pr?.merged ? [...branchAfter, ...askDrops] : pr?.state === "open" ? [toDefault] : [toDefault, ...askDrops];
@@ -919,6 +933,17 @@ function Workspace({
                 .then((r) => actions.createBranch(own, r.ok ? `origin/${defaultBranch}` : defaultBranch, announce));
             } else if (how === "create") actions.createBranch(own, undefined, announce);
             else if (how === "switch") actions.requestSwitch(own);
+            else if (how === "continue") {
+              // 続きのブランチ（引き継いだ作業など）: GitHub の最新にしてから切り替える。この PC になければ、GitHub のブランチを追いかけて作る
+              if (own === st.branch) void actions.pull();
+              else {
+                const local = g.branches.some((b) => b.name === own);
+                void g.exec(tr("GitHub から読んでいます"), (p) => gitApi.pullBranch(p, own), "", { quiet: true }).then((r) => {
+                  // この PC のブランチと GitHub のブランチが分かれていても切り替える（③ でプルして取り込む）
+                  if (r.ok || local) actions.requestSwitch(own);
+                });
+              }
+            }
           }}
           onOpenIssue={onOpenIssue}
           onOpenMilestones={onOpenMilestones}
@@ -928,6 +953,7 @@ function Workspace({
           nowActions={nowActions}
           nowPanel={leavePanel}
           checkRemote={checkRemote}
+          handedBranch={handedBranch}
           busy={g.busy !== null}
         />
       ) : shown === 2 ? (
@@ -1092,9 +1118,10 @@ interface IssueStepProps {
   onDefault: boolean;
   /** この PC にあるブランチ（前に作った issue-N があれば、それに切り替えて始める） */
   localBranches: string[];
-  /** 始める: create = issue-N を作る、switch = 前に作った issue-N に切り替える、here = 今のブランチのまま */
-  /** own: この Issue の作業のブランチ（覚えたもの・前の issue-12・題名から作った名前。#251） */
-  onStart: (n: number, how: "create" | "switch" | "here", own: string) => void;
+  /** 始める: create = ブランチを作る、switch = この PC のブランチに切り替える、here = 今のブランチのまま、
+   *  continue = 続きのブランチ（引き継いだ作業など）を GitHub の最新にして切り替える */
+  /** own: この Issue の作業のブランチ（続きのブランチ・覚えたもの・前の issue-12・題名から作った名前。#251） */
+  onStart: (n: number, how: "create" | "switch" | "here" | "continue", own: string) => void;
   onOpenIssue: (n: number) => void;
   onOpenMilestones: () => void;
   onAddOnBoard: (milestone: number | null) => void;
@@ -1103,13 +1130,15 @@ interface IssueStepProps {
   nowPanel: ReactNode;
   /** GitHub にそのブランチがあるか（引き継いだ作業を、そのブランチで続ける） */
   checkRemote: (name: string) => Promise<boolean>;
+  /** 止めた・引き継いだときのコメントにある、続きのブランチ（なければ null） */
+  handedBranch: (n: number) => Promise<string | null>;
   /** マージ済みのブランチにいるときの知らせと、そのボタン（このブランチで続ける・既定のブランチに戻る） */
   note: ReactNode;
   extras: StepButton[];
   busy: boolean;
 }
 
-function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, nowActions, nowPanel, checkRemote, note, extras, busy }: IssueStepProps) {
+function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice, currentUser, branch, onDefault, localBranches, onStart, onOpenIssue, onOpenMilestones, onAddOnBoard, nowActions, nowPanel, checkRemote, handedBranch, note, extras, busy }: IssueStepProps) {
   const [query, setQuery] = useState("");
   const [ms, setMs] = useState<string>(() => loadMilestone(owner, repo) ?? nearestMilestone(milestones));
   // ブランチを決めているところの Issue（行の下に、始め方を出す）
@@ -1118,9 +1147,28 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
   const [onRemote, setOnRemote] = useState<Record<string, boolean>>({});
   // 1 つの名前は 1 回だけ調べる（localBranches は描くたびに新しい配列なので、効果は何度も走る）
   const askedRemote = useRef(new Set<string>());
+  // 選んだ Issue の続きのブランチ（止めた・引き継いだときのコメントから。読んでいる途中は undefined、なければ null）
+  const [handed, setHanded] = useState<Record<number, string | null>>({});
+  const askedHanded = useRef(new Set<number>());
   const pickedIssue = picking !== null ? issues.find((i) => i.number === picking) ?? null : null;
-  const pickedOwn = pickedIssue ? workBranchOf(owner, repo, pickedIssue, localBranches) : null;
+  useEffect(() => {
+    if (!pickedIssue || askedHanded.current.has(pickedIssue.number)) return;
+    const n = pickedIssue.number;
+    askedHanded.current.add(n);
+    void handedBranch(n)
+      .catch(() => null)
+      .then((name) => setHanded((m) => ({ ...m, [n]: name })));
+  }, [pickedIssue, handedBranch]);
+  const handedName = pickedIssue ? handed[pickedIssue.number] : undefined;
+  const handedLocal = !!handedName && localBranches.includes(handedName);
+  // 続きのブランチが、この PC にも GitHub にもない（消された）: ふつうに始める
+  const handedGone = !!handedName && !handedLocal && onRemote[handedName] === false;
+  // 続きのブランチで続ける（ほかの始め方は出さない。コミットの履歴を引き継ぐため）
+  const continueOn: string | null = handedName && (handedLocal || onRemote[handedName]) ? handedName : null;
+  const pickedOwn = !pickedIssue || handedName === undefined ? null : handedName && !handedGone ? handedName : workBranchOf(owner, repo, pickedIssue, localBranches);
   const pickedLocal = pickedOwn !== null && localBranches.includes(pickedOwn);
+  // 始め方を決めるために調べている途中（コメントを読んでいる・続きのブランチが GitHub にあるかを調べている）
+  const pickedReading = !!pickedIssue && (handedName === undefined || (!!handedName && !handedLocal && !(handedName in onRemote)));
   useEffect(() => {
     if (!pickedOwn || pickedLocal || askedRemote.current.has(pickedOwn)) return;
     askedRemote.current.add(pickedOwn);
@@ -1221,8 +1269,6 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
         {list.map((i) => {
           const chosen = i.number === choice;
           const who = others(i);
-          const own = workBranchOf(owner, repo, i, localBranches);
-          const hasOwn = localBranches.includes(own) && branch !== own;
           return (
             <Fragment key={i.number}>
               <button
@@ -1242,27 +1288,36 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                 <div className="w-start-choice">
                   <div className="w-start-q">{trx("#{number} を、どのブランチで作業しますか？", { number: i.number })}</div>
                   <div className="w-step-actions">
-                    {branch === own ? (
-                      <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "here", own)}>
-                        {trx("「{own}」（今のブランチ）で始める", { own })}
+                    {pickedReading || !pickedOwn ? null : continueOn ? (
+                      // 続きのブランチがある（止めた・引き継いだ作業）: そのブランチで続ける。GitHub の最新にしてから切り替える
+                      <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "continue", continueOn)}>
+                        {branch === continueOn
+                          ? trx("「{own}」（今のブランチ）で始める", { own: continueOn })
+                          : handedLocal
+                            ? trx("「{own}」に切り替えて始める", { own: continueOn })
+                            : trx("GitHub のブランチ「{own}」で続ける", { own: continueOn })}
+                      </button>
+                    ) : branch === pickedOwn ? (
+                      <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "here", pickedOwn)}>
+                        {trx("「{own}」（今のブランチ）で始める", { own: pickedOwn })}
                       </button>
                     ) : (
                       <>
-                        {hasOwn ? (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
-                            {trx("「{own}」に切り替えて始める", { own })}
+                        {pickedLocal ? (
+                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", pickedOwn)}>
+                            {trx("「{own}」に切り替えて始める", { own: pickedOwn })}
                           </button>
-                        ) : onRemote[own] ? (
-                          // 引き継いだ作業など: GitHub にあるブランチを持ってきて続ける（git switch が追いかけるブランチを作る）
-                          <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "switch", own)}>
-                            {trx("GitHub のブランチ「{own}」で続ける", { own })}
+                        ) : onRemote[pickedOwn] ? (
+                          // GitHub にだけあるブランチ（前に同じ名前で始めた作業など）: GitHub の最新を持ってきて続ける
+                          <button type="button" className="btn-primary" disabled={busy} onClick={() => onStart(i.number, "continue", pickedOwn)}>
+                            {trx("GitHub のブランチ「{own}」で続ける", { own: pickedOwn })}
                           </button>
                         ) : (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy || !(own in onRemote)} onClick={() => onStart(i.number, "create", own)}>
-                            {trx("ブランチ「{own}」を作って始める", { own })}
+                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy || !(pickedOwn in onRemote)} onClick={() => onStart(i.number, "create", pickedOwn)}>
+                            {trx("ブランチ「{own}」を作って始める", { own: pickedOwn })}
                           </button>
                         )}
-                        <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", own)}>
+                        <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", pickedOwn)}>
                           {branch ? tr("今のブランチ（{branch}）で始める", { branch }) : tr("今のブランチ（切り離し）で始める")}
                         </button>
                       </>
@@ -1271,7 +1326,8 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                       {tr("やめる")}
                     </button>
                   </div>
-                  {onDefault && <p className="w-start-note">{trx("今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。", { branch })}</p>}
+                  {handedGone && <p className="w-start-note">{trx("続きのブランチ「{name}」は、GitHub にもうありません。", { name: handedName })}</p>}
+                  {onDefault && !continueOn && !pickedReading && <p className="w-start-note">{trx("今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。", { branch })}</p>}
                 </div>
               )}
             </Fragment>

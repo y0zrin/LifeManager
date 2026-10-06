@@ -3205,6 +3205,7 @@
  "結果を読めませんでした": "Couldn't read the result",
  "絵の雰囲気を決める": "Decide the art style",
  "絵文字": "Emoji",
+ "続きのブランチ「{name}」は、GitHub にもうありません。": "The branch to continue on, \"{name}\", is no longer on GitHub.",
  "続ける": "Continue",
  "線": "Lines",
  "編集": "Edit",

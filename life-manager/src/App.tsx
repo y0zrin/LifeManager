@@ -108,8 +108,9 @@ const TASK_ITEMS: NavItem[] = [
   { key: "routines", icon: "🔄", label: tr("ルーチン") },
   { key: "dashboard", icon: "📋", label: tr("タスク一覧"), phone: tr("タスク\n一覧") },
 ];
+const BRANCHES_ITEM: NavItem = { key: "branches", icon: "🌿", label: tr("ブランチ") };
 const REPO_ITEMS: NavItem[] = [
-  { key: "branches", icon: "🌿", label: tr("ブランチ") },
+  BRANCHES_ITEM,
   { key: "overview", icon: "🗺️", label: tr("全体図") },
   { key: "pulls", icon: "🔃", label: tr("プルリク") },
   { key: "actions", icon: "▶️", label: "Actions" },
@@ -127,7 +128,8 @@ const MOBILE_NAV_ITEMS: NavItem[] = [
   { key: "timeline", icon: "📅", label: tr("日誌") },
   { key: "settings", icon: "⚙️", label: tr("設定") },
 ];
-// スマホのメニューに並べる画面（オーバービューはメニューにまとめたので入れない。作業・リポジトリ系はスマホにない）
+// スマホのメニューに並べる画面（オーバービューはメニューにまとめたので入れない。作業とリポジトリ系はブランチだけ。
+// スマホには作業フォルダがないので、ブランチの履歴は GitHub から読む）
 const MENU_TASK_KEYS: ViewType[] = ["kanban", "dashboard", "milestones", "gantt", "timeline", "routines"];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
@@ -1364,6 +1366,7 @@ function App() {
                   const note = key === "milestones" ? nearestMilestone?.title : undefined;
                   return { key, icon: item.icon, label: item.label, note };
                 }),
+                { key: "branches", icon: BRANCHES_ITEM.icon, label: BRANCHES_ITEM.label },
                 { key: "activity", icon: "📰", label: tr("ヒストリー"), badge: activity.todos.length || undefined },
                 { key: "settings", icon: SETTINGS_ITEM.icon, label: SETTINGS_ITEM.label },
               ]}

@@ -177,6 +177,24 @@ fn commit_amend_empty_and_push_new_branch() {
 }
 
 #[test]
+fn a_branch_made_from_origin_main_is_pushed_under_its_own_name() {
+    // 作業をする で別のブランチから始めると origin/main から作る。git はそのブランチの上流を main にするので、
+    // ふつうの git push では送れない（設定によっては main に送ってしまう）。同じ名前で送り、上流を付け直す
+    let t = team("push-from-origin-main");
+    git(&t.a, &["config", "branch.autoSetupMerge", "true"]);
+    git(&t.a, &["fetch", "-q", "origin"]);
+    block(git_switch(s(&t.a), "企画書を書く".into(), true, Some("origin/main".into()))).unwrap();
+    assert_eq!(status(&t.a).upstream.as_deref(), Some("origin/main"));
+    block(git_commit(s(&t.a), vec!["y0zrin が作業開始しました (#1)".into()], false, true)).unwrap();
+
+    let r = block(git_push(s(&t.a))).unwrap();
+    assert_eq!(r.command, "git push -u origin 企画書を書く");
+    assert_eq!(status(&t.a).upstream.as_deref(), Some("origin/企画書を書く"));
+    // main には送っていない
+    assert_eq!(git(&t.a, &["rev-parse", "origin/main"]), git(&t.a, &["rev-parse", "main"]));
+}
+
+#[test]
 fn pull_fast_forwards_merges_without_editor_and_push_is_rejected_when_behind() {
     let t = team("pull");
     // B が送った変更を、A が取り込む（早送り）

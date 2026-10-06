@@ -459,7 +459,8 @@ function Workspace({
   }, [commitRequest, focusCommit, onCommitRequestHandled]);
 
   // --- 作業の流れ ---
-  const published = !!st.upstream;
+  // 公開済み = 同じ名前の GitHub のブランチが上流（origin/main から作ったブランチは、最初のプッシュまで上流が main になっている）
+  const published = !!st.upstream && st.upstream === `origin/${st.branch}`;
   const needsPush = published ? st.ahead > 0 : st.unpushed > 0;
   const defaultBranch = st.default_branch ?? (g.branches.some((b) => b.name === "main") ? "main" : "master");
   const onDefault = !!st.branch && st.branch === defaultBranch;

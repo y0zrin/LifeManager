@@ -199,10 +199,14 @@ pub async fn git_push(path: String) -> Result<GitRun, String> {
         if st.branch.is_empty() {
             return Err("ブランチから切り離された状態なので、プッシュできません。先にブランチに切り替えてください".into());
         }
-        if st.upstream.is_some() {
+        // 上流が同じ名前の GitHub のブランチのときだけ、ふつうの git push
+        let same_name = st.upstream.as_deref() == Some(format!("origin/{}", st.branch).as_str());
+        if same_name {
             run(&repo, &["push"])
         } else {
-            // まだ GitHub にないブランチは、公開して上流に設定する
+            // まだ GitHub にないブランチは、公開して上流に設定する。
+            // 上流が別の名前のとき（origin/main から作ったブランチは、git が上流を main にする）も同じ名前で送り、上流を付け直す
+            //（git push のままだと、設定によっては main に送ってしまう）
             run(&repo, &["push", "-u", "origin", st.branch.as_str()])
         }
     })

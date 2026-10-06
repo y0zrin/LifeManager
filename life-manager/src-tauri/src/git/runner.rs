@@ -110,6 +110,8 @@ pub fn run(repo: &Path, args: &[&str]) -> Result<GitRun, String> {
 fn hint_for(message: &str) -> &'static str {
     if message.contains("terminal prompts disabled") || message.contains("Authentication failed") {
         "\n→ GitHub へのログインが必要です。一度ターミナルで同じ git の操作をして、ログインを済ませてください"
+    } else if message.contains("couldn't find remote ref") {
+        "\n→ このブランチは GitHub にもうありません（消されています）"
     } else if message.contains("Could not resolve host") {
         "\n→ インターネットにつながっているか確認してください"
     } else if message.contains("Repository not found") || (message.contains("Permission to") && message.contains("denied to")) {

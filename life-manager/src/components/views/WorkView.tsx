@@ -548,6 +548,8 @@ function Workspace({
       // マージのときに GitHub で消してあれば、もうない
       if (!/Reference does not exist|Not Found|404|422/i.test(String(e))) g.notify("error", String(e));
     }
+    // この PC の控え（origin/…）も片づける（ブランチの画面に「GitHub にだけある」と残らないように）
+    await g.exec(tr("GitHub から読んでいます"), gitApi.fetch, "", { quiet: true, inlineError: true });
   };
   const toDefault: StepButton = { label: tr("{defaultBranch} に戻って最新にする", { defaultBranch }), run: () => void backToDefault() };
   const askDrop: StepButton = { label: isAdmin ? tr("このブランチを PC と GitHub から消す…") : tr("このブランチを PC から消す…"), run: () => setDropAsk(true) };

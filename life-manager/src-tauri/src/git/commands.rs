@@ -220,7 +220,18 @@ pub async fn git_fetch(path: String) -> Result<GitRun, String> {
 #[tauri::command]
 pub async fn git_fetch_branch(path: String, branch: String) -> Result<GitRun, String> {
     check_name(&branch)?;
-    blocking(move || run(Path::new(&path), &["fetch", "origin", branch.trim()])).await
+    blocking(move || {
+        let repo = Path::new(&path);
+        match run(repo, &["fetch", "origin", branch.trim()]) {
+            // GitHub で消されたブランチ: この PC の控え（origin/…）を片づけておく（「GitHub にだけある」と出続けないように）
+            Err(e) if e.contains("couldn't find remote ref") => {
+                let _ = run(repo, &["fetch", "origin", "--prune"]);
+                Err(e)
+            }
+            other => other,
+        }
+    })
+    .await
 }
 
 /// 見ているブランチを、切り替えずに GitHub の最新にする（ブランチ画面の「プル」）。

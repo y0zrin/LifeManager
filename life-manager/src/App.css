@@ -20102,7 +20102,9 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   padding: 14px 34px 14px 26px;
   color: var(--ms-ink);
 }
-/* 斜めの板（細い斜めのすじ・橙から金・白い縁）と、光るときの白い面と光の輪 */
+/* 斜めの板（細い斜めのすじ・橙から金・白い縁）と、光るときの白い面と光の輪。
+   重なりは 0 以上の z-index で、奥から 光の線（::before）→ 光の輪 → 板 → 中身 → 白い面。
+   板をマイナスの z-index にすると、スマホ（Android の WebView）では、滑り込んだあとの帯で中身が板の下に描かれて見えなくなった */
 .av-ms-slab,
 .av-ms-bloom,
 .av-ms-flash {
@@ -20113,7 +20115,7 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   pointer-events: none;
 }
 .av-ms-slab {
-  z-index: -1;
+  z-index: 3;
   overflow: hidden;
   background:
     repeating-linear-gradient(-60deg, transparent 0 12px, color-mix(in srgb, var(--ms-ink) 8%, transparent) 12px 14px),
@@ -20137,12 +20139,12 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   100% { transform: translateX(110%); }
 }
 .av-ms-bloom {
-  z-index: -2;
+  z-index: 2;
   opacity: 0;
   box-shadow: 0 0 80px 28px color-mix(in srgb, var(--ms-ink) 80%, var(--ms-hot));
 }
 .av-ms-flash {
-  z-index: 2;
+  z-index: 5;
   opacity: 0;
   background: var(--ms-ink);
 }
@@ -20154,10 +20156,16 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   bottom: 20%;
   left: -50%;
   right: -50%;
-  z-index: -3;
+  z-index: 1;
   opacity: 0;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ms-ink) 75%, transparent) 50%, transparent);
   pointer-events: none;
+}
+.av-ms > .av-ms-trophy,
+.av-ms > .av-ms-body,
+.av-ms > .av-when {
+  position: relative;
+  z-index: 4;
 }
 .av-ms-trophy {
   flex: none;

@@ -20132,10 +20132,14 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
   inset: 0;
   background: linear-gradient(100deg, transparent 38%, color-mix(in srgb, var(--ms-ink) 45%, transparent) 50%, transparent 62%);
   transform: translateX(-110%);
-  animation: av-ms-shine 3.6s ease-in-out infinite;
+}
+/* 光のすじは、滑り込んで光ったあとに 1 回だけ走る。
+   くり返すと（くり返しは lib/idle.ts の時計が 1 コマずつ進める）、スマホの WebView で、スクロールで外に出た帯の文字が消えた */
+.av-ms.play .av-ms-slab::after {
+  animation: av-ms-shine 1.4s ease-in-out 0.9s 1 both;
 }
 @keyframes av-ms-shine {
-  0%, 60% { transform: translateX(-110%); }
+  0% { transform: translateX(-110%); }
   100% { transform: translateX(110%); }
 }
 .av-ms-bloom {
@@ -20228,9 +20232,10 @@ html.vt-filter .ac-items { view-transition-name: pulls-items; }
 .av-ms.play .av-ms-trophy {
   animation: av-ms-pop 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) 0.45s both;
 }
+/* ぼかし（filter）は付けない。スマホの WebView で、滑り込みの途中にスクロールすると、文字が描かれないまま残った */
 @keyframes av-ms-in {
-  0% { opacity: 0.4; transform: translateX(105vw); filter: blur(4px); }
-  56% { opacity: 1; transform: translateX(-18px); filter: blur(0); }
+  0% { opacity: 0.4; transform: translateX(105vw); }
+  56% { opacity: 1; transform: translateX(-18px); }
   78% { transform: translateX(6px); }
   100% { opacity: 1; transform: none; }
 }

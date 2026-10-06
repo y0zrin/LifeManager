@@ -31,13 +31,23 @@ interface ActivityViewProps {
 /** この起動のあいだに、滑り込みを見せたマイルストーンの達成（もう一度ヒストリーを開いても、くり返さない） */
 const shownBanners = new Set<string>();
 
+/** 滑り込み・光・光のすじが終わるまで（ミリ秒）。終わったら、動きのない帯にする */
+const BANNER_PLAY_MS = 2600;
+
 /**
  * マイルストーンの達成の帯（#230）: オーバーウォッチの UI のような斜めの帯。画面に入ったら、外から滑り込んで強く光る。
- * 見るのは動かない外側（slot）で、動くのは中（外にいるあいだは見つからないため）
+ * 見るのは動かない外側（slot）で、動くのは中（外にいるあいだは見つからないため）。
+ * 動き終わったら rest（アニメーションを持たない）にする。スマホの WebView では、終わったアニメーションを持ったままの帯で、
+ * スクロールして戻したときに文字が描かれないことがあった
  */
 function MilestoneBanner({ id, children }: { id: string; children: ReactNode }) {
   const slot = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"wait" | "play" | "rest">(() => (shownBanners.has(id) ? "rest" : "wait"));
+  useEffect(() => {
+    if (state !== "play") return;
+    const timer = window.setTimeout(() => setState("rest"), BANNER_PLAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [state]);
   useEffect(() => {
     const el = slot.current;
     if (!el || state !== "wait") return;

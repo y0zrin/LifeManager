@@ -1190,7 +1190,16 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
   const handedGone = !!handedName && !handedLocal && onRemote[handedName] === false;
   // 続きのブランチで続ける（ほかの始め方は出さない。コミットの履歴を引き継ぐため）
   const continueOn: string | null = handedName && (handedLocal || onRemote[handedName]) ? handedName : null;
-  const pickedOwn = !pickedIssue || handedName === undefined ? null : handedName && !handedGone ? handedName : workBranchOf(owner, repo, pickedIssue, localBranches);
+  // 今の作業を選び直すとき（違うブランチで始めてしまった）は、名前を題名から作る（覚えているのは、まちがえて始めたブランチ）
+  const pickedChosen = !!pickedIssue && pickedIssue.number === choice;
+  const pickedOwn =
+    !pickedIssue || handedName === undefined
+      ? null
+      : handedName && !handedGone
+        ? handedName
+        : pickedChosen
+          ? branchNameFor(pickedIssue)
+          : workBranchOf(owner, repo, pickedIssue, localBranches);
   const pickedLocal = pickedOwn !== null && localBranches.includes(pickedOwn);
   // 始め方を決めるために調べている途中（コメントを読んでいる・続きのブランチが GitHub にあるかを調べている）
   const pickedReading = !!pickedIssue && (handedName === undefined || (!!handedName && !handedLocal && !(handedName in onRemote)));
@@ -1300,7 +1309,8 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                 type="button"
                 className={`w-issue-row${chosen ? " on" : ""}${picking === i.number ? " picking" : ""}`}
                 title={issueMeta(i)}
-                onClick={() => setPicking(chosen ? null : picking === i.number ? null : i.number)}
+                // 今の作業も押せる（ブランチを選び直す）。もう題名のブランチにいれば、選び直すことはない
+                onClick={() => setPicking(picking === i.number || (chosen && branch === branchNameFor(i)) ? null : i.number)}
               >
                 <span className="wi-num">#{i.number}</span>
                 <span className="wi-t">{i.title}</span>
@@ -1309,7 +1319,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                 {i.milestone && <span className="wi-m">🎯 {i.milestone.title}</span>}
                 <span className="w-issue-go">{chosen ? tr("今の作業") : mine(i) ? tr("始める") : tr("自分に割り当てて始める")}</span>
               </button>
-              {picking === i.number && !chosen && (
+              {picking === i.number && (
                 <div className="w-start-choice">
                   <div className="w-start-q">{trx("#{number} を、どのブランチで作業しますか？", { number: i.number })}</div>
                   <div className="w-step-actions">
@@ -1329,7 +1339,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                     ) : (
                       <>
                         {pickedLocal ? (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", pickedOwn)}>
+                          <button type="button" className={onDefault || chosen ? "btn-primary" : "btn-sm"} disabled={busy} onClick={() => onStart(i.number, "switch", pickedOwn)}>
                             {trx("「{own}」に切り替えて始める", { own: pickedOwn })}
                           </button>
                         ) : onRemote[pickedOwn] ? (
@@ -1338,13 +1348,16 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                             {trx("GitHub のブランチ「{own}」で続ける", { own: pickedOwn })}
                           </button>
                         ) : (
-                          <button type="button" className={onDefault ? "btn-primary" : "btn-sm"} disabled={busy || !(pickedOwn in onRemote)} onClick={() => onStart(i.number, "create", pickedOwn)}>
+                          <button type="button" className={onDefault || chosen ? "btn-primary" : "btn-sm"} disabled={busy || !(pickedOwn in onRemote)} onClick={() => onStart(i.number, "create", pickedOwn)}>
                             {trx("ブランチ「{own}」を作って始める", { own: pickedOwn })}
                           </button>
                         )}
-                        <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", pickedOwn)}>
-                          {branch ? tr("今のブランチ（{branch}）で始める", { branch }) : tr("今のブランチ（切り離し）で始める")}
-                        </button>
+                        {/* 今の作業は、もう今のブランチで始めている */}
+                        {!chosen && (
+                          <button type="button" className={onDefault ? "btn-sm" : "btn-primary"} disabled={busy} onClick={() => onStart(i.number, "here", pickedOwn)}>
+                            {branch ? tr("今のブランチ（{branch}）で始める", { branch }) : tr("今のブランチ（切り離し）で始める")}
+                          </button>
+                        )}
                       </>
                     )}
                     <button type="button" className="btn-sm" onClick={() => onOpenIssue(i.number)}>
@@ -1355,7 +1368,7 @@ function IssueStep({ issues, milestones, owner, repo, issue, closedIssue, choice
                     </button>
                   </div>
                   {handedGone && <p className="w-start-note">{trx("続きのブランチ「{name}」は、GitHub にもうありません。", { name: handedName })}</p>}
-                  {onDefault && !continueOn && !pickedReading && <p className="w-start-note">{trx("今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。", { branch })}</p>}
+                  {onDefault && !chosen && !continueOn && !pickedReading && <p className="w-start-note">{trx("今は既定のブランチ（{branch}）にいるので、ここで始めると既定のブランチに直接コミットします。", { branch })}</p>}
                 </div>
               )}
             </Fragment>

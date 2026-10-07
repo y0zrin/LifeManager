@@ -793,24 +793,6 @@ pub fn note_issue(store: &mut RepoStore, issue: &Value) {
     }
 }
 
-/// 作った・変えたマイルストーンを、手元の写し（開いているものの一覧）に入れる。閉じたものは外す（#272）
-pub fn note_milestone(store: &mut RepoStore, milestone: &Value) {
-    let Some(number) = milestone["number"].as_i64() else { return };
-    let Some(raw) = store.reads.get("milestones") else { return };
-    let mut list: Vec<Value> = serde_json::from_str(raw).unwrap_or_default();
-    let at = list.iter().position(|m| m["number"].as_i64() == Some(number));
-    let open = milestone["state"].as_str() != Some("closed");
-    match (at, open) {
-        (Some(i), true) => list[i] = milestone.clone(),
-        (Some(i), false) => {
-            list.remove(i);
-        }
-        (None, true) => list.push(milestone.clone()),
-        (None, false) => {}
-    }
-    store.reads.insert("milestones".to_string(), serde_json::to_string(&list).unwrap_or_default());
-}
-
 /// 送れたコメントを、手元の写しに入れる
 pub fn note_comment(store: &mut RepoStore, number: i64, comment: &Value) {
     let key = format!("comments:{}", number);
@@ -968,6 +950,24 @@ pub fn remap_milestone(store: &mut RepoStore, temp: i64, real: i64) {
             _ => {}
         }
     }
+}
+
+/// 作った・変えたマイルストーンを、手元の写し（開いているものの一覧）に入れる。閉じたものは外す（#272）
+pub fn note_milestone(store: &mut RepoStore, milestone: &Value) {
+    let Some(number) = milestone["number"].as_i64() else { return };
+    let Some(raw) = store.reads.get("milestones") else { return };
+    let mut list: Vec<Value> = serde_json::from_str(raw).unwrap_or_default();
+    let at = list.iter().position(|m| m["number"].as_i64() == Some(number));
+    let open = milestone["state"].as_str() != Some("closed");
+    match (at, open) {
+        (Some(i), true) => list[i] = milestone.clone(),
+        (Some(i), false) => {
+            list.remove(i);
+        }
+        (None, true) => list.push(milestone.clone()),
+        (None, false) => {}
+    }
+    store.reads.insert("milestones".to_string(), serde_json::to_string(&list).unwrap_or_default());
 }
 
 pub fn push_conflict(store: &mut RepoStore, mut conflict: Conflict) {

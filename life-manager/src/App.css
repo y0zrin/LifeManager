@@ -5942,6 +5942,37 @@ button:hover {
   left: calc(100% + 3px);
 }
 
+/* 開いたとき・マイルストーンを切り替えたとき、帯を日付の早い順に左から右へ伸ばす（#215）。
+   順位（--rank）ごとに遅らせる。遅れの赤い延長は、帯が伸びきってから出す */
+.mg-rows.mg-reveal .mg-bar {
+  transform-origin: left center;
+  animation: mg-grow var(--mg-grow, 400ms) cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(var(--rank, 0) * var(--mg-gap, 40ms));
+}
+
+.mg-rows.mg-reveal .mg-late {
+  animation: mg-late-in 160ms ease-out both;
+  animation-delay: calc(var(--rank, 0) * var(--mg-gap, 40ms) + var(--mg-grow, 400ms));
+}
+
+@keyframes mg-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes mg-late-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .mg-arrows {
   position: absolute;
   top: 0;

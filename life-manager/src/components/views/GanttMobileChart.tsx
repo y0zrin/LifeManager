@@ -10,6 +10,7 @@ import { arrowKey } from "../../lib/ganttArrows";
 import { issueRef } from "../../lib/issueRef";
 import { Avatar } from "../common/Avatar";
 import { tr, trx, monthShort } from "../../lib/i18n";
+import type { RevealPlan } from "../../lib/ganttReveal";
 
 export type MobileScale = "all" | "week" | "day";
 
@@ -37,6 +38,8 @@ interface GanttMobileChartProps {
   onOpenIssue: (n: number) => void;
   /** 仮の日程を、本当の日程として書き込む */
   onFixTentative: (task: GanttTask) => void;
+  /** 帯が伸びて出ている途中（#215）。順位と速さ。終わったら null */
+  reveal?: RevealPlan | null;
 }
 
 /** 1 行の高さ（上の段に題名、下の段に帯） */
@@ -98,7 +101,7 @@ interface MobileArrow {
 }
 
 export function GanttMobileChart({
-  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative,
+  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative, reveal = null,
 }: GanttMobileChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // 見えている幅（題名の段の幅と、「全体」の 1 日の幅に使う）
@@ -289,7 +292,10 @@ export function GanttMobileChart({
               {deadline && <span className="mg-tag due" style={{ left: xOf(deadline) + dayW }}>{trx("期限 {md}", { md: md(deadline) })}</span>}
             </div>
 
-            <div className="mg-rows" style={{ height: rowsHeight }}>
+            <div
+              className={`mg-rows${reveal ? " mg-reveal" : ""}`}
+              style={{ height: rowsHeight, ...(reveal ? { ["--mg-gap" as string]: `${reveal.gap}ms`, ["--mg-grow" as string]: `${reveal.grow}ms` } : {}) }}
+            >
               {weekends.map((i) => (
                 <div key={i} className="mg-wkend" style={{ left: PAD_L + i * dayW, width: dayW }} />
               ))}
@@ -328,7 +334,9 @@ export function GanttMobileChart({
                         <Avatar login={t.assignees[0].login} url={t.assignees[0].avatar_url} title={t.assignees.map((a) => a.login).join(", ")} className="avatar-sm mg-who" />
                       )}
                     </div>
-                    {hasBar(t) && <MobileBar task={t} xOf={xOf} dayW={dayW} todayDays={todayDays} deadline={deadline} critical={criticalPath.has(t.issueNumber)} colors={barColors} />}
+                    {hasBar(t) && (
+                      <MobileBar task={t} xOf={xOf} dayW={dayW} todayDays={todayDays} deadline={deadline} critical={criticalPath.has(t.issueNumber)} colors={barColors} rank={reveal?.rank.get(t.issueNumber) ?? 0} />
+                    )}
                   </div>
                 );
               })}
@@ -425,7 +433,7 @@ export function GanttMobileChart({
 
 /** 帯 1 本（色・進み具合・CP の枠・遅れの赤い延長は PC と同じ決まり。仮の帯は点線で、期限を超えた分は赤） */
 function MobileBar({
-  task, xOf, dayW, todayDays, deadline, critical, colors,
+  task, xOf, dayW, todayDays, deadline, critical, colors, rank,
 }: {
   task: GanttTask;
   xOf: (date: string) => number;
@@ -434,14 +442,17 @@ function MobileBar({
   deadline: string | null;
   critical: boolean;
   colors: GanttBarColors;
+  /** 伸びて出るときの順位（#215。CSS の --rank） */
+  rank: number;
 }) {
+  const order = { ["--rank" as string]: rank };
   const left = xOf(task.startDate!);
   const right = xOf(task.endDate!) + dayW;
   const width = Math.max(3, right - left);
   if (task.tentative) {
     const over = deadline && task.endDate! > deadline ? Math.max(left, xOf(deadline) + dayW) : null;
     return (
-      <div className="mg-bar kari" style={{ left, width }}>
+      <div className="mg-bar kari" style={{ left, width, ...order }}>
         {over !== null && <i className="mg-over" style={{ left: over - left }} />}
       </div>
     );
@@ -453,12 +464,12 @@ function MobileBar({
     <>
       <div
         className={`mg-bar${critical ? " cp" : ""}`}
-        style={{ left, width, background: `${c}40`, borderColor: critical ? colors.critical : c }}
+        style={{ left, width, background: `${c}40`, borderColor: critical ? colors.critical : c, ...order }}
       >
         {task.progressValue > 0 && <i className="mg-prog" style={{ width: `${task.progressValue}%`, background: `${c}B0` }} />}
       </div>
       {lateW > 0 && (
-        <div className={`mg-late${lateW > 26 ? "" : " narrow"}`} style={{ left: right, width: lateW, background: colors.blocked }}>
+        <div className={`mg-late${lateW > 26 ? "" : " narrow"}`} style={{ left: right, width: lateW, background: colors.blocked, ...order }}>
           <span style={lateW > 26 ? undefined : { color: colors.blocked }}>+{lateDays}d</span>
         </div>
       )}

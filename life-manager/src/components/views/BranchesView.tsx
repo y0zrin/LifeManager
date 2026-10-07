@@ -13,6 +13,7 @@ import {
   type BranchEntry,
 } from "../../lib/history";
 import { easeScrollTo } from "../../lib/motion";
+import { decideSwipe, movedEnough } from "../../lib/swipe";
 import type { GitActions } from "../../hooks/useGitActions";
 import { BranchPicker } from "../git/BranchPicker";
 import { tr, trx, listSep } from "../../lib/i18n";
@@ -121,6 +122,8 @@ export function BranchesView(props: BranchesViewProps) {
     if (!el || !lay.page) return;
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => setPos(el.scrollLeft / lay.page));
+    // マウスで引いているあいだは選ばない（離したときに決める）
+    if (drag.current?.moved) return;
     // 指やホイールで動かして止まったら、そのページのブランチを選んだことにする
     window.clearTimeout(settleTimer.current);
     settleTimer.current = window.setTimeout(() => {
@@ -142,6 +145,56 @@ export function BranchesView(props: BranchesViewProps) {
     },
     [entries, onSelect],
   );
+
+  // マウスで横に引いて、となりのブランチへ（#258）。見ているブランチを変えるだけで、チェックアウトはしない
+  // （したいときは「このブランチに切り替える」）。指とトラックパッドは、ページの箱の横スクロールで移る
+  const drag = useRef<{ id: number; x: number; y: number; left: number; moved: boolean } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button, a, input, textarea, select, [contenteditable]")) return;
+    const el = pagerRef.current;
+    if (!el || !lay.page) return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, left: el.scrollLeft, moved: false };
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const el = pagerRef.current;
+    if (!d || !el || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (!d.moved) {
+      if (!movedEnough(dx, dy)) return;
+      // 縦に動かしたとき（履歴を読む・字を選ぶ）は引かない
+      if (Math.abs(dy) > Math.abs(dx)) {
+        drag.current = null;
+        return;
+      }
+      d.moved = true;
+      stopAnim.current?.();
+      window.clearTimeout(settleTimer.current);
+      el.setPointerCapture(e.pointerId);
+      el.classList.add("dragging");
+    }
+    el.scrollLeft = d.left - dx;
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    const el = pagerRef.current;
+    drag.current = null;
+    if (!d || !el || !d.moved) return;
+    el.classList.remove("dragging");
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    // 離したあとの click（左右のページを押して移る）を 1 回止める
+    const swallow = (ev: MouseEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener("click", swallow, { capture: true, once: true });
+    window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
+    const step = decideSwipe(e.clientX - d.x, lay.page);
+    if (step !== 0 && entries[index + step]) go(index + step);
+    else stopAnim.current = easeScrollTo(el, { left: index * lay.page });
+  };
 
   // 名前の帯の上でホイールを回すと、隣のブランチへ（下・右に回すと次、上・左で前）。
   // 1 目盛りで 1 本。トラックパッドの細かい動きはためてから動かし、勢いで何本も飛ばないよう少し間を空ける。
@@ -255,6 +308,10 @@ export function BranchesView(props: BranchesViewProps) {
         className={`bv-pager${cols ? " cols" : ""}${compact ? " compact" : ""}`}
         ref={pagerRef}
         onScroll={onScroll}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
         style={lay.page ? { paddingInline: (lay.w - lay.page) / 2, ["--bv-page" as string]: `${lay.page}px` } : undefined}
       >
         {entries.map((e, i) => {

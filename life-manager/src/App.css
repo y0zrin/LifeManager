@@ -14264,6 +14264,13 @@ html.stage-still .desk-buncho::after {
   scrollbar-width: none;
 }
 
+/* マウスで引いているあいだ（#258）: 吸い付かせず、字を選ばない */
+.bv-pager.dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+  user-select: none;
+}
+
 .bv-pager::-webkit-scrollbar {
   display: none;
 }

@@ -7,6 +7,7 @@ import { issueRef } from "../../lib/issueRef";
 import { GanttRenderer, dateToDays, computeCriticalPath, relatedOf, type EdgeExit } from "../../lib/ganttRenderer";
 import { planTentative, type TentativePlan } from "../../lib/ganttSchedule";
 import { arrowKey, planArrows } from "../../lib/ganttArrows";
+import { startsBarDrag } from "../../lib/ganttDrag";
 import { isEscape } from "../../lib/keys";
 import { useBackLayer } from "../../lib/back";
 import { useDismiss } from "../../hooks/useDismiss";
@@ -423,11 +424,13 @@ export function GanttView({
         setScrollX(Math.min(maxScrollX, Math.max(0, d.scrollX0 + dx)));
         setScrollY(Math.min(maxY, Math.max(0, d.scrollY0 + dy)));
       } else {
-        // バードラッグ
+        // バードラッグ。引きはじめるまでは、日程も絵も変えない（仮の帯は、押しただけで日程が書き込まれないよう、大きく動かしてから。#290）
         const dx = e.clientX - d.startX;
-        if (Math.abs(dx) > 3) d.moved = true;
+        if (!d.moved) {
+          if (!startsBarDrag(dx, !!ganttTasks[d.taskIndex].tentative)) return;
+          d.moved = true;
+        }
         const dayDelta = Math.round(dx / config.pixelsPerDay);
-        if (dayDelta === 0 && !d.moved) return;
 
         const addDays = (dateStr: string, n: number): string => {
           const ms = dateToDays(dateStr) * 86400000 + n * 86400000;

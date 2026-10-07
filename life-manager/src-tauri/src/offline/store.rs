@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 /// ファイルの読み書きを 1 つずつにする
 static STORE_LOCK: Mutex<()> = Mutex::new(());
 
-/// 送信待ちの変更で書き換える項目（None は変えない）。milestone の 0 は「外す」
+/// 送信待ちの変更で書き換える項目（None は変えない）。milestone の 0 は「外す」、負の数は仮の番号のマイルストーン（#272）
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Changes {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -23,7 +23,7 @@ pub struct Changes {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub milestone: Option<u32>,
+    pub milestone: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assignees: Option<Vec<String>>,
     /// 閉じるときの理由（completed / not_planned / duplicate）。state を変えるときだけ使われる
@@ -56,7 +56,7 @@ pub enum Op {
         title: String,
         body: String,
         labels: Vec<String>,
-        milestone: Option<u32>,
+        milestone: Option<i64>,
         assignees: Option<Vec<String>>,
         at: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -97,6 +97,28 @@ pub enum Op {
     },
     /// 日誌を作る（つながらなかった日の分を、つながってから作る）
     GenerateJournal { date: String, at: String },
+    /// マイルストーンを作る。仮の番号（-1, -2, …）は Issue の仮の番号とは別に数える（#272）
+    CreateMilestone {
+        temp: i64,
+        title: String,
+        description: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        due_on: Option<String>,
+        at: String,
+    },
+    /// マイルストーンを変える・閉じる・開き直す（None は変えない。due_on の "" は期限を外す）
+    UpdateMilestone {
+        number: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        due_on: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        state: Option<String>,
+        at: String,
+    },
 }
 
 impl Op {
@@ -158,6 +180,12 @@ pub struct RepoStore {
     /// GitHub に作れた Issue の、仮の番号 → 本当の番号（あとから仮の番号で届いた変更を直すため）
     #[serde(default)]
     pub created: HashMap<i64, i64>,
+    /// 最後に使ったマイルストーンの仮の番号（#272）
+    #[serde(default)]
+    pub next_temp_milestone: i64,
+    /// GitHub に作れたマイルストーンの、仮の番号 → 本当の番号
+    #[serde(default)]
+    pub created_milestones: HashMap<i64, i64>,
 }
 
 pub fn now() -> String {
@@ -280,13 +308,13 @@ fn label_values(names: &[String], known: &[Value], current: &Value) -> Value {
     )
 }
 
-fn milestone_value(number: u32, known: &[Value]) -> Value {
+fn milestone_value(number: i64, known: &[Value]) -> Value {
     if number == 0 {
         return Value::Null;
     }
     known
         .iter()
-        .find(|m| m["number"].as_u64() == Some(number as u64))
+        .find(|m| m["number"].as_i64() == Some(number))
         .cloned()
         .unwrap_or_else(|| json!({ "number": number, "title": format!("#{}", number), "state": "open" }))
 }
@@ -393,13 +421,58 @@ pub fn issues_view(store: &RepoStore) -> (Vec<Value>, Vec<Value>) {
     let mut closed = parse_list(store, "issues:closed");
     let known = Known {
         labels: parse_list(store, "labels"),
-        milestones: parse_list(store, "milestones"),
+        // 送信待ちで作ったマイルストーンも、名前を引けるように
+        milestones: milestones_view(store),
         people: parse_list(store, "collaborators"),
     };
     for op in &store.outbox {
         apply_op(&mut open, &mut closed, op, &known);
     }
     (open, closed)
+}
+
+/// 最後に読んだ（開いている）マイルストーンに、送信待ちの作る・変える・閉じるを重ねたもの（#272）。
+/// 閉じたものは一覧から外す（GitHub から読む一覧も、開いているものだけのため）
+pub fn milestones_view(store: &RepoStore) -> Vec<Value> {
+    let mut list = parse_list(store, "milestones");
+    for op in &store.outbox {
+        match op {
+            Op::CreateMilestone { temp, title, description, due_on, at } => list.push(json!({
+                "number": temp,
+                "title": title,
+                "description": description,
+                "due_on": due_on.clone().filter(|d| !d.is_empty()),
+                "state": "open",
+                "open_issues": 0,
+                "closed_issues": 0,
+                "created_at": at,
+                "updated_at": at,
+                "closed_at": null,
+                "_pending": true,
+            })),
+            Op::UpdateMilestone { number, title, description, due_on, state, at } => {
+                let Some(i) = list.iter().position(|m| m["number"].as_i64() == Some(*number)) else { continue };
+                if state.as_deref() == Some("closed") {
+                    list.remove(i);
+                    continue;
+                }
+                let m = &mut list[i];
+                if let Some(t) = title {
+                    m["title"] = json!(t);
+                }
+                if let Some(d) = description {
+                    m["description"] = json!(d);
+                }
+                if let Some(d) = due_on {
+                    m["due_on"] = if d.is_empty() { Value::Null } else { json!(d) };
+                }
+                m["updated_at"] = json!(at);
+                m["_pending"] = json!(true);
+            }
+            _ => {}
+        }
+    }
+    list
 }
 
 /// Issue のコメントに、送信待ちのコメントを重ねたもの
@@ -531,8 +604,43 @@ pub fn pending_items(store: &RepoStore) -> Vec<PendingItem> {
             }
             Op::SaveJournalNotes { date, at, .. } => item("journal", 0, format!("{} の日誌", date), "ノートを保存する", at),
             Op::GenerateJournal { date, at } => item("journal", 0, format!("{} の日誌", date), "作る", at),
+            Op::CreateMilestone { title, at, .. } => item("milestone", 0, title.clone(), "作る", at),
+            Op::UpdateMilestone { number, title, state, at, .. } => {
+                let name = title.clone().unwrap_or_else(|| milestone_title(store, *number));
+                let action = match state.as_deref() {
+                    Some("closed") => "閉じる",
+                    Some(_) => "開き直す",
+                    None => "変える",
+                };
+                item("milestone", 0, name, action, at)
+            }
         })
         .collect()
+}
+
+/// マイルストーンの名前（写しと、送信待ちの作る・名前を変えるのうち、いちばん新しいもの。閉じたものも引ける。わからなければ番号）
+fn milestone_title(store: &RepoStore, number: i64) -> String {
+    let mut name = parse_list(store, "milestones")
+        .iter()
+        .find(|m| m["number"].as_i64() == Some(number))
+        .and_then(|m| m["title"].as_str().map(String::from));
+    for op in &store.outbox {
+        match op {
+            Op::CreateMilestone { temp, title, .. } if *temp == number => name = Some(title.clone()),
+            Op::UpdateMilestone { number: n, title: Some(title), .. } if *n == number => name = Some(title.clone()),
+            _ => {}
+        }
+    }
+    name.unwrap_or_else(|| format!("#{}", number))
+}
+
+/// 仮の番号のマイルストーンがもう GitHub に作られていれば、本当の番号にする（#272）
+pub fn real_milestone(store: &RepoStore, number: i64) -> i64 {
+    if number < 0 {
+        store.created_milestones.get(&number).copied().unwrap_or(number)
+    } else {
+        number
+    }
 }
 
 /// 仮の番号の Issue がもう GitHub に作られていれば、本当の番号にする
@@ -559,7 +667,7 @@ fn base_of(issue: &Value, changes: &Changes) -> Changes {
         body: changes.body.as_ref().map(|_| issue["body"].as_str().unwrap_or("").to_string()),
         state: changes.state.as_ref().map(|_| issue["state"].as_str().unwrap_or("open").to_string()),
         labels: changes.labels.as_ref().map(|_| names("labels", "name")),
-        milestone: changes.milestone.map(|_| issue["milestone"]["number"].as_u64().unwrap_or(0) as u32),
+        milestone: changes.milestone.map(|_| issue["milestone"]["number"].as_i64().unwrap_or(0)),
         assignees: changes.assignees.as_ref().map(|_| names("assignees", "login")),
         ..Default::default()
     }
@@ -571,7 +679,7 @@ pub fn enqueue_create(
     title: String,
     body: String,
     labels: Vec<String>,
-    milestone: Option<u32>,
+    milestone: Option<i64>,
     assignees: Option<Vec<String>>,
     notice: Option<Notice>,
 ) -> Value {
@@ -621,6 +729,40 @@ pub fn enqueue_journal_notes(store: &mut RepoStore, date: &str, notes: String, b
     store.outbox.push(Op::SaveJournalNotes { date: date.to_string(), notes, base, at: now() });
 }
 
+/// マイルストーンを作る（仮の番号を付ける。#272）。画面に返すマイルストーンを返す
+pub fn enqueue_create_milestone(store: &mut RepoStore, title: String, description: String, due_on: Option<String>) -> Value {
+    store.next_temp_milestone += 1;
+    let temp = -store.next_temp_milestone;
+    store.outbox.push(Op::CreateMilestone { temp, title, description, due_on, at: now() });
+    milestones_view(store).into_iter().find(|m| m["number"].as_i64() == Some(temp)).unwrap_or(Value::Null)
+}
+
+/// マイルストーンを変える・閉じる・開き直す（#272）。画面に返すマイルストーン（閉じたなら閉じた形）を返す
+pub fn enqueue_update_milestone(
+    store: &mut RepoStore,
+    number: i64,
+    title: Option<String>,
+    description: Option<String>,
+    due_on: Option<String>,
+    state: Option<String>,
+) -> Value {
+    let number = real_milestone(store, number);
+    let before = milestones_view(store).into_iter().find(|m| m["number"].as_i64() == Some(number));
+    let closing = state.as_deref() == Some("closed");
+    store.outbox.push(Op::UpdateMilestone { number, title, description, due_on, state: state.clone(), at: now() });
+    let after = milestones_view(store).into_iter().find(|m| m["number"].as_i64() == Some(number));
+    match (after, before) {
+        (Some(m), _) => m,
+        (None, Some(mut m)) if closing => {
+            m["state"] = json!("closed");
+            m["closed_at"] = json!(now());
+            m["_pending"] = json!(true);
+            m
+        }
+        _ => json!({ "number": number, "state": state.unwrap_or_else(|| "open".into()), "_pending": true }),
+    }
+}
+
 /// つながったら日誌を作る
 pub fn enqueue_generate_journal(store: &mut RepoStore, date: &str) {
     if !pending_journal_generation(store, date) {
@@ -649,6 +791,24 @@ pub fn note_issue(store: &mut RepoStore, issue: &Value) {
         }
         store.reads.insert(key.to_string(), serde_json::to_string(&list).unwrap_or_default());
     }
+}
+
+/// 作った・変えたマイルストーンを、手元の写し（開いているものの一覧）に入れる。閉じたものは外す（#272）
+pub fn note_milestone(store: &mut RepoStore, milestone: &Value) {
+    let Some(number) = milestone["number"].as_i64() else { return };
+    let Some(raw) = store.reads.get("milestones") else { return };
+    let mut list: Vec<Value> = serde_json::from_str(raw).unwrap_or_default();
+    let at = list.iter().position(|m| m["number"].as_i64() == Some(number));
+    let open = milestone["state"].as_str() != Some("closed");
+    match (at, open) {
+        (Some(i), true) => list[i] = milestone.clone(),
+        (Some(i), false) => {
+            list.remove(i);
+        }
+        (None, true) => list.push(milestone.clone()),
+        (None, false) => {}
+    }
+    store.reads.insert("milestones".to_string(), serde_json::to_string(&list).unwrap_or_default());
 }
 
 /// 送れたコメントを、手元の写しに入れる
@@ -787,6 +947,29 @@ pub fn remap(store: &mut RepoStore, temp: i64, real: i64) {
     }
 }
 
+/// 仮の番号のマイルストーンが GitHub に作られたら、残りの送信待ちの番号を本当の番号にする（#272）
+pub fn remap_milestone(store: &mut RepoStore, temp: i64, real: i64) {
+    store.created_milestones.insert(temp, real);
+    let fix = |m: &mut Option<i64>| {
+        if *m == Some(temp) {
+            *m = Some(real);
+        }
+    };
+    for op in store.outbox.iter_mut() {
+        match op {
+            Op::CreateIssue { milestone, .. } => fix(milestone),
+            Op::UpdateIssue { changes, base, .. } => {
+                fix(&mut changes.milestone);
+                if let Some(b) = base.as_mut() {
+                    fix(&mut b.milestone);
+                }
+            }
+            Op::UpdateMilestone { number, .. } if *number == temp => *number = real,
+            _ => {}
+        }
+    }
+}
+
 pub fn push_conflict(store: &mut RepoStore, mut conflict: Conflict) {
     store.next_conflict += 1;
     conflict.id = store.next_conflict;
@@ -914,5 +1097,56 @@ mod tests {
         assert_eq!(items[0].action, "本文を変える、閉じる");
         assert_eq!(items[1].title, "牛乳");
         assert_eq!((items[2].kind, items[2].title.as_str()), ("journal", "2026-09-27 の日誌"));
+    }
+
+    #[test]
+    fn milestones_made_offline_are_shown_and_follow_the_real_number() {
+        // UT-33・UT-34・UT-40（#272）
+        let mut store = store_with(json!([{ "number": 5, "title": "牛乳", "state": "open", "labels": [], "milestone": null }]));
+        store.reads.insert("milestones".into(), json!([{ "number": 3, "title": "スプリント3", "state": "open" }]).to_string());
+        // 作る: Issue の仮の番号とは別に数える
+        enqueue_create(&mut store, "パン".into(), "".into(), vec![], None, None, None);
+        let made = enqueue_create_milestone(&mut store, "スプリント4".into(), "敵".into(), Some("2026-10-20T00:00:00Z".into()));
+        assert_eq!(made["number"], json!(-1));
+        assert_eq!(made["_pending"], json!(true));
+        // 仮の番号のマイルストーンに Issue を入れると、名前が引ける
+        enqueue_update(&mut store, 5, Changes { milestone: Some(-1), ..Default::default() }, None);
+        let (open, _) = issues_view(&store);
+        let milk = open.iter().find(|i| i["number"] == json!(5)).unwrap();
+        assert_eq!(milk["milestone"]["title"], json!("スプリント4"));
+        // 変える・閉じる
+        enqueue_update_milestone(&mut store, 3, Some("スプリント3（延長）".into()), None, Some("".into()), None);
+        let view = milestones_view(&store);
+        assert_eq!(view.iter().map(|m| m["number"].as_i64().unwrap()).collect::<Vec<_>>(), vec![3, -1]);
+        assert_eq!(view[0]["title"], json!("スプリント3（延長）"));
+        assert_eq!(view[0]["due_on"], Value::Null);
+        let closed = enqueue_update_milestone(&mut store, 3, None, None, None, Some("closed".into()));
+        assert_eq!(closed["state"], json!("closed"));
+        assert_eq!(milestones_view(&store).len(), 1);
+        // 送信待ちの一覧の文
+        let items = pending_items(&store);
+        let ms: Vec<(&str, &str)> = items.iter().filter(|i| i.kind == "milestone").map(|i| (i.title.as_str(), i.action.as_str())).collect();
+        assert_eq!(ms, vec![("スプリント4", "作る"), ("スプリント3（延長）", "変える"), ("スプリント3（延長）", "閉じる")]);
+        // 作れたら、あとの送信待ちの番号が本当の番号になる
+        remap_milestone(&mut store, -1, 4);
+        match &store.outbox[2] {
+            Op::UpdateIssue { changes, .. } => assert_eq!(changes.milestone, Some(4)),
+            other => panic!("{:?}", other),
+        }
+        assert_eq!(real_milestone(&store, -1), 4);
+        assert_eq!(real_milestone(&store, 3), 3);
+    }
+
+    #[test]
+    fn outboxes_saved_before_milestones_became_i64_still_load() {
+        // UT-35（#272）: 前の版で保存した送信待ち（milestone が u32）も読める
+        let old = r#"{"outbox":[{"kind":"update_issue","number":5,"changes":{"milestone":3},"base":{"milestone":0},"at":"2026-10-01T00:00:00Z"},{"kind":"create_issue","temp":-1,"title":"パン","body":"","labels":[],"milestone":2,"assignees":null,"at":"2026-10-01T00:00:00Z"}],"next_temp":1}"#;
+        let store: RepoStore = serde_json::from_str(old).unwrap();
+        match &store.outbox[0] {
+            Op::UpdateIssue { changes, base: Some(base), .. } => assert_eq!((changes.milestone, base.milestone), (Some(3), Some(0))),
+            other => panic!("{:?}", other),
+        }
+        assert!(matches!(&store.outbox[1], Op::CreateIssue { milestone: Some(2), .. }));
+        assert_eq!(store.next_temp_milestone, 0);
     }
 }

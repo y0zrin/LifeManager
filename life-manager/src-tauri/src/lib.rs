@@ -770,7 +770,7 @@ async fn create_issue(
     title: String,
     body: String,
     labels: Vec<String>,
-    milestone: Option<u32>,
+    milestone: Option<i64>,
     assignees: Option<Vec<String>>,
     notice: Option<offline::store::Notice>,
 ) -> Result<String, String> {
@@ -791,7 +791,7 @@ async fn update_issue(
     body: Option<String>,
     issue_state: Option<String>,
     labels: Option<Vec<String>>,
-    milestone: Option<u32>,
+    milestone: Option<i64>,
     assignees: Option<Vec<String>>,
     state_reason: Option<String>,
     duplicate_issue_id: Option<u64>,
@@ -939,11 +939,12 @@ async fn list_milestones(
     repo: String,
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
-    return offline::read_through(&app, &owner, &repo, "milestones", client.list_milestones(&owner, &repo)).await;
+    return offline::list_milestones(&app, &client, &owner, &repo).await;
 }
 
 #[tauri::command]
 async fn create_milestone(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
@@ -951,29 +952,24 @@ async fn create_milestone(
     description: String,
     due_on: Option<String>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client
-        .create_milestone(&owner, &repo, &title, &description, due_on)
-        .await;
+    let client = current_client(&state).await?;
+    return offline::create_milestone(&app, &client, &owner, &repo, title, description, due_on).await;
 }
 
 #[tauri::command]
 async fn update_milestone(
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    milestone_number: u32,
+    milestone_number: i64,
     title: Option<String>,
     description: Option<String>,
     due_on: Option<String>,
     milestone_state: Option<String>,
 ) -> Result<String, String> {
-    let guard = state.lock().await;
-    let client = guard.as_ref().ok_or("トークンが未設定です")?;
-    return client
-        .update_milestone(&owner, &repo, milestone_number, title, description, due_on, milestone_state)
-        .await;
+    let client = current_client(&state).await?;
+    return offline::update_milestone(&app, &client, &owner, &repo, milestone_number, title, description, due_on, milestone_state).await;
 }
 
 // --- Comments ---

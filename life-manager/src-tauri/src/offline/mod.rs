@@ -148,12 +148,14 @@ pub async fn create_issue(
     title: String,
     body: String,
     labels: Vec<String>,
-    milestone: Option<u32>,
+    milestone: Option<i64>,
     assignees: Option<Vec<String>>,
     notice: Option<Notice>,
 ) -> Result<String, String> {
-    if can_send_directly(app, owner, repo) {
-        let result = client.create_issue(owner, repo, &title, &body, labels.clone(), milestone, assignees.clone()).await;
+    // 仮の番号のマイルストーン（まだ GitHub にない）に入れるときは、マイルストーンを送ってから（#272）
+    let milestone = milestone.map(|m| store::real_milestone(&store::read_store(app, owner, repo), m));
+    if can_send_directly(app, owner, repo) && !milestone.is_some_and(|m| m < 0) {
+        let result = client.create_issue(owner, repo, &title, &body, labels.clone(), milestone.map(|m| m as u32), assignees.clone()).await;
         note_result(app, &result);
         match result {
             Ok(json) => {
@@ -180,11 +182,14 @@ pub async fn update_issue(
     changes: Changes,
     notice: Option<Notice>,
 ) -> Result<String, String> {
-    let number = store::real_number(&store::read_store(app, owner, repo), number);
-    if number > 0 && can_send_directly(app, owner, repo) {
+    let snapshot = store::read_store(app, owner, repo);
+    let number = store::real_number(&snapshot, number);
+    let mut changes = changes;
+    changes.milestone = changes.milestone.map(|m| store::real_milestone(&snapshot, m));
+    if number > 0 && can_send_directly(app, owner, repo) && !changes.milestone.is_some_and(|m| m < 0) {
         let c = changes.clone();
         let result = client
-            .update_issue(owner, repo, number as u32, c.title, c.body, c.state, c.labels, c.milestone, c.assignees, c.state_reason, c.duplicate_issue_id)
+            .update_issue(owner, repo, number as u32, c.title, c.body, c.state, c.labels, c.milestone.map(|m| m as u32), c.assignees, c.state_reason, c.duplicate_issue_id)
             .await;
         note_result(app, &result);
         match result {
@@ -200,6 +205,79 @@ pub async fn update_issue(
     let issue = store::with_store(app, owner, repo, |s| store::enqueue_update(s, number, changes, notice))?;
     queued(app, client, owner, repo);
     Ok(issue.to_string())
+}
+
+// --- マイルストーン。つながらないときは送信待ちに並べる（#272） ---
+
+/// 開いているマイルストーン（つながらないときは最後に読んだもの）に、送信待ちの作る・変える・閉じるを重ねたもの
+pub async fn list_milestones(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str) -> Result<String, String> {
+    match read_through(app, owner, repo, "milestones", client.list_milestones(owner, repo)).await {
+        Err(e) if !is_network_error(&e) => return Err(e),
+        _ => {}
+    }
+    Ok(Value::Array(store::milestones_view(&store::read_store(app, owner, repo))).to_string())
+}
+
+pub async fn create_milestone(
+    app: &AppHandle,
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    title: String,
+    description: String,
+    due_on: Option<String>,
+) -> Result<String, String> {
+    if can_send_directly(app, owner, repo) {
+        let result = client.create_milestone(owner, repo, &title, &description, due_on.clone()).await;
+        note_result(app, &result);
+        match result {
+            Ok(json) => {
+                if let Ok(m) = serde_json::from_str::<Value>(&json) {
+                    let _ = store::with_store(app, owner, repo, |s| store::note_milestone(s, &m));
+                }
+                return Ok(json);
+            }
+            Err(e) if !is_network_error(&e) => return Err(e),
+            Err(_) => {}
+        }
+    }
+    let milestone = store::with_store(app, owner, repo, |s| store::enqueue_create_milestone(s, title, description, due_on))?;
+    queued(app, client, owner, repo);
+    Ok(milestone.to_string())
+}
+
+/// マイルストーンを変える・閉じる・開き直す。number は仮の番号（まだ GitHub にない）でもよい
+pub async fn update_milestone(
+    app: &AppHandle,
+    client: &GitHubClient,
+    owner: &str,
+    repo: &str,
+    number: i64,
+    title: Option<String>,
+    description: Option<String>,
+    due_on: Option<String>,
+    state: Option<String>,
+) -> Result<String, String> {
+    let number = store::real_milestone(&store::read_store(app, owner, repo), number);
+    if number > 0 && can_send_directly(app, owner, repo) {
+        let result = client
+            .update_milestone(owner, repo, number as u32, title.clone(), description.clone(), due_on.clone(), state.clone())
+            .await;
+        note_result(app, &result);
+        match result {
+            Ok(json) => {
+                if let Ok(m) = serde_json::from_str::<Value>(&json) {
+                    let _ = store::with_store(app, owner, repo, |s| store::note_milestone(s, &m));
+                }
+                return Ok(json);
+            }
+            Err(e) if !is_network_error(&e) => return Err(e),
+            Err(_) => {}
+        }
+    }
+    let milestone = store::with_store(app, owner, repo, |s| store::enqueue_update_milestone(s, number, title, description, due_on, state))?;
+    queued(app, client, owner, repo);
+    Ok(milestone.to_string())
 }
 
 // --- コメント ---

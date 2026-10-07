@@ -270,12 +270,9 @@ impl GitHubClient {
 
     // --- Milestones ---
 
+    /// 開いているマイルストーン。100 件より多くても全部読む（#279）
     pub async fn list_milestones(&self, owner: &str, repo: &str) -> Result<String, String> {
-        let url = format!(
-            "{}/repos/{}/{}/milestones?state=open&per_page=100",
-            BASE_URL, owner, repo
-        );
-        return self.get(&url).await;
+        return self.get_all_pages(&milestones_url(owner, repo)).await;
     }
 
     pub async fn create_milestone(
@@ -333,17 +330,14 @@ impl GitHubClient {
 
     // --- Comments ---
 
+    /// Issue のコメント。100 件より多くても全部読む（#279）
     pub async fn list_comments(
         &self,
         owner: &str,
         repo: &str,
         issue_number: u32,
     ) -> Result<String, String> {
-        let url = format!(
-            "{}/repos/{}/{}/issues/{}/comments?per_page=100",
-            BASE_URL, owner, repo, issue_number
-        );
-        return self.get(&url).await;
+        return self.get_all_pages(&comments_url(owner, repo, issue_number)).await;
     }
 
     pub async fn create_comment(
@@ -1363,6 +1357,26 @@ impl GitHubClient {
             HeaderValue::from_static("application/vnd.github+json"),
         );
         return headers;
+    }
+}
+
+/// 開いているマイルストーンの一覧の最初のページ（100 件ずつ）
+fn milestones_url(owner: &str, repo: &str) -> String {
+    return format!("{}/repos/{}/{}/milestones?state=open&per_page=100", BASE_URL, owner, repo);
+}
+
+/// Issue のコメントの一覧の最初のページ（100 件ずつ）
+fn comments_url(owner: &str, repo: &str, issue_number: u32) -> String {
+    return format!("{}/repos/{}/{}/issues/{}/comments?per_page=100", BASE_URL, owner, repo, issue_number);
+}
+
+#[cfg(test)]
+mod paging_url_tests {
+    // UT-41: コメントとマイルストーンは 100 件ずつ、ページを送って読む（#279）
+    #[test]
+    fn comments_and_milestones_are_read_100_at_a_time() {
+        assert_eq!(super::milestones_url("o", "r"), "https://api.github.com/repos/o/r/milestones?state=open&per_page=100");
+        assert_eq!(super::comments_url("o", "r", 12), "https://api.github.com/repos/o/r/issues/12/comments?per_page=100");
     }
 }
 

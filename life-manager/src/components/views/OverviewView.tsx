@@ -13,6 +13,7 @@ import {
 import { easeScrollTo } from "../../lib/motion";
 import type { BranchStyle } from "../../hooks/useDisplaySettings";
 import { BranchPicker } from "../git/BranchPicker";
+import { FlowingName } from "../common/FlowingName";
 import { tr, trx } from "../../lib/i18n";
 
 interface OverviewViewProps {
@@ -233,7 +234,7 @@ export function OverviewView(props: OverviewViewProps) {
                 onContextMenu={branchMenu(defaultEntry.name)}
               >
                 <i className="cdot" />
-                <span className="lh-name">{defaultEntry.name}</span>
+                <FlowingName className="lh-name" text={defaultEntry.name} />
               </span>
             )}
             {currentEntry && !currentEntry.isDefault && layout.laneCount > 1 && (
@@ -244,7 +245,7 @@ export function OverviewView(props: OverviewViewProps) {
                 onContextMenu={branchMenu(currentEntry.name)}
               >
                 <i className="cdot" />
-                <span className="lh-name">{currentEntry.name}</span>
+                <FlowingName className="lh-name" text={currentEntry.name} />
               </span>
             )}
             {lifelines.map((l) => (
@@ -258,7 +259,7 @@ export function OverviewView(props: OverviewViewProps) {
                 onContextMenu={branchMenu(l.entry.name)}
               >
                 <i className="cdot" />
-                <span className="lh-name">{l.entry.name}</span>
+                <FlowingName className="lh-name" text={l.entry.name} />
               </button>
             ))}
           </div>

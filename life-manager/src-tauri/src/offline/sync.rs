@@ -32,6 +32,10 @@ pub struct SyncResult {
 #[derive(Default)]
 struct Done {
     created: Option<(i64, i64)>,
+    /// マイルストーンを作れた（仮の番号 → 本当の番号。#272）
+    created_milestone: Option<(i64, i64)>,
+    /// 作った・変えたマイルストーン（手元の写しに入れる）
+    milestone: Option<Value>,
     issue: Option<Value>,
     comment: Option<(i64, Value)>,
     conflicts: Vec<Conflict>,
@@ -161,7 +165,7 @@ fn decide(number: i64, remote: &Value, changes: &Changes, base: Option<&Changes>
     }
 
     if let Some(local) = changes.milestone {
-        let remote_value = remote["milestone"]["number"].as_u64().unwrap_or(0) as u32;
+        let remote_value = remote["milestone"]["number"].as_i64().unwrap_or(0);
         let base_value = base.milestone.unwrap_or(0);
         match merge_value(&base_value, &local, &remote_value) {
             Merge::Keep => {}
@@ -290,7 +294,10 @@ async fn send_journal_notes(client: &GitHubClient, owner: &str, repo: &str, date
 async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcome {
     match op {
         Op::CreateIssue { temp, title, body, labels, milestone, assignees, .. } => {
-            match client.create_issue(owner, repo, title, body, labels.clone(), *milestone, assignees.clone()).await {
+            if milestone.is_some_and(|m| m < 0) {
+                return Outcome::Failed("GitHub に作れなかったマイルストーンに入れる Issue です".into());
+            }
+            match client.create_issue(owner, repo, title, body, labels.clone(), milestone.map(|m| m as u32), assignees.clone()).await {
                 Ok(json) => {
                     let issue = parse(&json);
                     let real = issue["number"].as_i64().unwrap_or(0);
@@ -313,6 +320,10 @@ async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcom
                 return Outcome::Done(Done { issue: Some(remote), conflicts, ..Default::default() });
             }
             let Changes { title, body, state, labels, milestone, assignees, state_reason, duplicate_issue_id } = to_send;
+            if milestone.is_some_and(|m| m < 0) {
+                return Outcome::Failed("GitHub に作れなかったマイルストーンへの変更です".into());
+            }
+            let milestone = milestone.map(|m| m as u32);
             match client.update_issue(owner, repo, n, title, body, state, labels, milestone, assignees, state_reason, duplicate_issue_id).await {
                 Ok(json) => Outcome::Done(Done { issue: Some(parse(&json)), conflicts, notify: Some(*number), ..Default::default() }),
                 Err(e) => classify(e),
@@ -335,6 +346,28 @@ async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcom
             Ok(md) => Outcome::Done(Done { reads: vec![(format!("journal:{}", date), md)], ..Default::default() }),
             Err(e) => classify(e),
         },
+        Op::CreateMilestone { temp, title, description, due_on, .. } => {
+            match client.create_milestone(owner, repo, title, description, due_on.clone().filter(|d| !d.is_empty())).await {
+                Ok(json) => {
+                    let milestone = parse(&json);
+                    let real = milestone["number"].as_i64().unwrap_or(0);
+                    Outcome::Done(Done { created_milestone: Some((*temp, real)), milestone: Some(milestone), ..Default::default() })
+                }
+                Err(e) => classify(e),
+            }
+        }
+        Op::UpdateMilestone { number, title, description, due_on, state, .. } => {
+            if *number < 0 {
+                return Outcome::Failed("GitHub に作れなかったマイルストーンへの変更です".into());
+            }
+            match client
+                .update_milestone(owner, repo, *number as u32, title.clone(), description.clone(), due_on.clone(), state.clone())
+                .await
+            {
+                Ok(json) => Outcome::Done(Done { milestone: Some(parse(&json)), ..Default::default() }),
+                Err(e) => classify(e),
+            }
+        }
     }
 }
 
@@ -349,6 +382,8 @@ fn describe(op: &Op) -> (String, String) {
         }
         Op::SaveJournalNotes { date, .. } => (format!("{} の日誌", date), "日誌のノートの保存".into()),
         Op::GenerateJournal { date, .. } => (format!("{} の日誌", date), "日誌の作成".into()),
+        Op::CreateMilestone { title, .. } => (title.clone(), "マイルストーンの作成".into()),
+        Op::UpdateMilestone { title, .. } => (title.clone().unwrap_or_default(), "マイルストーンの変更".into()),
     }
 }
 
@@ -391,7 +426,7 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
                 result.stopped = Some(message);
                 break;
             }
-            Outcome::Done(Done { created, issue, comment, conflicts, reads, notify }) => {
+            Outcome::Done(Done { created, created_milestone, milestone, issue, comment, conflicts, reads, notify }) => {
                 store::with_store(app, owner, repo, |s| {
                     // 送った 1 件を外す（ファイルが壊れて空になっていても止まらないように）
                     if !s.outbox.is_empty() {
@@ -400,6 +435,12 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
                     if let Some((temp, real)) = created {
                         store::remap(s, temp, real);
                         result.mapping.insert(temp.to_string(), real);
+                    }
+                    if let Some((temp, real)) = created_milestone {
+                        store::remap_milestone(s, temp, real);
+                    }
+                    if let Some(m) = &milestone {
+                        store::note_milestone(s, m);
                     }
                     if let Some(issue) = &issue {
                         store::note_issue(s, issue);

@@ -61,7 +61,7 @@ export function SyncIndicator({ status, syncing, stopped, onSync, onOpenConflict
             <ol className="sync-list">
               {status.pending.map((p, i) => (
                 <li key={i}>
-                  <span className="sync-list-num">{p.kind === "issue" ? issueRef(p.number) : p.kind === "config" ? tr("設定") : tr("日誌")}</span>
+                  <span className="sync-list-num">{p.kind === "issue" ? issueRef(p.number) : p.kind === "config" ? tr("設定") : p.kind === "milestone" ? tr("マイルストーン") : tr("日誌")}</span>
                   <span className="sync-list-title">{p.title || tr("（タイトルなし）")}</span>
                   <span className="sync-list-action">{p.action}</span>
                 </li>

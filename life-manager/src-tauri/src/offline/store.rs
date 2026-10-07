@@ -119,15 +119,29 @@ pub enum Op {
         state: Option<String>,
         at: String,
     },
+    /// 子にする（#273）。親も子も Issue の番号（まだ GitHub にない Issue は仮の番号）。子の GitHub の id は送るときに引く。
+    /// replace_parent なら、ほかの親から付け替える
+    AddSubIssue { parent: i64, child: i64, replace_parent: bool, at: String },
+    /// 子から外す（#273）
+    RemoveSubIssue { parent: i64, child: i64, at: String },
 }
 
 impl Op {
-    /// どの Issue への操作か（Issue の操作でなければ 0）
+    /// どの Issue への操作か（Issue の操作でなければ 0。親子の操作は子）
     pub fn number(&self) -> i64 {
         match self {
             Op::CreateIssue { temp, .. } => *temp,
             Op::UpdateIssue { number, .. } | Op::CreateComment { number, .. } => *number,
+            Op::AddSubIssue { child, .. } | Op::RemoveSubIssue { child, .. } => *child,
             _ => 0,
+        }
+    }
+
+    /// この Issue を使う操作か（親子の操作は、親も子も）
+    pub fn refers_to(&self, n: i64) -> bool {
+        match self {
+            Op::AddSubIssue { parent, child, .. } | Op::RemoveSubIssue { parent, child, .. } => *parent == n || *child == n,
+            _ => self.number() == n,
         }
     }
 
@@ -411,8 +425,103 @@ fn apply_op(open: &mut Vec<Value>, closed: &mut Vec<Value>, op: &Op, known: &Kno
                 issue["_pending"] = json!(true);
             }
         }
+        Op::AddSubIssue { parent, child, .. } => link_in_view(open, closed, *parent, *child, true),
+        Op::RemoveSubIssue { parent, child, .. } => link_in_view(open, closed, *parent, *child, false),
         _ => {}
     }
+}
+
+/// 一覧の Issue の API の頭（`https://api.github.com/repos/o/r`）。どれかの Issue の repository_url から
+fn repository_url(open: &[Value], closed: &[Value]) -> Option<String> {
+    open.iter().chain(closed.iter()).find_map(|x| x["repository_url"].as_str().map(String::from))
+}
+
+/// 親の Issue の番号（parent_issue_url の最後。このリポジトリの Issue のときだけ。仮の番号の親は -1 など）
+fn parent_number(issue: &Value, repo_url: Option<&str>) -> Option<i64> {
+    let url = issue["parent_issue_url"].as_str()?;
+    let (head, n) = url.rsplit_once("/issues/")?;
+    if repo_url.is_some_and(|r| r != head) {
+        return None;
+    }
+    n.parse().ok()
+}
+
+/// 送信待ちの「子にする」「子から外す」を一覧に重ねる（親の子の数と、子の親。#273）。子は番号で探す
+fn link_in_view(open: &mut [Value], closed: &mut [Value], parent: i64, child: i64, linked: bool) {
+    let repo_url = repository_url(open, closed);
+    let Some(found) = open.iter().chain(closed.iter()).find(|x| number_of(x) == Some(child)) else { return };
+    let done = (found["state"].as_str() == Some("closed")) as i64;
+    let old = parent_number(found, repo_url.as_deref());
+    let mut edit = |n: i64, f: &dyn Fn(&mut Value)| {
+        for x in open.iter_mut().chain(closed.iter_mut()).filter(|x| number_of(x) == Some(n)) {
+            f(x);
+        }
+    };
+    if !linked {
+        // この親の子のときだけ外す
+        if old == Some(parent) {
+            edit(parent, &|x| adjust_summary(x, -1, -done));
+            edit(child, &|x| {
+                x["parent_issue_url"] = Value::Null;
+                x["_pending"] = json!(true);
+            });
+        }
+        return;
+    }
+    if old == Some(parent) {
+        return;
+    }
+    if let Some(o) = old {
+        // ほかの親から付け替えた
+        edit(o, &|x| adjust_summary(x, -1, -done));
+    }
+    edit(parent, &|x| adjust_summary(x, 1, done));
+    let url = repo_url.map(|r| format!("{}/issues/{}", r, parent));
+    edit(child, &|x| {
+        x["parent_issue_url"] = url.clone().map_or(Value::Null, Value::String);
+        x["_pending"] = json!(true);
+    });
+}
+
+/// サブイシューの一覧（前に読んだもの base）に、送信待ちの付ける・外すを重ねる（#273）。
+/// 子の中身も、送信待ちの変更を重ねたものにする（つながらないあいだに閉じた子は、閉じたと出る）
+pub fn sub_issues_view(store: &RepoStore, parent: i64, base: Vec<Value>) -> Vec<Value> {
+    let (open, closed) = issues_view(store);
+    let issue = |n: i64| open.iter().chain(closed.iter()).find(|x| number_of(x) == Some(n)).cloned();
+    let mut list: Vec<Value> = base.into_iter().map(|c| number_of(&c).and_then(issue).unwrap_or(c)).collect();
+    for op in &store.outbox {
+        match op {
+            Op::AddSubIssue { parent: p, child, .. } if *p == parent => {
+                if !list.iter().any(|x| number_of(x) == Some(*child)) {
+                    if let Some(mut c) = issue(*child) {
+                        c["_pending"] = json!(true);
+                        list.push(c);
+                    }
+                }
+            }
+            // ほかの親へ付け替えた・この親から外した
+            Op::AddSubIssue { child, .. } => list.retain(|x| number_of(x) != Some(*child)),
+            Op::RemoveSubIssue { parent: p, child, .. } if *p == parent => list.retain(|x| number_of(x) != Some(*child)),
+            _ => {}
+        }
+    }
+    list
+}
+
+/// 一覧の中で、親がこの Issue のもの（サブイシューの一覧を前に読んでいないとき、つながらないあいだに使う。#273）
+pub fn children_in_view(store: &RepoStore, parent: i64) -> Vec<Value> {
+    let (open, closed) = issues_view(store);
+    let repo_url = repository_url(&open, &closed);
+    open.into_iter().chain(closed).filter(|x| parent_number(x, repo_url.as_deref()) == Some(parent)).collect()
+}
+
+/// Issue の GitHub の id（写しから。子にする・外すを送るとき。#273）
+pub fn issue_id(store: &RepoStore, number: i64) -> Option<u64> {
+    ["issues:open", "issues:closed"]
+        .iter()
+        .flat_map(|key| parse_list(store, key))
+        .find(|x| number_of(x) == Some(number))
+        .and_then(|x| x["id"].as_u64())
 }
 
 /// 最後に読んだ Issue に、送信待ちの変更を重ねたもの（開いている・閉じた）
@@ -614,6 +723,12 @@ pub fn pending_items(store: &RepoStore) -> Vec<PendingItem> {
                 };
                 item("milestone", 0, name, action, at)
             }
+            Op::AddSubIssue { parent, child, at, .. } => {
+                item("issue", *child, title_of(*child), &format!("{} の子にする", super::issue_ref(*parent)), at)
+            }
+            Op::RemoveSubIssue { parent, child, at } => {
+                item("issue", *child, title_of(*child), &format!("{} の子から外す", super::issue_ref(*parent)), at)
+            }
         })
         .collect()
 }
@@ -764,6 +879,19 @@ pub fn enqueue_update_milestone(
 }
 
 /// つながったら日誌を作る
+/// 子にする・子から外すを送信待ちに並べる（#273）。重ねたあとの子を返す（画面は _pending で「未送信」を出す）
+pub fn enqueue_sub_issue(store: &mut RepoStore, parent: i64, child: i64, linked: bool, replace_parent: bool) -> Value {
+    let at = now();
+    store.outbox.push(if linked {
+        Op::AddSubIssue { parent, child, replace_parent, at }
+    } else {
+        Op::RemoveSubIssue { parent, child, at }
+    });
+    let mut view = find_issue(store, child).unwrap_or_else(|| json!({ "number": child }));
+    view["_pending"] = json!(true);
+    view
+}
+
 pub fn enqueue_generate_journal(store: &mut RepoStore, date: &str) {
     if !pending_journal_generation(store, date) {
         store.outbox.push(Op::GenerateJournal { date: date.to_string(), at: now() });
@@ -944,6 +1072,14 @@ pub fn remap(store: &mut RepoStore, temp: i64, real: i64) {
                 *body = rewrite_refs(body, temp, real);
             }
             Op::SaveConfig { kind, json, .. } if kind == "reminders" => *json = rewrite_reminders(json, temp, real),
+            Op::AddSubIssue { parent, child, .. } | Op::RemoveSubIssue { parent, child, .. } => {
+                if *parent == temp {
+                    *parent = real;
+                }
+                if *child == temp {
+                    *child = real;
+                }
+            }
             _ => {}
         }
     }
@@ -1200,5 +1336,99 @@ mod tests {
         }
         assert!(matches!(&store.outbox[1], Op::CreateIssue { milestone: Some(2), .. }));
         assert_eq!(store.next_temp_milestone, 0);
+    }
+
+    fn issue(number: i64, id: i64, state: &str, parent: Option<i64>) -> Value {
+        let repo = "https://api.github.com/repos/o/r";
+        json!({
+            "number": number, "id": id, "title": format!("課題{}", number), "state": state,
+            "url": format!("{}/issues/{}", repo, number), "repository_url": repo,
+            "parent_issue_url": parent.map(|p| format!("{}/issues/{}", repo, p)),
+            "labels": [], "assignees": [],
+        })
+    }
+
+    fn summary(store: &RepoStore, n: i64) -> (i64, i64) {
+        let (open, closed) = issues_view(store);
+        let v = open.into_iter().chain(closed).find(|i| number_of(i) == Some(n)).unwrap();
+        (v["sub_issues_summary"]["total"].as_i64().unwrap_or(0), v["sub_issues_summary"]["completed"].as_i64().unwrap_or(0))
+    }
+
+    fn parent_of(store: &RepoStore, n: i64) -> Option<String> {
+        let (open, closed) = issues_view(store);
+        open.into_iter().chain(closed).find(|i| number_of(i) == Some(n)).and_then(|i| i["parent_issue_url"].as_str().map(String::from))
+    }
+
+    // UT-36: 付ける・外すが issues_view の親の数と子の親に重なる。仮の番号の子は、作られたら本当の番号になる
+    #[test]
+    fn pending_sub_issue_links_show_in_the_view() {
+        let mut store = RepoStore::default();
+        store.reads.insert("issues:open".into(), json!([issue(10, 100, "open", None), issue(11, 110, "open", None), issue(20, 200, "open", None)]).to_string());
+        store.reads.insert("issues:closed".into(), json!([issue(12, 120, "closed", None)]).to_string());
+
+        let child = enqueue_sub_issue(&mut store, 10, 12, true, false);
+        assert_eq!(child["_pending"], json!(true));
+        assert_eq!(child["parent_issue_url"], json!("https://api.github.com/repos/o/r/issues/10"));
+        enqueue_sub_issue(&mut store, 10, 11, true, false);
+        assert_eq!(summary(&store, 10), (2, 1));
+
+        // 付け替える（20 へ）・外す
+        enqueue_sub_issue(&mut store, 20, 11, true, true);
+        assert_eq!((summary(&store, 10), summary(&store, 20)), ((1, 1), (1, 0)));
+        enqueue_sub_issue(&mut store, 10, 12, false, false);
+        assert_eq!(summary(&store, 10), (0, 0));
+        assert_eq!(parent_of(&store, 12), None);
+        // この親の子でないものは外さない
+        enqueue_sub_issue(&mut store, 10, 20, false, false);
+        assert_eq!(summary(&store, 10), (0, 0));
+
+        // 仮の番号の子（まだ作っていない Issue）も付けられ、作られたら本当の番号になる
+        let temp = enqueue_create(&mut store, "子".into(), String::new(), vec![], None, None, None)["number"].as_i64().unwrap();
+        enqueue_sub_issue(&mut store, 20, temp, true, false);
+        assert_eq!(summary(&store, 20), (2, 0));
+        assert_eq!(parent_of(&store, temp).as_deref(), Some("https://api.github.com/repos/o/r/issues/20"));
+        // 送るときは、作れた Issue を送信待ちから外してから番号を直す
+        store.outbox.retain(|op| !matches!(op, Op::CreateIssue { .. }));
+        remap(&mut store, temp, 31);
+        assert!(store.outbox.iter().any(|op| matches!(op, Op::AddSubIssue { parent: 20, child: 31, .. })));
+        assert!(store.outbox.iter().any(|op| op.refers_to(31)) && !store.outbox.iter().any(|op| op.refers_to(temp)));
+    }
+
+    #[test]
+    fn sub_issue_list_overlays_pending_links() {
+        let mut store = RepoStore::default();
+        store.reads.insert("issues:open".into(), json!([issue(10, 100, "open", None), issue(11, 110, "open", Some(10)), issue(13, 130, "open", None)]).to_string());
+        let base = vec![issue(11, 110, "open", Some(10))];
+        enqueue_sub_issue(&mut store, 10, 13, true, false);
+        enqueue_update(&mut store, 11, Changes { state: Some("closed".into()), ..Default::default() }, None);
+        let list = sub_issues_view(&store, 10, base.clone());
+        let shown: Vec<(i64, String)> = list.iter().map(|c| (c["number"].as_i64().unwrap(), c["state"].as_str().unwrap().to_string())).collect();
+        assert_eq!(shown, vec![(11, "closed".to_string()), (13, "open".to_string())]);
+        assert_eq!(list[1]["_pending"], json!(true));
+
+        enqueue_sub_issue(&mut store, 10, 11, false, false);
+        assert_eq!(sub_issues_view(&store, 10, base).iter().map(|c| c["number"].as_i64().unwrap()).collect::<Vec<_>>(), vec![13]);
+        // 前に読んでいなければ、一覧の中で親がこの Issue のもの
+        assert_eq!(children_in_view(&store, 10).iter().map(|c| c["number"].as_i64().unwrap()).collect::<Vec<_>>(), vec![13]);
+    }
+
+    // UT-37 の一部: 子の id は写しから引く
+    #[test]
+    fn issue_id_comes_from_the_copy() {
+        let mut store = RepoStore::default();
+        store.reads.insert("issues:closed".into(), json!([issue(12, 120, "closed", None)]).to_string());
+        assert_eq!(issue_id(&store, 12), Some(120));
+        assert_eq!(issue_id(&store, 13), None);
+    }
+
+    #[test]
+    fn pending_items_describe_sub_issue_links() {
+        let mut store = RepoStore::default();
+        store.reads.insert("issues:open".into(), json!([issue(10, 100, "open", None), issue(11, 110, "open", None)]).to_string());
+        enqueue_sub_issue(&mut store, 10, 11, true, false);
+        enqueue_sub_issue(&mut store, -2, 11, false, false);
+        let items = pending_items(&store);
+        assert_eq!((items[0].number, items[0].title.as_str(), items[0].action.as_str()), (11, "課題11", "#10 の子にする"));
+        assert_eq!(items[1].action, "仮2 の子から外す");
     }
 }

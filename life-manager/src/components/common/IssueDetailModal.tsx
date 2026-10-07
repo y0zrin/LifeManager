@@ -908,8 +908,8 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
         {/* === つながり: サブイシュー・関連 === */}
         {tab === "links" && (
           <>
-            {/* サブイシュー（子の一覧と進み具合）。まだ送っていない Issue（仮の番号）には付けられない */}
-            {subIssueApi && onOpenIssue && issue.number > 0 && (
+            {/* サブイシュー（子の一覧と進み具合）。まだ送っていない Issue（仮の番号）も、送信待ちのまま付け外しできる（#273） */}
+            {subIssueApi && onOpenIssue && (
               <SubIssues
                 issue={issue}
                 allIssues={allIssues}

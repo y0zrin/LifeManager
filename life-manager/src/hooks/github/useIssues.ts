@@ -554,20 +554,18 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     return JSON.parse(result as string);
   }
 
-  /** 子にする（ほかの親の子なら、付け替える） */
-  async function addSubIssue(parent: number, child: GitHubIssue) {
-    if (!child.id || child.number <= 0) {
-      throw new Error(tr("{issueRef} はまだ GitHub に送っていないので、子にできません", { issueRef: issueRef(child.number) }));
-    }
+  /** 子にする（ほかの親の子なら、付け替える）。つながらないとき・まだ GitHub に送っていない Issue（仮の番号）は、送信待ちに並べる（#273） */
+  async function addSubIssue(parent: number, child: GitHubIssue): Promise<boolean> {
     const oldParent = parseIssueApiUrl(child.parent_issue_url);
-    await invokeWrite("add_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id, replaceParent: !!oldParent });
+    const result = await invokeWrite("add_sub_issue", { owner, repo, issueNumber: parent, childNumber: child.number, replaceParent: !!oldParent });
     const done = child.state === "closed" ? 1 : 0;
     if (oldParent && isSameRepo(oldParent, owner, repo)) {
       patchIssue(oldParent.number, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, -done) }));
     }
     patchIssue(parent, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, 1, done) }));
     patchIssue(child.number, (i) => ({ ...i, parent_issue_url: issueApiUrl(owner, repo, parent) }));
-    setStatus(tr("{issueRef} を {issueRef2} の子にしました", { issueRef: issueRef(child.number), issueRef2: issueRef(parent) }));
+    setStatus(tr("{issueRef} を {issueRef2} の子にしました", { issueRef: issueRef(child.number), issueRef2: issueRef(parent) }) + (isPending(result) ? PENDING_NOTE : ""));
+    return isPending(result);
   }
 
   /** 子の Issue を作って、つなぐ。ラベルは「種別:イシュー」「状態:未整理」と親のセクション、マイルストーンは親と同じ */
@@ -583,20 +581,18 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     });
     const created = JSON.parse(result as string) as GitHubIssue;
     setIssues((prev) => [created, ...prev.filter((i) => i.number !== created.number)]);
-    if (isPending(result) || !created.id) {
-      throw new Error(tr("{title} は作りましたが、まだ GitHub に送れていないので、子にはつなげていません。送れたあとで「既存の Issue をつなぐ」からつないでください", { title }));
-    }
-    await addSubIssue(parent.number, created);
-    return { ...created, parent_issue_url: issueApiUrl(owner, repo, parent.number) };
+    // まだ送れていない Issue（仮の番号）も、送信待ちのままつなぐ（#273）
+    const linkPending = await addSubIssue(parent.number, created);
+    return { ...created, parent_issue_url: issueApiUrl(owner, repo, parent.number), _pending: isPending(result) || linkPending || undefined };
   }
 
-  /** 子から外す（Issue は消えない） */
-  async function removeSubIssue(parent: number, child: GitHubIssue) {
-    if (!child.id) throw new Error(tr("{issueRef} の id が分からないので、外せません", { issueRef: issueRef(child.number) }));
-    await invokeWrite("remove_sub_issue", { owner, repo, issueNumber: parent, subIssueId: child.id });
+  /** 子から外す（Issue は消えない）。つながらないときは送信待ちに並べる（#273） */
+  async function removeSubIssue(parent: number, child: GitHubIssue): Promise<boolean> {
+    const result = await invokeWrite("remove_sub_issue", { owner, repo, issueNumber: parent, childNumber: child.number });
     patchIssue(parent, (i) => ({ ...i, sub_issues_summary: adjustSummary(i.sub_issues_summary, -1, child.state === "closed" ? -1 : 0) }));
     patchIssue(child.number, (i) => ({ ...i, parent_issue_url: null }));
-    setStatus(tr("{issueRef} を {issueRef2} の子から外しました", { issueRef: issueRef(child.number), issueRef2: issueRef(parent) }));
+    setStatus(tr("{issueRef} を {issueRef2} の子から外しました", { issueRef: issueRef(child.number), issueRef2: issueRef(parent) }) + (isPending(result) ? PENDING_NOTE : ""));
+    return isPending(result);
   }
 
   return {

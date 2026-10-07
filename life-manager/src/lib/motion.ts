@@ -75,6 +75,11 @@ export function setMotionEnabled(on: boolean) {
   enabled = on;
 }
 
+/** 1 回きりの動き（ガントの帯が伸びて出るなど）を出してよいか（設定・OS の「視差効果を減らす」・見えているか。#215） */
+export function oneShotMotionOn(): boolean {
+  return enabled && typeof document !== "undefined" && document.visibilityState === "visible" && !prefersReducedMotion();
+}
+
 /** 動きを使えるか（設定・OS の「視差効果を減らす」・見えているか・ブラウザが対応しているか） */
 export function motionOn(): boolean {
   return (

@@ -15,6 +15,8 @@ import { isMobile } from "../../lib/platform";
 import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { GanttMobileChart, type MobileScale } from "./GanttMobileChart";
 import { tr, trx } from "../../lib/i18n";
+import { revealPlan, type RevealPlan } from "../../lib/ganttReveal";
+import { oneShotMotionOn } from "../../lib/motion";
 
 interface GanttViewProps {
   issues: GitHubIssue[];
@@ -274,17 +276,71 @@ export function GanttView({
     rendererRef.current = new GanttRenderer(ctx, dpr);
   }, [canvasSize]);
 
-  // Draw
+  // 帯が伸びて出る動き（#215）: 開いたとき・マイルストーンを切り替えたとき、帯を日付の早い順に左から右へ伸ばし、矢印はそのあとに出す。
+  // 動きを少なくしているときは出さない。描くより前に始めの形を決めるので、描くところより先に置く
+  const revealRef = useRef<{ plan: RevealPlan; start: number } | null>(null);
+  const revealedFor = useRef<number | null>(null);
+  const hasCanvas = canvasSize.width > 0 && ganttTasks.length > 0;
+  const drawRef = useRef<() => void>(() => {});
   useEffect(() => {
+    if (isMobile || selectedMilestone === null || !hasCanvas || revealedFor.current === selectedMilestone) return;
+    revealedFor.current = selectedMilestone;
+    if (!oneShotMotionOn()) return;
+    revealRef.current = { plan: revealPlan(ganttTasks), start: performance.now() };
+    let frame = 0;
+    const step = () => {
+      const r = revealRef.current;
+      if (!r) return;
+      const done = performance.now() - r.start >= r.plan.total;
+      if (done) revealRef.current = null;
+      drawRef.current();
+      if (!done) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (revealRef.current) {
+        revealRef.current = null;
+        drawRef.current();
+      }
+    };
+    // ganttTasks は始めたときのもので順位を決める（伸びている途中に一覧が変わっても、やり直さない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMilestone, hasCanvas]);
+
+  // Draw（帯が伸びて出ている途中なら、その形で）
+  const drawCanvas = () => {
     const renderer = rendererRef.current;
     if (!renderer || canvasSize.width === 0) return;
 
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
-    const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan, arrowsFocusOnly);
+    const r = revealRef.current;
+    const reveal = r ? { plan: r.plan, t: performance.now() - r.start } : null;
+    const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan, arrowsFocusOnly, reveal);
     setEdgeExits((prev) => (sameExits(prev, exits) ? prev : exits));
+  };
+  drawRef.current = drawCanvas;
+  useEffect(() => {
+    drawCanvas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focus, arrowPlan, arrowsFocusOnly]);
+
+  // スマホ: 帯が伸びて出る動き（CSS で。終わったら外す）
+  const [mobileReveal, setMobileReveal] = useState<RevealPlan | null>(null);
+  const mobileRevealedFor = useRef<number | null>(null);
+  const hasTasks = ganttTasks.length > 0;
+  useEffect(() => {
+    if (!isMobile || selectedMilestone === null || !hasTasks || mobileRevealedFor.current === selectedMilestone) return;
+    mobileRevealedFor.current = selectedMilestone;
+    if (!oneShotMotionOn()) return;
+    const plan = revealPlan(ganttTasks);
+    setMobileReveal(plan);
+    const timer = window.setTimeout(() => setMobileReveal(null), plan.total + 50);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMilestone, hasTasks]);
 
   // Scroll handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -729,6 +785,7 @@ export function GanttView({
             links={pinnedIssue === null ? null : links}
             onOpenIssue={onSelectIssue}
             onFixTentative={fixTentative}
+            reveal={mobileReveal}
           />
         )}
       </div>

@@ -1,4 +1,5 @@
 import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
+import { arrowsVisible, revealFraction, type RevealPlan } from "./ganttReveal";
 import { arrowKey, type ArrowPlan } from "./ganttArrows";
 import { DEFAULT_BAR_COLORS } from "./ganttTypes";
 import { tr } from "./i18n";
@@ -273,6 +274,8 @@ export class GanttRenderer {
     arrowPlan: ArrowPlan | null = null,
     /** 矢印は選んだタスク（focus）に出入りするものだけ（スマホと同じ。選んでいなければ出さない） */
     onlyFocused = false,
+    /** 帯が伸びて出ている途中（#215）。plan と、始めてからのミリ秒。途中なら矢印は出さない */
+    reveal: { plan: RevealPlan; t: number } | null = null,
   ): EdgeExit[] {
     const ctx = this.ctx;
     ctx.save();
@@ -283,8 +286,11 @@ export class GanttRenderer {
     this.drawDeadline(config, scrollX, canvasHeight);
     // 乗せたタスクの先行・後続（帯に印を付け、ほかを薄くする）
     const rel = focus === null ? null : relatedOf(tasks, focus);
-    this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false, rel);
-    const exits = this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan, onlyFocused);
+    this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false, rel, reveal);
+    const exits =
+      reveal === null || arrowsVisible(reveal.plan, reveal.t)
+        ? this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan, onlyFocused)
+        : [];
     this.drawHeader(config, scrollX, canvasWidth);
 
     ctx.restore();
@@ -502,6 +508,7 @@ export class GanttRenderer {
     barColors: GanttBarColors = DEFAULT_BAR_COLORS,
     showCPLabel: boolean = false,
     rel: Related | null = null,
+    reveal: { plan: RevealPlan; t: number } | null = null,
   ) {
     const ctx = this.ctx;
     const barHeight = config.rowHeight * 0.6;
@@ -523,7 +530,15 @@ export class GanttRenderer {
 
       // タスクに乗せているときは、乗せたタスクと先行・後続のほかを薄くし、乗せたタスクと相手に枠を付ける
       const mark = rel === null ? null : task.issueNumber === rel.focus ? this.colors.textPrimary : rel.preds.has(task.issueNumber) ? this.colors.ganttPred : rel.succs.has(task.issueNumber) ? this.colors.ganttSucc : null;
+      // 伸びて出ている途中なら、伸びた所までだけ描く（#215）
+      const shown = reveal === null ? 1 : revealFraction(reveal.plan, task.issueNumber, reveal.t);
+      if (shown <= 0) continue;
       ctx.save();
+      if (shown < 1) {
+        ctx.beginPath();
+        ctx.rect(x1 - 3, y - 14, barWidth * shown + 3, barHeight + 18);
+        ctx.clip();
+      }
       if (rel !== null && mark === null) ctx.globalAlpha = 0.4;
       this.drawOneBar(task, config, scrollX, x1, x2, y, barHeight, barWidth, todayStr, criticalPath, barColors, showCPLabel);
       ctx.restore();

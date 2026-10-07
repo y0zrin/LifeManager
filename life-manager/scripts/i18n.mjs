@@ -158,8 +158,8 @@ if (fs.existsSync(EXTRA)) {
 }
 
 // --- Rust: 画面に届く日本語の文（エラー・結果） ---
-// 除くもの: テスト・コメント・eprintln!/println!・GitHub やチームに送る文（日誌・ルーチン・Discord）・ラベルの定義
-const RUST_SKIP = new Set(["src-tauri/src/journal/generator.rs", "src-tauri/src/scheduler/routine.rs", "src-tauri/src/notify/discord.rs", "src-tauri/src/git/scenario_tests.rs"]);
+// 除くもの: テスト・コメント・eprintln!/println!・GitHub やチームに送る文（日誌・ルーチン・Discord）・ローカルのプロジェクトの記録の題・ラベルの定義
+const RUST_SKIP = new Set(["src-tauri/src/journal/generator.rs", "src-tauri/src/scheduler/routine.rs", "src-tauri/src/notify/discord.rs", "src-tauri/src/git/scenario_tests.rs", "src-tauri/src/local/record.rs"]);
 function stripRust(src) {
   const i = src.indexOf("#[cfg(test)]");
   if (i >= 0) src = src.slice(0, i);

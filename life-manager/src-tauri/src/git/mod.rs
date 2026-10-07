@@ -9,10 +9,10 @@ pub mod history;
 mod ignore;
 pub mod media;
 pub mod publish;
-mod runner;
+pub(crate) mod runner;
 mod setup;
 mod status;
 mod watch;
 
 #[cfg(test)]
-mod scenario_tests;
+pub(crate) mod scenario_tests;

@@ -14,7 +14,7 @@ static ISOLATE: Once = Once::new();
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// 利用者の git の設定を読まないようにする（空の設定ファイルを「全体の設定」にし、システムの設定は読まない）
-pub(super) fn isolate_git_config() {
+pub(crate) fn isolate_git_config() {
     ISOLATE.call_once(|| {
         let dir = std::env::temp_dir().join(format!("lm-git-config-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();

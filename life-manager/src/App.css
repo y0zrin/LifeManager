@@ -14421,6 +14421,64 @@ html.stage-still .desk-buncho::after {
   background: var(--text-faint);
 }
 
+/* 開いたとき、見えているところの下（古いもの）から上へ、ぽこぽこ出す（#293。hooks/usePopReveal が pop-in と --pop-delay を付ける）。
+   行・札は下から少し浮いて出て、コミットの点（ヒストリーは札の印）は大きめにはずむ。1 回きりの動き（ブラウザのまま）。
+   動きを少なくしているときは出さない */
+.motion-normal .pop-in {
+  animation: pop-rise 0.36s cubic-bezier(0.2, 0.8, 0.3, 1) var(--pop-delay) both;
+}
+
+.motion-normal .c-row.pop-in .c-dot,
+.motion-normal .av-ev.pop-in .av-icon {
+  animation: pop-bounce 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) var(--pop-delay) both;
+}
+
+/* ふつうのコミットは、まわりに輪が広がって消える（コミットは強めに。マージの四角は影で描いているので付けない） */
+.motion-normal .c-row.pop-in .c-dot:not(.merge):not(.auto) {
+  animation:
+    pop-bounce 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) var(--pop-delay) both,
+    pop-ring 0.6s ease-out calc(var(--pop-delay) + 120ms) both;
+}
+
+@keyframes pop-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pop-bounce {
+  0% {
+    transform: scale(0);
+  }
+  55% {
+    transform: scale(1.5);
+  }
+  80% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pop-ring {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--lane-1) 70%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-normal .pop-in,
+  .motion-normal .pop-in .c-dot,
+  .motion-normal .pop-in .av-icon {
+    animation: none;
+  }
+}
+
 .c-msg {
   min-width: 0;
   overflow: hidden;
@@ -14847,6 +14905,100 @@ button.lh:hover {
 
 .node.flash .nd {
   animation: node-pulse 0.9s var(--ease-out) 2;
+}
+
+/* 開いたとき、見えているところの下（古いコミット）から上へ、ぽこぽこ出す（#293。OverviewView の reveal・lib/popReveal.ts）。
+   コミットの点は大きめにはずんで輪が広がり、実線は下の点から上の点へなめらかに伸び、点線・日付・ラベルは薄く出るだけ。
+   1 回きりの動き（ブラウザのまま）。動きを少なくしているときは出さない */
+.motion-normal .o-reveal .node.pop .nd {
+  animation: o-pop 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) var(--d) both;
+}
+
+.nd-burst {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.motion-normal .o-reveal .nd-burst {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: o-burst 0.6s ease-out calc(var(--d) + 120ms) forwards;
+}
+
+/* 線は上の点から下の点へ引いてあるので、終わり（下）の側から伸ばす（pathLength を 1 にして、dashoffset を -1 → 0） */
+.motion-normal .o-reveal .ln.draw {
+  stroke-dasharray: 1 2;
+  animation: o-draw var(--len) cubic-bezier(0.25, 0.6, 0.35, 1) var(--d) both;
+}
+
+.motion-normal .o-reveal .fade {
+  animation: o-fade 0.6s ease-out var(--d) both;
+}
+
+/* 上のブランチの名前・今の位置の輪・作業中は、いちばん上の点が出るころに */
+.motion-normal .o-reveal .o-head .lh,
+.motion-normal .o-reveal .nd-ring,
+.motion-normal .o-reveal .wip-node {
+  animation: o-fade 0.5s ease-out calc(var(--o-end) - 400ms) both;
+}
+
+@keyframes o-pop {
+  0% {
+    transform: scale(0);
+  }
+  55% {
+    transform: scale(1.45);
+  }
+  80% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes o-burst {
+  from {
+    opacity: 0.75;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes o-draw {
+  from {
+    stroke-dashoffset: -1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes o-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-normal .o-reveal .node.pop .nd,
+  .motion-normal .o-reveal .nd-burst,
+  .motion-normal .o-reveal .ln.draw,
+  .motion-normal .o-reveal .fade,
+  .motion-normal .o-reveal .o-head .lh,
+  .motion-normal .o-reveal .nd-ring,
+  .motion-normal .o-reveal .wip-node {
+    animation: none;
+  }
+
+  .motion-normal .o-reveal .ln.draw {
+    stroke-dasharray: none;
+  }
 }
 
 .hit-line {

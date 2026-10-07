@@ -17,6 +17,7 @@ import { decideSwipe, movedEnough } from "../../lib/swipe";
 import type { GitActions } from "../../hooks/useGitActions";
 import { BranchPicker } from "../git/BranchPicker";
 import { tr, trx, listSep } from "../../lib/i18n";
+import { usePopReveal } from "../../hooks/usePopReveal";
 
 interface BranchesViewProps {
   history: GitHistory;
@@ -334,6 +335,7 @@ export function BranchesView(props: BranchesViewProps) {
                     status={e.isCurrent ? props.status : null}
                     actions={props.actions}
                     focusCommit={i === index ? props.focusCommit : null}
+                    current={i === index}
                     onFocusHandled={props.onFocusHandled}
                     onOpenWork={props.onOpenWork}
                     onOpenOverview={props.onOpenOverview}
@@ -362,6 +364,8 @@ interface BranchPageProps {
   status: GitStatus | null;
   actions: GitActions | null;
   focusCommit: string | null;
+  /** 見ているページか（開いたとき・となりから移ってきたときに、下から上へぽこぽこ出す。#293） */
+  current: boolean;
   onFocusHandled: () => void;
   onOpenWork: () => void;
   onOpenOverview: () => void;
@@ -377,6 +381,7 @@ const BranchPage = memo(function BranchPage({
   status,
   actions,
   focusCommit,
+  current,
   onFocusHandled,
   onOpenWork,
   onOpenOverview,
@@ -428,6 +433,8 @@ const BranchPage = memo(function BranchPage({
 
   // 全体図から来たら、そのコミットまで動かして目立たせる（まとめの中なら開く）
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 見ているページになったら、見えている行を下から上へぽこぽこ出す（#293。全体図からコミットへ寄るときは出さない）
+  usePopReveal(scrollRef, ".c-row", current, !!focusCommit);
   useEffect(() => {
     if (!focusCommit) return;
     const box = scrollRef.current;

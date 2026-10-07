@@ -8,6 +8,7 @@ import { CommitDetail } from "../git/CommitDetail";
 import { TeamWork } from "./TeamWork";
 import type { GitHubIssue, GitHubMilestone, GitHubUser } from "../../lib/types";
 import { tr, trx } from "../../lib/i18n";
+import { usePopReveal } from "../../hooks/usePopReveal";
 
 interface ActivityViewProps {
   owner: string;
@@ -78,6 +79,9 @@ function MilestoneBanner({ id, children }: { id: string; children: ReactNode }) 
 /** ヒストリー: 上に「あなたがすること」（GitHub の通知の代わり）、下にチームの動き（日ごと） */
 export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, onOpenRun, team, motion, milestones, issues, closedIssues, today }: ActivityViewProps) {
   const { feed, error, loading, reload, todos, dismiss } = activity;
+  // チームの動きを初めて出したとき、見えている札を下から上へぽこぽこ出す（#293）
+  const mainRef = useRef<HTMLDivElement>(null);
+  usePopReveal(mainRef, ".av-ev", feed !== null);
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<"" | ActivityKind>("");
   const [commit, setCommit] = useState<{ hash: string; subject: string; author: string; date: string } | null>(null);
@@ -179,7 +183,7 @@ export function ActivityView({ owner, repo, activity, onOpenIssue, onOpenPull, o
           </div>
         </div>
 
-        <div className="av-main">
+        <div className="av-main" ref={mainRef}>
           <div className="av-filters">
             <select className="select-sm" value={who} onChange={(e) => setWho(e.target.value)} aria-label={tr("だれ")}>
               <option value="">{trx("だれ: すべて（{whoCount}）", { whoCount: whoCount("") })}</option>

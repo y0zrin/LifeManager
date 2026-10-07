@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef } from "react";
 import { invoke } from "../../lib/invoke";
 import { invokeWrite } from "../../lib/sending";
+import { mergeIssueList } from "../../lib/issueMerge";
 import { ESTIMATE_COLOR, UNITS, estimateLabel, withEstimate, type EstimateUnit } from "../../lib/estimate";
 import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, TimelineEvent } from "../../lib/types";
 import { isSending, issueRef, nextSendingNumber } from "../../lib/issueRef";
@@ -9,7 +10,6 @@ import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../
 import type { IssueTemplate } from "../../lib/issueTemplates";
 import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from "./shared";
 import { isSectionLabel } from "../../lib/section";
-import { mergeIssueList } from "../../lib/issueMerge";
 import { tr } from "../../lib/i18n";
 
 /** Issue の操作に要る、ほかのフックのもの */

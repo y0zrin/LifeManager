@@ -14668,6 +14668,48 @@ button.lh:hover {
   text-overflow: ellipsis;
 }
 
+/* 入りきらない名前は、流し続ける（#292。FlowingName）。頭で止まる → 終わりまで流れる → 止まる → 頭に戻る。
+   くり返しの動きなので、lib/idle.ts の時計が 1 秒 20 回で進める。動きを少なくしているときは流さず、「…」で切る */
+.motion-normal .lh-name.flow {
+  text-overflow: clip;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+}
+
+.motion-normal .lh-name.flow > span {
+  display: inline-block;
+  animation: lh-flow var(--flow-dur) linear infinite;
+}
+
+@keyframes lh-flow {
+  0%,
+  15% {
+    transform: translateX(0);
+    animation-timing-function: linear;
+  }
+  75%,
+  90% {
+    transform: translateX(var(--flow-shift));
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-normal .lh-name.flow {
+    text-overflow: ellipsis;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .motion-normal .lh-name.flow > span {
+    display: inline;
+    animation: none;
+  }
+}
+
 .o-dates {
   position: absolute;
   left: 0;

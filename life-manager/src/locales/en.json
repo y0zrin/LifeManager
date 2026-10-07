@@ -3671,5 +3671,10 @@
   "other": "🤖 {length} automatic commits by the app <0>{appCommitBreakdown}</0>"
  },
  "🧩 サブイシュー": "🧩 Sub-issues",
- "🪶 文机": "🪶 Writing desk"
+ "🪶 文机": "🪶 Writing desk",
+ "変える": "change",
+ "GitHub に作れなかったマイルストーンに入れる Issue です": "This Issue goes in a milestone that couldn't be created on GitHub",
+ "GitHub に作れなかったマイルストーンへの変更です": "This is a change to a milestone that couldn't be created on GitHub",
+ "マイルストーンの作成": "the new milestone",
+ "マイルストーンの変更": "the milestone change"
 }

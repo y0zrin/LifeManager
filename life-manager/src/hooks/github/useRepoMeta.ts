@@ -6,6 +6,8 @@ import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import type { RepoScope } from "./shared";
 import { isSectionLabel } from "../../lib/section";
 import { tr } from "../../lib/i18n";
+import { invokeWrite } from "../../lib/sending";
+import { isPending, PENDING_NOTE } from "./shared";
 
 export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
   const [labels, setLabels] = useState<GitHubLabel[]>([]);
@@ -50,14 +52,15 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   // --- マイルストーン操作 ---
 
-  /** マイルストーンを作る。作ったマイルストーンの番号を返す（見本の計画で、タスクを入れるのに使う。分からなければ null） */
+  /** マイルストーンを作る。作ったマイルストーンの番号を返す（見本の計画で、タスクを入れるのに使う。分からなければ null）。
+   *  つながらないときは送信待ちに並び、仮の番号（負の数）を返す（タスクを入れてよい。#272） */
   async function createMilestone(title: string, description: string, dueOn: string | null): Promise<number | null> {
     try {
-      const result = await invoke<string>("create_milestone", {
+      const result = await invokeWrite<string>("create_milestone", {
         owner, repo,
         title, description, dueOn,
       });
-      setStatus(tr("マイルストーンを作成しました"));
+      setStatus(tr("マイルストーンを作成しました") + (isPending(result) ? PENDING_NOTE : ""));
       await loadMilestones();
       try {
         return (JSON.parse(result) as { number?: number }).number ?? null;
@@ -72,14 +75,14 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   async function updateMilestone(milestoneNumber: number, updates: { title?: string; description?: string; dueOn?: string | null }) {
     try {
-      await invoke("update_milestone", {
+      const result = await invokeWrite("update_milestone", {
         owner, repo, milestoneNumber,
         title: updates.title ?? null,
         description: updates.description ?? null,
         dueOn: updates.dueOn !== undefined ? (updates.dueOn || "") : null,
         milestoneState: null,
       });
-      setStatus(tr("マイルストーンを更新しました"));
+      setStatus(tr("マイルストーンを更新しました") + (isPending(result) ? PENDING_NOTE : ""));
       await loadMilestones();
     } catch (e) {
       setStatus(tr("エラー: ") + e);
@@ -89,12 +92,12 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   async function closeMilestone(milestoneNumber: number) {
     try {
-      await invoke("update_milestone", {
+      const result = await invokeWrite("update_milestone", {
         owner, repo, milestoneNumber,
         title: null, description: null, dueOn: null, milestoneState: "closed",
       });
       setMilestones((prev) => prev.filter((m) => m.number !== milestoneNumber));
-      setStatus(tr("マイルストーンを完了しました"));
+      setStatus(tr("マイルストーンを完了しました") + (isPending(result) ? PENDING_NOTE : ""));
     } catch (e) {
       setStatus(tr("エラー: ") + e);
       throw e;
@@ -103,11 +106,11 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   async function reopenMilestone(milestoneNumber: number) {
     try {
-      await invoke("update_milestone", {
+      const result = await invokeWrite("update_milestone", {
         owner, repo, milestoneNumber,
         title: null, description: null, dueOn: null, milestoneState: "open",
       });
-      setStatus(tr("マイルストーンを再開しました"));
+      setStatus(tr("マイルストーンを再開しました") + (isPending(result) ? PENDING_NOTE : ""));
       await loadMilestones();
     } catch (e) {
       setStatus(tr("エラー: ") + e);

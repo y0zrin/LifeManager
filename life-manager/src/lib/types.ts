@@ -107,8 +107,8 @@ export interface GitHubComment {
 
 /** 送信待ちの 1 件 */
 export interface PendingItem {
-  /** Issue の操作・設定の保存・日誌 */
-  kind: "issue" | "config" | "journal";
+  /** Issue の操作・設定の保存・日誌・マイルストーン（#272） */
+  kind: "issue" | "config" | "journal" | "milestone";
   /** Issue の番号（Issue の操作でなければ 0） */
   number: number;
   title: string;

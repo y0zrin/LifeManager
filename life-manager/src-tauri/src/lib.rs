@@ -761,6 +761,18 @@ async fn list_issues(
     return offline::list_issues(&app, &client, &owner, &repo, &s, cached.unwrap_or(false)).await;
 }
 
+/// 仲間の変更を読み直す（#269）。変わった Issue だけを読み、送信待ちを重ねた `{ open, closed }` を返す
+#[tauri::command]
+async fn refresh_issues(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
+    owner: String,
+    repo: String,
+) -> Result<String, String> {
+    let client = current_client(&state).await?;
+    return offline::refresh_issues(&app, &client, &owner, &repo).await;
+}
+
 #[tauri::command]
 async fn create_issue(
     app: tauri::AppHandle,
@@ -1496,6 +1508,7 @@ pub fn run() {
             github_history,
             github_commit_detail,
             list_issues,
+            refresh_issues,
             create_issue,
             update_issue,
             get_current_user,

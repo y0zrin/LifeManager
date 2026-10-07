@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { GitHubComment, GitHubIssue, TimelineEvent } from "../../lib/types";
+import type { GitHubComment, GitHubIssue, TimelineEvent, TimelineResult } from "../../lib/types";
 import { issueRef } from "../../lib/issueRef";
 import { isSameRepo } from "../../lib/subIssues";
 import { LabelBadge } from "./LabelBadge";
@@ -8,6 +8,7 @@ import { PendingChip } from "./PendingChip";
 import { IssueIndexContext } from "./SubIssueMarks";
 import { closeReasonText } from "./CloseMenu";
 import { isHelp, isHelpDone, parseHelp } from "../../lib/help";
+import { shortWhen } from "../../lib/history";
 import { HelpContextBox } from "../notices/HelpParts";
 import { FailedChip, SendingChip } from "./Sending";
 import { tr, trx } from "../../lib/i18n";
@@ -17,7 +18,7 @@ interface IssueTimelineProps {
   /** コメント（つながらないときも、最後に読んだものと送信待ちが出る） */
   comments: GitHubComment[];
   loadingComments: boolean;
-  listTimeline: (n: number) => Promise<TimelineEvent[]>;
+  listTimeline: (n: number) => Promise<TimelineResult>;
   onOpenIssue: (n: number) => void;
   /** コミットの「変更内容を見る」を開く */
   onShowCommit?: (hash: string, actor: string, date: string) => void;
@@ -116,6 +117,8 @@ function buildItems(issue: GitHubIssue, comments: GitHubComment[], events: Timel
 export function IssueTimeline({ issue, comments, loadingComments, listTimeline, onOpenIssue, onShowCommit, order, onOrderChange, composer, onReplyHelp, onResolveHelp, onRetryComment, onRestoreComment }: IssueTimelineProps) {
   const index = useContext(IssueIndexContext);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  // つながらないときに出した、前に読んだ変更の履歴の読んだ時刻（#274）
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "comments">("all");
   // 「✅ 解決した」を送っている 🆘 のコメント
@@ -128,9 +131,10 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
     if (issue.number <= 0) return;
     let alive = true;
     listTimeline(issue.number)
-      .then((list) => {
+      .then((result) => {
         if (!alive) return;
-        setEvents(list);
+        setEvents(result.events);
+        setCachedAt(result.cachedAt);
         setError(null);
       })
       .catch((e) => alive && setError(String(e)));
@@ -334,6 +338,9 @@ export function IssueTimeline({ issue, comments, loadingComments, listTimeline, 
         </ul>
       )}
       {error && filter === "all" && <p className="issue-timeline-note">{trx("変更の履歴は出せませんでした（{error}）", { error })}</p>}
+      {!error && cachedAt !== null && filter === "all" && (
+        <p className="issue-timeline-note">{cachedAt ? tr("変更の履歴は {when} に読んだものです", { when: shortWhen(cachedAt) }) : tr("変更の履歴は前に読んだものです")}</p>
+      )}
       {order === "oldest" && composer && <div className="issue-timeline-composer">{composer}</div>}
     </div>
   );

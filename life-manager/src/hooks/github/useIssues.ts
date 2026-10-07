@@ -4,7 +4,7 @@ import { invoke } from "../../lib/invoke";
 import { invokeWrite } from "../../lib/sending";
 import { mergeIssueList } from "../../lib/issueMerge";
 import { ESTIMATE_COLOR, UNITS, estimateLabel, withEstimate, type EstimateUnit } from "../../lib/estimate";
-import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, TimelineEvent } from "../../lib/types";
+import type { CloseReason, GitHubComment, GitHubIssue, GitHubLabel, GitHubMilestone, TimelineEvent, TimelineResult } from "../../lib/types";
 import { isSending, issueRef, nextSendingNumber } from "../../lib/issueRef";
 import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../lib/subIssues";
 import type { IssueTemplate } from "../../lib/issueTemplates";
@@ -526,11 +526,17 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     return list;
   }
 
-  // --- 変更の履歴（タイムライン）。つながっているときだけ ---
+  // --- 変更の履歴（タイムライン）。つながらないときは前に読んだもの（#274） ---
 
+  /** 変更の履歴と、前に読んだものを出したときの読んだ時刻（Issue の詳細で「いつ読んだものか」を出す） */
+  async function listTimelineAt(issueNumber: number): Promise<TimelineResult> {
+    const result = JSON.parse((await invoke("list_issue_timeline", { owner, repo, issueNumber })) as string) as { events?: TimelineEvent[]; cached_at?: string | null };
+    return { events: result.events ?? [], cachedAt: result.cached_at ?? null };
+  }
+
+  /** 変更の履歴（出来事だけ。チームの進みなど） */
   async function listTimeline(issueNumber: number): Promise<TimelineEvent[]> {
-    const result = await invoke("list_issue_timeline", { owner, repo, issueNumber });
-    return JSON.parse(result as string);
+    return (await listTimelineAt(issueNumber)).events;
   }
 
   // --- サブイシュー（親子）。つながっているときだけ使える ---
@@ -607,7 +613,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
     ensureEstimateLabel, setEstimate,
     listComments, createComment,
     listIssueTemplates, addIssueTemplates,
-    listTimeline,
+    listTimeline, listTimelineAt,
     listSubIssues, addSubIssue, createSubIssue, removeSubIssue,
   };
 }

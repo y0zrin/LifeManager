@@ -98,6 +98,26 @@ pub async fn read_through(
     }
 }
 
+/// read_through と同じ。写しから返したときは、読んだ時刻も返す（つながっていれば None。前の写しで時刻が分からなければ ""。#274）
+pub async fn read_through_at(
+    app: &AppHandle,
+    owner: &str,
+    repo: &str,
+    key: &str,
+    fetch: impl Future<Output = Result<String, String>>,
+) -> Result<(String, Option<String>), String> {
+    let result = fetch.await;
+    note_result(app, &result);
+    match result {
+        Ok(json) => {
+            store::remember_at(app, owner, repo, key, &json);
+            Ok((json, None))
+        }
+        Err(e) if is_network_error(&e) => store::cached_read(&store::read_store(app, owner, repo), key).map(|(json, at)| (json, Some(at))).ok_or(e),
+        Err(e) => Err(e),
+    }
+}
+
 /// 送信待ちに並べたあと: 画面に知らせ、つながっていそうならすぐ送りはじめる
 fn queued(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str) {
     store::notify_changed(app, owner, repo);
@@ -427,18 +447,22 @@ pub async fn add_issue_templates(
     Ok(list)
 }
 
-// --- 変更の履歴（タイムライン）。つながっているときだけ ---
+// --- 変更の履歴（タイムライン）。つながらないときは前に読んだもの（#274） ---
+
+/// 画面に返す形 `{ "events": [...], "cached_at": null | "読んだ時刻" }`（cached_at は、前に読んだものを返したときだけ）
+pub fn timeline_payload(events_json: &str, cached_at: Option<String>) -> String {
+    let events: Value = serde_json::from_str(events_json).unwrap_or_else(|_| Value::Array(Vec::new()));
+    serde_json::json!({ "events": events, "cached_at": cached_at }).to_string()
+}
 
 pub async fn list_timeline(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, number: u32) -> Result<String, String> {
-    let result = client.list_timeline(owner, repo, number).await;
-    note_result(app, &result);
-    result.map_err(|e| {
-        if is_network_error(&e) {
-            "つながっていないので、変更の履歴は出せません（コメントは出せます）".into()
-        } else {
-            e
-        }
-    })
+    let key = format!("timeline:{}", number);
+    match read_through_at(app, owner, repo, &key, client.list_timeline(owner, repo, number)).await {
+        Ok((json, cached_at)) => Ok(timeline_payload(&json, cached_at)),
+        // 前に読んだことがなければ、今までどおり
+        Err(e) if is_network_error(&e) => Err("つながっていないので、変更の履歴は出せません（コメントは出せます）".into()),
+        Err(e) => Err(e),
+    }
 }
 
 // --- サブイシュー（親子）。送信待ちには並べない（つながっているときだけ使える） ---
@@ -808,6 +832,16 @@ pub fn resolve_conflict(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // UT-39: 変更の履歴は { events, cached_at } の形。つながっているときの cached_at は null
+    #[test]
+    fn timeline_comes_with_when_it_was_read() {
+        let fresh: Value = serde_json::from_str(&timeline_payload(r#"[{"event":"closed"}]"#, None)).unwrap();
+        assert_eq!(fresh, serde_json::json!({ "events": [{ "event": "closed" }], "cached_at": null }));
+        let cached: Value = serde_json::from_str(&timeline_payload("[]", Some("2026-10-07T05:20:00Z".into()))).unwrap();
+        assert_eq!(cached["cached_at"], "2026-10-07T05:20:00Z");
+        assert_eq!(cached["events"], serde_json::json!([]));
+    }
 
     #[test]
     fn notices_use_the_number_given_by_github() {

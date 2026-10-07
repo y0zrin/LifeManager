@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useContext, type ReactNode } from "react";
-import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineEvent } from "../../lib/types";
+import type { CloseReason, GitHubIssue, GitHubComment, GitHubLabel, GitHubMilestone, GitHubUser, Reminder, TimelineResult } from "../../lib/types";
 import type { ProgressMode } from "../../lib/ganttTypes";
 import { parseGanttDates, parseDependencies, parseProgress, serializeGanttDates, serializeDependencies, serializeProgress, stripGanttMetadata } from "../../lib/ganttParser";
 import { LabelBadge } from "./LabelBadge";
@@ -68,7 +68,7 @@ interface IssueDetailModalProps {
   /** サブイシュー（親子）の読み書き。渡さなければ、サブイシューの欄を出さない */
   subIssueApi?: SubIssueApi;
   /** 変更の履歴（タイムライン）を読む。渡さなければ、コメントだけを出す */
-  listTimeline?: (n: number) => Promise<TimelineEvent[]>;
+  listTimeline?: (n: number) => Promise<TimelineResult>;
   /** 履歴のコミットを押したとき（変更内容を見る） */
   onShowCommit?: (hash: string, actor: string, date: string) => void;
   /** 見積もりを付け替える（null なら外す）。渡さなければ、見積もりの行を出さない */

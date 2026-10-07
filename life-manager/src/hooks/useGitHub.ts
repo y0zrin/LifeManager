@@ -161,7 +161,7 @@ export function useGitHub() {
     eventNotifConfig: settings.eventNotifConfig, saveEventNotifConfig: settings.saveEventNotifConfig, loadEventNotifConfig,
     // サブイシュー（親子）・変更の履歴
     listSubIssues: issueOps.listSubIssues, addSubIssue: issueOps.addSubIssue, createSubIssue: issueOps.createSubIssue,
-    removeSubIssue: issueOps.removeSubIssue, listTimeline: issueOps.listTimeline,
+    removeSubIssue: issueOps.removeSubIssue, listTimeline: issueOps.listTimeline, listTimelineAt: issueOps.listTimelineAt,
     // Issue テンプレート
     listIssueTemplates: issueOps.listIssueTemplates, addIssueTemplates: issueOps.addIssueTemplates,
     // プロジェクト管理

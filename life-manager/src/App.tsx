@@ -1043,7 +1043,7 @@ function App() {
         allIssues={[...gh.issues, ...gh.closedIssues]}
         onOpenIssue={onOpen}
         subIssueApi={subIssueApi}
-        listTimeline={gh.listTimeline}
+        listTimeline={gh.listTimelineAt}
         onShowCommit={showTimelineCommit}
         onSetEstimate={gh.setEstimate}
         artifacts={gh.owner ? { owner: gh.owner, repo: gh.repo, folder } : undefined}

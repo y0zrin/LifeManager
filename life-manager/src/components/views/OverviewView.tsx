@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import type { GitCommit, GitHistory } from "../../lib/types";
 import {
   appCommitBreakdown,
@@ -11,6 +11,7 @@ import {
   type RefChip,
 } from "../../lib/history";
 import { easeScrollTo } from "../../lib/motion";
+import { POP_DURATION, edgeReveal, popRank, popStep } from "../../lib/popReveal";
 import type { BranchStyle } from "../../hooks/useDisplaySettings";
 import { BranchPicker } from "../git/BranchPicker";
 import { tr, trx } from "../../lib/i18n";
@@ -107,7 +108,8 @@ export function OverviewView(props: OverviewViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [flashRow, setFlashRow] = useState<number | null>(null);
   const lastScrolled = useRef<string | null>(null);
-  useEffect(() => {
+  // 描く前に動かす（開いたときの動き〔#293〕が、見えているところを測れるように）
+  useLayoutEffect(() => {
     const box = scrollRef.current;
     const entry = entries.find((e) => e.name === selected) ?? currentEntry ?? defaultEntry;
     if (!box || !entry) return;
@@ -124,6 +126,39 @@ export function OverviewView(props: OverviewViewProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, layout]);
+
+  // 開いたとき、見えているところの下（古いコミット）から上へ、ぽこぽこ出す（#293）。
+  // 点ははずみ、実線は下の点から上の点へ伸び、点線・日付・ラベルは薄く出る。見えていない行は動かさない
+  const [reveal, setReveal] = useState<{ first: number; last: number; step: number; end: number } | null>(null);
+  const revealed = useRef(false);
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (revealed.current || !box || layout.rows.length === 0) return;
+    revealed.current = true;
+    // 名前の見出し（HEAD_H）は上に貼り付いているので、見えているのは scrollTop から（高さ - HEAD_H）ぶん
+    const top = box.scrollTop;
+    const bottom = top + box.clientHeight - HEAD_H;
+    const first = Math.max(0, Math.ceil((top - ROW_H / 2) / ROW_H) - offset);
+    const last = Math.min(layout.rows.length - 1, Math.floor((bottom - ROW_H / 2) / ROW_H) - offset);
+    if (last < first) return;
+    const step = popStep(last - first + 1);
+    setReveal({ first, last, step, end: Math.round((last - first) * step) + POP_DURATION });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout]);
+  useEffect(() => {
+    if (!reveal) return;
+    const timer = window.setTimeout(() => setReveal(null), reveal.end + 300);
+    return () => window.clearTimeout(timer);
+  }, [reveal]);
+  /** 行の点が出る時刻（ミリ秒）。動かさない行は null */
+  const popAt = (row: number) => {
+    if (!reveal) return null;
+    const rank = popRank(row, reveal.first, reveal.last);
+    return rank < 0 ? null : Math.round(rank * reveal.step);
+  };
+  /** 点のあとから薄く出すもの（点線・ラベル）。下へはみ出す行は、はじめから */
+  const fadeAt = (row: number) => (!reveal || row < reveal.first ? null : row > reveal.last ? 0 : popAt(row)! + 120);
+  const at = (ms: number | null): CSSProperties | undefined => (ms === null ? undefined : ({ "--d": `${ms}ms` } as CSSProperties));
 
   // マウスを重ねたコミットの内容
   const [tip, setTip] = useState<(Tip & { clientX: number; clientY: number }) | null>(null);
@@ -171,7 +206,8 @@ export function OverviewView(props: OverviewViewProps) {
     return (
       <g
         key={r.commits[0].hash}
-        className={`node${flashRow === i ? " flash" : ""}`}
+        className={`node${flashRow === i ? " flash" : ""}${popAt(i) === null ? "" : " pop"}`}
+        style={at(popAt(i))}
         onMouseMove={(ev) => setTip({ x, y, row: r, life: null, clientX: ev.clientX, clientY: ev.clientY })}
         onMouseLeave={() => setTip(null)}
         onClick={() => props.onOpenCommit(r.commits[0].hash)}
@@ -182,6 +218,10 @@ export function OverviewView(props: OverviewViewProps) {
         }}
       >
         {shape}
+        {/* 出るとき、まわりに広がって消える輪（コミットは強めに。自動コミットには付けない） */}
+        {popAt(i) !== null && r.kind !== "app" && r.kind !== "group" && (
+          <circle className="nd-burst" cx={x} cy={y} r={6} style={{ stroke: `var(--lane-${r.lane % 10})` }} />
+        )}
         <circle className="hit" cx={x} cy={y} r={9} />
       </g>
     );
@@ -222,7 +262,10 @@ export function OverviewView(props: OverviewViewProps) {
       </div>
 
       <div className="o-scroll" ref={scrollRef} onScroll={() => setTip(null)}>
-        <div className="o-canvas" style={{ width: 96 + labelsX + labelsW, height: HEAD_H + height }}>
+        <div
+          className={`o-canvas${reveal ? " o-reveal" : ""}`}
+          style={{ width: 96 + labelsX + labelsW, height: HEAD_H + height, ...(reveal ? { ["--o-end" as string]: `${reveal.end}ms` } : {}) }}
+        >
           {/* レーン・線の名前 */}
           <div className="o-head" style={{ height: HEAD_H }}>
             {defaultEntry && (
@@ -271,7 +314,7 @@ export function OverviewView(props: OverviewViewProps) {
               </span>
             )}
             {dayStarts.map((d) => (
-              <span key={d.row} className="o-date" style={{ top: (d.row + offset) * ROW_H }}>
+              <span key={d.row} className={`o-date${fadeAt(d.row) === null ? "" : " fade"}`} style={{ top: (d.row + offset) * ROW_H, ...at(fadeAt(d.row)) }}>
                 {d.label}
               </span>
             ))}
@@ -279,15 +322,30 @@ export function OverviewView(props: OverviewViewProps) {
 
           <svg className="o-svg" width={svgW} height={height} style={{ left: 96, top: HEAD_H }}>
             {dayStarts.slice(1).map((d) => (
-              <line key={d.row} className="day-line" x1={0} x2={svgW} y1={(d.row + offset) * ROW_H} y2={(d.row + offset) * ROW_H} />
-            ))}
-            {layout.edges.map((e, i) => (
-              <path
-                key={i}
-                className={`ln ${colorClass(e.kind === "merge" ? e.toLane : e.fromLane)}${e.to >= layout.rows.length ? " open" : ""}`}
-                d={edgePath(e)}
+              <line
+                key={d.row}
+                className={`day-line${fadeAt(d.row) === null ? "" : " fade"}`}
+                style={at(fadeAt(d.row))}
+                x1={0}
+                x2={svgW}
+                y1={(d.row + offset) * ROW_H}
+                y2={(d.row + offset) * ROW_H}
               />
             ))}
+            {layout.edges.map((e, i) => {
+              const open = e.to >= layout.rows.length;
+              // 実線は下の点から上の点へ伸ばす。読み込んだ先へ続く点線は、上の点が出たあとに薄く出す
+              const rv = reveal ? edgeReveal(e.from, e.to, reveal.first, reveal.last, reveal.step) : null;
+              return (
+                <path
+                  key={i}
+                  className={`ln ${colorClass(e.kind === "merge" ? e.toLane : e.fromLane)}${open ? " open" : ""}${rv ? (open ? " fade" : " draw") : ""}`}
+                  d={edgePath(e)}
+                  pathLength={rv && !open ? 1 : undefined}
+                  style={rv ? ({ "--d": `${open ? rv.delay + rv.duration : rv.delay}ms`, "--len": `${rv.duration}ms` } as CSSProperties) : undefined}
+                />
+              );
+            })}
             {lifelines.map((l) => {
               const x1 = laneX(layout.rows[l.row].lane);
               const y1 = rowY(l.row);
@@ -295,7 +353,8 @@ export function OverviewView(props: OverviewViewProps) {
               return (
                 <g
                   key={l.entry.name}
-                  className="life"
+                  className={`life${fadeAt(l.row) === null ? "" : " fade"}`}
+                  style={at(fadeAt(l.row))}
                   onMouseMove={(ev) => setTip({ x: x2, y: y1, row: null, life: l.entry, clientX: ev.clientX, clientY: ev.clientY })}
                   onMouseLeave={() => setTip(null)}
                   onClick={() => props.onOpenCommit(l.entry.tip)}
@@ -316,7 +375,15 @@ export function OverviewView(props: OverviewViewProps) {
             {!lineMode &&
               layout.rows.map((r, i) =>
                 r.chips.length ? (
-                  <line key={`leader-${i}`} className="leader" x1={laneX(r.lane) + 9} x2={svgW} y1={rowY(i)} y2={rowY(i)} />
+                  <line
+                    key={`leader-${i}`}
+                    className={`leader${fadeAt(i) === null ? "" : " fade"}`}
+                    style={at(fadeAt(i))}
+                    x1={laneX(r.lane) + 9}
+                    x2={svgW}
+                    y1={rowY(i)}
+                    y2={rowY(i)}
+                  />
                 ) : null,
               )}
             {layout.rows.map(node)}
@@ -337,7 +404,7 @@ export function OverviewView(props: OverviewViewProps) {
             {!lineMode &&
               layout.rows.map((r, i) =>
                 r.chips.length ? (
-                  <div key={i} className="lbl-row" style={{ top: (i + offset) * ROW_H }}>
+                  <div key={i} className={`lbl-row${fadeAt(i) === null ? "" : " fade"}`} style={{ top: (i + offset) * ROW_H, ...at(fadeAt(i)) }}>
                     {r.chips.map((c) => (
                       <span
                         key={`${c.kind}:${c.name}`}

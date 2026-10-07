@@ -1030,7 +1030,7 @@ function App() {
         onClose={onClose}
         listComments={gh.listComments}
         createComment={gh.createComment}
-        availableLabels={gh.customLabels}
+        availableLabels={gh.visibleLabels}
         milestones={gh.milestones}
         collaborators={gh.collaborators}
         updateIssue={gh.updateIssue}
@@ -1387,7 +1387,7 @@ function App() {
                   issues={gh.issues}
                   closedIssues={gh.closedIssues}
                   milestones={gh.milestones}
-                  labels={gh.customLabels}
+                  labels={gh.visibleLabels}
                   collaborators={gh.collaborators}
                   owner={gh.owner}
                   repo={gh.repo}
@@ -1410,7 +1410,7 @@ function App() {
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               milestones={gh.milestones}
-              labels={gh.customLabels}
+              labels={gh.visibleLabels}
               collaborators={gh.collaborators}
               owner={gh.owner}
               repo={gh.repo}
@@ -1427,7 +1427,7 @@ function App() {
               onAssigneeRequestHandled={() => setAssigneeRequest(null)}
               issues={gh.issues}
               closedIssues={gh.closedIssues}
-              labels={gh.customLabels}
+              labels={gh.visibleLabels}
               milestones={gh.milestones}
               collaborators={gh.collaborators}
               currentUser={gh.currentUser}
@@ -1464,7 +1464,7 @@ function App() {
               workingIssue={loadWorkIssue(gh.owner, gh.repo, gh.currentUser)}
               onOpenPull={openPull}
               issues={gh.issues}
-              labels={gh.customLabels}
+              labels={gh.visibleLabels}
               milestones={gh.milestones}
               collaborators={gh.collaborators}
               boardConfig={gh.boardConfig}
@@ -1506,7 +1506,7 @@ function App() {
           {view === "routines" && gh.connected && (
             <RoutinesView
               routines={gh.routines}
-              availableLabels={gh.customLabels}
+              availableLabels={gh.visibleLabels}
               onSave={gh.saveRoutines}
               onRefresh={gh.loadRoutines}
             />
@@ -1533,7 +1533,7 @@ function App() {
               issues={gh.issues}
               closedIssues={gh.closedIssues}
               milestones={gh.milestones}
-              labels={gh.customLabels}
+              labels={gh.visibleLabels}
               collaborators={gh.collaborators}
               currentUser={gh.currentUser}
               onSelectIssue={setSelectedIssue}
@@ -1547,7 +1547,7 @@ function App() {
           {view === "settings" && (
             <SettingsView
               key={settingsNonce}
-              labels={gh.customLabels}
+              labels={gh.visibleLabels}
               owner={gh.owner}
               repo={gh.repo}
               onSetupLabels={gh.setupLabels}
@@ -1620,7 +1620,7 @@ function App() {
       )}
       {/* メモの投入（📝・Ctrl+M。置く角は 設定 → 表示 で選ぶ） */}
       {gh.connected && (
-        <MemoFab position={display.settings.memoButton} labels={gh.customLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />
+        <MemoFab position={display.settings.memoButton} labels={gh.visibleLabels} repoName={`${gh.owner}/${gh.repo}`} onCreateMemo={gh.createMemo} />
       )}
       {menu && <ContextMenu spec={menu} onClose={closeMenu} />}
       {addRepoOpen && (

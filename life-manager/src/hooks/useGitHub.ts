@@ -122,7 +122,7 @@ export function useGitHub() {
     // 状態
     issues: issueOps.issues, closedIssues: issueOps.closedIssues, labels: meta.labels, milestones: meta.milestones,
     connected, status: session.status, setStatus,
-    customLabels: meta.customLabels,
+    visibleLabels: meta.visibleLabels,
     // コラボレーター
     collaborators: meta.collaborators, loadCollaborators,
     // ロード

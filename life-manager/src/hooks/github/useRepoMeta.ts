@@ -1,10 +1,9 @@
 // リポジトリのラベル・マイルストーン・コラボレーター（使える人）
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { invoke } from "../../lib/invoke";
-import { ESTIMATE_PREFIX } from "../../lib/estimate";
 import type { GitHubLabel, GitHubMilestone, GitHubUser } from "../../lib/types";
 import type { RepoScope } from "./shared";
-import { isSectionLabel } from "../../lib/section";
+import { visibleLabels } from "../../lib/labels";
 import { tr } from "../../lib/i18n";
 
 export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
@@ -162,13 +161,11 @@ export function useRepoMeta({ owner, repo, setStatus }: RepoScope) {
 
   // --- 派生データ ---
 
-  const customLabels = labels.filter(
-    (l) => l.name.startsWith("種別:") || isSectionLabel(l.name) ||
-           l.name.startsWith("状態:") || l.name.startsWith("優先:") || l.name.startsWith(ESTIMATE_PREFIX)
-  );
+  // 画面に出すラベル（チームが作ったものは名前の頭に関わらず出し、GitHub のはじめの 9 つは出さない。#268）
+  const shownLabels = useMemo(() => visibleLabels(labels), [labels]);
 
   return {
-    labels, milestones, collaborators, customLabels,
+    labels, milestones, collaborators, visibleLabels: shownLabels,
     loadLabels, loadMilestones, loadCollaborators, clear,
     createMilestone, updateMilestone, closeMilestone, reopenMilestone,
     setupLabels, createLabel, updateLabel, deleteLabel,

@@ -2128,6 +2128,7 @@
  "ラベルがありません": "No labels",
  "ラベルなし": "No labels",
  "ラベルを付ける…": "Add label…",
+ "ラベルを変えられませんでした（このリポジトリに書き込む権限がありません）": "Couldn't change the labels (you don't have write access to this repository)",
  "ラベル一括作成": "Create labels in bulk",
  "ラベル名（例: セクション:サウンド）": "Label name (e.g., セクション:Sound)",
  "ラベル管理": "Manage labels",

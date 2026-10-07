@@ -159,20 +159,25 @@ export function IssueDetailModal({ inline = false, issue, onClose, listComments,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.number]);
 
-  // issue が外部で更新された場合に編集状態をリセット
+  // issue が外で変わったら（読み直し・ほかの画面での変更）、書きかけていない欄を今の値にする。
+  // 開いている欄（題名・本文・ラベルなど）は戻さない（#268。読み直しで、書きかけが消えないように）
   useEffect(() => {
-    setEditTitle(issue.title ?? "");
-    setEditBody(splitAppMarks(issue.body).text);
-    setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
-    setEditAssignees(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
-    const d = parseGanttDates(issue.body);
-    const deps = parseDependencies(issue.body);
-    const prog = parseProgress(issue.body);
-    setGanttStart(d?.start || "");
-    setGanttEnd(d?.end || "");
-    setGanttDepsInput(deps.map((n) => `#${n}`).join(","));
-    setGanttProgressMode(prog.mode);
-    setGanttProgressValue(String(prog.value));
+    if (!editingTitle) setEditTitle(issue.title ?? "");
+    if (!editingBody) setEditBody(splitAppMarks(issue.body).text);
+    if (openRow !== "labels") setEditLabels(Array.isArray(issue.labels) ? issue.labels.map((l) => l.name) : []);
+    if (openRow !== "assignees") setEditAssignees(Array.isArray(issue.assignees) ? issue.assignees.map((a) => a.login) : []);
+    if (openRow !== "dates" && openRow !== "deps" && openRow !== "progress") {
+      const d = parseGanttDates(issue.body);
+      const deps = parseDependencies(issue.body);
+      const prog = parseProgress(issue.body);
+      setGanttStart(d?.start || "");
+      setGanttEnd(d?.end || "");
+      setGanttDepsInput(deps.map((n) => `#${n}`).join(","));
+      setGanttProgressMode(prog.mode);
+      setGanttProgressValue(String(prog.value));
+    }
+    // 開いている欄が変わっただけでは戻さない（閉じるときは cancelRow が戻す）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue]);
 
   // 外でコメントを足したら（🆘 を送ったなど）、読み直す

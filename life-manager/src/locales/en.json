@@ -3671,5 +3671,6 @@
   "other": "🤖 {length} automatic commits by the app <0>{appCommitBreakdown}</0>"
  },
  "🧩 サブイシュー": "🧩 Sub-issues",
- "🪶 文机": "🪶 Writing desk"
+ "🪶 文机": "🪶 Writing desk",
+ "ラベルを変えられませんでした（このリポジトリに書き込む権限がありません）": "Couldn't change the labels (you don't have write access to this repository)"
 }

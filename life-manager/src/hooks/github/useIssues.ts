@@ -9,6 +9,7 @@ import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../
 import type { IssueTemplate } from "../../lib/issueTemplates";
 import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from "./shared";
 import { isSectionLabel } from "../../lib/section";
+import { labelsApplied } from "../../lib/labels";
 import { tr } from "../../lib/i18n";
 
 /** Issue の操作に要る、ほかのフックのもの */
@@ -70,6 +71,23 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       console.error(e);
     }
   }, [owner, repo]);
+
+  /** 送ったラベルが付いていなければ（GitHub は、書き込みの権限がない人のラベルの変更を、エラーにせず捨てる）、そう出す。
+   *  返ってきた Issue を返す（送信待ちのとき・読めないときは null） */
+  function checkLabelsApplied(result: unknown, requested: string[]): GitHubIssue | null {
+    if (isPending(result)) return null;
+    let issue: GitHubIssue;
+    try {
+      issue = JSON.parse(result as string) as GitHubIssue;
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(issue.labels)) return null;
+    if (!labelsApplied(requested, issue.labels)) {
+      setStatus(tr("ラベルを変えられませんでした（このリポジトリに書き込む権限がありません）"));
+    }
+    return issue;
+  }
 
   /** プロジェクトを切り替える・ログアウトするとき、前の Issue を消す */
   function clear() {
@@ -164,6 +182,11 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       setIssues((prev) =>
         prev.map((i) => i.number === n ? { ...i, labels: updatedLabelObjs } : i)
       );
+      // ラベルが捨てられていたら、GitHub の今の内容に戻す
+      const returned = checkLabelsApplied(result, newLabels);
+      if (returned && !labelsApplied(newLabels, returned.labels)) {
+        setIssues((prev) => prev.map((i) => (i.number === n ? returned : i)));
+      }
     } catch (e) {
       setStatus(tr("エラー: ") + e);
       await loadIssues();
@@ -226,6 +249,11 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       });
       const pending = isPending(result);
       setStatus(`${issueRef(n)} → ${newStatusLabel ? tr(newStatusLabel) : tr("未分類")}${pending ? PENDING_NOTE : ""}`);
+      // ラベルが捨てられていたら（付箋は動いていない）、GitHub の今の内容に戻す
+      const returned = checkLabelsApplied(result, newLabelNames);
+      if (returned && !labelsApplied(newLabelNames, returned.labels)) {
+        setIssues((prev) => prev.map((i) => (i.number === n ? returned : i)));
+      }
     } catch (e) {
       setStatus(tr("エラー: ") + e);
       await loadIssues();
@@ -285,6 +313,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       // 返事の Issue に置き換える（送信待ちなら仮の番号）
       try {
         const newIssue = JSON.parse(result as string) as GitHubIssue;
+        if (one.labels.length > 0) checkLabelsApplied(result, one.labels);
         setIssues((prev) => [newIssue, ...prev.filter((i) => i.number !== temp && i.number !== newIssue.number)]);
         if (one.onCreated) Promise.resolve(one.onCreated(newIssue.number)).catch((e) => setStatus(friendlyError(e)));
         return newIssue.number;
@@ -392,6 +421,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
       });
       const pending = isPending(result);
       setStatus(tr("{issueRef} を更新しました{v}", { issueRef: issueRef(n), v: pending ? PENDING_NOTE : "" }));
+      if (updates.labels) checkLabelsApplied(result, updates.labels);
       // 楽観的更新: APIレスポンスでローカルを即反映
       try {
         const updated = JSON.parse(result as string) as GitHubIssue;

@@ -126,7 +126,7 @@ export function useGitHub() {
     // コラボレーター
     collaborators: meta.collaborators, loadCollaborators,
     // ロード
-    loadAll, loadIssues, loadClosedIssues, reloadCached: issueOps.reloadCached, loadLabels, loadMilestones, loadRoutines, loadToken: session.loadToken,
+    loadAll, loadIssues, loadClosedIssues, reloadCached: issueOps.reloadCached, refreshRemote: issueOps.refreshRemote, loadLabels, loadMilestones, loadRoutines, loadToken: session.loadToken,
     // Issue操作
     closeIssue: issueOps.closeIssue, reopenIssue: issueOps.reopenIssue, promoteIssue: issueOps.promoteIssue,
     changeIssueStatus: issueOps.changeIssueStatus, assignToMe: issueOps.assignToMe, createIssue: issueOps.createIssue,

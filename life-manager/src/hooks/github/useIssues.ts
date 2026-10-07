@@ -9,6 +9,7 @@ import { adjustSummary, isSameRepo, issueApiUrl, parseIssueApiUrl } from "../../
 import type { IssueTemplate } from "../../lib/issueTemplates";
 import { isPending, PENDING_NOTE, type MakeEventNotice, type RepoScope } from "./shared";
 import { isSectionLabel } from "../../lib/section";
+import { mergeIssueList } from "../../lib/issueMerge";
 import { tr } from "../../lib/i18n";
 
 /** Issue の操作に要る、ほかのフックのもの */
@@ -246,6 +247,21 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
   // 今のリポジトリ（送っているあいだにプロジェクトを切り替えたら、返事を今の一覧に入れない）
   const repoNow = useRef("");
   repoNow.current = `${owner}/${repo}`;
+
+  /** 仲間の変更を読み直す（#269）。変わった Issue だけを GitHub から読み、変わっていないものは今のオブジェクトのまま */
+  const refreshRemote = useCallback(async () => {
+    if (!owner || !repo) return;
+    const from = `${owner}/${repo}`;
+    const result = await invoke<string>("refresh_issues", { owner, repo });
+    if (repoNow.current !== from) return; // 読んでいるあいだに、ほかのプロジェクトへ切り替えた
+    const { open, closed } = JSON.parse(result) as { open: GitHubIssue[]; closed: GitHubIssue[] };
+    setIssues((prev) => {
+      const sending = prev.filter((i) => isSending(i.number));
+      const merged = mergeIssueList(prev.filter((i) => !isSending(i.number)), open);
+      return sending.length === 0 ? merged : [...sending, ...merged];
+    });
+    setClosedIssues((prev) => mergeIssueList(prev, closed));
+  }, [owner, repo]);
 
   /** 仮の Issue（ラベルの色・マイルストーンは、今わかっているもので） */
   function placeholder(n: number, send: Send): GitHubIssue {
@@ -555,7 +571,7 @@ export function useIssues({ owner, repo, setStatus, friendlyError }: RepoScope, 
 
   return {
     issues, closedIssues,
-    loadIssues, loadClosedIssues, reloadCached, clear,
+    loadIssues, loadClosedIssues, reloadCached, refreshRemote, clear,
     closeIssue, reopenIssue, promoteIssue, changeIssueStatus, assignToMe, createIssue, createMemo, updateIssue, updateIssueBody,
     retrySending, discardSending,
     ensureEstimateLabel, setEstimate,

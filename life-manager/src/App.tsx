@@ -14,6 +14,7 @@ import { useDisplaySettings } from "./hooks/useDisplaySettings";
 import { useOverlayScrollGuard } from "./hooks/useOverlayScrollGuard";
 import { useHistory } from "./hooks/useHistory";
 import { useOffline } from "./hooks/useOffline";
+import { useRemoteRefresh } from "./hooks/useRemoteRefresh";
 import { isMobile, THIS_DEVICE } from "./lib/platform";
 import { isSending, isTemporary, issueRef } from "./lib/issueRef";
 import { ancestors, homeBranches, listBranchEntries, type BranchEntry } from "./lib/history";
@@ -288,6 +289,15 @@ function App() {
     onSynced: gh.loadAll,
     // 仮の番号の Issue を開いていたら、GitHub に作られた番号に切り替える
     onCreated: (temp, real) => setSelectedIssue((cur) => (cur === temp ? real : cur)),
+  });
+  // 仲間の変更を読み直す（#269）: 1 分ごとと、窓に戻ってきたとき。窓に戻ったときは、ラベルとマイルストーンも
+  useRemoteRefresh({
+    enabled: gh.connected && !!gh.owner && !!gh.repo,
+    onRefresh: gh.refreshRemote,
+    onFocus: () => {
+      void gh.loadLabels();
+      void gh.loadMilestones();
+    },
   });
   const [showConflicts, setShowConflicts] = useState(false);
   const openConflicts = useCallback(() => setShowConflicts(true), []);

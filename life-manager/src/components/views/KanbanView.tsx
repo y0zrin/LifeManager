@@ -20,6 +20,7 @@ import { isEnter, isEscape } from "../../lib/keys";
 import { inCategory, isSectionLabel, SECTION_PREFIX, sectionOf } from "../../lib/section";
 import { isMobile as isPhone } from "../../lib/platform";
 import { tr } from "../../lib/i18n";
+import { pauseRemoteRefresh } from "../../lib/remoteRefresh";
 
 interface KanbanViewProps {
   owner: string;
@@ -456,6 +457,11 @@ export function KanbanView({ owner, repo, issues, labels, milestones, collaborat
   // --- ドラッグ（PC。マウスで付箋を区画・タブへ） ---
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragFrom, setDragFrom] = useState("");
+  // ドラッグしているあいだは、仲間の変更を読み直さない（付箋が手から離れないように。#269）
+  useEffect(() => {
+    pauseRemoteRefresh(dragging !== null);
+    return () => pauseRemoteRefresh(false);
+  }, [dragging]);
   const [over, setOver] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);

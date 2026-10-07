@@ -140,6 +140,36 @@ pub async fn list_issues(
     Ok(Value::Array(if state == "closed" { closed } else { open }).to_string())
 }
 
+/// 仲間の変更を読み直す（#269）。写しのいちばん新しい updated_at より後に変わった Issue だけを読み、写しに入れて、
+/// 送信待ちを重ねた一覧 `{ "open": [...], "closed": [...] }` を返す。写しがまだなければ全部読む。つながらないときは写しをそのまま返す
+pub async fn refresh_issues(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str) -> Result<String, String> {
+    match store::latest_updated(&store::read_store(app, owner, repo)) {
+        Some(since) => {
+            let result = client.list_issues_since(owner, repo, "all", &since).await;
+            note_result(app, &result);
+            match result {
+                Ok(json) => {
+                    let fresh: Vec<Value> = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+                    store::with_store(app, owner, repo, |s| store::note_refreshed(s, &fresh))?;
+                }
+                Err(e) if is_network_error(&e) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        None => {
+            for state in ["open", "closed"] {
+                let key = format!("issues:{}", state);
+                match read_through(app, owner, repo, &key, client.list_issues(owner, repo, state)).await {
+                    Err(e) if !is_network_error(&e) => return Err(e),
+                    _ => {}
+                }
+            }
+        }
+    }
+    let (open, closed) = store::issues_view(&store::read_store(app, owner, repo));
+    Ok(serde_json::json!({ "open": open, "closed": closed }).to_string())
+}
+
 pub async fn create_issue(
     app: &AppHandle,
     client: &GitHubClient,

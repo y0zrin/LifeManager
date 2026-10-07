@@ -651,6 +651,26 @@ pub fn note_issue(store: &mut RepoStore, issue: &Value) {
     }
 }
 
+/// 読み直しで使う since: 写しの Issue（開いている・閉じた）のいちばん新しい updated_at（GitHub の時刻なので、この PC の時計のずれに左右されない）。
+/// どちらかの一覧をまだ読んでいなければ None（全部読む。#269）
+pub fn latest_updated(store: &RepoStore) -> Option<String> {
+    if !store.reads.contains_key("issues:open") || !store.reads.contains_key("issues:closed") {
+        return None;
+    }
+    ["issues:open", "issues:closed"]
+        .iter()
+        .flat_map(|key| parse_list(store, key))
+        .filter_map(|issue| issue["updated_at"].as_str().map(String::from))
+        .max()
+}
+
+/// 読み直した Issue（since より後に変わったもの）を、写しに入れる（開いている・閉じたの入れ替えも。#269）
+pub fn note_refreshed(store: &mut RepoStore, issues: &[Value]) {
+    for issue in issues {
+        note_issue(store, issue);
+    }
+}
+
 /// 送れたコメントを、手元の写しに入れる
 pub fn note_comment(store: &mut RepoStore, number: i64, comment: &Value) {
     let key = format!("comments:{}", number);
@@ -902,6 +922,38 @@ mod tests {
             }
             other => panic!("{:?}", other),
         }
+    }
+
+    #[test]
+    fn refreshing_uses_the_newest_github_time_and_moves_issues_between_lists() {
+        // UT-31・UT-32（#269）
+        let mut store = store_with(json!([
+            { "number": 1, "title": "牛乳", "state": "open", "labels": [], "updated_at": "2026-10-07T01:00:00Z" },
+            { "number": 2, "title": "パン", "state": "open", "labels": [], "updated_at": "2026-10-07T03:00:00Z" },
+        ]));
+        assert_eq!(latest_updated(&store).as_deref(), Some("2026-10-07T03:00:00Z"));
+        // まだ読んでいない一覧があれば、全部読む
+        assert_eq!(latest_updated(&RepoStore::default()), None);
+
+        // 自分の送信待ち（#2 のタイトル）
+        enqueue_update(&mut store, 2, Changes { title: Some("食パン".into()), ..Default::default() }, None);
+        // 仲間が #1 を閉じ、#3 を作った
+        note_refreshed(
+            &mut store,
+            &[
+                json!({ "number": 1, "title": "牛乳", "state": "closed", "labels": [{ "name": "状態:完了" }], "updated_at": "2026-10-07T04:00:00Z" }),
+                json!({ "number": 3, "title": "卵", "state": "open", "labels": [], "updated_at": "2026-10-07T04:01:00Z" }),
+            ],
+        );
+        let (open, closed) = issues_view(&store);
+        let numbers = |list: &Vec<Value>| list.iter().map(|i| i["number"].as_i64().unwrap()).collect::<Vec<_>>();
+        assert_eq!(numbers(&open), vec![3, 2]);
+        assert_eq!(numbers(&closed), vec![1]);
+        assert_eq!(closed[0]["labels"][0]["name"], json!("状態:完了"));
+        // 送信待ちの変更は、読み直したあとも上に重なっている
+        assert_eq!(open[1]["title"], json!("食パン"));
+        assert_eq!(open[1]["_pending"], json!(true));
+        assert_eq!(latest_updated(&store).as_deref(), Some("2026-10-07T04:01:00Z"));
     }
 
     #[test]

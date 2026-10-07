@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "tauri": "tauri",
     "release": "bash scripts/bump-version.sh",
     "i18n:check": "node scripts/i18n.mjs",
@@ -30,6 +31,7 @@
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^5.0.3"
   }
 }

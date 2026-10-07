@@ -86,6 +86,8 @@ const unwrapped = []; // { file, line, text }
 for (const file of walk(path.join(ROOT, "src"), [".ts", ".tsx"])) {
   const r = rel(file);
   if (r === "src/lib/i18n.ts") continue;
+  // 単体テスト（vitest）は画面に出さないので見ない
+  if (/\.test\.tsx?$/.test(r)) continue;
   const text = fs.readFileSync(file, "utf8");
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const lineOf = (n) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;

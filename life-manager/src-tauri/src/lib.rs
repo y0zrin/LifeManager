@@ -1062,25 +1062,25 @@ async fn list_sub_issues(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
+    issue_number: i64,
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
     return offline::list_sub_issues(&app, &client, &owner, &repo, issue_number).await;
 }
 
-/// sub_issue_id は子にする Issue の id（番号ではない）。replace_parent なら、ほかの親から付け替える
+/// child_number は子にする Issue の番号（まだ GitHub に送っていない Issue は仮の番号。#273）。replace_parent なら、ほかの親から付け替える
 #[tauri::command]
 async fn add_sub_issue(
     app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
-    sub_issue_id: u64,
+    issue_number: i64,
+    child_number: i64,
     replace_parent: Option<bool>,
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
-    return offline::add_sub_issue(&app, &client, &owner, &repo, issue_number, sub_issue_id, replace_parent.unwrap_or(false)).await;
+    return offline::add_sub_issue(&app, &client, &owner, &repo, issue_number, child_number, replace_parent.unwrap_or(false)).await;
 }
 
 #[tauri::command]
@@ -1089,11 +1089,11 @@ async fn remove_sub_issue(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
     owner: String,
     repo: String,
-    issue_number: u32,
-    sub_issue_id: u64,
+    issue_number: i64,
+    child_number: i64,
 ) -> Result<String, String> {
     let client = current_client(&state).await?;
-    return offline::remove_sub_issue(&app, &client, &owner, &repo, issue_number, sub_issue_id).await;
+    return offline::remove_sub_issue(&app, &client, &owner, &repo, issue_number, child_number).await;
 }
 
 // --- オフライン（送信待ち） ---

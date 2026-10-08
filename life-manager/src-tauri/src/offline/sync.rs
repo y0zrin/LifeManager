@@ -36,6 +36,8 @@ struct Done {
     created_milestone: Option<(i64, i64)>,
     /// 作った・変えたマイルストーン（手元の写しに入れる）
     milestone: Option<Value>,
+    /// 子にした・外した（親の番号・子の id・つないだか。#273）
+    sub_issue: Option<(i64, i64, bool)>,
     issue: Option<Value>,
     comment: Option<(i64, Value)>,
     conflicts: Vec<Conflict>,
@@ -291,7 +293,22 @@ async fn send_journal_notes(client: &GitHubClient, owner: &str, repo: &str, date
     }
 }
 
-async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcome {
+/// 子にする・外すときの子の id（写しになければ GitHub から読む）。親か子が仮の番号のまま（作れなかった）なら送れない（#273）
+async fn sub_issue_target(client: &GitHubClient, owner: &str, repo: &str, parent: i64, child: i64, known_id: Option<u64>) -> Result<u64, Outcome> {
+    if parent < 0 || child < 0 {
+        return Err(Outcome::Failed("GitHub に作れなかった Issue の親子です".into()));
+    }
+    if let Some(id) = known_id {
+        return Ok(id);
+    }
+    match client.get_issue(owner, repo, child as u32).await {
+        Ok(json) => parse(&json)["id"].as_u64().ok_or_else(|| Outcome::Failed(format!("{} の id が分かりません", super::issue_ref(child)))),
+        Err(e) => Err(classify(e)),
+    }
+}
+
+/// 送る。known_id は、子にする・外すときの子の id（写しから。なければ None）
+async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op, known_id: Option<u64>) -> Outcome {
     match op {
         Op::CreateIssue { temp, title, body, labels, milestone, assignees, .. } => {
             if milestone.is_some_and(|m| m < 0) {
@@ -368,6 +385,26 @@ async fn send(client: &GitHubClient, owner: &str, repo: &str, op: &Op) -> Outcom
                 Err(e) => classify(e),
             }
         }
+        Op::AddSubIssue { parent, child, replace_parent, .. } => {
+            let id = match sub_issue_target(client, owner, repo, *parent, *child, known_id).await {
+                Ok(id) => id,
+                Err(outcome) => return outcome,
+            };
+            match client.add_sub_issue(owner, repo, *parent as u32, id, *replace_parent).await {
+                Ok(_) => Outcome::Done(Done { sub_issue: Some((*parent, id as i64, true)), ..Default::default() }),
+                Err(e) => classify(e),
+            }
+        }
+        Op::RemoveSubIssue { parent, child, .. } => {
+            let id = match sub_issue_target(client, owner, repo, *parent, *child, known_id).await {
+                Ok(id) => id,
+                Err(outcome) => return outcome,
+            };
+            match client.remove_sub_issue(owner, repo, *parent as u32, id).await {
+                Ok(_) => Outcome::Done(Done { sub_issue: Some((*parent, id as i64, false)), ..Default::default() }),
+                Err(e) => classify(e),
+            }
+        }
     }
 }
 
@@ -384,6 +421,12 @@ fn describe(op: &Op) -> (String, String) {
         Op::GenerateJournal { date, .. } => (format!("{} の日誌", date), "日誌の作成".into()),
         Op::CreateMilestone { title, .. } => (title.clone(), "マイルストーンの作成".into()),
         Op::UpdateMilestone { title, .. } => (title.clone().unwrap_or_default(), "マイルストーンの変更".into()),
+        Op::AddSubIssue { parent, child, .. } => {
+            (String::new(), format!("{} を {} の子にする操作", super::issue_ref(*child), super::issue_ref(*parent)))
+        }
+        Op::RemoveSubIssue { parent, child, .. } => {
+            (String::new(), format!("{} を {} の子から外す操作", super::issue_ref(*child), super::issue_ref(*parent)))
+        }
     }
 }
 
@@ -414,8 +457,13 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
     let _guard = SYNC_LOCK.lock().await;
     let mut result = SyncResult::default();
     loop {
-        let Some(op) = store::read_store(app, owner, repo).outbox.first().cloned() else { break };
-        let outcome = send(client, owner, repo, &op).await;
+        let snapshot = store::read_store(app, owner, repo);
+        let Some(op) = snapshot.outbox.first().cloned() else { break };
+        let known_id = match &op {
+            Op::AddSubIssue { child, .. } | Op::RemoveSubIssue { child, .. } => store::issue_id(&snapshot, *child),
+            _ => None,
+        };
+        let outcome = send(client, owner, repo, &op, known_id).await;
         super::set_offline(app, matches!(outcome, Outcome::Offline));
         match outcome {
             Outcome::Offline => {
@@ -426,7 +474,7 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
                 result.stopped = Some(message);
                 break;
             }
-            Outcome::Done(Done { created, created_milestone, milestone, issue, comment, conflicts, reads, notify }) => {
+            Outcome::Done(Done { created, created_milestone, milestone, sub_issue, issue, comment, conflicts, reads, notify }) => {
                 store::with_store(app, owner, repo, |s| {
                     // 送った 1 件を外す（ファイルが壊れて空になっていても止まらないように）
                     if !s.outbox.is_empty() {
@@ -441,6 +489,9 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
                     }
                     if let Some(m) = &milestone {
                         store::note_milestone(s, m);
+                    }
+                    if let Some((parent, id, linked)) = sub_issue {
+                        store::note_sub_issue(s, parent, id, linked);
                     }
                     if let Some(issue) = &issue {
                         store::note_issue(s, issue);
@@ -472,10 +523,10 @@ pub async fn flush(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &s
                     let failed = s.outbox.remove(0);
                     let (title, what) = describe(&failed);
                     store::push_conflict(s, failure(failed.number(), title, format!("{}を送れませんでした: {}", what, message)));
-                    // 作れなかった Issue への変更・コメントも送れないので、一緒に外して知らせる
+                    // 作れなかった Issue への変更・コメント・親子も送れないので、一緒に外して知らせる
                     if let Op::CreateIssue { temp, .. } = failed {
-                        let orphans: Vec<Op> = s.outbox.iter().filter(|o| o.number() == temp).cloned().collect();
-                        s.outbox.retain(|o| o.number() != temp);
+                        let orphans: Vec<Op> = s.outbox.iter().filter(|o| o.refers_to(temp)).cloned().collect();
+                        s.outbox.retain(|o| !o.refers_to(temp));
                         for orphan in orphans {
                             let (title, what) = describe(&orphan);
                             store::push_conflict(s, failure(temp, title, format!("{}を送れませんでした（Issue を作れなかったため）", what)));
@@ -555,6 +606,20 @@ mod tests {
         // GitHub の側がもう閉じていれば、理由だけを送ることはしない
         let (send, _) = decide(5, &issue("closed"), &changes, Some(&base));
         assert!(send.is_empty());
+    }
+
+    // UT-37 の一部: 親か子が仮の番号のまま（作れなかった）なら、GitHub に聞かずに Failed で知らせる
+    #[test]
+    fn sub_issue_links_to_unsent_issues_fail() {
+        let client = GitHubClient::new("t".to_string());
+        let at = store::now();
+        for op in [
+            Op::AddSubIssue { parent: -1, child: 5, replace_parent: false, at: at.clone() },
+            Op::RemoveSubIssue { parent: 5, child: -2, at: at.clone() },
+        ] {
+            let outcome = tauri::async_runtime::block_on(send(&client, "o", "r", &op, None));
+            assert!(matches!(outcome, Outcome::Failed(ref m) if m.contains("親子")), "{:?}", op);
+        }
     }
 
     #[test]

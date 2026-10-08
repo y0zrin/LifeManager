@@ -7,13 +7,15 @@ import { IssueIndexContext, useParentOf } from "./SubIssueMarks";
 import { findIssues } from "../../lib/issueSearch";
 import { isEnter } from "../../lib/keys";
 import { tr, trx, labelValueText } from "../../lib/i18n";
+import { PENDING_NOTE } from "../../hooks/github/shared";
 
 /** サブイシューの読み書き（useGitHub のもの） */
 export interface SubIssueApi {
   list: (parent: number) => Promise<GitHubIssue[]>;
   create: (parent: GitHubIssue, title: string) => Promise<GitHubIssue>;
-  add: (parent: number, child: GitHubIssue) => Promise<void>;
-  remove: (parent: number, child: GitHubIssue) => Promise<void>;
+  /** 戻り値は、送信待ちに並んだか（#273） */
+  add: (parent: number, child: GitHubIssue) => Promise<boolean>;
+  remove: (parent: number, child: GitHubIssue) => Promise<boolean>;
 }
 
 interface SubIssuesProps {
@@ -112,24 +114,25 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
       const child = await api.create(issue, title);
       setChildren((prev) => [...(prev ?? []), child]);
       setText("");
-      return tr("{issueRef} を作って子にしました", { issueRef: issueRef(child.number) });
+      return tr("{issueRef} を作って子にしました", { issueRef: issueRef(child.number) }) + (child._pending ? PENDING_NOTE : "");
     });
   }
 
   function link(candidate: GitHubIssue) {
     run(async () => {
-      await api.add(issue.number, candidate);
+      const pending = await api.add(issue.number, candidate);
       setChildren((prev) => [...(prev ?? []), candidate]);
       setText("");
-      return tr("{issueRef} を子にしました", { issueRef: issueRef(candidate.number) });
+      return tr("{issueRef} を子にしました", { issueRef: issueRef(candidate.number) }) + (pending ? PENDING_NOTE : "");
     });
   }
 
   function unlink(child: GitHubIssue) {
     run(async () => {
-      await api.remove(issue.number, child);
-      setChildren((prev) => (prev ?? []).filter((c) => c.id !== child.id));
-      return tr("{issueRef} を子から外しました（Issue はそのまま残ります）", { issueRef: issueRef(child.number) });
+      const pending = await api.remove(issue.number, child);
+      // まだ送っていない子（仮の番号）は id がないので、番号でも見分ける
+      setChildren((prev) => (prev ?? []).filter((c) => !(c.id === child.id && c.number === child.number)));
+      return tr("{issueRef} を子から外しました（Issue はそのまま残ります）", { issueRef: issueRef(child.number) }) + (pending ? PENDING_NOTE : "");
     });
   }
 
@@ -259,7 +262,7 @@ export function SubIssues({ issue, allIssues, api, onOpenIssue, onCloseIssue, on
 
 /** つなごうとしている Issue に、ほかの親があるなら、その番号（付け替えになることを見せる） */
 function otherParentOf(candidate: GitHubIssue, parent: number): string | null {
-  const m = candidate.parent_issue_url?.match(/\/issues\/(\d+)$/);
+  const m = candidate.parent_issue_url?.match(/\/issues\/(-?\d+)$/);
   if (!m || Number(m[1]) === parent) return null;
-  return `#${m[1]}`;
+  return issueRef(Number(m[1]));
 }

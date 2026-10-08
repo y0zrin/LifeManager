@@ -441,46 +441,75 @@ pub async fn list_timeline(app: &AppHandle, client: &GitHubClient, owner: &str, 
     })
 }
 
-// --- サブイシュー（親子）。送信待ちには並べない（つながっているときだけ使える） ---
+// --- サブイシュー（親子）。つながらないときは送信待ちに並べる（#273） ---
 
-/// つながらなかったときは、そう伝える（ほかの操作と違い、あとで送ることはしないため）
-fn sub_issue_error(e: String) -> String {
-    if is_network_error(&e) {
-        "つながっていないので、サブイシューは使えません。つながってから、もう一度やってください".into()
+/// 子の一覧。つながらないときは前に読んだもの（読んだことがなければ、Issue の一覧の中で親がこの Issue のもの）。
+/// どちらにも、送信待ちの付ける・外すを重ねる。まだ GitHub にない親（仮の番号）は、送信待ちだけから作る
+pub async fn list_sub_issues(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, number: i64) -> Result<String, String> {
+    let number = store::real_number(&store::read_store(app, owner, repo), number);
+    let base: Vec<Value> = if number > 0 {
+        let key = format!("sub_issues:{}", number);
+        match read_through(app, owner, repo, &key, client.list_sub_issues(owner, repo, number as u32)).await {
+            Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
+            Err(e) if is_network_error(&e) => store::children_in_view(&store::read_store(app, owner, repo), number),
+            Err(e) => return Err(e),
+        }
     } else {
-        e
-    }
+        Vec::new()
+    };
+    Ok(Value::Array(store::sub_issues_view(&store::read_store(app, owner, repo), number, base)).to_string())
 }
 
-pub async fn list_sub_issues(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, number: u32) -> Result<String, String> {
-    let result = client.list_sub_issues(owner, repo, number).await;
-    note_result(app, &result);
-    result.map_err(sub_issue_error)
+/// 子にする（ほかの親の子なら、replace_parent で付け替える）
+pub async fn add_sub_issue(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, parent: i64, child: i64, replace_parent: bool) -> Result<String, String> {
+    link_sub_issue(app, client, owner, repo, parent, child, true, replace_parent).await
 }
 
-/// 子にする。手元の写しの「子の数」と「親」も合わせる（次に GitHub から読むまで、古い数が戻ってこないように）
-pub async fn add_sub_issue(
+/// 子から外す（Issue は消えない）
+pub async fn remove_sub_issue(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, parent: i64, child: i64) -> Result<String, String> {
+    link_sub_issue(app, client, owner, repo, parent, child, false, false).await
+}
+
+/// つながっていて、親も子も GitHub にあり、前の変更が送信待ちでなければ直接送る（子の id は写しから。なければ GitHub から読む）。
+/// 送れたら手元の写しの「子の数」と「親」も合わせる。そうでなければ送信待ちに並べる
+#[allow(clippy::too_many_arguments)]
+async fn link_sub_issue(
     app: &AppHandle,
     client: &GitHubClient,
     owner: &str,
     repo: &str,
-    parent: u32,
-    sub_issue_id: u64,
+    parent: i64,
+    child: i64,
+    linked: bool,
     replace_parent: bool,
 ) -> Result<String, String> {
-    let result = client.add_sub_issue(owner, repo, parent, sub_issue_id, replace_parent).await;
-    note_result(app, &result);
-    let json = result.map_err(sub_issue_error)?;
-    let _ = store::with_store(app, owner, repo, |s| store::note_sub_issue(s, parent as i64, sub_issue_id as i64, true));
-    Ok(json)
-}
-
-pub async fn remove_sub_issue(app: &AppHandle, client: &GitHubClient, owner: &str, repo: &str, parent: u32, sub_issue_id: u64) -> Result<String, String> {
-    let result = client.remove_sub_issue(owner, repo, parent, sub_issue_id).await;
-    note_result(app, &result);
-    let json = result.map_err(sub_issue_error)?;
-    let _ = store::with_store(app, owner, repo, |s| store::note_sub_issue(s, parent as i64, sub_issue_id as i64, false));
-    Ok(json)
+    let snapshot = store::read_store(app, owner, repo);
+    let (parent, child) = (store::real_number(&snapshot, parent), store::real_number(&snapshot, child));
+    if parent > 0 && child > 0 && can_send_directly(app, owner, repo) {
+        let id = match store::issue_id(&snapshot, child) {
+            Some(id) => Ok(id),
+            None => client.get_issue(owner, repo, child as u32).await.and_then(|json| {
+                serde_json::from_str::<Value>(&json).ok().and_then(|v| v["id"].as_u64()).ok_or_else(|| format!("{} の id が分かりません", issue_ref(child)))
+            }),
+        };
+        let result = match id {
+            Ok(id) if linked => client.add_sub_issue(owner, repo, parent as u32, id, replace_parent).await.map(|json| (id, json)),
+            Ok(id) => client.remove_sub_issue(owner, repo, parent as u32, id).await.map(|json| (id, json)),
+            Err(e) => Err(e),
+        };
+        note_result(app, &result);
+        match result {
+            Ok((id, json)) => {
+                let _ = store::with_store(app, owner, repo, |s| store::note_sub_issue(s, parent, id as i64, linked));
+                return Ok(json);
+            }
+            Err(e) if !is_network_error(&e) => return Err(e),
+            Err(_) => {}
+        }
+    }
+    let view = store::with_store(app, owner, repo, |s| store::enqueue_sub_issue(s, parent, child, linked, replace_parent))?;
+    queued(app, client, owner, repo);
+    Ok(view.to_string())
 }
 
 // --- 設定（config/*.yaml） ---

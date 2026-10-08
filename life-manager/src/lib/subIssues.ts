@@ -8,7 +8,7 @@ export interface IssueLocation {
 }
 
 export function parseIssueApiUrl(url: string | null | undefined): IssueLocation | null {
-  const m = url?.match(/\/repos\/([^/]+)\/([^/]+)\/issues\/(\d+)$/);
+  const m = url?.match(/\/repos\/([^/]+)\/([^/]+)\/issues\/(-?\d+)$/);
   return m ? { owner: m[1], repo: m[2], number: Number(m[3]) } : null;
 }
 

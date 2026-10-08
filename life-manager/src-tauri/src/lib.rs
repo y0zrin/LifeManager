@@ -1,9 +1,11 @@
 mod credential;
+mod data;
 #[cfg(windows)]
 mod frame_guard;
 mod git;
 mod github;
 mod journal;
+mod local;
 mod manual;
 mod notice_window;
 mod notify;
@@ -897,6 +899,20 @@ async fn delete_label(
     return client.delete_label(&owner, &repo, &name).await;
 }
 
+/// 既定のラベルは、チームの仕事に要るものだけ（ユーザー決定 2026-10-01）: 優先と、だれの仕事か（セクション）。
+/// 種別（イシュー・メモ・ルーチン・バグ）と状態（ボードの区画）は、アプリがタスクを作る・付箋を動かすときに付ける（なければ GitHub が作る）。
+/// 見積もり（見積:3pt など）は、単位がリポジトリの設定で変わるので、付けるときに画面が作る。
+/// ローカルのプロジェクトも、作るときにこの 7 つを入れる（local::LocalProject::create）
+pub(crate) const DEFAULT_LABELS: [(&str, &str, &str); 7] = [
+    ("優先:高",                 "B60205", "先にやる"),
+    ("優先:中",                 "FBCA04", "ふつう"),
+    ("優先:低",                 "0E8A16", "手が空いたら"),
+    ("セクション:プログラマー", "1D76DB", "プログラムを書く仕事"),
+    ("セクション:デザイナー",   "D876E3", "絵・UI・モデルなど、見た目を作る仕事"),
+    ("セクション:プランナー",   "F9A03F", "企画・仕様・レベルデザイン・調整の仕事"),
+    ("セクション:その他",       "BFD4F2", "サウンド・資料など、ほかの仕事"),
+];
+
 #[tauri::command]
 async fn setup_labels(
     state: tauri::State<'_, Mutex<Option<GitHubClient>>>,
@@ -906,24 +922,11 @@ async fn setup_labels(
     let guard = state.lock().await;
     let client = guard.as_ref().ok_or("トークンが未設定です")?;
 
-    // 既定のラベルは、チームの仕事に要るものだけ（ユーザー決定 2026-10-01）: 優先と、だれの仕事か（セクション）。
-    // 種別（イシュー・メモ・ルーチン・バグ）と状態（ボードの区画）は、アプリがタスクを作る・付箋を動かすときに付ける（なければ GitHub が作る）。
-    // 見積もり（見積:3pt など）は、単位がリポジトリの設定で変わるので、付けるときに画面が作る
-    let labels = vec![
-        ("優先:高",                 "B60205", "先にやる"),
-        ("優先:中",                 "FBCA04", "ふつう"),
-        ("優先:低",                 "0E8A16", "手が空いたら"),
-        ("セクション:プログラマー", "1D76DB", "プログラムを書く仕事"),
-        ("セクション:デザイナー",   "D876E3", "絵・UI・モデルなど、見た目を作る仕事"),
-        ("セクション:プランナー",   "F9A03F", "企画・仕様・レベルデザイン・調整の仕事"),
-        ("セクション:その他",       "BFD4F2", "サウンド・資料など、ほかの仕事"),
-    ];
-
     let mut created = 0;
     let mut skipped = 0;
     let mut errors: Vec<String> = Vec::new();
 
-    for (name, color, description) in labels {
+    for (name, color, description) in DEFAULT_LABELS {
         match client
             .create_label(&owner, &repo, name, color, description)
             .await

@@ -8,7 +8,7 @@ import { useBackLayer } from "../../lib/back";
 import { isMobile } from "../../lib/platform";
 import type { DisplaySettings, MemoButtonPosition, SidebarPosition } from "../../hooks/useDisplaySettings";
 import { DAYS_PER_PERSON_MONTH, HOURS_PER_DAY, UNITS, UNIT_KEYS, formatEstimate, type EstimateUnit } from "../../lib/estimate";
-import { LabelBadge } from "../common/LabelBadge";
+import { LabelSettings } from "../common/LabelSettings";
 import { GitInfoCard } from "../common/GitInfoCard";
 import { TokenSettings } from "../common/TokenSettings";
 import { TeamPane } from "../common/TeamPane";
@@ -172,19 +172,6 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
   const [discordWebhookInput, setDiscordWebhookInput] = useState("");
   const [discordConfigured, setDiscordConfigured] = useState(false);
   const [discordTesting, setDiscordTesting] = useState(false);
-
-  // ラベル管理
-  const [editingLabel, setEditingLabel] = useState<string | null>(null);
-  const [editLabelName, setEditLabelName] = useState("");
-  const [editLabelColor, setEditLabelColor] = useState("#000000");
-  const [editLabelDesc, setEditLabelDesc] = useState("");
-  const [labelSaving, setLabelSaving] = useState(false);
-  const [deletingLabel, setDeletingLabel] = useState<string | null>(null);
-  // 新規ラベル作成
-  const [showNewLabelForm, setShowNewLabelForm] = useState(false);
-  const [newLabelName, setNewLabelName] = useState("");
-  const [newLabelColor, setNewLabelColor] = useState("#0E8A16");
-  const [newLabelDesc, setNewLabelDesc] = useState("");
 
 
   useEffect(() => {
@@ -409,158 +396,8 @@ export function SettingsView({ labels, owner, repo, onSetupLabels, onUpdateLabel
       {/* ボードの区画（config/board.yaml） */}
       <BoardColumnsSetting boardConfig={boardConfig} labels={labels} onSave={onSaveBoardConfig} />
 
-      {/* ラベル管理 */}
-      <div className="form-card">
-        <div className="settings-section-header">
-          <h3 className="settings-section-title">{tr("ラベル管理")}</h3>
-          <div className="flex-row" style={{ gap: "6px" }}>
-            <button onClick={() => setShowNewLabelForm(!showNewLabelForm)} className="btn-sm">
-              {showNewLabelForm ? "×" : tr("+ 新規ラベル")}
-            </button>
-            <button onClick={onSetupLabels} className="btn-sm" title={tr("優先（高・中・低）とセクション（プログラマー・デザイナー・プランナー・その他）の 7 つを作ります。もうあるラベルはそのままです")}>{tr("ラベル一括作成")}</button>
-          </div>
-        </div>
-
-        {/* 新規ラベル作成フォーム */}
-        {showNewLabelForm && (
-          <div className="settings-form-inner">
-            <div className="flex-row">
-              <input type="color" value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)}
-                className="color-picker-input" />
-              <input value={newLabelName} onChange={(e) => setNewLabelName(e.target.value)}
-                placeholder={tr("ラベル名（例: セクション:サウンド）")} className="input-full" />
-            </div>
-            <input value={newLabelDesc} onChange={(e) => setNewLabelDesc(e.target.value)}
-              placeholder={tr("説明（任意）")} className="input-full" />
-            <button
-              onClick={async () => {
-                if (!newLabelName.trim()) return;
-                setLabelSaving(true);
-                try {
-                  const color = newLabelColor.replace("#", "");
-                  await onCreateLabel(newLabelName.trim(), color, newLabelDesc.trim());
-                  setNewLabelName(""); setNewLabelColor("#0E8A16"); setNewLabelDesc(""); setShowNewLabelForm(false);
-                } catch {
-                  // エラーはuseGitHub側でsetStatusに反映
-                } finally {
-                  setLabelSaving(false);
-                }
-              }}
-              className="btn-primary"
-              style={{ alignSelf: "flex-start" }}
-              disabled={!newLabelName.trim() || labelSaving}
-            >
-              {labelSaving ? tr("作成中...") : tr("作成")}
-            </button>
-          </div>
-        )}
-
-        {/* ラベル一覧 */}
-        <div className="settings-list">
-          {labels.map((l) => {
-            const isEditing = editingLabel === l.name;
-            const isDeleting = deletingLabel === l.name;
-
-            if (isEditing) {
-              return (
-                <div key={l.name} className="settings-list-item--editing">
-                  <div className="flex-row">
-                    <input type="color" value={editLabelColor} onChange={(e) => setEditLabelColor(e.target.value)}
-                      className="color-picker-input" />
-                    <input value={editLabelName} onChange={(e) => setEditLabelName(e.target.value)}
-                      className="input-full" style={{ fontSize: "var(--font-md)" }} />
-                  </div>
-                  <input value={editLabelDesc} onChange={(e) => setEditLabelDesc(e.target.value)}
-                    placeholder={tr("説明（任意）")} className="input-full" style={{ fontSize: "var(--font-sm)" }} />
-                  <div className="flex-row" style={{ gap: "6px" }}>
-                    <button
-                      onClick={async () => {
-                        if (!editLabelName.trim()) return;
-                        setLabelSaving(true);
-                        try {
-                          const color = editLabelColor.replace("#", "");
-                          await onUpdateLabel(l.name, editLabelName.trim(), color, editLabelDesc.trim());
-                          setEditingLabel(null);
-                        } catch {
-                          // エラーはuseGitHub側でsetStatusに反映
-                        } finally {
-                          setLabelSaving(false);
-                        }
-                      }}
-                      className="btn-primary"
-                      style={{ fontSize: "var(--font-sm)" }}
-                      disabled={labelSaving}
-                    >
-                      {labelSaving ? tr("保存中...") : tr("保存")}
-                    </button>
-                    <button onClick={() => setEditingLabel(null)} className="btn-sm"
-                      style={{ fontSize: "var(--font-sm)" }}>
-                      {tr("キャンセル")}
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div key={l.name} className="settings-list-item" style={{ justifyContent: "space-between" }}>
-                <LabelBadge name={l.name} color={l.color} />
-                <div className="flex-row" style={{ gap: "var(--space-xs)" }}>
-                  {isDeleting ? (
-                    <>
-                      <span style={{ fontSize: "var(--font-xs)", color: "var(--accent-red)", marginRight: "var(--space-xs)" }}>{tr("削除しますか？")}</span>
-                      <button
-                        onClick={async () => {
-                          setLabelSaving(true);
-                          try {
-                            await onDeleteLabel(l.name);
-                            setDeletingLabel(null);
-                          } catch {
-                            // エラーはuseGitHub側でsetStatusに反映
-                          } finally {
-                            setLabelSaving(false);
-                          }
-                        }}
-                        className="btn-sm"
-                        style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}
-                        disabled={labelSaving}
-                      >
-                        {labelSaving ? "..." : tr("はい")}
-                      </button>
-                      <button onClick={() => setDeletingLabel(null)} className="btn-sm"
-                        style={{ fontSize: "var(--font-xs)" }}>
-                        {tr("いいえ")}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditingLabel(l.name);
-                          setEditLabelName(l.name);
-                          setEditLabelColor("#" + l.color);
-                          setEditLabelDesc(l.description || "");
-                        }}
-                        className="btn-sm"
-                        style={{ fontSize: "var(--font-xs)" }}
-                      >
-                        {tr("編集")}
-                      </button>
-                      <button onClick={() => setDeletingLabel(l.name)} className="btn-sm"
-                        style={{ color: "var(--accent-red)", fontSize: "var(--font-xs)" }}>
-                        {tr("削除")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {labels.length === 0 && (
-            <p className="settings-hint--subtle">{tr("ラベルがありません")}</p>
-          )}
-        </div>
-      </div>
+      {/* ラベル（区分ごとのタブ。#281） */}
+      <LabelSettings labels={labels} onCreate={onCreateLabel} onUpdate={onUpdateLabel} onDelete={onDeleteLabel} onSetup={onSetupLabels} />
 
       </>}
 

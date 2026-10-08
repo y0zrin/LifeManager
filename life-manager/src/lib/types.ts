@@ -61,6 +61,12 @@ export interface GitHubIssue {
 export type CloseReason = "completed" | "not_planned" | "duplicate";
 
 /** Issue の変更の履歴（GitHub のタイムライン）の 1 件。使う項目だけ */
+/** 変更の履歴と、前に読んだものを出したときの読んだ時刻（つながっているときは null。時刻が分からない前の写しは ""。#274） */
+export interface TimelineResult {
+  events: TimelineEvent[];
+  cachedAt: string | null;
+}
+
 export interface TimelineEvent {
   event: string;
   id?: number;

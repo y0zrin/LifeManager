@@ -200,6 +200,9 @@ pub struct RepoStore {
     /// GitHub に作れたマイルストーンの、仮の番号 → 本当の番号
     #[serde(default)]
     pub created_milestones: HashMap<i64, i64>,
+    /// 写しを読んだ時刻（キー → ISO 8601）。つながらないときに「いつ読んだものか」を出す（変更の履歴など。#274）
+    #[serde(default)]
+    pub read_at: HashMap<String, String>,
 }
 
 pub fn now() -> String {
@@ -269,6 +272,38 @@ pub fn remember(app: &AppHandle, owner: &str, repo: &str, key: &str, value: &str
     let _ = with_store(app, owner, repo, |s| {
         s.reads.insert(key.to_string(), value.to_string());
     });
+}
+
+/// 読めた内容と、読んだ時刻を写す（#274）。中身が同じで、前に読んだのが 5 分以内なら書かない（大きな写しを何度も書かないように）
+pub fn remember_at(app: &AppHandle, owner: &str, repo: &str, key: &str, value: &str) {
+    let now = chrono::Utc::now();
+    if !needs_note(&read_store(app, owner, repo), key, value, now) {
+        return;
+    }
+    let at = now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let _ = with_store(app, owner, repo, |s| note_read(s, key, value, &at));
+}
+
+/// 写しを書き直すか（中身が変わった・読んだ時刻がない・前に読んでから 5 分より経った）
+fn needs_note(store: &RepoStore, key: &str, value: &str, now: chrono::DateTime<chrono::Utc>) -> bool {
+    if store.reads.get(key).map(|v| v.as_str()) != Some(value) {
+        return true;
+    }
+    match store.read_at.get(key).and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()) {
+        Some(t) => now.signed_duration_since(t) > chrono::Duration::minutes(5),
+        None => true,
+    }
+}
+
+pub fn note_read(store: &mut RepoStore, key: &str, value: &str, at: &str) {
+    store.reads.insert(key.to_string(), value.to_string());
+    store.read_at.insert(key.to_string(), at.to_string());
+}
+
+/// 前に読んだ内容と、読んだ時刻（時刻を残していなかった前の写しは ""）
+pub fn cached_read(store: &RepoStore, key: &str) -> Option<(String, String)> {
+    let value = store.reads.get(key)?.clone();
+    Some((value, store.read_at.get(key).cloned().unwrap_or_default()))
 }
 
 pub fn read_global(app: &AppHandle, key: &str) -> Option<String> {
@@ -1135,6 +1170,24 @@ pub fn push_conflict(store: &mut RepoStore, mut conflict: Conflict) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // UT-38: 読んだ時刻（read_at）が入る。写しから返すときに、その時刻を返す
+    #[test]
+    fn reads_remember_when_they_were_read() {
+        let mut store = RepoStore::default();
+        let at = |s: &str| chrono::DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&chrono::Utc);
+        assert!(needs_note(&store, "timeline:5", "[]", at("2026-10-07T05:00:00Z")));
+        note_read(&mut store, "timeline:5", "[]", "2026-10-07T05:00:00Z");
+        assert_eq!(cached_read(&store, "timeline:5"), Some(("[]".to_string(), "2026-10-07T05:00:00Z".to_string())));
+        // 中身が同じで 5 分以内なら書き直さない。中身が変わった・5 分より経ったら書き直す
+        assert!(!needs_note(&store, "timeline:5", "[]", at("2026-10-07T05:04:00Z")));
+        assert!(needs_note(&store, "timeline:5", "[1]", at("2026-10-07T05:04:00Z")));
+        assert!(needs_note(&store, "timeline:5", "[]", at("2026-10-07T05:06:00Z")));
+        // 時刻を残していなかった前の写しは ""
+        store.reads.insert("timeline:6".into(), "[]".into());
+        assert_eq!(cached_read(&store, "timeline:6").map(|(_, t)| t), Some(String::new()));
+        assert_eq!(cached_read(&store, "timeline:7"), None);
+    }
 
     fn store_with(open: Value) -> RepoStore {
         let mut store = RepoStore::default();

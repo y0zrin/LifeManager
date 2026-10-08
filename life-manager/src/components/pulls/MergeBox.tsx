@@ -47,18 +47,11 @@ function loadMethod(): MergeMethod {
   }
 }
 
-/**
- * 長く残すブランチ（版の名前 0.9.0・v1.2・release/1.0、develop など）。マージしたあとも残すことが多いので、
- * 「マージしたらブランチを消す」を、はじめは外しておく（作業のブランチ issue-3・feature/… は、はじめから消す）
- */
-export function keepsBranch(name: string): boolean {
-  return /^v?\d+(\.\d+)+(-[\w.]+)?$/i.test(name) || /^(release|releases|hotfix)\//i.test(name) || /^(develop|development|dev|staging|production|master|main|gh-pages)$/i.test(name);
-}
-
 /** マージの箱（会話のいちばん下）。マージできるか・レビューの判断・マージの仕方・閉じる。マージしたあとは、ブランチの片づけ */
 export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChanged, onMerged, onFixLocally, checks, onOpenCheck }: MergeBoxProps) {
   const [method, setMethodState] = useState<MergeMethod>(loadMethod);
-  const [deleteBranch, setDeleteBranch] = useState(() => !keepsBranch(pull.head));
+  // 「マージしたら GitHub のブランチを消す」は、どのブランチでも、はじめは外しておく（消したいときだけ入れる。#296）
+  const [deleteBranch, setDeleteBranch] = useState(false);
   const [confirming, setConfirming] = useState<"merge" | "close" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +61,7 @@ export function MergeBox({ owner, repo, pull, info, currentUser, closes, onChang
     setConfirming(null);
     setError(null);
     setNote(null);
+    setDeleteBranch(false);
   }, [pull.number]);
 
   const allowed: MergeMethod[] = info

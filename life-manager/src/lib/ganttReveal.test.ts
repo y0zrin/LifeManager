@@ -23,10 +23,15 @@ describe("revealPlan", () => {
     expect([...plan.rank.entries()]).toEqual([[4, 0], [1, 1], [3, 2]]);
   });
 
-  it("帯が多くても、全体で 1 秒ほどにおさまる", () => {
+  it("帯が多くても、全体で 1.5 秒ほどにおさまる。1 本は 0.6 秒かけて伸びる", () => {
     const many = Array.from({ length: 200 }, (_, i) => task(i + 1, "2026-10-01", "2026-10-02"));
-    expect(revealPlan(many).total).toBeLessThanOrEqual(1000);
-    expect(revealPlan([task(1, "2026-10-01", "2026-10-02")]).total).toBe(400);
+    expect(revealPlan(many).total).toBeLessThanOrEqual(1500);
+    expect(revealPlan([task(1, "2026-10-01", "2026-10-02")]).total).toBe(600);
+  });
+
+  it("伸びはじめの出だしが速すぎない（半分の時間で 8 割に届かない）", () => {
+    const plan = revealPlan([task(1, "2026-10-01", "2026-10-02")]);
+    expect(revealFraction(plan, 1, plan.grow / 2)).toBeLessThan(0.8);
   });
 });
 

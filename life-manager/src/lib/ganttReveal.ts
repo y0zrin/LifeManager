@@ -3,11 +3,11 @@
 import type { GanttTask } from "./ganttTypes";
 
 /** 全部の帯が出そろうまで（ミリ秒）。帯が多くても、これを大きくこえない */
-const TOTAL_MS = 1000;
-/** 1 本の帯が伸びきるまで（ミリ秒） */
-const GROW_MS = 400;
+const TOTAL_MS = 1500;
+/** 1 本の帯が伸びきるまで（ミリ秒）。短いと伸びるところが見えない（#301） */
+const GROW_MS = 600;
 /** となりの帯が伸び始めるまでの間の、いちばん長いもの（帯が少ないとき） */
-const MAX_GAP_MS = 60;
+const MAX_GAP_MS = 90;
 
 export interface RevealPlan {
   /** 帯の順位（Issue の番号 → 0, 1, …。日付の早い順） */
@@ -31,14 +31,14 @@ export function revealPlan(tasks: GanttTask[]): RevealPlan {
   return { rank, gap, grow: GROW_MS, total: GROW_MS + gap * Math.max(0, n - 1) };
 }
 
-/** 始めてから t ミリ秒のとき、その帯がどこまで伸びているか（0〜1。終わりはゆっくり）。順位のない帯は 1 */
+/** 始めてから t ミリ秒のとき、その帯がどこまで伸びているか（0〜1。終わりはゆっくり。出だしが速すぎると伸びるところが見えないので 2 次。#301）。順位のない帯は 1 */
 export function revealFraction(plan: RevealPlan, issueNumber: number, t: number): number {
   const r = plan.rank.get(issueNumber);
   if (r === undefined) return 1;
   const x = (t - r * plan.gap) / plan.grow;
   if (x <= 0) return 0;
   if (x >= 1) return 1;
-  return 1 - (1 - x) ** 3;
+  return 1 - (1 - x) ** 2;
 }
 
 /** 矢印を出してよいか（全部の帯が出そろってから） */

@@ -163,6 +163,14 @@ export function dateToDays(dateStr: string): number {
   return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
 }
 
+/** 描いた帯の右端（x2 は終わりの日の右）。期限を過ぎた帯は、赤い延長と、外に出る「+3d」の字まで。仮の帯と閉じた帯は延長を描かない */
+export function barReach(task: GanttTask, x2: number, pixelsPerDay: number, todayDays: number): number {
+  const late = task.tentative || task.state === "closed" ? 0 : todayDays - dateToDays(task.endDate!);
+  if (late <= 0) return x2;
+  const w = late * pixelsPerDay;
+  return x2 + w + (w > 25 ? 0 : 26);
+}
+
 function formatDate(dateStr: string): string {
   const [, m, d] = dateStr.split("-").map(Number);
   return `${m}/${d}`;
@@ -515,6 +523,7 @@ export class GanttRenderer {
     const barMargin = (config.rowHeight - barHeight) / 2;
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayDays = dateToDays(todayStr);
 
     for (let i = startRow; i < endRow && i < tasks.length; i++) {
       const task = tasks[i];
@@ -530,13 +539,14 @@ export class GanttRenderer {
 
       // タスクに乗せているときは、乗せたタスクと先行・後続のほかを薄くし、乗せたタスクと相手に枠を付ける
       const mark = rel === null ? null : task.issueNumber === rel.focus ? this.colors.textPrimary : rel.preds.has(task.issueNumber) ? this.colors.ganttPred : rel.succs.has(task.issueNumber) ? this.colors.ganttSucc : null;
-      // 伸びて出ている途中なら、伸びた所までだけ描く（#215）
+      // 伸びて出ている途中なら、伸びた所までだけ描く（#215）。期限を過ぎた赤い延長も一緒に伸ばす（予定の分だけを伸ばすと、延長が最後にぱっと出る。#301）
       const shown = reveal === null ? 1 : revealFraction(reveal.plan, task.issueNumber, reveal.t);
       if (shown <= 0) continue;
       ctx.save();
       if (shown < 1) {
+        const reach = barReach(task, x2, config.pixelsPerDay, todayDays);
         ctx.beginPath();
-        ctx.rect(x1 - 3, y - 14, barWidth * shown + 3, barHeight + 18);
+        ctx.rect(x1 - 3, y - 14, (reach - x1) * shown + 3, barHeight + 18);
         ctx.clip();
       }
       if (rel !== null && mark === null) ctx.globalAlpha = 0.4;
@@ -683,13 +693,7 @@ export class GanttRenderer {
     // 見えている帯の右端（期限を過ぎた帯は、赤い延長と、外に出る「+3d」の字まで）
     const now = new Date();
     const todayDays = dateToDays(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
-    const visibleEnd = (t: GanttTask) => {
-      const x = this.dateToX(t.endDate!, config, scrollX) + config.pixelsPerDay;
-      const late = t.state === "closed" ? 0 : todayDays - dateToDays(t.endDate!);
-      if (late <= 0) return x;
-      const w = late * config.pixelsPerDay;
-      return x + w + (w > 25 ? 0 : 26);
-    };
+    const visibleEnd = (t: GanttTask) => barReach(t, this.dateToX(t.endDate!, config, scrollX) + config.pixelsPerDay, config.pixelsPerDay, todayDays);
     // 行ごとの帯の左右（あいだの行の帯にかからない縦の道を探すため）
     const spans = tasks.map((t) => (t.startDate && t.endDate ? [this.dateToX(t.startDate, config, scrollX), visibleEnd(t)] : null));
 

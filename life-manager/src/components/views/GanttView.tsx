@@ -16,7 +16,7 @@ import { isMobile } from "../../lib/platform";
 import { MobileSheet, SheetRow } from "../common/MobileSheet";
 import { GanttMobileChart, type MobileScale } from "./GanttMobileChart";
 import { tr, trx } from "../../lib/i18n";
-import { revealPlan, type RevealPlan } from "../../lib/ganttReveal";
+import { newReveal, revealBusy, revealSeen, type RevealState } from "../../lib/ganttReveal";
 import { afterTransition, oneShotMotionOn } from "../../lib/motion";
 
 interface GanttViewProps {
@@ -277,43 +277,51 @@ export function GanttView({
     rendererRef.current = new GanttRenderer(ctx, dpr);
   }, [canvasSize]);
 
-  // 帯が伸びて出る動き（#215）: 開いたとき・マイルストーンを切り替えたとき、帯を日付の早い順に左から右へ伸ばし、矢印はそのあとに出す。
+  // 帯が伸びて出る動き（#215・#304）: 帯が初めて画面に入ったときに、左から右へ伸ばす。開いたとき・マイルストーンを切り替えたときは
+  // 見えている帯を日付の早い順に、スクロールで入ってきた帯は入ってきたときに。矢印は、先行が伸びきって後続が伸びはじめてから出す。
   // 動きを少なくしているときは出さない。描くより前に始めの形を決めるので、描くところより先に置く
-  const revealRef = useRef<{ plan: RevealPlan; start: number } | null>(null);
+  const revealRef = useRef<RevealState | null>(null);
   const revealedFor = useRef<number | null>(null);
   const hasCanvas = canvasSize.width > 0 && ganttTasks.length > 0;
   const drawRef = useRef<() => void>(() => {});
+  // 伸びている帯があるあいだだけ回す描き直し（次のこまの番号。0 は止まっている）
+  const revealFrame = useRef(0);
+  const runReveal = () => {
+    if (revealFrame.current) return;
+    const step = () => {
+      const r = revealRef.current;
+      revealFrame.current = r && revealBusy(r, performance.now()) ? requestAnimationFrame(step) : 0;
+      drawRef.current();
+    };
+    revealFrame.current = requestAnimationFrame(step);
+  };
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(revealFrame.current);
+      revealFrame.current = 0;
+    },
+    [],
+  );
   useEffect(() => {
     if (isMobile || selectedMilestone === null || !hasCanvas || revealedFor.current === selectedMilestone) return;
     revealedFor.current = selectedMilestone;
-    if (!oneShotMotionOn()) return;
+    if (!oneShotMotionOn()) {
+      revealRef.current = null;
+      return;
+    }
     // 画面を切り替える動きのあいだは伸ばしはじめず、帯を出さずに待つ（重なると、伸びたところしか見えない。#301）。
-    // 時計は最初に描いた 1 こまから数える（開いた直後の重い処理で、前半が飛ばないように）
-    revealRef.current = { plan: revealPlan(ganttTasks), start: Infinity };
+    // 待つのをやめるのは、この処理がもう一度走っても取り消さない（取り消すと、帯が出ないまま止まる）。
+    // 時計は、待つのをやめたあとの最初のこまから数える（開いた直後の重い処理で、前半が飛ばないように）
+    const state = newReveal();
+    revealRef.current = state;
     drawRef.current();
-    let frame = 0;
-    let alive = true;
-    const step = (now: number) => {
-      const r = revealRef.current;
-      if (!r) return;
-      if (r.start === Infinity) r.start = now;
-      const done = now - r.start >= r.plan.total;
-      if (done) revealRef.current = null;
-      drawRef.current();
-      if (!done) frame = requestAnimationFrame(step);
-    };
-    void afterTransition().then(() => {
-      if (alive) frame = requestAnimationFrame(step);
-    });
-    return () => {
-      alive = false;
-      cancelAnimationFrame(frame);
-      if (revealRef.current) {
-        revealRef.current = null;
-        drawRef.current();
-      }
-    };
-    // ganttTasks は始めたときのもので順位を決める（伸びている途中に一覧が変わっても、やり直さない）
+    void afterTransition().then(() =>
+      requestAnimationFrame(() => {
+        state.waiting = false;
+        if (revealRef.current === state) drawRef.current();
+      }),
+    );
+    // ganttTasks は描くたびに見る（見えている帯を、そのとき調べる）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMilestone, hasCanvas]);
 
@@ -325,8 +333,11 @@ export function GanttView({
     const startRow = Math.max(0, Math.floor(scrollY / ROW_HEIGHT));
     const endRow = Math.min(ganttTasks.length, Math.ceil((scrollY + canvasSize.height) / ROW_HEIGHT) + 1);
 
+    // 初めて見えた帯は、ここで伸ばしはじめる（#304）
     const r = revealRef.current;
-    const reveal = r ? { plan: r.plan, t: performance.now() - r.start } : null;
+    const now = performance.now();
+    if (r && !r.waiting && revealSeen(r, renderer.visibleTasks(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow), now)) runReveal();
+    const reveal = r ? { state: r, now } : null;
     const exits = renderer.draw(ganttTasks, config, scrollX, scrollY, canvasSize.width, canvasSize.height, startRow, endRow, criticalPath, barColors, showCriticalPath, focus, arrowPlan, arrowsFocusOnly, reveal);
     setEdgeExits((prev) => (sameExits(prev, exits) ? prev : exits));
   };
@@ -336,24 +347,22 @@ export function GanttView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ganttTasks, config, scrollX, scrollY, canvasSize, criticalPath, barColors, focus, arrowPlan, arrowsFocusOnly]);
 
-  // スマホ: 帯が伸びて出る動き（CSS で。終わったら外す）
-  const [mobileReveal, setMobileReveal] = useState<RevealPlan | null>(null);
-  // 画面を切り替える動きのあいだは、帯を伸ばす前の形で止めておく（#301）
-  const [mobileRevealWaiting, setMobileRevealWaiting] = useState(false);
+  // スマホ: 帯が伸びて出る動き（CSS で。初めて見えた帯から伸ばすのは GanttMobileChart。#304）。
+  // key はマイルストーン（変わったら、見えた帯を忘れる）。画面を切り替える動きのあいだは waiting で、伸ばす前の形で待つ（#301）
+  const [mobileReveal, setMobileReveal] = useState<{ key: number; waiting: boolean } | null>(null);
   const mobileRevealedFor = useRef<number | null>(null);
   const hasTasks = ganttTasks.length > 0;
   useEffect(() => {
     if (!isMobile || selectedMilestone === null || !hasTasks || mobileRevealedFor.current === selectedMilestone) return;
     mobileRevealedFor.current = selectedMilestone;
-    if (!oneShotMotionOn()) return;
-    const plan = revealPlan(ganttTasks);
-    setMobileReveal(plan);
-    setMobileRevealWaiting(true);
-    // 止めておくのを外すのは、この処理がもう一度走っても取り消さない（取り消すと、伸ばす前の形のまま止まる）
-    void afterTransition().then(() => {
-      setMobileRevealWaiting(false);
-      window.setTimeout(() => setMobileReveal((cur) => (cur === plan ? null : cur)), plan.total + 50);
-    });
+    if (!oneShotMotionOn()) {
+      setMobileReveal(null);
+      return;
+    }
+    const key = selectedMilestone;
+    setMobileReveal({ key, waiting: true });
+    // 待つのをやめるのは、この処理がもう一度走っても取り消さない（取り消すと、伸ばす前の形のまま止まる）
+    void afterTransition().then(() => setMobileReveal((cur) => (cur?.key === key ? { key, waiting: false } : cur)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMilestone, hasTasks]);
 
@@ -803,7 +812,6 @@ export function GanttView({
             onOpenIssue={onSelectIssue}
             onFixTentative={fixTentative}
             reveal={mobileReveal}
-            revealWaiting={mobileRevealWaiting}
           />
         )}
       </div>

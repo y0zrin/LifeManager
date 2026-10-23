@@ -10,7 +10,7 @@ import { arrowKey } from "../../lib/ganttArrows";
 import { issueRef } from "../../lib/issueRef";
 import { Avatar } from "../common/Avatar";
 import { tr, trx, monthShort } from "../../lib/i18n";
-import type { RevealPlan } from "../../lib/ganttReveal";
+import { REVEAL_GROW_MS, revealDelays } from "../../lib/ganttReveal";
 
 export type MobileScale = "all" | "week" | "day";
 
@@ -38,10 +38,8 @@ interface GanttMobileChartProps {
   onOpenIssue: (n: number) => void;
   /** 仮の日程を、本当の日程として書き込む */
   onFixTentative: (task: GanttTask) => void;
-  /** 帯が伸びて出ている途中（#215）。順位と速さ。終わったら null */
-  reveal?: RevealPlan | null;
-  /** 伸ばす前の形で止めておく（画面を切り替える動きのあいだ。#301） */
-  revealWaiting?: boolean;
+  /** 帯が伸びて出る動き（#215・#304）。key はマイルストーン（変わったら、見えた帯を忘れる）。waiting のあいだは伸ばす前の形で待つ（#301）。動かさないときは null */
+  reveal?: { key: number; waiting: boolean } | null;
 }
 
 /** 1 行の高さ（上の段に題名、下の段に帯） */
@@ -103,7 +101,7 @@ interface MobileArrow {
 }
 
 export function GanttMobileChart({
-  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative, reveal = null, revealWaiting = false,
+  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative, reveal = null,
 }: GanttMobileChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // 見えている幅（題名の段の幅と、「全体」の 1 日の幅に使う）
@@ -243,6 +241,50 @@ export function GanttMobileChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rel, shown, byNum, range, dayW, redundant]);
 
+  // 帯が伸びて出る動き（#215・#304）: 初めて見えた帯から伸ばす。値は伸びはじめるまでの遅れ（ミリ秒）、null は伸び終わった帯。
+  // 見えたかどうかは IntersectionObserver で（上に貼りつく目盛りの下に隠れている分は、見えていないとする）
+  const [grown, setGrown] = useState<{ key: number | null; m: Map<number, number | null> }>(() => ({ key: null, m: new Map() }));
+  const seenRef = useRef<{ key: number | null; seen: Set<number> }>({ key: null, seen: new Set() });
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!reveal || reveal.waiting || !root) return;
+    const key = reveal.key;
+    if (seenRef.current.key !== key) seenRef.current = { key, seen: new Set() };
+    const seen = seenRef.current.seen;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const fresh = entries
+          .filter((e) => e.isIntersecting)
+          .map((e) => byNum.get(Number((e.target as HTMLElement).dataset.bar)))
+          .filter((t): t is GanttTask => t !== undefined && !seen.has(t.issueNumber));
+        if (fresh.length === 0) return;
+        const delays = revealDelays(fresh);
+        for (const n of delays.keys()) seen.add(n);
+        setGrown((cur) => ({ key, m: new Map([...(cur.key === key ? cur.m : []), ...delays]) }));
+        // 伸び終わったら印を外す（要素が作り直されても、もう一度伸びないように）。赤い延長が出る分も待つ
+        window.setTimeout(
+          () =>
+            setGrown((cur) => {
+              if (cur.key !== key) return cur;
+              const m = new Map(cur.m);
+              for (const n of delays.keys()) m.set(n, null);
+              return { key, m };
+            }),
+          Math.max(...delays.values()) + REVEAL_GROW_MS + 300,
+        );
+      },
+      { root, rootMargin: "-36px 0px 0px 0px" },
+    );
+    root.querySelectorAll<HTMLElement>("[data-bar]").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [reveal, shown, byNum, vw]);
+  /** その帯の伸び方（"hold" はまだ見えていない、数は伸びはじめるまでの遅れ、null は動かさない） */
+  const growOf = (n: number): "hold" | number | null => {
+    if (!reveal) return null;
+    const m = grown.key === reveal.key ? grown.m : null;
+    return m?.has(n) ? m.get(n)! : "hold";
+  };
+
   // 「週」「日」に変えたときは、今日が左の近くに来るまで送る。「全体」は左の端から
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -295,8 +337,8 @@ export function GanttMobileChart({
             </div>
 
             <div
-              className={`mg-rows${reveal ? " mg-reveal" : ""}${reveal && revealWaiting ? " mg-wait" : ""}`}
-              style={{ height: rowsHeight, ...(reveal ? { ["--mg-gap" as string]: `${reveal.gap}ms`, ["--mg-grow" as string]: `${reveal.grow}ms` } : {}) }}
+              className="mg-rows"
+              style={{ height: rowsHeight, ["--mg-grow" as string]: `${REVEAL_GROW_MS}ms` }}
             >
               {weekends.map((i) => (
                 <div key={i} className="mg-wkend" style={{ left: PAD_L + i * dayW, width: dayW }} />
@@ -337,7 +379,7 @@ export function GanttMobileChart({
                       )}
                     </div>
                     {hasBar(t) && (
-                      <MobileBar task={t} xOf={xOf} dayW={dayW} todayDays={todayDays} deadline={deadline} critical={criticalPath.has(t.issueNumber)} colors={barColors} rank={reveal?.rank.get(t.issueNumber) ?? 0} />
+                      <MobileBar task={t} xOf={xOf} dayW={dayW} todayDays={todayDays} deadline={deadline} critical={criticalPath.has(t.issueNumber)} colors={barColors} grow={growOf(t.issueNumber)} />
                     )}
                   </div>
                 );
@@ -435,7 +477,7 @@ export function GanttMobileChart({
 
 /** 帯 1 本（色・進み具合・CP の枠・遅れの赤い延長は PC と同じ決まり。仮の帯は点線で、期限を超えた分は赤） */
 function MobileBar({
-  task, xOf, dayW, todayDays, deadline, critical, colors, rank,
+  task, xOf, dayW, todayDays, deadline, critical, colors, grow,
 }: {
   task: GanttTask;
   xOf: (date: string) => number;
@@ -444,17 +486,18 @@ function MobileBar({
   deadline: string | null;
   critical: boolean;
   colors: GanttBarColors;
-  /** 伸びて出るときの順位（#215。CSS の --rank） */
-  rank: number;
+  /** 伸びて出る動き（#215・#304）。"hold" はまだ見えていない（伸ばす前の形）、数は伸びはじめるまでの遅れ（ミリ秒。CSS の --mg-delay）、null は動かさない */
+  grow: "hold" | number | null;
 }) {
-  const order = { ["--rank" as string]: rank };
+  const motion = grow === "hold" ? " mg-hold" : grow !== null ? " mg-in" : "";
+  const order = typeof grow === "number" ? { ["--mg-delay" as string]: `${grow}ms` } : {};
   const left = xOf(task.startDate!);
   const right = xOf(task.endDate!) + dayW;
   const width = Math.max(3, right - left);
   if (task.tentative) {
     const over = deadline && task.endDate! > deadline ? Math.max(left, xOf(deadline) + dayW) : null;
     return (
-      <div className="mg-bar kari" style={{ left, width, ...order }}>
+      <div className={`mg-bar kari${motion}`} data-bar={task.issueNumber} style={{ left, width, ...order }}>
         {over !== null && <i className="mg-over" style={{ left: over - left }} />}
       </div>
     );
@@ -465,13 +508,14 @@ function MobileBar({
   return (
     <>
       <div
-        className={`mg-bar${critical ? " cp" : ""}`}
+        className={`mg-bar${critical ? " cp" : ""}${motion}`}
+        data-bar={task.issueNumber}
         style={{ left, width, background: `${c}40`, borderColor: critical ? colors.critical : c, ...order }}
       >
         {task.progressValue > 0 && <i className="mg-prog" style={{ width: `${task.progressValue}%`, background: `${c}B0` }} />}
       </div>
       {lateW > 0 && (
-        <div className={`mg-late${lateW > 26 ? "" : " narrow"}`} style={{ left: right, width: lateW, background: colors.blocked, ...order }}>
+        <div className={`mg-late${lateW > 26 ? "" : " narrow"}${motion}`} style={{ left: right, width: lateW, background: colors.blocked, ...order }}>
           <span style={lateW > 26 ? undefined : { color: colors.blocked }}>+{lateDays}d</span>
         </div>
       )}

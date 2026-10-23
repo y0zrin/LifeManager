@@ -40,6 +40,8 @@ interface GanttMobileChartProps {
   onFixTentative: (task: GanttTask) => void;
   /** 帯が伸びて出ている途中（#215）。順位と速さ。終わったら null */
   reveal?: RevealPlan | null;
+  /** 伸ばす前の形で止めておく（画面を切り替える動きのあいだ。#301） */
+  revealWaiting?: boolean;
 }
 
 /** 1 行の高さ（上の段に題名、下の段に帯） */
@@ -101,7 +103,7 @@ interface MobileArrow {
 }
 
 export function GanttMobileChart({
-  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative, reveal = null,
+  tasks, today, deadline, criticalPath, redundant, barColors, scale, focus, onFocus, links, onOpenIssue, onFixTentative, reveal = null, revealWaiting = false,
 }: GanttMobileChartProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // 見えている幅（題名の段の幅と、「全体」の 1 日の幅に使う）
@@ -293,7 +295,7 @@ export function GanttMobileChart({
             </div>
 
             <div
-              className={`mg-rows${reveal ? " mg-reveal" : ""}`}
+              className={`mg-rows${reveal ? " mg-reveal" : ""}${reveal && revealWaiting ? " mg-wait" : ""}`}
               style={{ height: rowsHeight, ...(reveal ? { ["--mg-gap" as string]: `${reveal.gap}ms`, ["--mg-grow" as string]: `${reveal.grow}ms` } : {}) }}
             >
               {weekends.map((i) => (

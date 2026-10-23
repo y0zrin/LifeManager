@@ -105,7 +105,23 @@ export function withTransition(update: () => void, classes: string[] = []): Prom
   const t = document.startViewTransition(() => flushSync(update));
   // 途中で次の動きが始まったとき・撮れなかったときは、動きだけやめる（書き換えはされる）
   t.ready.catch(() => {});
-  return t.finished.catch(() => {}).finally(() => root.classList.remove(...classes));
+  const finished = t.finished.catch(() => {}).finally(() => root.classList.remove(...classes));
+  running = finished;
+  void finished.then(() => {
+    if (running === finished) running = null;
+  });
+  return finished;
+}
+
+/** 今動いている、画面の書き換えの動き（終わったら null） */
+let running: Promise<void> | null = null;
+
+/**
+ * 画面の書き換えの動きが終わるまで待つ（動いていなければ、すぐ）。開いた画面で 1 回きりの動きを始めるときに使う
+ * （重なると、動きの前半が切り替えの最中に終わってしまい、見えない。#301）
+ */
+export function afterTransition(): Promise<void> {
+  return running ?? Promise.resolve();
 }
 
 /** 並んでいるものの中で、前後どちらへ動いたか */

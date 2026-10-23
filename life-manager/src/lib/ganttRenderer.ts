@@ -1,5 +1,5 @@
 import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
-import { arrowShown, revealFraction, type RevealState } from "./ganttReveal";
+import { arrowProgress, revealFraction, type RevealState } from "./ganttReveal";
 import { arrowKey, type ArrowPlan } from "./ganttArrows";
 import { DEFAULT_BAR_COLORS } from "./ganttTypes";
 import { tr } from "./i18n";
@@ -139,6 +139,27 @@ export function routeDependency(o: {
   for (let k = 2; k <= 6 && !free(x2); k++) x2 = toX - stub * k;
   if (!free(x2)) x2 = toX - stub;
   return { points: [[fromX, fromY], [x1, fromY], [x1, gutterY], [x2, gutterY], [x2, toY], [toX, toY]], head: "right" };
+}
+
+/** 折れ線の頭から、全体の長さの f（0〜1）までの分（矢印を経路に沿って伸ばすため。#304） */
+export function polylinePrefix(points: [number, number][], f: number): [number, number][] {
+  if (f >= 1 || points.length < 2) return points;
+  const lens = points.slice(1).map((q, k) => Math.hypot(q[0] - points[k][0], q[1] - points[k][1]));
+  let left = Math.max(0, f) * lens.reduce((a, b) => a + b, 0);
+  const out: [number, number][] = [points[0]];
+  for (let k = 0; k < lens.length; k++) {
+    const [px, py] = points[k];
+    const [qx, qy] = points[k + 1];
+    if (left > lens[k]) {
+      out.push(points[k + 1]);
+      left -= lens[k];
+      continue;
+    }
+    const t = lens[k] === 0 ? 0 : left / lens[k];
+    out.push([px + (qx - px) * t, py + (qy - py) * t]);
+    break;
+  }
+  return out;
 }
 
 /** 折れ線を、角を丸めて引く */
@@ -730,6 +751,8 @@ export class GanttRenderer {
       partner: number;
       /** 頭の分を手前で止める前の道すじ（画面の端から出るところを求める） */
       route: [number, number][];
+      /** 経路に沿ってどこまで伸びているか（0〜1。帯が伸びて出る動き。#304） */
+      grow: number;
     }[] = [];
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
@@ -744,8 +767,9 @@ export class GanttRenderer {
         const key = arrowKey(depNum, task.issueNumber);
         const focused = focus !== null && (depNum === focus || task.issueNumber === focus);
         if (onlyFocused && !focused) continue;
-        // 帯が伸びて出ている途中は、先行が伸びきって後続が伸びはじめてから（#304）
-        if (reveal !== null && !arrowShown(reveal.state, depNum, task.issueNumber, reveal.now)) continue;
+        // 帯が伸びて出ている途中は、先行が伸びきって後続が伸びはじめてから、経路に沿って伸ばす（#304）
+        const grow = reveal === null ? 1 : arrowProgress(reveal.state, depNum, task.issueNumber, reveal.now);
+        if (grow <= 0) continue;
         // 余計な矢印（ほかの矢印で、もう順番が決まっている）は、そのタスクに乗せたときだけ描く
         if (plan?.redundant.has(key) && !focused) continue;
 
@@ -800,6 +824,7 @@ export class GanttRenderer {
           redundant: plan?.redundant.has(key) ?? false,
           partner: kind === "pred" ? depNum : task.issueNumber,
           route: points,
+          grow,
         });
       }
     }
@@ -825,7 +850,9 @@ export class GanttRenderer {
     ctx.strokeStyle = this.colors.bgPrimary;
     ctx.globalAlpha = 0.75;
     ctx.lineWidth = 4.5;
-    for (const a of arrows) strokeRounded(ctx, a.points, 5);
+    // 伸びている途中の矢印は、伸びたところまで（頭は伸びきってから）
+    const lineOf = (a: (typeof arrows)[number]) => (a.grow < 1 ? polylinePrefix(a.points, a.grow) : a.points);
+    for (const a of arrows) strokeRounded(ctx, lineOf(a), 5);
 
     // 線と頭。タスクに乗っているときは、そのタスクに出入りする矢印を濃く・太くし、ほかは薄く（どれとどれがつながっているか追えるように）
     const draw = (a: (typeof arrows)[number]) => {
@@ -836,8 +863,9 @@ export class GanttRenderer {
       ctx.lineWidth = a.focused ? 2.25 : 1.5;
       if (a.broken) ctx.setLineDash([4, 3]);
       else if (a.redundant) ctx.setLineDash([6, 4]);
-      strokeRounded(ctx, a.points, 5);
+      strokeRounded(ctx, lineOf(a), 5);
       ctx.setLineDash([]);
+      if (a.grow < 1) return;
       const [x, y] = a.tip;
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -871,7 +899,7 @@ export class GanttRenderer {
     };
     if (!barShown(focus)) return exits;
     for (const a of arrows) {
-      if (a.kind === null || barShown(a.partner)) continue;
+      if (a.kind === null || a.grow < 1 || barShown(a.partner)) continue;
       // 乗せたタスクの側から、相手のほうへたどり、画面の外へ出るところ
       const pts = a.kind === "succ" ? a.route : [...a.route].reverse();
       for (let k = 0; k + 1 < pts.length; k++) {

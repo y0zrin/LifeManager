@@ -9,6 +9,8 @@ const TOTAL_MS = 1500;
 export const REVEAL_GROW_MS = 600;
 /** となりの帯が伸び始めるまでの間の、いちばん長いもの（帯が少ないとき） */
 const MAX_GAP_MS = 90;
+/** 矢印が経路に沿って伸びきるまで（ミリ秒） */
+export const ARROW_GROW_MS = 400;
 
 export interface RevealState {
   /** 画面を切り替える動きを待っているあいだ（帯を出さない。#301） */
@@ -52,13 +54,22 @@ export function revealFraction(state: RevealState, issueNumber: number, now: num
   return 1 - (1 - x) ** 2;
 }
 
-/** 矢印を出してよいか（先行の帯が伸びきって、後続の帯が伸びはじめてから。矢印は先行の右の端から、後続の左の端へ向かうので） */
-export function arrowShown(state: RevealState, pred: number, succ: number, now: number): boolean {
-  return revealFraction(state, pred, now) >= 1 && revealFraction(state, succ, now) > 0;
+/** 矢印がどこまで伸びているか（0〜1。0 は出さない）。先行の帯が伸びきって、後続の帯が伸びはじめてから、経路に沿って伸ばす
+ *  （矢印は先行の右の端から、後続の左の端へ向かうので）。待っているあいだは 0。まだ見えていない帯は伸びきったとみる */
+export function arrowProgress(state: RevealState, pred: number, succ: number, now: number): number {
+  if (state.waiting) return 0;
+  const p = state.start.get(pred);
+  const s = state.start.get(succ);
+  const from = Math.max(p === undefined ? -Infinity : p + REVEAL_GROW_MS, s === undefined ? -Infinity : s);
+  if (from === -Infinity) return 1;
+  const x = (now - from) / ARROW_GROW_MS;
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  return 1 - (1 - x) ** 2;
 }
 
-/** 伸びている途中か、これから伸びる帯があるか（あるあいだだけ描き直しを続ける） */
+/** 伸びている途中か、これから伸びる帯・矢印があるか（あるあいだだけ描き直しを続ける） */
 export function revealBusy(state: RevealState, now: number): boolean {
-  for (const s of state.start.values()) if (now < s + REVEAL_GROW_MS) return true;
+  for (const s of state.start.values()) if (now < s + REVEAL_GROW_MS + ARROW_GROW_MS) return true;
   return false;
 }

@@ -1,6 +1,6 @@
 // UT-48・UT-56（1.1 単体テスト仕様書）: ガントの帯が伸びて出る動きの計算（#215・#301・#304）
 import { describe, expect, it } from "vitest";
-import { REVEAL_GROW_MS, arrowShown, newReveal, revealBusy, revealDelays, revealFraction, revealSeen } from "./ganttReveal";
+import { ARROW_GROW_MS, REVEAL_GROW_MS, arrowProgress, newReveal, revealBusy, revealDelays, revealFraction, revealSeen } from "./ganttReveal";
 import type { GanttTask } from "./ganttTypes";
 
 const task = (issueNumber: number, startDate: string | null, endDate: string | null): GanttTask => ({
@@ -85,26 +85,29 @@ describe("revealFraction", () => {
   });
 });
 
-describe("arrowShown・revealBusy", () => {
-  it("矢印は、先行が伸びきって後続が伸びはじめてから。見えていない帯は伸びきったとみる", () => {
+describe("arrowProgress・revealBusy", () => {
+  it("矢印は、先行が伸びきって後続が伸びはじめてから、0 → 1 に伸びる。見えていない帯は伸びきったとみる", () => {
     const s = started();
     revealSeen(s, [task(1, "2026-10-01", "2026-10-02"), task(2, "2026-10-03", "2026-10-04")], 0);
     const gap = s.start.get(2)!;
-    expect(arrowShown(s, 1, 2, REVEAL_GROW_MS - 1)).toBe(false);
-    expect(arrowShown(s, 1, 2, REVEAL_GROW_MS)).toBe(true);
-    // 見えていない帯（99）との矢印
-    expect(arrowShown(s, 99, 2, gap)).toBe(false);
-    expect(arrowShown(s, 99, 2, gap + 1)).toBe(true);
-    expect(arrowShown(s, 2, 99, gap + REVEAL_GROW_MS)).toBe(true);
-    // 待っているあいだは出さない
-    expect(arrowShown(newReveal(), 1, 2, 0)).toBe(false);
+    expect(arrowProgress(s, 1, 2, REVEAL_GROW_MS)).toBe(0);
+    expect(arrowProgress(s, 1, 2, REVEAL_GROW_MS + ARROW_GROW_MS / 2)).toBeGreaterThan(0);
+    expect(arrowProgress(s, 1, 2, REVEAL_GROW_MS + ARROW_GROW_MS / 2)).toBeLessThan(1);
+    expect(arrowProgress(s, 1, 2, REVEAL_GROW_MS + ARROW_GROW_MS)).toBe(1);
+    // 見えていない帯（99）との矢印: 後続が伸びはじめてから・先行が伸びきってから
+    expect(arrowProgress(s, 99, 2, gap)).toBe(0);
+    expect(arrowProgress(s, 99, 2, gap + ARROW_GROW_MS)).toBe(1);
+    expect(arrowProgress(s, 2, 99, gap + REVEAL_GROW_MS + ARROW_GROW_MS)).toBe(1);
+    // どちらも見えていない矢印は、はじめから出ている。待っているあいだは出さない
+    expect(arrowProgress(s, 98, 99, 0)).toBe(1);
+    expect(arrowProgress(newReveal(), 1, 2, 0)).toBe(0);
   });
 
-  it("伸びている途中・これから伸びる帯があるあいだだけ busy", () => {
+  it("伸びている途中・これから伸びる帯や矢印があるあいだだけ busy", () => {
     const s = started();
     expect(revealBusy(s, 0)).toBe(false);
     revealSeen(s, [task(1, "2026-10-01", "2026-10-02"), task(2, "2026-10-03", "2026-10-04")], 0);
-    const last = s.start.get(2)! + REVEAL_GROW_MS;
+    const last = s.start.get(2)! + REVEAL_GROW_MS + ARROW_GROW_MS;
     expect(revealBusy(s, last - 1)).toBe(true);
     expect(revealBusy(s, last)).toBe(false);
   });

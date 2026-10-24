@@ -571,9 +571,11 @@ export class GanttRenderer {
       const x2 = this.dateToX(task.endDate, config, scrollX) + config.pixelsPerDay;
       const y = this.rowToY(i, config, scrollY) + barMargin;
       const barWidth = x2 - x1;
+      // 描いた帯の右端（期限を過ぎた帯は、赤い延長と「+3d」の字まで）
+      const reach = barReach(task, x2, config.pixelsPerDay, todayDays);
 
-      // Skip if off screen
-      if (x2 < 0 || x1 > canvasWidth) continue;
+      // 画面の外なら飛ばす。予定の分が左の外でも、赤い延長が入っていれば描く（#303）
+      if (reach < 0 || x1 > canvasWidth) continue;
 
       // タスクに乗せているときは、乗せたタスクと先行・後続のほかを薄くし、乗せたタスクと相手に枠を付ける
       const mark = rel === null ? null : task.issueNumber === rel.focus ? this.colors.textPrimary : rel.preds.has(task.issueNumber) ? this.colors.ganttPred : rel.succs.has(task.issueNumber) ? this.colors.ganttSucc : null;
@@ -582,7 +584,6 @@ export class GanttRenderer {
       if (shown <= 0) continue;
       ctx.save();
       if (shown < 1) {
-        const reach = barReach(task, x2, config.pixelsPerDay, todayDays);
         ctx.beginPath();
         ctx.rect(x1 - 3, y - 14, (reach - x1) * shown + 3, barHeight + 18);
         ctx.clip();
@@ -684,7 +685,8 @@ export class GanttRenderer {
         ctx.font = "bold 9px sans-serif";
         ctx.textAlign = "left";
         if (delayWidth > 25) {
-          ctx.fillText(`+${delayDays}d`, delayX + 3, y + barHeight / 2 + 3);
+          // 延長の左の端が画面の外なら、字を画面の左の端に寄せる（延長の右の端からはみ出さないところまで。#303）
+          ctx.fillText(`+${delayDays}d`, Math.min(Math.max(delayX, 0), delayX + delayWidth - 25) + 3, y + barHeight / 2 + 3);
         } else {
           ctx.textAlign = "left";
           ctx.fillStyle = barColors.blocked;

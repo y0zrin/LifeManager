@@ -1,5 +1,5 @@
 import type { GanttTask, GanttViewConfig, GanttBarColors } from "./ganttTypes";
-import { arrowsVisible, revealFraction, type RevealPlan } from "./ganttReveal";
+import { arrowProgress, revealFraction, type RevealState } from "./ganttReveal";
 import { arrowKey, type ArrowPlan } from "./ganttArrows";
 import { DEFAULT_BAR_COLORS } from "./ganttTypes";
 import { tr } from "./i18n";
@@ -139,6 +139,27 @@ export function routeDependency(o: {
   for (let k = 2; k <= 6 && !free(x2); k++) x2 = toX - stub * k;
   if (!free(x2)) x2 = toX - stub;
   return { points: [[fromX, fromY], [x1, fromY], [x1, gutterY], [x2, gutterY], [x2, toY], [toX, toY]], head: "right" };
+}
+
+/** 折れ線の頭から、全体の長さの f（0〜1）までの分（矢印を経路に沿って伸ばすため。#304） */
+export function polylinePrefix(points: [number, number][], f: number): [number, number][] {
+  if (f >= 1 || points.length < 2) return points;
+  const lens = points.slice(1).map((q, k) => Math.hypot(q[0] - points[k][0], q[1] - points[k][1]));
+  let left = Math.max(0, f) * lens.reduce((a, b) => a + b, 0);
+  const out: [number, number][] = [points[0]];
+  for (let k = 0; k < lens.length; k++) {
+    const [px, py] = points[k];
+    const [qx, qy] = points[k + 1];
+    if (left > lens[k]) {
+      out.push(points[k + 1]);
+      left -= lens[k];
+      continue;
+    }
+    const t = lens[k] === 0 ? 0 : left / lens[k];
+    out.push([px + (qx - px) * t, py + (qy - py) * t]);
+    break;
+  }
+  return out;
 }
 
 /** 折れ線を、角を丸めて引く */
@@ -282,8 +303,8 @@ export class GanttRenderer {
     arrowPlan: ArrowPlan | null = null,
     /** 矢印は選んだタスク（focus）に出入りするものだけ（スマホと同じ。選んでいなければ出さない） */
     onlyFocused = false,
-    /** 帯が伸びて出ている途中（#215）。plan と、始めてからのミリ秒。途中なら矢印は出さない */
-    reveal: { plan: RevealPlan; t: number } | null = null,
+    /** 帯が伸びて出る動き（#215・#304）。見えた帯の伸びはじめる時刻と、今の時刻。矢印は、先行が伸びきって後続が伸びはじめてから */
+    reveal: { state: RevealState; now: number } | null = null,
   ): EdgeExit[] {
     const ctx = this.ctx;
     ctx.save();
@@ -295,10 +316,7 @@ export class GanttRenderer {
     // 乗せたタスクの先行・後続（帯に印を付け、ほかを薄くする）
     const rel = focus === null ? null : relatedOf(tasks, focus);
     this.drawBars(tasks, config, scrollX, scrollY, canvasWidth, startRow, endRow, criticalPath, barColors ?? DEFAULT_BAR_COLORS, showCPLabel ?? false, rel, reveal);
-    const exits =
-      reveal === null || arrowsVisible(reveal.plan, reveal.t)
-        ? this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan, onlyFocused)
-        : [];
+    const exits = this.drawDependencyArrows(tasks, config, scrollX, scrollY, startRow, endRow, canvasWidth, canvasHeight, focus, arrowPlan, onlyFocused, reveal);
     this.drawHeader(config, scrollX, canvasWidth);
 
     ctx.restore();
@@ -308,6 +326,26 @@ export class GanttRenderer {
   dateToX(dateStr: string, config: GanttViewConfig, scrollX: number): number {
     const days = dateToDays(dateStr) - dateToDays(config.startDate);
     return days * config.pixelsPerDay - scrollX;
+  }
+
+  /** 画面に見えている帯のタスク（行が見出しの下の見えるところにかかり、横は帯の左の端〜描いた右の端が画面にかかる）。帯が伸びて出る動きに使う（#304） */
+  visibleTasks(tasks: GanttTask[], config: GanttViewConfig, scrollX: number, scrollY: number, canvasWidth: number, canvasHeight: number, startRow: number, endRow: number): GanttTask[] {
+    const barHeight = config.rowHeight * 0.6;
+    const barMargin = (config.rowHeight - barHeight) / 2;
+    const now = new Date();
+    const todayDays = dateToDays(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+    const out: GanttTask[] = [];
+    for (let i = startRow; i < endRow && i < tasks.length; i++) {
+      const t = tasks[i];
+      if (!t.startDate || !t.endDate) continue;
+      const y = this.rowToY(i, config, scrollY) + barMargin;
+      if (y + barHeight <= config.headerHeight || y >= canvasHeight) continue;
+      const x1 = this.dateToX(t.startDate, config, scrollX);
+      const x2 = this.dateToX(t.endDate, config, scrollX) + config.pixelsPerDay;
+      if (barReach(t, x2, config.pixelsPerDay, todayDays) <= 0 || x1 >= canvasWidth) continue;
+      out.push(t);
+    }
+    return out;
   }
 
   rowToY(rowIndex: number, config: GanttViewConfig, scrollY: number): number {
@@ -516,7 +554,7 @@ export class GanttRenderer {
     barColors: GanttBarColors = DEFAULT_BAR_COLORS,
     showCPLabel: boolean = false,
     rel: Related | null = null,
-    reveal: { plan: RevealPlan; t: number } | null = null,
+    reveal: { state: RevealState; now: number } | null = null,
   ) {
     const ctx = this.ctx;
     const barHeight = config.rowHeight * 0.6;
@@ -540,7 +578,7 @@ export class GanttRenderer {
       // タスクに乗せているときは、乗せたタスクと先行・後続のほかを薄くし、乗せたタスクと相手に枠を付ける
       const mark = rel === null ? null : task.issueNumber === rel.focus ? this.colors.textPrimary : rel.preds.has(task.issueNumber) ? this.colors.ganttPred : rel.succs.has(task.issueNumber) ? this.colors.ganttSucc : null;
       // 伸びて出ている途中なら、伸びた所までだけ描く（#215）。期限を過ぎた赤い延長も一緒に伸ばす（予定の分だけを伸ばすと、延長が最後にぱっと出る。#301）
-      const shown = reveal === null ? 1 : revealFraction(reveal.plan, task.issueNumber, reveal.t);
+      const shown = reveal === null ? 1 : revealFraction(reveal.state, task.issueNumber, reveal.now);
       if (shown <= 0) continue;
       ctx.save();
       if (shown < 1) {
@@ -680,6 +718,7 @@ export class GanttRenderer {
     focus: number | null,
     plan: ArrowPlan | null,
     onlyFocused: boolean,
+    reveal: { state: RevealState; now: number } | null,
   ): EdgeExit[] {
     const ctx = this.ctx;
     const taskIndex = new Map<number, number>();
@@ -712,6 +751,8 @@ export class GanttRenderer {
       partner: number;
       /** 頭の分を手前で止める前の道すじ（画面の端から出るところを求める） */
       route: [number, number][];
+      /** 経路に沿ってどこまで伸びているか（0〜1。帯が伸びて出る動き。#304） */
+      grow: number;
     }[] = [];
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
@@ -726,6 +767,9 @@ export class GanttRenderer {
         const key = arrowKey(depNum, task.issueNumber);
         const focused = focus !== null && (depNum === focus || task.issueNumber === focus);
         if (onlyFocused && !focused) continue;
+        // 帯が伸びて出ている途中は、先行が伸びきって後続が伸びはじめてから、経路に沿って伸ばす（#304）
+        const grow = reveal === null ? 1 : arrowProgress(reveal.state, depNum, task.issueNumber, reveal.now);
+        if (grow <= 0) continue;
         // 余計な矢印（ほかの矢印で、もう順番が決まっている）は、そのタスクに乗せたときだけ描く
         if (plan?.redundant.has(key) && !focused) continue;
 
@@ -780,6 +824,7 @@ export class GanttRenderer {
           redundant: plan?.redundant.has(key) ?? false,
           partner: kind === "pred" ? depNum : task.issueNumber,
           route: points,
+          grow,
         });
       }
     }
@@ -805,7 +850,9 @@ export class GanttRenderer {
     ctx.strokeStyle = this.colors.bgPrimary;
     ctx.globalAlpha = 0.75;
     ctx.lineWidth = 4.5;
-    for (const a of arrows) strokeRounded(ctx, a.points, 5);
+    // 伸びている途中の矢印は、伸びたところまで（頭は伸びきってから）
+    const lineOf = (a: (typeof arrows)[number]) => (a.grow < 1 ? polylinePrefix(a.points, a.grow) : a.points);
+    for (const a of arrows) strokeRounded(ctx, lineOf(a), 5);
 
     // 線と頭。タスクに乗っているときは、そのタスクに出入りする矢印を濃く・太くし、ほかは薄く（どれとどれがつながっているか追えるように）
     const draw = (a: (typeof arrows)[number]) => {
@@ -816,8 +863,9 @@ export class GanttRenderer {
       ctx.lineWidth = a.focused ? 2.25 : 1.5;
       if (a.broken) ctx.setLineDash([4, 3]);
       else if (a.redundant) ctx.setLineDash([6, 4]);
-      strokeRounded(ctx, a.points, 5);
+      strokeRounded(ctx, lineOf(a), 5);
       ctx.setLineDash([]);
+      if (a.grow < 1) return;
       const [x, y] = a.tip;
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -851,7 +899,7 @@ export class GanttRenderer {
     };
     if (!barShown(focus)) return exits;
     for (const a of arrows) {
-      if (a.kind === null || barShown(a.partner)) continue;
+      if (a.kind === null || a.grow < 1 || barShown(a.partner)) continue;
       // 乗せたタスクの側から、相手のほうへたどり、画面の外へ出るところ
       const pts = a.kind === "succ" ? a.route : [...a.route].reverse();
       for (let k = 0; k + 1 < pts.length; k++) {
